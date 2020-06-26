@@ -1,10 +1,11 @@
 mantle_src = [
+  'mantle.c',
   'stub.c',
 ]
 
 mantle_dll = shared_library('mantle'+dll_variant, mantle_src,
   name_prefix         : '',
-  dependencies        : [],
+  dependencies        : [lib_vulkan],
   include_directories : grvk_include_path,
   install             : true,
   objects             : 'mantle'+dll_variant+'.def',

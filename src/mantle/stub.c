@@ -5,16 +5,6 @@
 
 // Initialization and Device Functions
 
-GR_RESULT grInitAndEnumerateGpus(
-    const GR_APPLICATION_INFO* pAppInfo,
-    const GR_ALLOC_CALLBACKS* pAllocCb,
-    GR_UINT* pGpuCount,
-    GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grGetGpuInfo(
     GR_PHYSICAL_GPU gpu,
     GR_ENUM infoType,
