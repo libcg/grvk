@@ -1762,7 +1762,7 @@ GR_VOID grCmdFillMemory(
     GR_GPU_SIZE fillSize,
     GR_UINT32 data);
 
-GR_VOID grCmdClearColorTarget(
+GR_VOID grCmdClearColorImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
     const GR_FLOAT color[4],
