@@ -1,0 +1,19 @@
+project('grvk', ['c', 'cpp'], version : 'v0.1', meson_version : '>= 0.46')
+
+cpu_family = target_machine.cpu_family()
+
+grvk_compiler = meson.get_compiler('cpp')
+
+grvk_include_path = include_directories('./include')
+
+if (cpu_family == 'x86_64')
+  dll_variant = '64'
+  grvk_library_path = meson.source_root() + '/lib'
+else
+  dll_variant = '32'
+  grvk_library_path = meson.source_root() + '/lib32'
+endif
+
+lib_vulkan = grvk_compiler.find_library('vulkan-1', dirs : grvk_library_path)
+
+subdir('src')
