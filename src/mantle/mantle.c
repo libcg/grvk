@@ -247,3 +247,28 @@ GR_RESULT grCreateCommandBuffer(
 
     return GR_SUCCESS;
 }
+
+GR_RESULT grBeginCommandBuffer(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_FLAGS flags)
+{
+    VkCommandBuffer vkCommandBuffer = (VkCommandBuffer)cmdBuffer;
+    VkCommandBufferUsageFlags vkUsageFlags = 0;
+
+    if ((flags & GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT) != 0) {
+        vkUsageFlags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    }
+
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = NULL,
+        .flags = vkUsageFlags,
+        .pInheritanceInfo = NULL,
+    };
+
+    if (vkBeginCommandBuffer(vkCommandBuffer, &beginInfo) != VK_SUCCESS) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    return GR_SUCCESS;
+}

@@ -574,14 +574,6 @@ GR_RESULT grOpenPeerImage(
 
 // Command Buffer Management Functions
 
-GR_RESULT grBeginCommandBuffer(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_FLAGS flags)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
