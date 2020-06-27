@@ -1,5 +1,7 @@
 mantle_src = [
+  'format.c',
   'mantle.c',
+  'mantle_wsi.c',
   'stub.c',
 ]
 

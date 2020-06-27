@@ -1064,16 +1064,6 @@ GR_RESULT grWsiWinGetScanLine(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWsiWinCreatePresentableImage(
-    GR_DEVICE device,
-    const GR_WSI_WIN_PRESENTABLE_IMAGE_CREATE_INFO* pCreateInfo,
-    GR_IMAGE* pImage,
-    GR_GPU_MEMORY* pMem)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grWsiWinQueuePresent(
     GR_QUEUE queue,
     const GR_WSI_WIN_PRESENT_INFO* pPresentInfo)
