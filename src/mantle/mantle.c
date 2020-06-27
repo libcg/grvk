@@ -23,6 +23,8 @@ static GR_VOID grvkFree(
     free(pMem);
 }
 
+// Initialization and Device Functions
+
 GR_RESULT grInitAndEnumerateGpus(
     const GR_APPLICATION_INFO* pAppInfo,
     const GR_ALLOC_CALLBACKS* pAllocCb,
@@ -180,4 +182,22 @@ bail:
     free(queueCreateInfos);
 
     return res;
+}
+
+// Queue Functions
+
+GR_RESULT grGetDeviceQueue(
+    GR_DEVICE device,
+    GR_ENUM queueType,
+    GR_UINT queueId,
+    GR_QUEUE* pQueue)
+{
+    VkDevice vkDevice = (VkDevice)device;
+    VkQueue vkQueue = VK_NULL_HANDLE;
+    uint32_t queueFamilyIndex = queueType - GR_QUEUE_UNIVERSAL; // FIXME this will break
+
+    vkGetDeviceQueue(vkDevice, queueFamilyIndex, queueId, &vkQueue);
+
+    *pQueue = (GR_QUEUE)vkQueue;
+    return GR_SUCCESS;
 }

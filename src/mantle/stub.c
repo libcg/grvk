@@ -40,16 +40,6 @@ GR_RESULT grGetExtensionSupport(
 
 // Queue Functions
 
-GR_RESULT grGetDeviceQueue(
-    GR_DEVICE device,
-    GR_ENUM queueType,
-    GR_UINT queueId,
-    GR_QUEUE* pQueue)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grQueueWaitIdle(
     GR_QUEUE queue)
 {
