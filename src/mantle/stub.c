@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "mantle/mantle.h"
 #include "mantle/mantleDbg.h"
 #include "mantle/mantleWsiWinExt.h"
@@ -38,6 +39,11 @@ GR_RESULT grGetExtensionSupport(
     const GR_CHAR* pExtName)
 {
     printf("STUB: %s\n", __func__);
+
+    if (strcmp(pExtName, "GR_WSI_WINDOWS") == 0) {
+        return GR_SUCCESS;
+    }
+
     return GR_UNSUPPORTED;
 }
 
