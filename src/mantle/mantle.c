@@ -74,8 +74,7 @@ GR_RESULT grInitAndEnumerateGpus(
     }
 
     VkPhysicalDevice physicalDevices[GR_MAX_PHYSICAL_GPUS];
-    vkEnumeratePhysicalDevices(mVkInstance, &physicalDeviceCount,
-                               (VkPhysicalDevice*)physicalDevices);
+    vkEnumeratePhysicalDevices(mVkInstance, &physicalDeviceCount, physicalDevices);
 
     *pGpuCount = physicalDeviceCount;
     for (int i = 0; i < *pGpuCount; i++) {
@@ -83,4 +82,102 @@ GR_RESULT grInitAndEnumerateGpus(
     }
 
     return GR_SUCCESS;
+}
+
+GR_RESULT grCreateDevice(
+    GR_PHYSICAL_GPU gpu,
+    const GR_DEVICE_CREATE_INFO* pCreateInfo,
+    GR_DEVICE* pDevice)
+{
+    GR_RESULT res = GR_SUCCESS;
+    VkPhysicalDevice physicalDevice = (VkPhysicalDevice)gpu;
+    uint32_t universalQueueIndex = -1;
+    uint32_t universalQueueCount = 0;
+    uint32_t computeQueueIndex = -1;
+    uint32_t computeQueueCount = 0;
+
+    uint32_t queueFamilyPropertyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount, NULL);
+
+    VkQueueFamilyProperties* queueFamilyProperties =
+        malloc(sizeof(VkQueueFamilyProperties) * queueFamilyPropertyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount,
+                                             queueFamilyProperties);
+
+    for (int i = 0; i < queueFamilyPropertyCount; i++) {
+        const VkQueueFamilyProperties* queueFamilyProperty = &queueFamilyProperties[i];
+
+        if ((queueFamilyProperty->queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) ==
+            (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) {
+            universalQueueIndex = i;
+            universalQueueCount = queueFamilyProperty->queueCount;
+        } else if ((queueFamilyProperty->queueFlags & VK_QUEUE_COMPUTE_BIT) ==
+                   VK_QUEUE_COMPUTE_BIT) {
+            computeQueueIndex = i;
+            computeQueueCount = queueFamilyProperty->queueCount;
+        }
+    }
+
+    VkDeviceQueueCreateInfo* queueCreateInfos =
+        malloc(sizeof(VkDeviceQueueCreateInfo) * pCreateInfo->queueRecordCount);
+    for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
+        const GR_DEVICE_QUEUE_CREATE_INFO* requestedQueue = &pCreateInfo->pRequestedQueues[i];
+
+        float* queuePriorities = malloc(sizeof(float) * requestedQueue->queueCount);
+
+        for (int j = 0; j < requestedQueue->queueCount; j++) {
+            queuePriorities[j] = 1.0f; // Max priority
+        }
+
+        if ((requestedQueue->queueType == GR_QUEUE_UNIVERSAL &&
+             requestedQueue->queueCount != universalQueueCount) ||
+            (requestedQueue->queueType == GR_QUEUE_COMPUTE &&
+             requestedQueue->queueCount != computeQueueCount)) {
+            res = GR_ERROR_INVALID_VALUE;
+            // Bail after the loop to properly release memory
+        }
+
+        queueCreateInfos[i] = (VkDeviceQueueCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .queueFamilyIndex = requestedQueue->queueType == GR_QUEUE_UNIVERSAL ?
+                                universalQueueIndex : computeQueueIndex,
+            .queueCount = requestedQueue->queueCount,
+            .pQueuePriorities = queuePriorities,
+        };
+    }
+
+    if (res != GR_SUCCESS) {
+        goto bail;
+    }
+
+    VkDeviceCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .queueCreateInfoCount = pCreateInfo->queueRecordCount,
+        .pQueueCreateInfos = queueCreateInfos,
+        .enabledLayerCount = 0,
+        .ppEnabledLayerNames = NULL,
+        .enabledExtensionCount = 0,
+        .ppEnabledExtensionNames = NULL,
+        .pEnabledFeatures = NULL,
+    };
+
+    VkDevice device = VK_NULL_HANDLE;
+    if (vkCreateDevice((VkPhysicalDevice)gpu, &createInfo, NULL, &device) != VK_SUCCESS) {
+        res = GR_ERROR_INITIALIZATION_FAILED;
+        goto bail;
+    }
+
+    *pDevice = (GR_DEVICE)device;
+
+bail:
+    for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
+        free((void*)queueCreateInfos[i].pQueuePriorities);
+    }
+    free(queueCreateInfos);
+
+    return res;
 }

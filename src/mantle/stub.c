@@ -16,15 +16,6 @@ GR_RESULT grGetGpuInfo(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreateDevice(
-    GR_PHYSICAL_GPU gpu,
-    const GR_DEVICE_CREATE_INFO* pCreateInfo,
-    GR_DEVICE* pDevice)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grDestroyDevice(
     GR_DEVICE device)
 {
