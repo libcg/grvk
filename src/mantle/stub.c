@@ -574,15 +574,6 @@ GR_RESULT grOpenPeerImage(
 
 // Command Buffer Management Functions
 
-GR_RESULT grCreateCommandBuffer(
-    GR_DEVICE device,
-    const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
-    GR_CMD_BUFFER* pCmdBuffer)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grBeginCommandBuffer(
     GR_CMD_BUFFER cmdBuffer,
     GR_FLAGS flags)

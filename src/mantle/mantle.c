@@ -23,6 +23,13 @@ static GR_VOID grvkFree(
     free(pMem);
 }
 
+static uint32_t getVkQueueFamilyIndex(
+    GR_ENUM queueType)
+{
+    // FIXME this will break
+    return queueType - GR_QUEUE_UNIVERSAL;
+}
+
 // Initialization and Device Functions
 
 GR_RESULT grInitAndEnumerateGpus(
@@ -194,10 +201,49 @@ GR_RESULT grGetDeviceQueue(
 {
     VkDevice vkDevice = (VkDevice)device;
     VkQueue vkQueue = VK_NULL_HANDLE;
-    uint32_t queueFamilyIndex = queueType - GR_QUEUE_UNIVERSAL; // FIXME this will break
 
-    vkGetDeviceQueue(vkDevice, queueFamilyIndex, queueId, &vkQueue);
+    vkGetDeviceQueue(vkDevice, getVkQueueFamilyIndex(queueType), queueId, &vkQueue);
 
     *pQueue = (GR_QUEUE)vkQueue;
+    return GR_SUCCESS;
+}
+
+// Command Buffer Management Functions
+
+GR_RESULT grCreateCommandBuffer(
+    GR_DEVICE device,
+    const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
+    GR_CMD_BUFFER* pCmdBuffer)
+{
+    VkDevice vkDevice = (VkDevice)device;
+    VkCommandPool vkCommandPool = VK_NULL_HANDLE;
+    VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
+
+    // FIXME we shouldn't create one command pool per command buffer :)
+    VkCommandPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .queueFamilyIndex = getVkQueueFamilyIndex(pCreateInfo->queueType),
+    };
+
+    if (vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL, &vkCommandPool) != VK_SUCCESS) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    VkCommandBufferAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = vkCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    if (vkAllocateCommandBuffers(vkDevice, &allocateInfo, &vkCommandBuffer) != VK_SUCCESS) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    *pCmdBuffer = (GR_QUEUE)vkCommandBuffer;
+
     return GR_SUCCESS;
 }
