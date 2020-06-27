@@ -16,7 +16,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .pNext = NULL,
         .flags = 0,
         .imageType = VK_IMAGE_TYPE_2D,
-        .format = grFormatToVk(pCreateInfo->format),
+        .format = getVkFormat(pCreateInfo->format),
         .extent = { pCreateInfo->extent.width, pCreateInfo->extent.height, 0 },
         .mipLevels = 1,
         .arrayLayers = 1,

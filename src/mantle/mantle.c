@@ -1,34 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "mantle/mantle.h"
-#include "vulkan/vulkan.h"
+#include "mantle_internal.h"
 
 static GR_ALLOC_FUNCTION mAllocFun = NULL;
 static GR_FREE_FUNCTION mFreeFun = NULL;
 static VkInstance mVkInstance = NULL;
-
-static GR_VOID* grvkAlloc(
-    GR_SIZE size,
-    GR_SIZE alignment,
-    GR_ENUM allocType)
-{
-#ifdef _WIN32
-    return _aligned_malloc(size, alignment);
-#endif
-}
-
-static GR_VOID grvkFree(
-    GR_VOID* pMem)
-{
-    free(pMem);
-}
-
-static uint32_t getVkQueueFamilyIndex(
-    GR_ENUM queueType)
-{
-    // FIXME this will break
-    return queueType - GR_QUEUE_UNIVERSAL;
-}
 
 // Initialization and Device Functions
 
@@ -283,4 +259,45 @@ GR_RESULT grEndCommandBuffer(
     }
 
     return GR_SUCCESS;
+}
+
+// Command Buffer Building Functions
+
+GR_VOID grCmdPrepareImages(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_UINT transitionCount,
+    const GR_IMAGE_STATE_TRANSITION* pStateTransitions)
+{
+    VkCommandBuffer vkCommandBuffer = (VkCommandBuffer)cmdBuffer;
+
+    for (int i = 0; i < transitionCount; i++) {
+        const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
+        const GR_IMAGE_SUBRESOURCE_RANGE* range = &stateTransition->subresourceRange;
+
+        VkImageMemoryBarrier imageMemoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = NULL,
+            .srcAccessMask = getVkAccessFlags(stateTransition->oldState),
+            .dstAccessMask = getVkAccessFlags(stateTransition->newState),
+            .oldLayout = getVkImageLayout(stateTransition->oldState),
+            .newLayout = getVkImageLayout(stateTransition->newState),
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = (VkImage)stateTransition->image,
+            .subresourceRange = (VkImageSubresourceRange) {
+                .aspectMask = getVkImageAspectFlags(range->aspect),
+                .baseMipLevel = range->baseMipLevel,
+                .levelCount = range->mipLevels == GR_LAST_MIP_OR_SLICE ?
+                              VK_REMAINING_MIP_LEVELS : range->mipLevels,
+                .baseArrayLayer = range->baseArraySlice,
+                .layerCount = range->arraySize == GR_LAST_MIP_OR_SLICE ?
+                              VK_REMAINING_ARRAY_LAYERS : range->arraySize,
+            }
+        };
+
+        vkCmdPipelineBarrier(vkCommandBuffer,
+                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                             0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
+    }
 }

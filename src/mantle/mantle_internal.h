@@ -4,7 +4,27 @@
 #include "mantle/mantle.h"
 #include "vulkan/vulkan.h"
 
-VkFormat grFormatToVk(
+GR_VOID* grvkAlloc(
+    GR_SIZE size,
+    GR_SIZE alignment,
+    GR_ENUM allocType);
+
+GR_VOID grvkFree(
+    GR_VOID* pMem);
+
+VkFormat getVkFormat(
     GR_FORMAT format);
+
+VkImageLayout getVkImageLayout(
+    GR_ENUM imageState);
+
+VkAccessFlags getVkAccessFlags(
+    GR_ENUM imageState);
+
+VkImageAspectFlags getVkImageAspectFlags(
+    GR_ENUM imageAspect);
+
+uint32_t getVkQueueFamilyIndex(
+    GR_ENUM queueType);
 
 #endif // MANTLE_INTERNAL_H_

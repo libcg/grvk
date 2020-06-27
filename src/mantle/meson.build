@@ -1,8 +1,8 @@
 mantle_src = [
-  'format.c',
   'mantle.c',
   'mantle_wsi.c',
   'stub.c',
+  'util.c',
 ]
 
 mantle_dll = shared_library('mantle'+dll_variant, mantle_src,
