@@ -272,3 +272,15 @@ GR_RESULT grBeginCommandBuffer(
 
     return GR_SUCCESS;
 }
+
+GR_RESULT grEndCommandBuffer(
+    GR_CMD_BUFFER cmdBuffer)
+{
+    VkCommandBuffer vkCommandBuffer = (VkCommandBuffer)cmdBuffer;
+
+    if (vkEndCommandBuffer(vkCommandBuffer) != VK_SUCCESS) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    return GR_SUCCESS;
+}
