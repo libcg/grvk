@@ -354,15 +354,6 @@ GR_VOID grClearDescriptorSetSlots(
 
 // State Object Functions
 
-GR_RESULT grCreateViewportState(
-    GR_DEVICE device,
-    const GR_VIEWPORT_STATE_CREATE_INFO* pCreateInfo,
-    GR_VIEWPORT_STATE_OBJECT* pState)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grCreateRasterState(
     GR_DEVICE device,
     const GR_RASTER_STATE_CREATE_INFO* pCreateInfo,

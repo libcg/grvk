@@ -33,7 +33,7 @@ GR_RESULT grInitAndEnumerateGpus(
         .applicationVersion = pAppInfo->appVersion,
         .pEngineName = pAppInfo->pEngineName,
         .engineVersion = pAppInfo->engineVersion,
-        .apiVersion = VK_API_VERSION_1_1,
+        .apiVersion = VK_API_VERSION_1_2,
     };
 
     VkInstanceCreateInfo createInfo = {
@@ -268,14 +268,66 @@ GR_RESULT grCreateColorTargetView(
 
 // State Object Functions
 
+GR_RESULT grCreateViewportState(
+    GR_DEVICE device,
+    const GR_VIEWPORT_STATE_CREATE_INFO* pCreateInfo,
+    GR_VIEWPORT_STATE_OBJECT* pState)
+{
+    uint32_t scissorCount = pCreateInfo->scissorEnable ? pCreateInfo->viewportCount : 0;
+
+    VkViewport *vkViewports = malloc(sizeof(VkViewport) * pCreateInfo->viewportCount);
+    for (int i = 0; i < pCreateInfo->viewportCount; i++) {
+        vkViewports[i] = (VkViewport) {
+            .x = pCreateInfo->viewports[i].originX,
+            .y = pCreateInfo->viewports[i].originY,
+            .width = pCreateInfo->viewports[i].width,
+            .height = pCreateInfo->viewports[i].height,
+            .minDepth = pCreateInfo->viewports[i].minDepth,
+            .maxDepth = pCreateInfo->viewports[i].maxDepth,
+        };
+    }
+
+    VkRect2D *vkScissors = malloc(sizeof(VkViewport) * scissorCount);
+    for (int i = 0; i < scissorCount; i++) {
+        vkScissors[i] = (VkRect2D) {
+            .offset = {
+                .x = pCreateInfo->scissors[i].offset.x,
+                .y = pCreateInfo->scissors[i].offset.y,
+            },
+            .extent = {
+                .width = pCreateInfo->scissors[i].extent.width,
+                .height = pCreateInfo->scissors[i].extent.height,
+            },
+        };
+    }
+
+    VkPipelineViewportStateCreateInfo* viewportStateCreateInfo =
+        malloc(sizeof(VkPipelineViewportStateCreateInfo));
+
+    // Will be set dynamically with vkCmdSetViewport/Scissor
+    *viewportStateCreateInfo = (VkPipelineViewportStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .viewportCount = pCreateInfo->viewportCount,
+        .pViewports = vkViewports,
+        .scissorCount = scissorCount,
+        .pScissors = vkScissors,
+    };
+
+    *pState = (GR_VIEWPORT_STATE_OBJECT)viewportStateCreateInfo;
+    return GR_SUCCESS;
+}
+
 GR_RESULT grCreateMsaaState(
     GR_DEVICE device,
     const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState)
 {
-    VkPipelineMultisampleStateCreateInfo *msaaStateCreateInfo =
+    VkPipelineMultisampleStateCreateInfo* msaaStateCreateInfo =
         malloc(sizeof(VkPipelineMultisampleStateCreateInfo));
 
+    // TODO Vulkan doesn't allow setting this dynamically
     *msaaStateCreateInfo = (VkPipelineMultisampleStateCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = NULL,
