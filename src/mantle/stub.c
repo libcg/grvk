@@ -228,15 +228,6 @@ GR_RESULT grCreateImageView(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreateColorTargetView(
-    GR_DEVICE device,
-    const GR_COLOR_TARGET_VIEW_CREATE_INFO* pCreateInfo,
-    GR_COLOR_TARGET_VIEW* pView)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grCreateDepthStencilView(
     GR_DEVICE device,
     const GR_DEPTH_STENCIL_VIEW_CREATE_INFO* pCreateInfo,
