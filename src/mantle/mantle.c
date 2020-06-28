@@ -319,6 +319,64 @@ GR_RESULT grCreateViewportState(
     return GR_SUCCESS;
 }
 
+GR_RESULT grCreateColorBlendState(
+    GR_DEVICE device,
+    const GR_COLOR_BLEND_STATE_CREATE_INFO* pCreateInfo,
+    GR_COLOR_BLEND_STATE_OBJECT* pState)
+{
+    VkPipelineColorBlendAttachmentState* attachments =
+        malloc(sizeof(VkPipelineColorBlendAttachmentState) * GR_MAX_COLOR_TARGETS);
+    for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+        if (pCreateInfo->target[i].blendEnable) {
+            attachments[i] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = VK_TRUE,
+                .srcColorBlendFactor = getVkBlendFactor(pCreateInfo->target[i].srcBlendColor),
+                .dstColorBlendFactor = getVkBlendFactor(pCreateInfo->target[i].destBlendColor),
+                .colorBlendOp = getVkBlendOp(pCreateInfo->target[i].blendFuncColor),
+                .srcAlphaBlendFactor = getVkBlendFactor(pCreateInfo->target[i].srcBlendAlpha),
+                .dstAlphaBlendFactor = getVkBlendFactor(pCreateInfo->target[i].destBlendAlpha),
+                .alphaBlendOp = getVkBlendOp(pCreateInfo->target[i].blendFuncAlpha),
+                .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                  VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+            };
+        } else {
+            attachments[i] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = VK_FALSE,
+                .srcColorBlendFactor = 0,
+                .dstColorBlendFactor = 0,
+                .colorBlendOp = 0,
+                .srcAlphaBlendFactor = 0,
+                .dstAlphaBlendFactor = 0,
+                .alphaBlendOp = 0,
+                .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                  VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+            };
+        }
+    }
+
+    VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo =
+        malloc(sizeof(VkPipelineColorBlendStateCreateInfo));
+
+    // TODO only blend constants can be set dynamically
+    *colorBlendStateCreateInfo = (VkPipelineColorBlendStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_CLEAR,
+        .attachmentCount = GR_MAX_COLOR_TARGETS,
+        .pAttachments = attachments,
+        .blendConstants = {
+            pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
+            pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
+        },
+    };
+
+    *pState = (GR_COLOR_BLEND_STATE_OBJECT)colorBlendStateCreateInfo;
+
+    return GR_SUCCESS;
+}
+
 GR_RESULT grCreateMsaaState(
     GR_DEVICE device,
     const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,

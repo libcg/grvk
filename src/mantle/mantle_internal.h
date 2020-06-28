@@ -27,6 +27,12 @@ VkImageAspectFlags getVkImageAspectFlags(
 VkSampleCountFlagBits getVkSampleCountFlagBits(
     GR_UINT samples);
 
+VkBlendFactor getVkBlendFactor(
+    GR_ENUM blend);
+
+VkBlendOp getVkBlendOp(
+    GR_ENUM blendFunc);
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType);
 

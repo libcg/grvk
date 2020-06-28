@@ -113,6 +113,74 @@ VkSampleCountFlagBits getVkSampleCountFlagBits(
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
+VkBlendFactor getVkBlendFactor(
+    GR_ENUM blend)
+{
+    switch (blend) {
+    case GR_BLEND_ZERO:
+        return VK_BLEND_FACTOR_ZERO;
+    case GR_BLEND_ONE:
+        return VK_BLEND_FACTOR_ONE;
+    case GR_BLEND_SRC_COLOR:
+        return VK_BLEND_FACTOR_SRC_COLOR;
+    case GR_BLEND_ONE_MINUS_SRC_COLOR:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+    case GR_BLEND_DEST_COLOR:
+        return VK_BLEND_FACTOR_DST_COLOR;
+    case GR_BLEND_ONE_MINUS_DEST_COLOR:
+        return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+    case GR_BLEND_SRC_ALPHA:
+        return VK_BLEND_FACTOR_SRC_ALPHA;
+    case GR_BLEND_ONE_MINUS_SRC_ALPHA:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    case GR_BLEND_DEST_ALPHA:
+        return VK_BLEND_FACTOR_DST_ALPHA;
+    case GR_BLEND_ONE_MINUS_DEST_ALPHA:
+        return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+    case GR_BLEND_CONSTANT_COLOR:
+        return VK_BLEND_FACTOR_CONSTANT_COLOR;
+    case GR_BLEND_ONE_MINUS_CONSTANT_COLOR:
+        return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+    case GR_BLEND_CONSTANT_ALPHA:
+        return VK_BLEND_FACTOR_CONSTANT_ALPHA;
+    case GR_BLEND_ONE_MINUS_CONSTANT_ALPHA:
+        return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
+    case GR_BLEND_SRC_ALPHA_SATURATE:
+        return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+    case GR_BLEND_SRC1_COLOR:
+        return VK_BLEND_FACTOR_SRC1_COLOR;
+    case GR_BLEND_ONE_MINUS_SRC1_COLOR:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+    case GR_BLEND_SRC1_ALPHA:
+        return VK_BLEND_FACTOR_SRC1_ALPHA;
+    case GR_BLEND_ONE_MINUS_SRC1_ALPHA:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+    }
+
+    printf("%s: unsupported blend factor %d\n", __func__, blend);
+    return VK_BLEND_FACTOR_ZERO;
+}
+
+VkBlendOp getVkBlendOp(
+    GR_ENUM blendFunc)
+{
+    switch (blendFunc) {
+    case GR_BLEND_FUNC_ADD:
+        return VK_BLEND_OP_ADD;
+    case GR_BLEND_FUNC_SUBTRACT:
+        return VK_BLEND_OP_SUBTRACT;
+    case GR_BLEND_FUNC_REVERSE_SUBTRACT:
+        return VK_BLEND_OP_REVERSE_SUBTRACT;
+    case GR_BLEND_FUNC_MIN:
+        return VK_BLEND_OP_MIN;
+    case GR_BLEND_FUNC_MAX:
+        return VK_BLEND_OP_MAX;
+    }
+
+    printf("%s: unsupported blend func %d\n", __func__, blendFunc);
+    return VK_BLEND_FACTOR_ZERO;
+}
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType)
 {
