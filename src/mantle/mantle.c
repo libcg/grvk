@@ -4,7 +4,7 @@
 
 static GR_ALLOC_FUNCTION mAllocFun = NULL;
 static GR_FREE_FUNCTION mFreeFun = NULL;
-static VkInstance mVkInstance = NULL;
+static VkInstance mVkInstance = VK_NULL_HANDLE;
 
 // Initialization and Device Functions
 
@@ -14,10 +14,7 @@ GR_RESULT grInitAndEnumerateGpus(
     GR_UINT* pGpuCount,
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
 {
-    printf("grInitAndEnumerateGpus\n"
-           "- app: %s (%08X)\n"
-           "- engine: %s (%08X)\n"
-           "- api: %08X\n",
+    printf("%s: app %s (%08X), engine %s (%08X), api %08X\n", __func__,
            pAppInfo->pAppName, pAppInfo->appVersion,
            pAppInfo->pEngineName, pAppInfo->engineVersion,
            pAppInfo->apiVersion);
@@ -28,10 +25,6 @@ GR_RESULT grInitAndEnumerateGpus(
     } else {
         mAllocFun = pAllocCb->pfnAlloc;
         mFreeFun = pAllocCb->pfnFree;
-    }
-
-    if (mVkInstance != NULL) {
-        vkDestroyInstance(mVkInstance, NULL);
     }
 
     VkApplicationInfo appInfo = {
@@ -55,6 +48,7 @@ GR_RESULT grInitAndEnumerateGpus(
     };
 
     if (vkCreateInstance(&createInfo, NULL, &mVkInstance) != VK_SUCCESS) {
+        printf("%s: vkCreateInstance failed\n", __func__);
         return GR_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -124,6 +118,7 @@ GR_RESULT grCreateDevice(
              requestedQueue->queueCount != universalQueueCount) ||
             (requestedQueue->queueType == GR_QUEUE_COMPUTE &&
              requestedQueue->queueCount != computeQueueCount)) {
+            printf("%s: can't find requested queue type %X\n", __func__, requestedQueue->queueType);
             res = GR_ERROR_INVALID_VALUE;
             // Bail after the loop to properly release memory
         }
@@ -158,6 +153,7 @@ GR_RESULT grCreateDevice(
 
     VkDevice device = VK_NULL_HANDLE;
     if (vkCreateDevice((VkPhysicalDevice)gpu, &createInfo, NULL, &device) != VK_SUCCESS) {
+        printf("%s: vkCreateDevice failed\n", __func__);
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
     }
@@ -210,6 +206,7 @@ GR_RESULT grCreateCommandBuffer(
     };
 
     if (vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL, &vkCommandPool) != VK_SUCCESS) {
+        printf("%s: vkCreateCommandPool failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -222,6 +219,7 @@ GR_RESULT grCreateCommandBuffer(
     };
 
     if (vkAllocateCommandBuffers(vkDevice, &allocateInfo, &vkCommandBuffer) != VK_SUCCESS) {
+        printf("%s: vkAllocateCommandBuffers failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -249,6 +247,7 @@ GR_RESULT grBeginCommandBuffer(
     };
 
     if (vkBeginCommandBuffer(vkCommandBuffer, &beginInfo) != VK_SUCCESS) {
+        printf("%s: vkBeginCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -261,6 +260,7 @@ GR_RESULT grEndCommandBuffer(
     VkCommandBuffer vkCommandBuffer = (VkCommandBuffer)cmdBuffer;
 
     if (vkEndCommandBuffer(vkCommandBuffer) != VK_SUCCESS) {
+        printf("%s: vkEndCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 

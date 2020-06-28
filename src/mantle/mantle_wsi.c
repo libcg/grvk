@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "mantle/mantleWsiWinExt.h"
 #include "vulkan/vulkan.h"
 #include "mantle_internal.h"
@@ -33,6 +34,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     };
 
     if (vkCreateImage(vkDevice, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
+        printf("%s: vkCreateImage failed\n", __func__);
         return GR_ERROR_INVALID_VALUE;
     }
 
