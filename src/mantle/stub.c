@@ -390,15 +390,6 @@ GR_RESULT grCreateDepthStencilState(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreateMsaaState(
-    GR_DEVICE device,
-    const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
-    GR_MSAA_STATE_OBJECT* pState)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 // Query and Synchronization Function
 
 GR_RESULT grCreateQueryPool(

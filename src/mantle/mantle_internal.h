@@ -24,6 +24,9 @@ VkAccessFlags getVkAccessFlags(
 VkImageAspectFlags getVkImageAspectFlags(
     GR_ENUM imageAspect);
 
+VkSampleCountFlagBits getVkSampleCountFlagBits(
+    GR_UINT samples);
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType);
 

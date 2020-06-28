@@ -266,6 +266,32 @@ GR_RESULT grCreateColorTargetView(
     return GR_SUCCESS;
 }
 
+// State Object Functions
+
+GR_RESULT grCreateMsaaState(
+    GR_DEVICE device,
+    const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
+    GR_MSAA_STATE_OBJECT* pState)
+{
+    VkPipelineMultisampleStateCreateInfo *msaaStateCreateInfo =
+        malloc(sizeof(VkPipelineMultisampleStateCreateInfo));
+
+    *msaaStateCreateInfo = (VkPipelineMultisampleStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .rasterizationSamples = getVkSampleCountFlagBits(pCreateInfo->samples),
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 0.f,
+        .pSampleMask = &pCreateInfo->sampleMask,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
+
+    *pState = (GR_MSAA_STATE_OBJECT)msaaStateCreateInfo;
+    return GR_SUCCESS;
+}
+
 // Command Buffer Management Functions
 
 GR_RESULT grCreateCommandBuffer(
