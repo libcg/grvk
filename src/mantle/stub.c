@@ -54,18 +54,6 @@ GR_RESULT grDeviceWaitIdle(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grQueueSubmit(
-    GR_QUEUE queue,
-    GR_UINT cmdBufferCount,
-    const GR_CMD_BUFFER* pCmdBuffers,
-    GR_UINT memRefCount,
-    const GR_MEMORY_REF* pMemRefs,
-    GR_FENCE fence)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grQueueSetGlobalMemReferences(
     GR_QUEUE queue,
     GR_UINT memRefCount,
