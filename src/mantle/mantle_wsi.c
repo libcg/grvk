@@ -10,6 +10,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
 {
     VkDevice vkDevice = (VkDevice)device;
     VkImage vkImage = VK_NULL_HANDLE;
+    VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
 
     VkImageCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -17,7 +18,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .flags = 0,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = getVkFormat(pCreateInfo->format),
-        .extent = { pCreateInfo->extent.width, pCreateInfo->extent.height, 0 },
+        .extent = { pCreateInfo->extent.width, pCreateInfo->extent.height, 1 },
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -35,8 +36,26 @@ GR_RESULT grWsiWinCreatePresentableImage(
         return GR_ERROR_INVALID_VALUE;
     }
 
+    VkMemoryRequirements memoryRequirements;
+    vkGetImageMemoryRequirements(vkDevice, vkImage, &memoryRequirements);
+
+    VkMemoryAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = NULL,
+        .allocationSize = memoryRequirements.size,
+        .memoryTypeIndex = 0, // FIXME don't hardcode
+    };
+
+    if (vkAllocateMemory(vkDevice, &allocateInfo, NULL, &vkDeviceMemory) != VK_SUCCESS) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    if (vkBindImageMemory(vkDevice, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
     *pImage = (GR_IMAGE)vkImage;
-    *pMem = (GR_GPU_MEMORY)NULL; // FIXME not sure what to do with this
+    *pMem = (GR_GPU_MEMORY)vkDeviceMemory;
 
     return GR_SUCCESS;
 }

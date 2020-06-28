@@ -45,7 +45,13 @@ GR_RESULT grInitAndEnumerateGpus(
 
     VkInstanceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
         .pApplicationInfo = &appInfo,
+        .enabledLayerCount = 0,
+        .ppEnabledLayerNames = NULL,
+        .enabledExtensionCount = 0,
+        .ppEnabledExtensionNames = NULL,
     };
 
     if (vkCreateInstance(&createInfo, NULL, &mVkInstance) != VK_SUCCESS) {
