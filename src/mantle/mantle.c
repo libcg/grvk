@@ -304,7 +304,7 @@ GR_RESULT grCreateViewportState(
     VkPipelineViewportStateCreateInfo* viewportStateCreateInfo =
         malloc(sizeof(VkPipelineViewportStateCreateInfo));
 
-    // Will be set dynamically with vkCmdSetViewport/Scissor
+    // Will be set dynamically with vkCmdSet{Viewport/Scissor}WithCountEXT
     *viewportStateCreateInfo = (VkPipelineViewportStateCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = NULL,
@@ -316,6 +316,34 @@ GR_RESULT grCreateViewportState(
     };
 
     *pState = (GR_VIEWPORT_STATE_OBJECT)viewportStateCreateInfo;
+    return GR_SUCCESS;
+}
+
+GR_RESULT grCreateRasterState(
+    GR_DEVICE device,
+    const GR_RASTER_STATE_CREATE_INFO* pCreateInfo,
+    GR_RASTER_STATE_OBJECT* pState)
+{
+    VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo =
+        malloc(sizeof(VkPipelineRasterizationStateCreateInfo));
+
+    *rasterizationStateCreateInfo = (VkPipelineRasterizationStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = getVkPolygonMode(pCreateInfo->fillMode), // TODO no dynamic state
+        .cullMode = getVkCullModeFlags(pCreateInfo->cullMode), // vkCmdSetCullModeEXT
+        .frontFace = getVkFrontFace(pCreateInfo->frontFace), // vkCmdSetFrontFaceEXT
+        .depthBiasEnable = VK_TRUE,
+        .depthBiasConstantFactor = pCreateInfo->depthBias, // vkCmdSetDepthBias
+        .depthBiasClamp = pCreateInfo->depthBiasClamp, // vkCmdSetDepthBias
+        .depthBiasSlopeFactor = pCreateInfo->slopeScaledDepthBias, // vkCmdSetDepthBias
+        .lineWidth = 1.f,
+    };
+
+    *pState = (GR_RASTER_STATE_OBJECT)rasterizationStateCreateInfo;
     return GR_SUCCESS;
 }
 
@@ -357,7 +385,6 @@ GR_RESULT grCreateColorBlendState(
     VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo =
         malloc(sizeof(VkPipelineColorBlendStateCreateInfo));
 
-    // TODO only blend constants can be set dynamically
     *colorBlendStateCreateInfo = (VkPipelineColorBlendStateCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext = NULL,
@@ -365,8 +392,8 @@ GR_RESULT grCreateColorBlendState(
         .logicOpEnable = VK_FALSE,
         .logicOp = VK_LOGIC_OP_CLEAR,
         .attachmentCount = GR_MAX_COLOR_TARGETS,
-        .pAttachments = attachments,
-        .blendConstants = {
+        .pAttachments = attachments, // TODO no dynamic state
+        .blendConstants = { // vkCmdSetBlendConstants
             pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
             pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
         },
@@ -388,31 +415,31 @@ GR_RESULT grCreateDepthStencilState(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .depthTestEnable = pCreateInfo->depthEnable,
-        .depthWriteEnable = pCreateInfo->depthWriteEnable,
-        .depthCompareOp = getVkCompareOp(pCreateInfo->depthFunc),
-        .depthBoundsTestEnable = pCreateInfo->depthBoundsEnable,
-        .stencilTestEnable = pCreateInfo->stencilEnable,
+        .depthTestEnable = pCreateInfo->depthEnable, // vkCmdSetDepthTestEnableEXT
+        .depthWriteEnable = pCreateInfo->depthWriteEnable, // vkCmdSetDepthWriteEnableEXT
+        .depthCompareOp = getVkCompareOp(pCreateInfo->depthFunc), // vkCmdSetDepthCompareOpEXT
+        .depthBoundsTestEnable = pCreateInfo->depthBoundsEnable, // vkCmdSetDepthBoundsTestEnableEXT
+        .stencilTestEnable = pCreateInfo->stencilEnable, // vkCmdSetStencilTestEnableEXT
         .front = (VkStencilOpState) {
-            .failOp = getVkStencilOp(pCreateInfo->front.stencilFailOp),
-            .passOp = getVkStencilOp(pCreateInfo->front.stencilPassOp),
-            .depthFailOp = getVkStencilOp(pCreateInfo->front.stencilDepthFailOp),
-            .compareOp = getVkCompareOp(pCreateInfo->front.stencilFunc),
-            .compareMask = pCreateInfo->stencilReadMask,
-            .writeMask = pCreateInfo->stencilWriteMask,
-            .reference = pCreateInfo->front.stencilRef,
+            .failOp = getVkStencilOp(pCreateInfo->front.stencilFailOp), // vkCmdSetStencilOpEXT
+            .passOp = getVkStencilOp(pCreateInfo->front.stencilPassOp), // ^
+            .depthFailOp = getVkStencilOp(pCreateInfo->front.stencilDepthFailOp), // ^
+            .compareOp = getVkCompareOp(pCreateInfo->front.stencilFunc), // ^
+            .compareMask = pCreateInfo->stencilReadMask, // vkCmdSetStencilCompareMask
+            .writeMask = pCreateInfo->stencilWriteMask, // vkCmdSetStencilWriteMask
+            .reference = pCreateInfo->front.stencilRef, // vkCmdSetStencilReference
         },
         .back = (VkStencilOpState) {
-            .failOp = getVkStencilOp(pCreateInfo->back.stencilFailOp),
-            .passOp = getVkStencilOp(pCreateInfo->back.stencilPassOp),
-            .depthFailOp = getVkStencilOp(pCreateInfo->back.stencilDepthFailOp),
-            .compareOp = getVkCompareOp(pCreateInfo->back.stencilFunc),
-            .compareMask = pCreateInfo->stencilReadMask,
-            .writeMask = pCreateInfo->stencilWriteMask,
-            .reference = pCreateInfo->back.stencilRef,
+            .failOp = getVkStencilOp(pCreateInfo->back.stencilFailOp), // vkCmdSetStencilOpEXT
+            .passOp = getVkStencilOp(pCreateInfo->back.stencilPassOp), // ^
+            .depthFailOp = getVkStencilOp(pCreateInfo->back.stencilDepthFailOp), // ^
+            .compareOp = getVkCompareOp(pCreateInfo->back.stencilFunc), // ^
+            .compareMask = pCreateInfo->stencilReadMask, // vkCmdSetStencilCompareMask
+            .writeMask = pCreateInfo->stencilWriteMask, // vkCmdSetStencilWriteMask
+            .reference = pCreateInfo->back.stencilRef, // vkCmdSetStencilReference
         },
-        .minDepthBounds = pCreateInfo->minDepth,
-        .maxDepthBounds = pCreateInfo->maxDepth,
+        .minDepthBounds = pCreateInfo->minDepth, // vkCmdSetDepthBounds
+        .maxDepthBounds = pCreateInfo->maxDepth, // ^
     };
 
     *pState = (GR_DEPTH_STENCIL_STATE_OBJECT)depthStencilStateCreateInfo;
@@ -427,7 +454,7 @@ GR_RESULT grCreateMsaaState(
     VkPipelineMultisampleStateCreateInfo* msaaStateCreateInfo =
         malloc(sizeof(VkPipelineMultisampleStateCreateInfo));
 
-    // TODO Vulkan doesn't allow setting this dynamically
+    // TODO no dynamic state
     *msaaStateCreateInfo = (VkPipelineMultisampleStateCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = NULL,

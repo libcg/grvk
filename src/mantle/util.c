@@ -233,6 +233,50 @@ VkStencilOp getVkStencilOp(
     return VK_STENCIL_OP_KEEP;
 }
 
+VkPolygonMode getVkPolygonMode(
+    GR_ENUM fillMode)
+{
+    switch (fillMode) {
+    case GR_FILL_SOLID:
+        return VK_POLYGON_MODE_FILL;
+    case GR_FILL_WIREFRAME:
+        return VK_POLYGON_MODE_LINE;
+    }
+
+    printf("%s: unsupported fill mode %d\n", __func__, fillMode);
+    return VK_POLYGON_MODE_FILL;
+}
+
+VkCullModeFlags getVkCullModeFlags(
+    GR_ENUM cullMode)
+{
+    switch (cullMode) {
+    case GR_CULL_NONE:
+        return VK_CULL_MODE_NONE;
+    case GR_CULL_FRONT:
+        return VK_CULL_MODE_FRONT_BIT;
+    case GR_CULL_BACK:
+        return VK_CULL_MODE_BACK_BIT;
+    }
+
+    printf("%s: unsupported cull mode %d\n", __func__, cullMode);
+    return VK_CULL_MODE_NONE;
+}
+
+VkFrontFace getVkFrontFace(
+    GR_ENUM frontFace)
+{
+    switch (frontFace) {
+    case GR_FRONT_FACE_CCW:
+        return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    case GR_FRONT_FACE_CW:
+        return VK_FRONT_FACE_CLOCKWISE;
+    }
+
+    printf("%s: unsupported face orientation %d\n", __func__, frontFace);
+    return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+}
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType)
 {

@@ -39,6 +39,15 @@ VkCompareOp getVkCompareOp(
 VkStencilOp getVkStencilOp(
     GR_ENUM stencilOp);
 
+VkPolygonMode getVkPolygonMode(
+    GR_ENUM fillMode);
+
+VkCullModeFlags getVkCullModeFlags(
+    GR_ENUM cullMode);
+
+VkFrontFace getVkFrontFace(
+    GR_ENUM frontFace);
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType);
 
