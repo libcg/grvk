@@ -152,7 +152,7 @@ GR_RESULT grCreateDevice(
     };
 
     VkDevice device = VK_NULL_HANDLE;
-    if (vkCreateDevice((VkPhysicalDevice)gpu, &createInfo, NULL, &device) != VK_SUCCESS) {
+    if (vkCreateDevice(physicalDevice, &createInfo, NULL, &device) != VK_SUCCESS) {
         printf("%s: vkCreateDevice failed\n", __func__);
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
@@ -373,7 +373,49 @@ GR_RESULT grCreateColorBlendState(
     };
 
     *pState = (GR_COLOR_BLEND_STATE_OBJECT)colorBlendStateCreateInfo;
+    return GR_SUCCESS;
+}
 
+GR_RESULT grCreateDepthStencilState(
+    GR_DEVICE device,
+    const GR_DEPTH_STENCIL_STATE_CREATE_INFO* pCreateInfo,
+    GR_DEPTH_STENCIL_STATE_OBJECT* pState)
+{
+    VkPipelineDepthStencilStateCreateInfo* depthStencilStateCreateInfo =
+        malloc(sizeof(VkPipelineDepthStencilStateCreateInfo));
+
+    *depthStencilStateCreateInfo = (VkPipelineDepthStencilStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .depthTestEnable = pCreateInfo->depthEnable,
+        .depthWriteEnable = pCreateInfo->depthWriteEnable,
+        .depthCompareOp = getVkCompareOp(pCreateInfo->depthFunc),
+        .depthBoundsTestEnable = pCreateInfo->depthBoundsEnable,
+        .stencilTestEnable = pCreateInfo->stencilEnable,
+        .front = (VkStencilOpState) {
+            .failOp = getVkStencilOp(pCreateInfo->front.stencilFailOp),
+            .passOp = getVkStencilOp(pCreateInfo->front.stencilPassOp),
+            .depthFailOp = getVkStencilOp(pCreateInfo->front.stencilDepthFailOp),
+            .compareOp = getVkCompareOp(pCreateInfo->front.stencilFunc),
+            .compareMask = pCreateInfo->stencilReadMask,
+            .writeMask = pCreateInfo->stencilWriteMask,
+            .reference = pCreateInfo->front.stencilRef,
+        },
+        .back = (VkStencilOpState) {
+            .failOp = getVkStencilOp(pCreateInfo->back.stencilFailOp),
+            .passOp = getVkStencilOp(pCreateInfo->back.stencilPassOp),
+            .depthFailOp = getVkStencilOp(pCreateInfo->back.stencilDepthFailOp),
+            .compareOp = getVkCompareOp(pCreateInfo->back.stencilFunc),
+            .compareMask = pCreateInfo->stencilReadMask,
+            .writeMask = pCreateInfo->stencilWriteMask,
+            .reference = pCreateInfo->back.stencilRef,
+        },
+        .minDepthBounds = pCreateInfo->minDepth,
+        .maxDepthBounds = pCreateInfo->maxDepth,
+    };
+
+    *pState = (GR_DEPTH_STENCIL_STATE_OBJECT)depthStencilStateCreateInfo;
     return GR_SUCCESS;
 }
 
@@ -440,7 +482,6 @@ GR_RESULT grCreateCommandBuffer(
     }
 
     *pCmdBuffer = (GR_QUEUE)vkCommandBuffer;
-
     return GR_SUCCESS;
 }
 

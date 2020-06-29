@@ -33,6 +33,12 @@ VkBlendFactor getVkBlendFactor(
 VkBlendOp getVkBlendOp(
     GR_ENUM blendFunc);
 
+VkCompareOp getVkCompareOp(
+    GR_ENUM compareFunc);
+
+VkStencilOp getVkStencilOp(
+    GR_ENUM stencilOp);
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType);
 

@@ -178,7 +178,59 @@ VkBlendOp getVkBlendOp(
     }
 
     printf("%s: unsupported blend func %d\n", __func__, blendFunc);
-    return VK_BLEND_FACTOR_ZERO;
+    return VK_BLEND_OP_ADD;
+}
+
+VkCompareOp getVkCompareOp(
+    GR_ENUM compareFunc)
+{
+    switch (compareFunc) {
+    case GR_COMPARE_NEVER:
+        return VK_COMPARE_OP_NEVER;
+    case GR_COMPARE_LESS:
+        return VK_COMPARE_OP_LESS;
+    case GR_COMPARE_EQUAL:
+        return VK_COMPARE_OP_EQUAL;
+    case GR_COMPARE_LESS_EQUAL:
+        return VK_COMPARE_OP_LESS_OR_EQUAL;
+    case GR_COMPARE_GREATER:
+        return VK_COMPARE_OP_GREATER;
+    case GR_COMPARE_NOT_EQUAL:
+        return VK_COMPARE_OP_EQUAL;
+    case GR_COMPARE_GREATER_EQUAL:
+        return VK_COMPARE_OP_GREATER_OR_EQUAL;
+    case GR_COMPARE_ALWAYS:
+        return VK_COMPARE_OP_ALWAYS;
+    }
+
+    printf("%s: unsupported compare func %d\n", __func__, compareFunc);
+    return VK_COMPARE_OP_NEVER;
+}
+
+VkStencilOp getVkStencilOp(
+    GR_ENUM stencilOp)
+{
+    switch (stencilOp) {
+    case GR_STENCIL_OP_KEEP:
+        return VK_STENCIL_OP_KEEP;
+    case GR_STENCIL_OP_ZERO:
+        return VK_STENCIL_OP_ZERO;
+    case GR_STENCIL_OP_REPLACE:
+        return VK_STENCIL_OP_REPLACE;
+    case GR_STENCIL_OP_INC_CLAMP:
+        return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+    case GR_STENCIL_OP_DEC_CLAMP:
+        return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
+    case GR_STENCIL_OP_INVERT:
+        return VK_STENCIL_OP_INVERT;
+    case GR_STENCIL_OP_INC_WRAP:
+        return VK_STENCIL_OP_INCREMENT_AND_WRAP;
+    case GR_STENCIL_OP_DEC_WRAP:
+        return VK_STENCIL_OP_DECREMENT_AND_WRAP;
+    }
+
+    printf("%s: unsupported stencil op %d\n", __func__, stencilOp);
+    return VK_STENCIL_OP_KEEP;
 }
 
 uint32_t getVkQueueFamilyIndex(

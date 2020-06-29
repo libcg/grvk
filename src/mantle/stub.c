@@ -363,15 +363,6 @@ GR_RESULT grCreateRasterState(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreateDepthStencilState(
-    GR_DEVICE device,
-    const GR_DEPTH_STENCIL_STATE_CREATE_INFO* pCreateInfo,
-    GR_DEPTH_STENCIL_STATE_OBJECT* pState)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 // Query and Synchronization Function
 
 GR_RESULT grCreateQueryPool(
