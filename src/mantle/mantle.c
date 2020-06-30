@@ -299,6 +299,146 @@ GR_RESULT grCreateShader(
     return GR_SUCCESS;
 }
 
+GR_RESULT grCreateGraphicsPipeline(
+    GR_DEVICE device,
+    const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
+    GR_PIPELINE* pPipeline)
+{
+    // FIXME handle cbState and dbState
+
+    // This simplifies the shader stage building code
+    struct Stage {
+        const GR_PIPELINE_SHADER* pipelineShader;
+        const char* entryPoint; // FIXME these are guessed
+        const VkShaderStageFlagBits stageFlags;
+    } stages[] = {
+        { &pCreateInfo->vs, "VShader", VK_SHADER_STAGE_VERTEX_BIT },
+        { &pCreateInfo->hs, "HShader", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT },
+        { &pCreateInfo->ds, "DShader", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT },
+        { &pCreateInfo->gs, "GShader", VK_SHADER_STAGE_GEOMETRY_BIT },
+        { &pCreateInfo->ps, "PShader", VK_SHADER_STAGE_FRAGMENT_BIT },
+    };
+    const int stageCount = sizeof(stages) / sizeof(struct Stage);
+
+    // Figure out how many stages are used before we allocate the info array
+    uint32_t vkStageCount = 0;
+    for (int i = 0; i < stageCount; i++) {
+        if (stages[i].pipelineShader->shader != GR_NULL_HANDLE) {
+            vkStageCount++;
+        }
+    }
+
+    VkPipelineShaderStageCreateInfo* shaderStageCreateInfo =
+        malloc(sizeof(VkPipelineShaderStageCreateInfo) * vkStageCount);
+
+    // Fill in the info array
+    vkStageCount = 0;
+    for (int i = 0; i < stageCount; i++) {
+        struct Stage* stage = &stages[i];
+
+        if (stage->pipelineShader->shader != GR_NULL_HANDLE) {
+            // FIXME handle descriptorSetMapping
+
+            if (stage->pipelineShader->linkConstBufferCount > 0) {
+                // TODO implement using specialization info
+                printf("%s: link-time constant buffers are not implemented\n", __func__);
+            }
+
+            if (stage->pipelineShader->dynamicMemoryViewMapping.slotObjectType != GR_SLOT_UNUSED) {
+                // TODO implement
+                printf("%s: dynamic memory view mapping is not implemented\n", __func__);
+            }
+
+            shaderStageCreateInfo[vkStageCount++] = (VkPipelineShaderStageCreateInfo) {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .stage = stage->stageFlags,
+                .module = (VkShaderModule)stage->pipelineShader->shader,
+                .pName = stage->entryPoint,
+                .pSpecializationInfo = NULL,
+            };
+        }
+    }
+
+    VkPipelineVertexInputStateCreateInfo* vertexInputStateCreateInfo =
+        malloc(sizeof(VkPipelineVertexInputStateCreateInfo));
+
+    *vertexInputStateCreateInfo = (VkPipelineVertexInputStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = NULL,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = NULL,
+    };
+
+    VkPipelineInputAssemblyStateCreateInfo* inputAssemblyStateCreateInfo =
+        malloc(sizeof(VkPipelineInputAssemblyStateCreateInfo));
+
+    *inputAssemblyStateCreateInfo = (VkPipelineInputAssemblyStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .topology = getVkPrimitiveTopology(pCreateInfo->iaState.topology),
+        .primitiveRestartEnable = VK_FALSE,
+    };
+
+    VkPipelineTessellationStateCreateInfo* tessellationStateCreateInfo = NULL;
+
+    if (pCreateInfo->hs.shader != GR_NULL_HANDLE && pCreateInfo->ds.shader != GR_NULL_HANDLE) {
+        tessellationStateCreateInfo = malloc(sizeof(VkPipelineTessellationStateCreateInfo));
+
+        *tessellationStateCreateInfo = (VkPipelineTessellationStateCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
+        };
+    }
+
+    VkPipelineRasterizationDepthClipStateCreateInfoEXT* depthClipStateCreateInfo =
+        malloc(sizeof(VkPipelineRasterizationDepthClipStateCreateInfoEXT));
+
+    *depthClipStateCreateInfo = (VkPipelineRasterizationDepthClipStateCreateInfoEXT) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .flags = 0,
+        .depthClipEnable = pCreateInfo->rsState.depthClipEnable,
+    };
+
+    // Pipeline will be created at bind time because we're missing some state
+    VkGraphicsPipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(VkGraphicsPipelineCreateInfo));
+
+    *pipelineCreateInfo = (VkGraphicsPipelineCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
+                 VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
+        .stageCount = vkStageCount,
+        .pStages = shaderStageCreateInfo,
+        .pVertexInputState = vertexInputStateCreateInfo,
+        .pInputAssemblyState = inputAssemblyStateCreateInfo,
+        .pTessellationState = tessellationStateCreateInfo,
+        .pViewportState = NULL, // Filled in at bind time
+        .pRasterizationState = // Combined with raster state at bind time
+            (VkPipelineRasterizationStateCreateInfo*)depthClipStateCreateInfo,
+        .pMultisampleState = NULL, // Filled in at bind time
+        .pDepthStencilState = NULL, // Filled in at bind time
+        .pColorBlendState = NULL, // Filled in at bind time
+        .pDynamicState = NULL, // TODO implement VK_EXT_extended_dynamic_state
+        .layout = VK_NULL_HANDLE, // FIXME
+        .renderPass = VK_NULL_HANDLE, // FIXME
+        .subpass = 0, // FIXME
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = -1,
+    };
+
+    *pPipeline = (GR_PIPELINE)pipelineCreateInfo;
+    return GR_SUCCESS;
+}
+
 // State Object Functions
 
 GR_RESULT grCreateViewportState(
@@ -364,7 +504,7 @@ GR_RESULT grCreateRasterState(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .depthClampEnable = VK_FALSE,
+        .depthClampEnable = VK_TRUE, // depthClipEnable is set from grCreateGraphicsPipeline
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = getVkPolygonMode(pCreateInfo->fillMode), // TODO no dynamic state
         .cullMode = getVkCullModeFlags(pCreateInfo->cullMode), // vkCmdSetCullModeEXT

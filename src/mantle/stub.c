@@ -239,15 +239,6 @@ GR_RESULT grCreateDepthStencilView(
 
 // Shader and Pipeline Functions
 
-GR_RESULT grCreateGraphicsPipeline(
-    GR_DEVICE device,
-    const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
-    GR_PIPELINE* pPipeline)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grCreateComputePipeline(
     GR_DEVICE device,
     const GR_COMPUTE_PIPELINE_CREATE_INFO* pCreateInfo,

@@ -51,7 +51,7 @@ VkImageLayout getVkImageLayout(
         return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     }
 
-    printf("%s: unsupported image state %d\n", __func__, imageState);
+    printf("%s: unsupported image state 0x%x\n", __func__, imageState);
     return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
@@ -71,7 +71,7 @@ VkAccessFlags getVkAccessFlags(
         return VK_ACCESS_MEMORY_READ_BIT;
     }
 
-    printf("%s: unsupported image state %d\n", __func__, imageState);
+    printf("%s: unsupported image state 0x%x\n", __func__, imageState);
     return 0;
 }
 
@@ -87,7 +87,7 @@ VkImageAspectFlags getVkImageAspectFlags(
         return VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    printf("%s: unsupported image aspect %d\n", __func__, imageAspect);
+    printf("%s: unsupported image aspect 0x%x\n", __func__, imageAspect);
     return 0;
 }
 
@@ -157,7 +157,7 @@ VkBlendFactor getVkBlendFactor(
         return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
     }
 
-    printf("%s: unsupported blend factor %d\n", __func__, blend);
+    printf("%s: unsupported blend factor 0x%x\n", __func__, blend);
     return VK_BLEND_FACTOR_ZERO;
 }
 
@@ -177,7 +177,7 @@ VkBlendOp getVkBlendOp(
         return VK_BLEND_OP_MAX;
     }
 
-    printf("%s: unsupported blend func %d\n", __func__, blendFunc);
+    printf("%s: unsupported blend func 0x%x\n", __func__, blendFunc);
     return VK_BLEND_OP_ADD;
 }
 
@@ -203,7 +203,7 @@ VkCompareOp getVkCompareOp(
         return VK_COMPARE_OP_ALWAYS;
     }
 
-    printf("%s: unsupported compare func %d\n", __func__, compareFunc);
+    printf("%s: unsupported compare func 0x%x\n", __func__, compareFunc);
     return VK_COMPARE_OP_NEVER;
 }
 
@@ -229,7 +229,7 @@ VkStencilOp getVkStencilOp(
         return VK_STENCIL_OP_DECREMENT_AND_WRAP;
     }
 
-    printf("%s: unsupported stencil op %d\n", __func__, stencilOp);
+    printf("%s: unsupported stencil op 0x%x\n", __func__, stencilOp);
     return VK_STENCIL_OP_KEEP;
 }
 
@@ -243,7 +243,7 @@ VkPolygonMode getVkPolygonMode(
         return VK_POLYGON_MODE_LINE;
     }
 
-    printf("%s: unsupported fill mode %d\n", __func__, fillMode);
+    printf("%s: unsupported fill mode 0x%x\n", __func__, fillMode);
     return VK_POLYGON_MODE_FILL;
 }
 
@@ -259,7 +259,7 @@ VkCullModeFlags getVkCullModeFlags(
         return VK_CULL_MODE_BACK_BIT;
     }
 
-    printf("%s: unsupported cull mode %d\n", __func__, cullMode);
+    printf("%s: unsupported cull mode 0x%x\n", __func__, cullMode);
     return VK_CULL_MODE_NONE;
 }
 
@@ -273,8 +273,43 @@ VkFrontFace getVkFrontFace(
         return VK_FRONT_FACE_CLOCKWISE;
     }
 
-    printf("%s: unsupported face orientation %d\n", __func__, frontFace);
+    printf("%s: unsupported face orientation 0x%x\n", __func__, frontFace);
     return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+}
+
+VkPrimitiveTopology getVkPrimitiveTopology(
+    GR_ENUM topology)
+{
+    switch (topology) {
+    case GR_TOPOLOGY_POINT_LIST:
+        return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    case GR_TOPOLOGY_LINE_LIST:
+        return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+    case GR_TOPOLOGY_LINE_STRIP:
+        return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+    case GR_TOPOLOGY_TRIANGLE_LIST:
+        return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    case GR_TOPOLOGY_TRIANGLE_STRIP:
+        return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    case GR_TOPOLOGY_RECT_LIST:
+        break; // TODO implement using VK_NV_fill_rectangle
+    case GR_TOPOLOGY_QUAD_LIST:
+    case GR_TOPOLOGY_QUAD_STRIP:
+        break; // Unsupported
+    case GR_TOPOLOGY_LINE_LIST_ADJ:
+        return VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
+    case GR_TOPOLOGY_LINE_STRIP_ADJ:
+        return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
+    case GR_TOPOLOGY_TRIANGLE_LIST_ADJ:
+        return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
+    case GR_TOPOLOGY_TRIANGLE_STRIP_ADJ:
+        return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY;
+    case GR_TOPOLOGY_PATCH:
+        return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+    }
+
+    printf("%s: unsupported topology 0x%x\n", __func__, topology);
+    return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 }
 
 uint32_t getVkQueueFamilyIndex(

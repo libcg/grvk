@@ -48,6 +48,9 @@ VkCullModeFlags getVkCullModeFlags(
 VkFrontFace getVkFrontFace(
     GR_ENUM frontFace);
 
+VkPrimitiveTopology getVkPrimitiveTopology(
+    GR_ENUM topology);
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType);
 
