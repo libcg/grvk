@@ -1,6 +1,7 @@
 mantle_src = [
   'mantle.c',
   'mantle_init_device.c',
+  'mantle_queue.c',
   'mantle_wsi.c',
   'stub.c',
   'util.c',
