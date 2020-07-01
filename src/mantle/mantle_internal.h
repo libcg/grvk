@@ -1,6 +1,9 @@
 #ifndef MANTLE_INTERNAL_H_
 #define MANTLE_INTERNAL_H_
 
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "mantle/mantle.h"
 #include "vulkan/vulkan.h"
 
