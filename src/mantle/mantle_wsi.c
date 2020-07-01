@@ -49,10 +49,15 @@ GR_RESULT grWsiWinCreatePresentableImage(
     };
 
     if (vkAllocateMemory(vkDevice, &allocateInfo, NULL, &vkDeviceMemory) != VK_SUCCESS) {
+        printf("%s: vkAllocateMemory failed\n", __func__);
+        vkDestroyImage(vkDevice, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
     if (vkBindImageMemory(vkDevice, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
+        printf("%s: vkBindImageMemory failed\n", __func__);
+        vkFreeMemory(vkDevice, vkDeviceMemory, NULL);
+        vkDestroyImage(vkDevice, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
