@@ -312,6 +312,35 @@ VkPrimitiveTopology getVkPrimitiveTopology(
     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 }
 
+VkDescriptorType getVkDescriptorType(
+    GR_ENUM slotObjectType)
+{
+    switch (slotObjectType) {
+    case GR_SLOT_UNUSED:
+        break; // Invalid
+    case GR_SLOT_SHADER_RESOURCE:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case GR_SLOT_SHADER_UAV:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case GR_SLOT_SHADER_SAMPLER:
+        return VK_DESCRIPTOR_TYPE_SAMPLER;
+    case GR_SLOT_NEXT_DESCRIPTOR_SET:
+        break; // Invalid
+    }
+
+    printf("%s: unsupported slot object type 0x%x\n", __func__, slotObjectType);
+    return VK_DESCRIPTOR_TYPE_SAMPLER;
+}
+
+VkColorComponentFlags getVkColorComponentFlags(
+    GR_UINT8 writeMask)
+{
+    return (writeMask & 1 ? VK_COLOR_COMPONENT_R_BIT : 0) |
+           (writeMask & 2 ? VK_COLOR_COMPONENT_G_BIT : 0) |
+           (writeMask & 4 ? VK_COLOR_COMPONENT_B_BIT : 0) |
+           (writeMask & 8 ? VK_COLOR_COMPONENT_A_BIT : 0);
+}
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType)
 {

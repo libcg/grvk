@@ -1,10 +1,148 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "mantle_internal.h"
 
+#define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
+
+typedef struct _STAGE {
+    const GR_PIPELINE_SHADER* shader;
+    const char* entryPoint;
+    const VkShaderStageFlagBits flags;
+} STAGE;
+
 static GR_ALLOC_FUNCTION mAllocFun = NULL;
 static GR_FREE_FUNCTION mFreeFun = NULL;
 static VkInstance mVkInstance = VK_NULL_HANDLE;
+
+static VkDescriptorSetLayout getVkDescriptorSetLayout(
+    VkDevice vkDevice,
+    STAGE* stage)
+{
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    uint32_t bindingCount = 0;
+
+    // Count descriptors in this stage
+    for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        const GR_DESCRIPTOR_SET_MAPPING* mapping =
+            &stage->shader->descriptorSetMapping[i];
+
+        for (int j = 0; j < mapping->descriptorCount; j++) {
+            const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
+
+            if (info->slotObjectType == GR_SLOT_UNUSED) {
+                continue;
+            }
+
+            if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
+                printf("%s: nested descriptor sets are not implemented\n", __func__);
+                continue;
+            }
+
+            bindingCount++;
+        }
+    }
+
+    VkDescriptorSetLayoutBinding* bindings =
+        malloc(sizeof(VkDescriptorSetLayoutBinding) * bindingCount);
+
+    // Fill out descriptor array
+    uint32_t bindingIndex = 0;
+    for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        const GR_DESCRIPTOR_SET_MAPPING* mapping =
+            &stage->shader->descriptorSetMapping[i];
+
+        for (int j = 0; j < mapping->descriptorCount; j++) {
+            const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
+
+            if (info->slotObjectType == GR_SLOT_UNUSED ||
+                info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
+                continue;
+            }
+
+            bindings[bindingIndex++] = (VkDescriptorSetLayoutBinding) {
+                .binding = info->shaderEntityIndex,
+                .descriptorType = getVkDescriptorType(info->slotObjectType),
+                .descriptorCount = 1,
+                .stageFlags = stage->flags,
+                .pImmutableSamplers = NULL,
+            };
+        }
+    }
+
+    assert(bindingIndex == bindingCount);
+
+    VkDescriptorSetLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .bindingCount = bindingCount,
+        .pBindings = bindings,
+    };
+
+    if (vkCreateDescriptorSetLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
+        printf("%s: vkCreateDescriptorSetLayout failed\n", __func__);
+    }
+
+    free(bindings);
+    return layout;
+}
+
+static VkPipelineLayout getVkPipelineLayout(
+    VkDevice vkDevice,
+    STAGE* stages,
+    uint32_t stageCount)
+{
+    VkPipelineLayout layout = VK_NULL_HANDLE;
+
+    // One descriptor set layout per stage
+    VkDescriptorSetLayout* descriptorSetLayouts =
+        malloc(sizeof(VkDescriptorSetLayout) * stageCount);
+
+    uint32_t stageIndex = 0;
+    for (int i = 0; i < MAX_STAGE_COUNT; i++) {
+        STAGE* stage = &stages[i];
+
+        if (stage->shader->shader == GR_NULL_HANDLE) {
+            continue;
+        }
+
+        VkDescriptorSetLayout layout = getVkDescriptorSetLayout(vkDevice, stage);
+
+        if (layout == VK_NULL_HANDLE) {
+            // Bail out
+            for (int j = 0; j < stageIndex; j++) {
+                vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[j], NULL);
+            }
+            free(descriptorSetLayouts);
+            return VK_NULL_HANDLE;
+        }
+
+        descriptorSetLayouts[stageIndex++] = layout;
+    }
+
+    assert(stageIndex == stageCount);
+
+    VkPipelineLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .setLayoutCount = stageCount,
+        .pSetLayouts = descriptorSetLayouts,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = NULL,
+    };
+
+    if (vkCreatePipelineLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
+        printf("%s: vkCreatePipelineLayout failed\n", __func__);
+        for (int i = 0; i < stageCount; i++) {
+            vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[i], NULL);
+        }
+    }
+
+    free(descriptorSetLayouts);
+    return layout;
+}
 
 // Initialization and Device Functions
 
@@ -14,7 +152,7 @@ GR_RESULT grInitAndEnumerateGpus(
     GR_UINT* pGpuCount,
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
 {
-    printf("%s: app %s (%08X), engine %s (%08X), api %08X\n", __func__,
+    printf("%s: app \"%s\" (%08X), engine \"%s\" (%08X), api %08X\n", __func__,
            pAppInfo->pAppName, pAppInfo->appVersion,
            pAppInfo->pEngineName, pAppInfo->engineVersion,
            pAppInfo->apiVersion);
@@ -304,62 +442,65 @@ GR_RESULT grCreateGraphicsPipeline(
     const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline)
 {
-    // FIXME handle cbState and dbState
+    VkDevice vkDevice = (VkDevice)device;
 
-    // This simplifies the shader stage building code
-    struct Stage {
-        const GR_PIPELINE_SHADER* pipelineShader;
-        const char* entryPoint; // FIXME these are guessed
-        const VkShaderStageFlagBits stageFlags;
-    } stages[] = {
+    // Ignored parameters:
+    // - iaState.disableVertexReuse (hint)
+    // - tessState.optimalTessFactor (hint)
+    // - cbState.format (defined at draw time)
+    // - dbState.format (defined at draw time)
+
+    // FIXME entry points are guessed
+    STAGE stages[MAX_STAGE_COUNT] = {
         { &pCreateInfo->vs, "VShader", VK_SHADER_STAGE_VERTEX_BIT },
         { &pCreateInfo->hs, "HShader", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT },
         { &pCreateInfo->ds, "DShader", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT },
         { &pCreateInfo->gs, "GShader", VK_SHADER_STAGE_GEOMETRY_BIT },
         { &pCreateInfo->ps, "PShader", VK_SHADER_STAGE_FRAGMENT_BIT },
     };
-    const int stageCount = sizeof(stages) / sizeof(struct Stage);
 
     // Figure out how many stages are used before we allocate the info array
-    uint32_t vkStageCount = 0;
-    for (int i = 0; i < stageCount; i++) {
-        if (stages[i].pipelineShader->shader != GR_NULL_HANDLE) {
-            vkStageCount++;
+    uint32_t stageCount = 0;
+    for (int i = 0; i < MAX_STAGE_COUNT; i++) {
+        if (stages[i].shader->shader != GR_NULL_HANDLE) {
+            stageCount++;
         }
     }
 
     VkPipelineShaderStageCreateInfo* shaderStageCreateInfo =
-        malloc(sizeof(VkPipelineShaderStageCreateInfo) * vkStageCount);
+        malloc(sizeof(VkPipelineShaderStageCreateInfo) * stageCount);
 
     // Fill in the info array
-    vkStageCount = 0;
-    for (int i = 0; i < stageCount; i++) {
-        struct Stage* stage = &stages[i];
+    uint32_t stageIndex = 0;
+    for (int i = 0; i < MAX_STAGE_COUNT; i++) {
+        STAGE* stage = &stages[i];
 
-        if (stage->pipelineShader->shader != GR_NULL_HANDLE) {
-            // FIXME handle descriptorSetMapping
-
-            if (stage->pipelineShader->linkConstBufferCount > 0) {
-                // TODO implement using specialization info
-                printf("%s: link-time constant buffers are not implemented\n", __func__);
-            }
-
-            if (stage->pipelineShader->dynamicMemoryViewMapping.slotObjectType != GR_SLOT_UNUSED) {
-                // TODO implement
-                printf("%s: dynamic memory view mapping is not implemented\n", __func__);
-            }
-
-            shaderStageCreateInfo[vkStageCount++] = (VkPipelineShaderStageCreateInfo) {
-                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                .pNext = NULL,
-                .flags = 0,
-                .stage = stage->stageFlags,
-                .module = (VkShaderModule)stage->pipelineShader->shader,
-                .pName = stage->entryPoint,
-                .pSpecializationInfo = NULL,
-            };
+        if (stage->shader->shader == GR_NULL_HANDLE) {
+            continue;
         }
+
+        if (stage->shader->linkConstBufferCount > 0) {
+            // TODO implement
+            printf("%s: link-time constant buffers are not implemented\n", __func__);
+        }
+
+        if (stage->shader->dynamicMemoryViewMapping.slotObjectType != GR_SLOT_UNUSED) {
+            // TODO implement
+            printf("%s: dynamic memory view mapping is not implemented\n", __func__);
+        }
+
+        shaderStageCreateInfo[stageIndex++] = (VkPipelineShaderStageCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .stage = stage->flags,
+            .module = (VkShaderModule)stage->shader->shader,
+            .pName = stage->entryPoint,
+            .pSpecializationInfo = NULL,
+        };
     }
+
+    assert(stageIndex == stageCount);
 
     VkPipelineVertexInputStateCreateInfo* vertexInputStateCreateInfo =
         malloc(sizeof(VkPipelineVertexInputStateCreateInfo));
@@ -408,6 +549,50 @@ GR_RESULT grCreateGraphicsPipeline(
         .depthClipEnable = pCreateInfo->rsState.depthClipEnable,
     };
 
+    VkPipelineColorBlendAttachmentState* attachments =
+        malloc(sizeof(VkPipelineColorBlendAttachmentState) * GR_MAX_COLOR_TARGETS);
+
+    // TODO implement
+    if (pCreateInfo->cbState.alphaToCoverageEnable) {
+        printf("%s: alpha-to-coverage is not implemented\n", __func__);
+    }
+
+    if (pCreateInfo->cbState.dualSourceBlendEnable) {
+        // Nothing to do, set through VkBlendFactor
+    }
+
+    // TODO implement
+    if (pCreateInfo->cbState.logicOp != GR_LOGIC_OP_COPY) {
+        printf("%s: unsupported logic operation %X\n", __func__, pCreateInfo->cbState.logicOp);
+    }
+
+    for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+        const GR_PIPELINE_CB_TARGET_STATE* target = &pCreateInfo->cbState.target[i];
+
+        attachments[i] = (VkPipelineColorBlendAttachmentState) {
+            .blendEnable = target->blendEnable,
+            .srcColorBlendFactor = 0, // Filled in grCreateColorBlendState
+            .dstColorBlendFactor = 0, // Filled in grCreateColorBlendState
+            .colorBlendOp = 0, // Filled in grCreateColorBlendState
+            .srcAlphaBlendFactor = 0, // Filled in grCreateColorBlendState
+            .dstAlphaBlendFactor = 0, // Filled in grCreateColorBlendState
+            .alphaBlendOp = 0, // Filled in grCreateColorBlendState
+            .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
+        };
+    }
+
+    VkPipelineLayout layout = getVkPipelineLayout(vkDevice, stages, stageCount);
+
+    if (layout == VK_NULL_HANDLE) {
+        free(shaderStageCreateInfo);
+        free(vertexInputStateCreateInfo);
+        free(inputAssemblyStateCreateInfo);
+        free(tessellationStateCreateInfo);
+        free(depthClipStateCreateInfo);
+        free(attachments);
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
     // Pipeline will be created at bind time because we're missing some state
     VkGraphicsPipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(VkGraphicsPipelineCreateInfo));
 
@@ -416,7 +601,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .pNext = NULL,
         .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
                  VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
-        .stageCount = vkStageCount,
+        .stageCount = stageCount,
         .pStages = shaderStageCreateInfo,
         .pVertexInputState = vertexInputStateCreateInfo,
         .pInputAssemblyState = inputAssemblyStateCreateInfo,
@@ -426,11 +611,12 @@ GR_RESULT grCreateGraphicsPipeline(
             (VkPipelineRasterizationStateCreateInfo*)depthClipStateCreateInfo,
         .pMultisampleState = NULL, // Filled in at bind time
         .pDepthStencilState = NULL, // Filled in at bind time
-        .pColorBlendState = NULL, // Filled in at bind time
+        .pColorBlendState = // Combined with color blend state at bind time
+            (VkPipelineColorBlendStateCreateInfo*)attachments,
         .pDynamicState = NULL, // TODO implement VK_EXT_extended_dynamic_state
-        .layout = VK_NULL_HANDLE, // FIXME
-        .renderPass = VK_NULL_HANDLE, // FIXME
-        .subpass = 0, // FIXME
+        .layout = layout,
+        .renderPass = VK_NULL_HANDLE, // Filled in later
+        .subpass = 0, // Filled in later
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = -1,
     };
@@ -537,20 +723,18 @@ GR_RESULT grCreateColorBlendState(
                 .srcAlphaBlendFactor = getVkBlendFactor(pCreateInfo->target[i].srcBlendAlpha),
                 .dstAlphaBlendFactor = getVkBlendFactor(pCreateInfo->target[i].destBlendAlpha),
                 .alphaBlendOp = getVkBlendOp(pCreateInfo->target[i].blendFuncAlpha),
-                .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                  VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+                .colorWriteMask = 0, // Set from grCreateGraphicsPipeline
             };
         } else {
             attachments[i] = (VkPipelineColorBlendAttachmentState) {
                 .blendEnable = VK_FALSE,
-                .srcColorBlendFactor = 0,
-                .dstColorBlendFactor = 0,
-                .colorBlendOp = 0,
-                .srcAlphaBlendFactor = 0,
-                .dstAlphaBlendFactor = 0,
-                .alphaBlendOp = 0,
-                .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                  VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+                .srcColorBlendFactor = 0, // Ignored
+                .dstColorBlendFactor = 0, // Ignored
+                .colorBlendOp = 0, // Ignored
+                .srcAlphaBlendFactor = 0, // Ignored
+                .dstAlphaBlendFactor = 0, // Ignored
+                .alphaBlendOp = 0, // Ignored
+                .colorWriteMask = 0, // Set from grCreateGraphicsPipeline
             };
         }
     }
@@ -563,7 +747,7 @@ GR_RESULT grCreateColorBlendState(
         .pNext = NULL,
         .flags = 0,
         .logicOpEnable = VK_FALSE,
-        .logicOp = VK_LOGIC_OP_CLEAR,
+        .logicOp = 0, // Ignored
         .attachmentCount = GR_MAX_COLOR_TARGETS,
         .pAttachments = attachments, // TODO no dynamic state
         .blendConstants = { // vkCmdSetBlendConstants

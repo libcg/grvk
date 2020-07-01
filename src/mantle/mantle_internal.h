@@ -51,6 +51,12 @@ VkFrontFace getVkFrontFace(
 VkPrimitiveTopology getVkPrimitiveTopology(
     GR_ENUM topology);
 
+VkDescriptorType getVkDescriptorType(
+    GR_ENUM slotObjectType);
+
+VkColorComponentFlags getVkColorComponentFlags(
+    GR_UINT8 writeMask);
+
 uint32_t getVkQueueFamilyIndex(
     GR_ENUM queueType);
 
