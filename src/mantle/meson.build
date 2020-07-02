@@ -1,5 +1,5 @@
 mantle_src = [
-  'mantle.c',
+  'mantle_cmd_buf.c',
   'mantle_cmd_buf_man.c',
   'mantle_init_device.c',
   'mantle_image_view.c',

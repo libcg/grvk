@@ -1,6 +1,3 @@
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include "mantle_internal.h"
 
 // Command Buffer Building Functions
