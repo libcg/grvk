@@ -4,6 +4,7 @@ mantle_src = [
   'mantle_image_view.c',
   'mantle_queue.c',
   'mantle_shader_pipeline.c',
+  'mantle_state_object.c',
   'mantle_wsi.c',
   'stub.c',
   'util.c',
