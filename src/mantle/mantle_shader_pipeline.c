@@ -2,15 +2,15 @@
 
 #define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
 
-typedef struct _STAGE {
+typedef struct _Stage {
     const GR_PIPELINE_SHADER* shader;
     const char* entryPoint;
     const VkShaderStageFlagBits flags;
-} STAGE;
+} Stage;
 
 static VkDescriptorSetLayout getVkDescriptorSetLayout(
     VkDevice vkDevice,
-    STAGE* stage)
+    Stage* stage)
 {
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     uint32_t bindingCount = 0;
@@ -83,7 +83,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
 static VkPipelineLayout getVkPipelineLayout(
     VkDevice vkDevice,
-    STAGE* stages,
+    Stage* stages,
     uint32_t stageCount)
 {
     VkPipelineLayout layout = VK_NULL_HANDLE;
@@ -94,7 +94,7 @@ static VkPipelineLayout getVkPipelineLayout(
 
     uint32_t stageIndex = 0;
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
-        STAGE* stage = &stages[i];
+        Stage* stage = &stages[i];
 
         if (stage->shader->shader == GR_NULL_HANDLE) {
             continue;
@@ -144,7 +144,7 @@ GR_RESULT grCreateShader(
     const GR_SHADER_CREATE_INFO* pCreateInfo,
     GR_SHADER* pShader)
 {
-    VkDevice vkDevice = (VkDevice)device;
+    VkDevice vkDevice = ((GrvkDevice*)device)->device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
 
     // TODO support AMDIL shaders
@@ -166,7 +166,13 @@ GR_RESULT grCreateShader(
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    *pShader = (GR_SHADER)vkShaderModule;
+    GrvkShader* grvkShader = malloc(sizeof(GrvkShader));
+    *grvkShader = (GrvkShader) {
+        .sType = GRVK_STRUCT_TYPE_SHADER,
+        .shaderModule = vkShaderModule,
+    };
+
+    *pShader = (GR_SHADER)grvkShader;
     return GR_SUCCESS;
 }
 
@@ -175,7 +181,7 @@ GR_RESULT grCreateGraphicsPipeline(
     const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline)
 {
-    VkDevice vkDevice = (VkDevice)device;
+    VkDevice vkDevice = ((GrvkDevice*)device)->device;
 
     // Ignored parameters:
     // - iaState.disableVertexReuse (hint)
@@ -184,7 +190,7 @@ GR_RESULT grCreateGraphicsPipeline(
     // - dbState.format (defined at draw time)
 
     // FIXME entry points are guessed
-    STAGE stages[MAX_STAGE_COUNT] = {
+    Stage stages[MAX_STAGE_COUNT] = {
         { &pCreateInfo->vs, "VShader", VK_SHADER_STAGE_VERTEX_BIT },
         { &pCreateInfo->hs, "HShader", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT },
         { &pCreateInfo->ds, "DShader", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT },
@@ -206,7 +212,7 @@ GR_RESULT grCreateGraphicsPipeline(
     // Fill in the info array
     uint32_t stageIndex = 0;
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
-        STAGE* stage = &stages[i];
+        Stage* stage = &stages[i];
 
         if (stage->shader->shader == GR_NULL_HANDLE) {
             continue;
@@ -237,7 +243,6 @@ GR_RESULT grCreateGraphicsPipeline(
 
     VkPipelineVertexInputStateCreateInfo* vertexInputStateCreateInfo =
         malloc(sizeof(VkPipelineVertexInputStateCreateInfo));
-
     *vertexInputStateCreateInfo = (VkPipelineVertexInputStateCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext = NULL,
@@ -250,7 +255,6 @@ GR_RESULT grCreateGraphicsPipeline(
 
     VkPipelineInputAssemblyStateCreateInfo* inputAssemblyStateCreateInfo =
         malloc(sizeof(VkPipelineInputAssemblyStateCreateInfo));
-
     *inputAssemblyStateCreateInfo = (VkPipelineInputAssemblyStateCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .pNext = NULL,
@@ -263,7 +267,6 @@ GR_RESULT grCreateGraphicsPipeline(
 
     if (pCreateInfo->hs.shader != GR_NULL_HANDLE && pCreateInfo->ds.shader != GR_NULL_HANDLE) {
         tessellationStateCreateInfo = malloc(sizeof(VkPipelineTessellationStateCreateInfo));
-
         *tessellationStateCreateInfo = (VkPipelineTessellationStateCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
             .pNext = NULL,
@@ -274,7 +277,6 @@ GR_RESULT grCreateGraphicsPipeline(
 
     VkPipelineRasterizationDepthClipStateCreateInfoEXT* depthClipStateCreateInfo =
         malloc(sizeof(VkPipelineRasterizationDepthClipStateCreateInfoEXT));
-
     *depthClipStateCreateInfo = (VkPipelineRasterizationDepthClipStateCreateInfoEXT) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
         .pNext = NULL,
@@ -328,7 +330,6 @@ GR_RESULT grCreateGraphicsPipeline(
 
     // Pipeline will be created at bind time because we're missing some state
     VkGraphicsPipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(VkGraphicsPipelineCreateInfo));
-
     *pipelineCreateInfo = (VkGraphicsPipelineCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .pNext = NULL,
@@ -354,6 +355,12 @@ GR_RESULT grCreateGraphicsPipeline(
         .basePipelineIndex = -1,
     };
 
-    *pPipeline = (GR_PIPELINE)pipelineCreateInfo;
+    GrvkPipeline* grvkPipeline = malloc(sizeof(GrvkPipeline));
+    *grvkPipeline = (GrvkPipeline) {
+        .sType = GRVK_STRUCT_TYPE_PIPELINE,
+        .graphicsPipelineCreateInfo = pipelineCreateInfo,
+    };
+
+    *pPipeline = (GR_PIPELINE)grvkPipeline;
     return GR_SUCCESS;
 }

@@ -8,12 +8,18 @@ GR_RESULT grGetDeviceQueue(
     GR_UINT queueId,
     GR_QUEUE* pQueue)
 {
-    VkDevice vkDevice = (VkDevice)device;
+    VkDevice vkDevice = ((GrvkDevice*)device)->device;
     VkQueue vkQueue = VK_NULL_HANDLE;
 
     vkGetDeviceQueue(vkDevice, getVkQueueFamilyIndex(queueType), queueId, &vkQueue);
 
-    *pQueue = (GR_QUEUE)vkQueue;
+    GrvkQueue* grvkQueue = malloc(sizeof(GrvkQueue));
+    *grvkQueue = (GrvkQueue) {
+        .sType = GRVK_STRUCT_TYPE_QUEUE,
+        .queue = vkQueue,
+    };
+
+    *pQueue = (GR_QUEUE)grvkQueue;
     return GR_SUCCESS;
 }
 
@@ -25,8 +31,12 @@ GR_RESULT grQueueSubmit(
     const GR_MEMORY_REF* pMemRefs,
     GR_FENCE fence)
 {
-    VkQueue vkQueue = (VkQueue)queue;
-    VkFence vkFence = (VkFence)fence;
+    VkQueue vkQueue = ((GrvkQueue*)queue)->queue;
+    VkFence vkFence = VK_NULL_HANDLE;
+
+    if ((GrvkFence*)fence != NULL) {
+        vkFence = ((GrvkFence*)fence)->fence;
+    }
 
     VkCommandBuffer* vkCommandBuffers = malloc(sizeof(VkCommandBuffer) * cmdBufferCount);
     for (int i = 0; i < cmdBufferCount; i++) {

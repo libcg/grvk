@@ -7,7 +7,7 @@ GR_RESULT grCreateCommandBuffer(
     const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
     GR_CMD_BUFFER* pCmdBuffer)
 {
-    VkDevice vkDevice = (VkDevice)device;
+    VkDevice vkDevice = ((GrvkDevice*)device)->device;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
 
@@ -37,7 +37,13 @@ GR_RESULT grCreateCommandBuffer(
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    *pCmdBuffer = (GR_QUEUE)vkCommandBuffer;
+    GrvkCmdBuffer* grvkCmdBuffer = malloc(sizeof(GrvkCmdBuffer));
+    *grvkCmdBuffer = (GrvkCmdBuffer) {
+        .sType = GRVK_STRUCT_TYPE_COMMAND_BUFFER,
+        .commandBuffer = vkCommandBuffer,
+    };
+
+    *pCmdBuffer = (GR_CMD_BUFFER)grvkCmdBuffer;
     return GR_SUCCESS;
 }
 
@@ -45,7 +51,7 @@ GR_RESULT grBeginCommandBuffer(
     GR_CMD_BUFFER cmdBuffer,
     GR_FLAGS flags)
 {
-    VkCommandBuffer vkCommandBuffer = (VkCommandBuffer)cmdBuffer;
+    VkCommandBuffer vkCommandBuffer = ((GrvkCmdBuffer*)cmdBuffer)->commandBuffer;
     VkCommandBufferUsageFlags vkUsageFlags = 0;
 
     if ((flags & GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT) != 0) {
@@ -70,7 +76,7 @@ GR_RESULT grBeginCommandBuffer(
 GR_RESULT grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
-    VkCommandBuffer vkCommandBuffer = (VkCommandBuffer)cmdBuffer;
+    VkCommandBuffer vkCommandBuffer = ((GrvkCmdBuffer*)cmdBuffer)->commandBuffer;
 
     if (vkEndCommandBuffer(vkCommandBuffer) != VK_SUCCESS) {
         printf("%s: vkEndCommandBuffer failed\n", __func__);

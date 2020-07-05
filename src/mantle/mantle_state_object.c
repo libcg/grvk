@@ -49,7 +49,13 @@ GR_RESULT grCreateViewportState(
         .pScissors = vkScissors,
     };
 
-    *pState = (GR_VIEWPORT_STATE_OBJECT)viewportStateCreateInfo;
+    GrvkViewportStateObject* grvkViewportStateObject = malloc(sizeof(GrvkViewportStateObject));
+    *grvkViewportStateObject = (GrvkViewportStateObject) {
+        .sType = GRVK_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
+        .viewportStateCreateInfo = viewportStateCreateInfo,
+    };
+
+    *pState = (GR_VIEWPORT_STATE_OBJECT)grvkViewportStateObject;
     return GR_SUCCESS;
 }
 
@@ -77,7 +83,13 @@ GR_RESULT grCreateRasterState(
         .lineWidth = 1.f,
     };
 
-    *pState = (GR_RASTER_STATE_OBJECT)rasterizationStateCreateInfo;
+    GrvkRasterStateObject* grvkRasterStateObject = malloc(sizeof(GrvkRasterStateObject));
+    *grvkRasterStateObject = (GrvkRasterStateObject) {
+        .sType = GRVK_STRUCT_TYPE_RASTER_STATE_OBJECT,
+        .rasterizationStateCreateInfo = rasterizationStateCreateInfo,
+    };
+
+    *pState = (GR_RASTER_STATE_OBJECT)grvkRasterStateObject;
     return GR_SUCCESS;
 }
 
@@ -131,7 +143,14 @@ GR_RESULT grCreateColorBlendState(
         },
     };
 
-    *pState = (GR_COLOR_BLEND_STATE_OBJECT)colorBlendStateCreateInfo;
+    GrvkColorBlendStateObject* grvkColorBlendStateObject =
+        malloc(sizeof(GrvkColorBlendStateObject));
+    *grvkColorBlendStateObject = (GrvkColorBlendStateObject) {
+        .sType = GRVK_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
+        .colorBlendStateCreateInfo = colorBlendStateCreateInfo,
+    };
+
+    *pState = (GR_COLOR_BLEND_STATE_OBJECT)grvkColorBlendStateObject;
     return GR_SUCCESS;
 }
 
@@ -174,7 +193,14 @@ GR_RESULT grCreateDepthStencilState(
         .maxDepthBounds = pCreateInfo->maxDepth, // ^
     };
 
-    *pState = (GR_DEPTH_STENCIL_STATE_OBJECT)depthStencilStateCreateInfo;
+    GrvkDepthStencilStateObject* grvkDepthStencilStateObject =
+        malloc(sizeof(GrvkDepthStencilStateObject));
+    *grvkDepthStencilStateObject = (GrvkDepthStencilStateObject) {
+        .sType = GRVK_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
+        .depthStencilStateCreateInfo = depthStencilStateCreateInfo,
+    };
+
+    *pState = (GR_DEPTH_STENCIL_STATE_OBJECT)grvkDepthStencilStateObject;
     return GR_SUCCESS;
 }
 
@@ -199,6 +225,12 @@ GR_RESULT grCreateMsaaState(
         .alphaToOneEnable = VK_FALSE,
     };
 
-    *pState = (GR_MSAA_STATE_OBJECT)msaaStateCreateInfo;
+    GrvkMsaaStateObject* grvkMsaaStateObject = malloc(sizeof(GrvkMsaaStateObject));
+    *grvkMsaaStateObject = (GrvkMsaaStateObject) {
+        .sType = GRVK_STRUCT_TYPE_MSAA_STATE_OBJECT,
+        .multisampleStateCreateInfo = msaaStateCreateInfo,
+    };
+
+    *pState = (GR_MSAA_STATE_OBJECT)grvkMsaaStateObject;
     return GR_SUCCESS;
 }

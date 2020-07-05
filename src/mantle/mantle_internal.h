@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "mantle/mantle.h"
 #include "vulkan/vulkan.h"
+#include "grvk_object.h"
 
 GR_VOID* grvkAlloc(
     GR_SIZE size,

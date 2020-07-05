@@ -9,7 +9,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     GR_IMAGE* pImage,
     GR_GPU_MEMORY* pMem)
 {
-    VkDevice vkDevice = (VkDevice)device;
+    VkDevice vkDevice = ((GrvkDevice*)device)->device;
     VkImage vkImage = VK_NULL_HANDLE;
     VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
 
@@ -61,8 +61,20 @@ GR_RESULT grWsiWinCreatePresentableImage(
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    *pImage = (GR_IMAGE)vkImage;
-    *pMem = (GR_GPU_MEMORY)vkDeviceMemory;
+    GrvkImage* grvkImage = malloc(sizeof(GrvkImage));
+    *grvkImage = (GrvkImage) {
+        .sType = GRVK_STRUCT_TYPE_IMAGE,
+        .image = vkImage,
+    };
+
+    GrvkGpuMemory* grvkGpuMemory = malloc(sizeof(GrvkGpuMemory));
+    *grvkGpuMemory = (GrvkGpuMemory) {
+        .sType = GRVK_STRUCT_TYPE_GPU_MEMORY,
+        .deviceMemory = vkDeviceMemory,
+    };
+
+    *pImage = (GR_IMAGE)grvkImage;
+    *pMem = (GR_GPU_MEMORY)grvkGpuMemory;
 
     return GR_SUCCESS;
 }

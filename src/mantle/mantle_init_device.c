@@ -11,7 +11,7 @@ GR_RESULT grInitAndEnumerateGpus(
     GR_UINT* pGpuCount,
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
 {
-    VkInstance mVkInstance = VK_NULL_HANDLE;
+    VkInstance vkInstance = VK_NULL_HANDLE;
 
     printf("%s: app \"%s\" (%08X), engine \"%s\" (%08X), api %08X\n", __func__,
            pAppInfo->pAppName, pAppInfo->appVersion,
@@ -46,23 +46,29 @@ GR_RESULT grInitAndEnumerateGpus(
         .ppEnabledExtensionNames = NULL,
     };
 
-    if (vkCreateInstance(&createInfo, NULL, &mVkInstance) != VK_SUCCESS) {
+    if (vkCreateInstance(&createInfo, NULL, &vkInstance) != VK_SUCCESS) {
         printf("%s: vkCreateInstance failed\n", __func__);
         return GR_ERROR_INITIALIZATION_FAILED;
     }
 
     uint32_t physicalDeviceCount = 0;
-    vkEnumeratePhysicalDevices(mVkInstance, &physicalDeviceCount, NULL);
+    vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, NULL);
     if (physicalDeviceCount > GR_MAX_PHYSICAL_GPUS) {
         physicalDeviceCount = GR_MAX_PHYSICAL_GPUS;
     }
 
     VkPhysicalDevice physicalDevices[GR_MAX_PHYSICAL_GPUS];
-    vkEnumeratePhysicalDevices(mVkInstance, &physicalDeviceCount, physicalDevices);
+    vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, physicalDevices);
 
     *pGpuCount = physicalDeviceCount;
     for (int i = 0; i < *pGpuCount; i++) {
-        gpus[i] = (GR_PHYSICAL_GPU)physicalDevices[i];
+        GrvkPhysicalGpu* gpu = malloc(sizeof(GrvkPhysicalGpu));
+        *gpu = (GrvkPhysicalGpu) {
+            .sType = GRVK_STRUCT_TYPE_PHYSICAL_GPU,
+            .physicalDevice = physicalDevices[i],
+        };
+
+        gpus[i] = (GR_PHYSICAL_GPU)gpu;
     }
 
     return GR_SUCCESS;
@@ -74,7 +80,7 @@ GR_RESULT grCreateDevice(
     GR_DEVICE* pDevice)
 {
     GR_RESULT res = GR_SUCCESS;
-    VkPhysicalDevice physicalDevice = (VkPhysicalDevice)gpu;
+    VkPhysicalDevice physicalDevice = ((GrvkPhysicalGpu*)gpu)->physicalDevice;
     uint32_t universalQueueIndex = -1;
     uint32_t universalQueueCount = 0;
     uint32_t computeQueueIndex = -1;
@@ -150,14 +156,20 @@ GR_RESULT grCreateDevice(
         .pEnabledFeatures = NULL,
     };
 
-    VkDevice device = VK_NULL_HANDLE;
-    if (vkCreateDevice(physicalDevice, &createInfo, NULL, &device) != VK_SUCCESS) {
+    VkDevice vkDevice = VK_NULL_HANDLE;
+    if (vkCreateDevice(physicalDevice, &createInfo, NULL, &vkDevice) != VK_SUCCESS) {
         printf("%s: vkCreateDevice failed\n", __func__);
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
     }
 
-    *pDevice = (GR_DEVICE)device;
+    GrvkDevice* grvkDevice = malloc(sizeof(GrvkDevice));
+    *grvkDevice = (GrvkDevice) {
+        .sType = GRVK_STRUCT_TYPE_DEVICE,
+        .device = vkDevice,
+    };
+
+    *pDevice = (GR_DEVICE)grvkDevice;
 
 bail:
     for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
