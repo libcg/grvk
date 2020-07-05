@@ -57,3 +57,50 @@ GR_RESULT grGetMemoryHeapInfo(
 
     return GR_SUCCESS;
 }
+
+GR_RESULT grAllocMemory(
+    GR_DEVICE device,
+    const GR_MEMORY_ALLOC_INFO* pAllocInfo,
+    GR_GPU_MEMORY* pMem)
+{
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+
+    if (grvkDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pAllocInfo == NULL || pMem == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    if (pAllocInfo->flags != 0) { // TODO
+        printf("%s: allocation flags %d are not supported\n", __func__, pAllocInfo->flags);
+        return GR_ERROR_INVALID_FLAGS;
+    }
+    if (pAllocInfo->heapCount > 1) { // TODO
+        printf("%s: multi-heap allocation is not implemented\n", __func__);
+        return GR_ERROR_INVALID_VALUE;
+    }
+
+    const VkMemoryAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = NULL,
+        .allocationSize = pAllocInfo->size,
+        .memoryTypeIndex = pAllocInfo->heaps[0],
+    };
+
+    VkDeviceMemory vkMemory = VK_NULL_HANDLE;
+    if (vkAllocateMemory(grvkDevice->device, &allocateInfo, NULL, &vkMemory) != VK_SUCCESS) {
+        printf("%s: vkAllocateMemory failed\n", __func__);
+        return GR_ERROR_OUT_OF_GPU_MEMORY;
+    }
+
+    GrvkGpuMemory* grvkGpuMemory = malloc(sizeof(GrvkGpuMemory));
+    *grvkGpuMemory = (GrvkGpuMemory) {
+        .sType = GRVK_STRUCT_TYPE_GPU_MEMORY,
+        .deviceMemory = vkMemory,
+    };
+
+    *pMem = (GR_GPU_MEMORY)grvkGpuMemory;
+    return GR_SUCCESS;
+}

@@ -73,15 +73,6 @@ GR_RESULT grGetMemoryHeapCount(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grAllocMemory(
-    GR_DEVICE device,
-    const GR_MEMORY_ALLOC_INFO* pAllocInfo,
-    GR_GPU_MEMORY* pMem)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grFreeMemory(
     GR_GPU_MEMORY mem)
 {
