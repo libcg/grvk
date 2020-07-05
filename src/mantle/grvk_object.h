@@ -21,6 +21,11 @@ typedef enum _GrvkStructType {
     GRVK_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
 } GrvkStructType;
 
+// Generic object used to read the object type
+typedef struct _GrvkObject {
+    GrvkStructType sType;
+} GrvkObject;
+
 typedef struct _GrvkCmdBuffer {
     GrvkStructType sType;
     VkCommandBuffer commandBuffer;
