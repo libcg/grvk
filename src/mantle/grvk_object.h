@@ -49,6 +49,7 @@ typedef struct _GrvkDepthStencilStateObject {
 typedef struct _GrvkDevice {
     GrvkStructType sType;
     VkDevice device;
+    VkPhysicalDevice physicalDevice;
 } GrvkDevice;
 
 typedef struct _GrvkFence {

@@ -167,6 +167,7 @@ GR_RESULT grCreateDevice(
     *grvkDevice = (GrvkDevice) {
         .sType = GRVK_STRUCT_TYPE_DEVICE,
         .device = vkDevice,
+        .physicalDevice = physicalDevice,
     };
 
     *pDevice = (GR_DEVICE)grvkDevice;

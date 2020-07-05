@@ -73,17 +73,6 @@ GR_RESULT grGetMemoryHeapCount(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grGetMemoryHeapInfo(
-    GR_DEVICE device,
-    GR_UINT heapId,
-    GR_ENUM infoType,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grAllocMemory(
     GR_DEVICE device,
     const GR_MEMORY_ALLOC_INFO* pAllocInfo,
