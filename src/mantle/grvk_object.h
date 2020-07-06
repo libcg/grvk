@@ -8,6 +8,7 @@ typedef enum _GrvkStructType {
     GRVK_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
     GRVK_STRUCT_TYPE_COLOR_TARGET_VIEW,
     GRVK_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
+    GRVK_STRUCT_TYPE_DESCRIPTOR_SET,
     GRVK_STRUCT_TYPE_DEVICE,
     GRVK_STRUCT_TYPE_FENCE,
     GRVK_STRUCT_TYPE_GPU_MEMORY,
@@ -45,6 +46,11 @@ typedef struct _GrvkDepthStencilStateObject {
     GrvkStructType sType;
     VkPipelineDepthStencilStateCreateInfo* depthStencilStateCreateInfo;
 } GrvkDepthStencilStateObject;
+
+typedef struct _GrvkDescriptorSet {
+    GrvkStructType sType;
+    uint32_t slotCount; // Unused
+} GrvkDescriptorSet;
 
 typedef struct _GrvkDevice {
     GrvkStructType sType;

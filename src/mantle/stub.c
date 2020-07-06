@@ -230,15 +230,6 @@ GR_RESULT grLoadPipeline(
 
 // Descriptor Set Functions
 
-GR_RESULT grCreateDescriptorSet(
-    GR_DEVICE device,
-    const GR_DESCRIPTOR_SET_CREATE_INFO* pCreateInfo,
-    GR_DESCRIPTOR_SET* pDescriptorSet)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_VOID grBeginDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet)
 {
