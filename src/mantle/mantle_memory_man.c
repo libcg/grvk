@@ -152,3 +152,19 @@ GR_RESULT grMapMemory(
 
     return GR_SUCCESS;
 }
+
+GR_RESULT grUnmapMemory(
+    GR_GPU_MEMORY mem)
+{
+    GrvkGpuMemory* grvkGpuMemory = (GrvkGpuMemory*)mem;
+
+    if (grvkGpuMemory == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grvkGpuMemory->sType != GRVK_STRUCT_TYPE_GPU_MEMORY) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    vkUnmapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory);
+
+    return GR_SUCCESS;
+}

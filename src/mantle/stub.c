@@ -80,13 +80,6 @@ GR_RESULT grSetMemoryPriority(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grUnmapMemory(
-    GR_GPU_MEMORY mem)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grRemapVirtualMemoryPages(
     GR_DEVICE device,
     GR_UINT rangeCount,
