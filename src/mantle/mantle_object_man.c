@@ -25,7 +25,8 @@ GR_RESULT grGetObjectInfo(
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
-        if (grvkObject->sType == GRVK_STRUCT_TYPE_PIPELINE) {
+        if (grvkObject->sType == GRVK_STRUCT_TYPE_DESCRIPTOR_SET ||
+            grvkObject->sType == GRVK_STRUCT_TYPE_PIPELINE) {
             // No memory requirements
             *memReqs = (GR_MEMORY_REQUIREMENTS) {
                 .size = 0,
@@ -57,7 +58,8 @@ GR_RESULT grBindObjectMemory(
         return GR_ERROR_INVALID_HANDLE;
     }
 
-    if (grvkObject->sType == GRVK_STRUCT_TYPE_PIPELINE) {
+    if (grvkObject->sType == GRVK_STRUCT_TYPE_DESCRIPTOR_SET ||
+        grvkObject->sType == GRVK_STRUCT_TYPE_PIPELINE) {
         // Nothing to do
     } else {
         printf("%s: unsupported object type %d\n", __func__, grvkObject->sType);
