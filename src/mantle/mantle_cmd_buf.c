@@ -12,6 +12,7 @@ GR_VOID grCmdPrepareImages(
     for (int i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         const GR_IMAGE_SUBRESOURCE_RANGE* range = &stateTransition->subresourceRange;
+        GrvkImage* grvkImage = (GrvkImage*)stateTransition->image;
 
         VkImageMemoryBarrier imageMemoryBarrier = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -22,7 +23,7 @@ GR_VOID grCmdPrepareImages(
             .newLayout = getVkImageLayout(stateTransition->newState),
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = (VkImage)stateTransition->image,
+            .image = grvkImage->image,
             .subresourceRange = {
                 .aspectMask = getVkImageAspectFlags(range->aspect),
                 .baseMipLevel = range->baseMipLevel,
