@@ -80,15 +80,6 @@ GR_RESULT grSetMemoryPriority(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grMapMemory(
-    GR_GPU_MEMORY mem,
-    GR_FLAGS flags,
-    GR_VOID** ppData)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grUnmapMemory(
     GR_GPU_MEMORY mem)
 {

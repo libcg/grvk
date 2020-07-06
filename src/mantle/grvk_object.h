@@ -66,6 +66,7 @@ typedef struct _GrvkFence {
 typedef struct _GrvkGpuMemory {
     GrvkStructType sType;
     VkDeviceMemory deviceMemory;
+    VkDevice device;
 } GrvkGpuMemory;
 
 typedef struct _GrvkImage {

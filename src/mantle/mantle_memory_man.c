@@ -120,8 +120,35 @@ GR_RESULT grAllocMemory(
     *grvkGpuMemory = (GrvkGpuMemory) {
         .sType = GRVK_STRUCT_TYPE_GPU_MEMORY,
         .deviceMemory = vkMemory,
+        .device = grvkDevice->device,
     };
 
     *pMem = (GR_GPU_MEMORY)grvkGpuMemory;
+    return GR_SUCCESS;
+}
+
+GR_RESULT grMapMemory(
+    GR_GPU_MEMORY mem,
+    GR_FLAGS flags,
+    GR_VOID** ppData)
+{
+    GrvkGpuMemory* grvkGpuMemory = (GrvkGpuMemory*)mem;
+
+    if (grvkGpuMemory == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grvkGpuMemory->sType != GRVK_STRUCT_TYPE_GPU_MEMORY) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (flags != 0) {
+        return GR_ERROR_INVALID_FLAGS;
+    } else if (ppData == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    if (vkMapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory,
+                    0, VK_WHOLE_SIZE, 0, ppData) != VK_SUCCESS) {
+        printf("%s: vkMapMemory failed\n", __func__);
+        return GR_ERROR_MEMORY_MAP_FAILED;
+    }
+
     return GR_SUCCESS;
 }
