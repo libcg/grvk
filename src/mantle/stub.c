@@ -136,15 +136,6 @@ GR_RESULT grDestroyObject(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grBindObjectMemory(
-    GR_OBJECT object,
-    GR_GPU_MEMORY mem,
-    GR_GPU_SIZE offset)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 // Image and Sample Functions
 
 GR_RESULT grGetFormatInfo(

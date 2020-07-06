@@ -45,3 +45,24 @@ GR_RESULT grGetObjectInfo(
 
     return GR_SUCCESS;
 }
+
+GR_RESULT grBindObjectMemory(
+    GR_OBJECT object,
+    GR_GPU_MEMORY mem,
+    GR_GPU_SIZE offset)
+{
+    GrvkObject* grvkObject = (GrvkObject*)object;
+
+    if (grvkObject == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    }
+
+    if (grvkObject->sType == GRVK_STRUCT_TYPE_PIPELINE) {
+        // Nothing to do
+    } else {
+        printf("%s: unsupported object type %d\n", __func__, grvkObject->sType);
+        return GR_ERROR_UNAVAILABLE;
+    }
+
+    return GR_SUCCESS;
+}
