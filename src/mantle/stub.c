@@ -65,14 +65,6 @@ GR_RESULT grQueueSetGlobalMemReferences(
 
 // Memory Management Functions
 
-GR_RESULT grGetMemoryHeapCount(
-    GR_DEVICE device,
-    GR_UINT* pCount)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grFreeMemory(
     GR_GPU_MEMORY mem)
 {

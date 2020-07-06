@@ -2,6 +2,27 @@
 
 // Memory Management Functions
 
+GR_RESULT grGetMemoryHeapCount(
+    GR_DEVICE device,
+    GR_UINT* pCount)
+{
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+
+    if (grvkDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pCount == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    VkPhysicalDeviceMemoryProperties vkMemoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(grvkDevice->physicalDevice, &vkMemoryProperties);
+
+    *pCount = vkMemoryProperties.memoryTypeCount;
+    return GR_SUCCESS;
+}
+
 GR_RESULT grGetMemoryHeapInfo(
     GR_DEVICE device,
     GR_UINT heapId,
