@@ -22,46 +22,46 @@ VkFormat getVkFormat(
     GR_FORMAT format);
 
 VkImageLayout getVkImageLayout(
-    GR_ENUM imageState);
+    GR_IMAGE_STATE imageState);
 
 VkAccessFlags getVkAccessFlagsImage(
-    GR_ENUM imageState);
+    GR_IMAGE_STATE imageState);
 
 VkAccessFlags getVkAccessFlagsMemory(
-    GR_ENUM memoryState);
+    GR_MEMORY_STATE memoryState);
 
 VkImageAspectFlags getVkImageAspectFlags(
-    GR_ENUM imageAspect);
+    GR_IMAGE_ASPECT imageAspect);
 
 VkSampleCountFlagBits getVkSampleCountFlagBits(
     GR_UINT samples);
 
 VkBlendFactor getVkBlendFactor(
-    GR_ENUM blend);
+    GR_BLEND blend);
 
 VkBlendOp getVkBlendOp(
-    GR_ENUM blendFunc);
+    GR_BLEND_FUNC blendFunc);
 
 VkCompareOp getVkCompareOp(
-    GR_ENUM compareFunc);
+    GR_COMPARE_FUNC compareFunc);
 
 VkStencilOp getVkStencilOp(
-    GR_ENUM stencilOp);
+    GR_STENCIL_OP stencilOp);
 
 VkPolygonMode getVkPolygonMode(
-    GR_ENUM fillMode);
+    GR_FILL_MODE fillMode);
 
 VkCullModeFlags getVkCullModeFlags(
-    GR_ENUM cullMode);
+    GR_CULL_MODE cullMode);
 
 VkFrontFace getVkFrontFace(
-    GR_ENUM frontFace);
+    GR_FACE_ORIENTATION frontFace);
 
 VkPrimitiveTopology getVkPrimitiveTopology(
-    GR_ENUM topology);
+    GR_PRIMITIVE_TOPOLOGY topology);
 
 VkDescriptorType getVkDescriptorType(
-    GR_ENUM slotObjectType);
+    GR_DESCRIPTOR_SET_SLOT_TYPE slotObjectType);
 
 VkColorComponentFlags getVkColorComponentFlags(
     GR_UINT8 writeMask);

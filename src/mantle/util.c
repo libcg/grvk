@@ -37,7 +37,7 @@ VkFormat getVkFormat(
 }
 
 VkImageLayout getVkImageLayout(
-    GR_ENUM imageState)
+    GR_IMAGE_STATE imageState)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_UNINITIALIZED:
@@ -46,6 +46,11 @@ VkImageLayout getVkImageLayout(
         return VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_CLEAR:
         return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    default:
+        break;
+    }
+
+    switch ((GR_WSI_WIN_IMAGE_STATE)imageState) {
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_WINDOWED:
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_FULLSCREEN:
         return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -56,7 +61,7 @@ VkImageLayout getVkImageLayout(
 }
 
 VkAccessFlags getVkAccessFlagsImage(
-    GR_ENUM imageState)
+    GR_IMAGE_STATE imageState)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_UNINITIALIZED:
@@ -66,6 +71,11 @@ VkAccessFlags getVkAccessFlagsImage(
                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     case GR_IMAGE_STATE_CLEAR:
         return VK_ACCESS_TRANSFER_WRITE_BIT;
+    default:
+        break;
+    }
+
+    switch ((GR_WSI_WIN_IMAGE_STATE)imageState) {
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_WINDOWED:
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_FULLSCREEN:
         return VK_ACCESS_MEMORY_READ_BIT;
@@ -76,7 +86,7 @@ VkAccessFlags getVkAccessFlagsImage(
 }
 
 VkAccessFlags getVkAccessFlagsMemory(
-    GR_ENUM memoryState)
+    GR_MEMORY_STATE memoryState)
 {
     switch (memoryState) {
     case GR_MEMORY_STATE_DATA_TRANSFER:
@@ -94,6 +104,8 @@ VkAccessFlags getVkAccessFlagsMemory(
     case GR_MEMORY_STATE_COMPUTE_SHADER_READ_WRITE:
         return VK_ACCESS_SHADER_READ_BIT |
                VK_ACCESS_SHADER_WRITE_BIT;
+    default:
+        break;
     }
 
     printf("%s: unsupported memory state 0x%x\n", __func__, memoryState);
@@ -101,7 +113,7 @@ VkAccessFlags getVkAccessFlagsMemory(
 }
 
 VkImageAspectFlags getVkImageAspectFlags(
-    GR_ENUM imageAspect)
+    GR_IMAGE_ASPECT imageAspect)
 {
     switch (imageAspect) {
     case GR_IMAGE_ASPECT_COLOR:
@@ -139,7 +151,7 @@ VkSampleCountFlagBits getVkSampleCountFlagBits(
 }
 
 VkBlendFactor getVkBlendFactor(
-    GR_ENUM blend)
+    GR_BLEND blend)
 {
     switch (blend) {
     case GR_BLEND_ZERO:
@@ -187,7 +199,7 @@ VkBlendFactor getVkBlendFactor(
 }
 
 VkBlendOp getVkBlendOp(
-    GR_ENUM blendFunc)
+    GR_BLEND_FUNC blendFunc)
 {
     switch (blendFunc) {
     case GR_BLEND_FUNC_ADD:
@@ -207,7 +219,7 @@ VkBlendOp getVkBlendOp(
 }
 
 VkCompareOp getVkCompareOp(
-    GR_ENUM compareFunc)
+    GR_COMPARE_FUNC compareFunc)
 {
     switch (compareFunc) {
     case GR_COMPARE_NEVER:
@@ -233,7 +245,7 @@ VkCompareOp getVkCompareOp(
 }
 
 VkStencilOp getVkStencilOp(
-    GR_ENUM stencilOp)
+    GR_STENCIL_OP stencilOp)
 {
     switch (stencilOp) {
     case GR_STENCIL_OP_KEEP:
@@ -259,7 +271,7 @@ VkStencilOp getVkStencilOp(
 }
 
 VkPolygonMode getVkPolygonMode(
-    GR_ENUM fillMode)
+    GR_FILL_MODE fillMode)
 {
     switch (fillMode) {
     case GR_FILL_SOLID:
@@ -273,7 +285,7 @@ VkPolygonMode getVkPolygonMode(
 }
 
 VkCullModeFlags getVkCullModeFlags(
-    GR_ENUM cullMode)
+    GR_CULL_MODE cullMode)
 {
     switch (cullMode) {
     case GR_CULL_NONE:
@@ -289,7 +301,7 @@ VkCullModeFlags getVkCullModeFlags(
 }
 
 VkFrontFace getVkFrontFace(
-    GR_ENUM frontFace)
+    GR_FACE_ORIENTATION frontFace)
 {
     switch (frontFace) {
     case GR_FRONT_FACE_CCW:
@@ -303,7 +315,7 @@ VkFrontFace getVkFrontFace(
 }
 
 VkPrimitiveTopology getVkPrimitiveTopology(
-    GR_ENUM topology)
+    GR_PRIMITIVE_TOPOLOGY topology)
 {
     switch (topology) {
     case GR_TOPOLOGY_POINT_LIST:
@@ -338,7 +350,7 @@ VkPrimitiveTopology getVkPrimitiveTopology(
 }
 
 VkDescriptorType getVkDescriptorType(
-    GR_ENUM slotObjectType)
+    GR_DESCRIPTOR_SET_SLOT_TYPE slotObjectType)
 {
     switch (slotObjectType) {
     case GR_SLOT_UNUSED:
