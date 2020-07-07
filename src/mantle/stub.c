@@ -477,14 +477,6 @@ GR_VOID grCmdBindTargets(
     printf("STUB: %s\n", __func__);
 }
 
-GR_VOID grCmdPrepareMemoryRegions(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_UINT transitionCount,
-    const GR_MEMORY_STATE_TRANSITION* pStateTransitions)
-{
-    printf("STUB: %s\n", __func__);
-}
-
 GR_VOID grCmdDraw(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT firstVertex,

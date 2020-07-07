@@ -2,23 +2,49 @@
 
 // Command Buffer Building Functions
 
+GR_VOID grCmdPrepareMemoryRegions(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_UINT transitionCount,
+    const GR_MEMORY_STATE_TRANSITION* pStateTransitions)
+{
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+
+    for (int i = 0; i < transitionCount; i++) {
+        const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
+
+        // TODO use buffer memory barrier
+        const VkBufferMemoryBarrier bufferMemoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .pNext = NULL,
+            .srcAccessMask = getVkAccessFlagsMemory(stateTransition->oldState),
+            .dstAccessMask = getVkAccessFlagsMemory(stateTransition->newState),
+        };
+
+        // TODO batch
+        vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             0, 0, NULL, 1, &bufferMemoryBarrier, 0, NULL);
+    }
+}
+
 GR_VOID grCmdPrepareImages(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT transitionCount,
     const GR_IMAGE_STATE_TRANSITION* pStateTransitions)
 {
-    VkCommandBuffer vkCommandBuffer = ((GrvkCmdBuffer*)cmdBuffer)->commandBuffer;
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         const GR_IMAGE_SUBRESOURCE_RANGE* range = &stateTransition->subresourceRange;
         GrvkImage* grvkImage = (GrvkImage*)stateTransition->image;
 
-        VkImageMemoryBarrier imageMemoryBarrier = {
+        const VkImageMemoryBarrier imageMemoryBarrier = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = NULL,
-            .srcAccessMask = getVkAccessFlags(stateTransition->oldState),
-            .dstAccessMask = getVkAccessFlags(stateTransition->newState),
+            .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState),
+            .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState),
             .oldLayout = getVkImageLayout(stateTransition->oldState),
             .newLayout = getVkImageLayout(stateTransition->newState),
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -35,7 +61,8 @@ GR_VOID grCmdPrepareImages(
             }
         };
 
-        vkCmdPipelineBarrier(vkCommandBuffer,
+        // TODO batch
+        vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);

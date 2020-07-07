@@ -22,8 +22,11 @@ VkFormat getVkFormat(
 VkImageLayout getVkImageLayout(
     GR_ENUM imageState);
 
-VkAccessFlags getVkAccessFlags(
+VkAccessFlags getVkAccessFlagsImage(
     GR_ENUM imageState);
+
+VkAccessFlags getVkAccessFlagsMemory(
+    GR_ENUM memoryState);
 
 VkImageAspectFlags getVkImageAspectFlags(
     GR_ENUM imageAspect);

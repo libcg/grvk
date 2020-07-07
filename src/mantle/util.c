@@ -55,7 +55,7 @@ VkImageLayout getVkImageLayout(
     return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-VkAccessFlags getVkAccessFlags(
+VkAccessFlags getVkAccessFlagsImage(
     GR_ENUM imageState)
 {
     switch (imageState) {
@@ -72,6 +72,31 @@ VkAccessFlags getVkAccessFlags(
     }
 
     printf("%s: unsupported image state 0x%x\n", __func__, imageState);
+    return 0;
+}
+
+VkAccessFlags getVkAccessFlagsMemory(
+    GR_ENUM memoryState)
+{
+    switch (memoryState) {
+    case GR_MEMORY_STATE_DATA_TRANSFER:
+        return VK_ACCESS_TRANSFER_READ_BIT |
+               VK_ACCESS_TRANSFER_WRITE_BIT |
+               VK_ACCESS_HOST_READ_BIT |
+               VK_ACCESS_HOST_WRITE_BIT;
+    case GR_MEMORY_STATE_GRAPHICS_SHADER_READ_ONLY:
+    case GR_MEMORY_STATE_COMPUTE_SHADER_READ_ONLY:
+        return VK_ACCESS_SHADER_READ_BIT;
+    case GR_MEMORY_STATE_GRAPHICS_SHADER_WRITE_ONLY:
+    case GR_MEMORY_STATE_COMPUTE_SHADER_WRITE_ONLY:
+        return VK_ACCESS_SHADER_WRITE_BIT;
+    case GR_MEMORY_STATE_GRAPHICS_SHADER_READ_WRITE:
+    case GR_MEMORY_STATE_COMPUTE_SHADER_READ_WRITE:
+        return VK_ACCESS_SHADER_READ_BIT |
+               VK_ACCESS_SHADER_WRITE_BIT;
+    }
+
+    printf("%s: unsupported memory state 0x%x\n", __func__, memoryState);
     return 0;
 }
 
