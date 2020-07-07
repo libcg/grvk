@@ -367,8 +367,15 @@ VkColorComponentFlags getVkColorComponentFlags(
 }
 
 uint32_t getVkQueueFamilyIndex(
-    GR_ENUM queueType)
+    GrvkDevice* grvkDevice,
+    GR_QUEUE_TYPE queueType)
 {
-    // FIXME this will break
-    return queueType - GR_QUEUE_UNIVERSAL;
+    switch (queueType) {
+    case GR_QUEUE_UNIVERSAL:
+        return grvkDevice->universalQueueIndex;
+    case GR_QUEUE_COMPUTE:
+        return grvkDevice->computeQueueIndex;
+    }
+
+    return INVALID_QUEUE_INDEX;
 }

@@ -81,9 +81,9 @@ GR_RESULT grCreateDevice(
 {
     GR_RESULT res = GR_SUCCESS;
     VkPhysicalDevice physicalDevice = ((GrvkPhysicalGpu*)gpu)->physicalDevice;
-    uint32_t universalQueueIndex = -1;
+    uint32_t universalQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t universalQueueCount = 0;
-    uint32_t computeQueueIndex = -1;
+    uint32_t computeQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t computeQueueCount = 0;
 
     uint32_t queueFamilyPropertyCount = 0;
@@ -120,10 +120,11 @@ GR_RESULT grCreateDevice(
         }
 
         if ((requestedQueue->queueType == GR_QUEUE_UNIVERSAL &&
-             requestedQueue->queueCount != universalQueueCount) ||
+             requestedQueue->queueCount > universalQueueCount) ||
             (requestedQueue->queueType == GR_QUEUE_COMPUTE &&
-             requestedQueue->queueCount != computeQueueCount)) {
-            printf("%s: can't find requested queue type %X\n", __func__, requestedQueue->queueType);
+             requestedQueue->queueCount > computeQueueCount)) {
+            printf("%s: can't find requested queue type %X with count %d\n", __func__,
+                   requestedQueue->queueType, requestedQueue->queueCount);
             res = GR_ERROR_INVALID_VALUE;
             // Bail after the loop to properly release memory
         }
@@ -168,6 +169,8 @@ GR_RESULT grCreateDevice(
         .sType = GRVK_STRUCT_TYPE_DEVICE,
         .device = vkDevice,
         .physicalDevice = physicalDevice,
+        .universalQueueIndex = universalQueueIndex,
+        .computeQueueIndex = computeQueueIndex,
     };
 
     *pDevice = (GR_DEVICE)grvkDevice;

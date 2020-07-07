@@ -8,10 +8,15 @@ GR_RESULT grGetDeviceQueue(
     GR_UINT queueId,
     GR_QUEUE* pQueue)
 {
-    VkDevice vkDevice = ((GrvkDevice*)device)->device;
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
     VkQueue vkQueue = VK_NULL_HANDLE;
 
-    vkGetDeviceQueue(vkDevice, getVkQueueFamilyIndex(queueType), queueId, &vkQueue);
+    uint32_t queueIndex = getVkQueueFamilyIndex(grvkDevice, queueType);
+    if (queueIndex == INVALID_QUEUE_INDEX) {
+        return GR_ERROR_INVALID_QUEUE_TYPE;
+    }
+
+    vkGetDeviceQueue(grvkDevice->device, queueIndex, queueId, &vkQueue);
 
     GrvkQueue* grvkQueue = malloc(sizeof(GrvkQueue));
     *grvkQueue = (GrvkQueue) {

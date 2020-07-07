@@ -56,6 +56,8 @@ typedef struct _GrvkDevice {
     GrvkStructType sType;
     VkDevice device;
     VkPhysicalDevice physicalDevice;
+    uint32_t universalQueueIndex;
+    uint32_t computeQueueIndex;
 } GrvkDevice;
 
 typedef struct _GrvkFence {

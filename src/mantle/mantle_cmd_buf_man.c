@@ -7,19 +7,25 @@ GR_RESULT grCreateCommandBuffer(
     const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
     GR_CMD_BUFFER* pCmdBuffer)
 {
-    VkDevice vkDevice = ((GrvkDevice*)device)->device;
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
+
+    uint32_t queueIndex = getVkQueueFamilyIndex(grvkDevice, pCreateInfo->queueType);
+    if (queueIndex == INVALID_QUEUE_INDEX) {
+        return GR_ERROR_INVALID_QUEUE_TYPE;
+    }
 
     // FIXME we shouldn't create one command pool per command buffer :)
     VkCommandPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .queueFamilyIndex = getVkQueueFamilyIndex(pCreateInfo->queueType),
+        .queueFamilyIndex = queueIndex,
     };
 
-    if (vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL, &vkCommandPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(grvkDevice->device, &poolCreateInfo, NULL,
+                            &vkCommandPool) != VK_SUCCESS) {
         printf("%s: vkCreateCommandPool failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -32,7 +38,8 @@ GR_RESULT grCreateCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    if (vkAllocateCommandBuffers(vkDevice, &allocateInfo, &vkCommandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(grvkDevice->device, &allocateInfo,
+                                 &vkCommandBuffer) != VK_SUCCESS) {
         printf("%s: vkAllocateCommandBuffers failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }

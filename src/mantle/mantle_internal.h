@@ -8,6 +8,8 @@
 #include "vulkan/vulkan.h"
 #include "grvk_object.h"
 
+#define INVALID_QUEUE_INDEX -1u
+
 GR_VOID* grvkAlloc(
     GR_SIZE size,
     GR_SIZE alignment,
@@ -65,6 +67,7 @@ VkColorComponentFlags getVkColorComponentFlags(
     GR_UINT8 writeMask);
 
 uint32_t getVkQueueFamilyIndex(
-    GR_ENUM queueType);
+    GrvkDevice* grvkDevice,
+    GR_QUEUE_TYPE queueType);
 
 #endif // MANTLE_INTERNAL_H_
