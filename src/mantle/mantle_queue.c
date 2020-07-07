@@ -40,7 +40,7 @@ GR_RESULT grQueueSubmit(
 
     VkCommandBuffer* vkCommandBuffers = malloc(sizeof(VkCommandBuffer) * cmdBufferCount);
     for (int i = 0; i < cmdBufferCount; i++) {
-        vkCommandBuffers[i] = (VkCommandBuffer)pCmdBuffers[i];
+        vkCommandBuffers[i] = ((GrvkCmdBuffer*)pCmdBuffers[i])->commandBuffer;
     }
 
     VkSubmitInfo submitInfo = {
