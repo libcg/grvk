@@ -11,23 +11,14 @@ GR_RESULT grCreateCommandBuffer(
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
 
-    uint32_t queueIndex = getVkQueueFamilyIndex(grvkDevice, pCreateInfo->queueType);
-    if (queueIndex == INVALID_QUEUE_INDEX) {
-        return GR_ERROR_INVALID_QUEUE_TYPE;
+    if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
+        vkCommandPool = grvkDevice->universalCommandPool;
+    } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
+        vkCommandPool = grvkDevice->computeCommandPool;
     }
 
-    // FIXME we shouldn't create one command pool per command buffer :)
-    VkCommandPoolCreateInfo poolCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .queueFamilyIndex = queueIndex,
-    };
-
-    if (vkCreateCommandPool(grvkDevice->device, &poolCreateInfo, NULL,
-                            &vkCommandPool) != VK_SUCCESS) {
-        printf("%s: vkCreateCommandPool failed\n", __func__);
-        return GR_ERROR_OUT_OF_MEMORY;
+    if (vkCommandPool == VK_NULL_HANDLE) {
+        return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
     VkCommandBufferAllocateInfo allocateInfo = {

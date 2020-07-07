@@ -81,10 +81,13 @@ GR_RESULT grCreateDevice(
 {
     GR_RESULT res = GR_SUCCESS;
     VkPhysicalDevice physicalDevice = ((GrvkPhysicalGpu*)gpu)->physicalDevice;
+    VkDevice vkDevice = VK_NULL_HANDLE;
     uint32_t universalQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t universalQueueCount = 0;
+    VkCommandPool universalCommandPool = VK_NULL_HANDLE;
     uint32_t computeQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t computeQueueCount = 0;
+    VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
     uint32_t queueFamilyPropertyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount, NULL);
@@ -157,11 +160,41 @@ GR_RESULT grCreateDevice(
         .pEnabledFeatures = NULL,
     };
 
-    VkDevice vkDevice = VK_NULL_HANDLE;
     if (vkCreateDevice(physicalDevice, &createInfo, NULL, &vkDevice) != VK_SUCCESS) {
         printf("%s: vkCreateDevice failed\n", __func__);
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
+    }
+
+    if (universalQueueIndex != INVALID_QUEUE_INDEX) {
+        VkCommandPoolCreateInfo poolCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .queueFamilyIndex = universalQueueIndex,
+        };
+
+        if (vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
+                                &universalCommandPool) != VK_SUCCESS) {
+            printf("%s: vkCreateCommandPool failed\n", __func__);
+            res = GR_ERROR_INITIALIZATION_FAILED;
+            goto bail;
+        }
+    }
+    if (computeQueueIndex != INVALID_QUEUE_INDEX) {
+        VkCommandPoolCreateInfo poolCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .queueFamilyIndex = computeQueueIndex,
+        };
+
+        if (vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
+                                &computeCommandPool) != VK_SUCCESS) {
+            printf("%s: vkCreateCommandPool failed\n", __func__);
+            res = GR_ERROR_INITIALIZATION_FAILED;
+            goto bail;
+        }
     }
 
     GrvkDevice* grvkDevice = malloc(sizeof(GrvkDevice));
@@ -170,7 +203,9 @@ GR_RESULT grCreateDevice(
         .device = vkDevice,
         .physicalDevice = physicalDevice,
         .universalQueueIndex = universalQueueIndex,
+        .universalCommandPool = universalCommandPool,
         .computeQueueIndex = computeQueueIndex,
+        .computeCommandPool = computeCommandPool,
     };
 
     *pDevice = (GR_DEVICE)grvkDevice;
@@ -180,6 +215,18 @@ bail:
         free((void*)queueCreateInfos[i].pQueuePriorities);
     }
     free(queueCreateInfos);
+
+    if (res != GR_SUCCESS) {
+        if (universalCommandPool != VK_NULL_HANDLE) {
+            vkDestroyCommandPool(vkDevice, universalCommandPool, NULL);
+        }
+        if (computeCommandPool != VK_NULL_HANDLE) {
+            vkDestroyCommandPool(vkDevice, computeCommandPool, NULL);
+        }
+        if (vkDevice != VK_NULL_HANDLE) {
+            vkDestroyDevice(vkDevice, NULL);
+        }
+    }
 
     return res;
 }
