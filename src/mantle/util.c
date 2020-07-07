@@ -365,17 +365,3 @@ VkColorComponentFlags getVkColorComponentFlags(
            (writeMask & 4 ? VK_COLOR_COMPONENT_B_BIT : 0) |
            (writeMask & 8 ? VK_COLOR_COMPONENT_A_BIT : 0);
 }
-
-uint32_t getVkQueueFamilyIndex(
-    GrvkDevice* grvkDevice,
-    GR_QUEUE_TYPE queueType)
-{
-    switch (queueType) {
-    case GR_QUEUE_UNIVERSAL:
-        return grvkDevice->universalQueueIndex;
-    case GR_QUEUE_COMPUTE:
-        return grvkDevice->computeQueueIndex;
-    }
-
-    return INVALID_QUEUE_INDEX;
-}

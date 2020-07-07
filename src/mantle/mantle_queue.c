@@ -1,5 +1,20 @@
 #include "mantle_internal.h"
 
+static uint32_t getVkQueueFamilyIndex(
+    GrvkDevice* grvkDevice,
+    GR_QUEUE_TYPE queueType)
+{
+    switch (queueType) {
+    case GR_QUEUE_UNIVERSAL:
+        return grvkDevice->universalQueueIndex;
+    case GR_QUEUE_COMPUTE:
+        return grvkDevice->computeQueueIndex;
+    }
+
+    printf("%s: invalid queue type %d\n", __func__, queueType);
+    return INVALID_QUEUE_INDEX;
+}
+
 // Queue Functions
 
 GR_RESULT grGetDeviceQueue(

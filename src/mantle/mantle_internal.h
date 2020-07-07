@@ -66,8 +66,4 @@ VkDescriptorType getVkDescriptorType(
 VkColorComponentFlags getVkColorComponentFlags(
     GR_UINT8 writeMask);
 
-uint32_t getVkQueueFamilyIndex(
-    GrvkDevice* grvkDevice,
-    GR_QUEUE_TYPE queueType);
-
 #endif // MANTLE_INTERNAL_H_
