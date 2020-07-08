@@ -49,7 +49,7 @@ typedef struct _GrvkDepthStencilStateObject {
 
 typedef struct _GrvkDescriptorSet {
     GrvkStructType sType;
-    uint32_t slotCount; // Unused
+    VkDescriptorPool descriptorPool;
 } GrvkDescriptorSet;
 
 typedef struct _GrvkDevice {
