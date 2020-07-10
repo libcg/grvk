@@ -13,57 +13,59 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
     Stage* stage)
 {
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    VkDescriptorSetLayoutBinding* bindings = NULL;
     uint32_t bindingCount = 0;
 
-    // Count descriptors in this stage
-    for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-        const GR_DESCRIPTOR_SET_MAPPING* mapping =
-            &stage->shader->descriptorSetMapping[i];
+    if (stage->shader->shader != GR_NULL_HANDLE) {
+        // Count descriptors in this stage
+        for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+            const GR_DESCRIPTOR_SET_MAPPING* mapping =
+                &stage->shader->descriptorSetMapping[i];
 
-        for (int j = 0; j < mapping->descriptorCount; j++) {
-            const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
+            for (int j = 0; j < mapping->descriptorCount; j++) {
+                const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
 
-            if (info->slotObjectType == GR_SLOT_UNUSED) {
-                continue;
+                if (info->slotObjectType == GR_SLOT_UNUSED) {
+                    continue;
+                }
+
+                if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
+                    printf("%s: nested descriptor sets are not implemented\n", __func__);
+                    continue;
+                }
+
+                bindingCount++;
             }
-
-            if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-                printf("%s: nested descriptor sets are not implemented\n", __func__);
-                continue;
-            }
-
-            bindingCount++;
         }
-    }
 
-    VkDescriptorSetLayoutBinding* bindings =
-        malloc(sizeof(VkDescriptorSetLayoutBinding) * bindingCount);
+        bindings = malloc(sizeof(VkDescriptorSetLayoutBinding) * bindingCount);
 
-    // Fill out descriptor array
-    uint32_t bindingIndex = 0;
-    for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-        const GR_DESCRIPTOR_SET_MAPPING* mapping =
-            &stage->shader->descriptorSetMapping[i];
+        // Fill out descriptor array
+        uint32_t bindingIndex = 0;
+        for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+            const GR_DESCRIPTOR_SET_MAPPING* mapping =
+                &stage->shader->descriptorSetMapping[i];
 
-        for (int j = 0; j < mapping->descriptorCount; j++) {
-            const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
+            for (int j = 0; j < mapping->descriptorCount; j++) {
+                const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
 
-            if (info->slotObjectType == GR_SLOT_UNUSED ||
-                info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-                continue;
+                if (info->slotObjectType == GR_SLOT_UNUSED ||
+                    info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
+                    continue;
+                }
+
+                bindings[bindingIndex++] = (VkDescriptorSetLayoutBinding) {
+                    .binding = info->shaderEntityIndex,
+                    .descriptorType = getVkDescriptorType(info->slotObjectType),
+                    .descriptorCount = 1,
+                    .stageFlags = stage->flags,
+                    .pImmutableSamplers = NULL,
+                };
             }
-
-            bindings[bindingIndex++] = (VkDescriptorSetLayoutBinding) {
-                .binding = info->shaderEntityIndex,
-                .descriptorType = getVkDescriptorType(info->slotObjectType),
-                .descriptorCount = 1,
-                .stageFlags = stage->flags,
-                .pImmutableSamplers = NULL,
-            };
         }
-    }
 
-    assert(bindingIndex == bindingCount);
+        assert(bindingIndex == bindingCount);
+    }
 
     VkDescriptorSetLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -83,44 +85,34 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
 static VkPipelineLayout getVkPipelineLayout(
     VkDevice vkDevice,
-    Stage* stages,
-    uint32_t stageCount)
+    Stage* stages)
 {
     VkPipelineLayout layout = VK_NULL_HANDLE;
 
-    // One descriptor set layout per stage
-    VkDescriptorSetLayout* descriptorSetLayouts =
-        malloc(sizeof(VkDescriptorSetLayout) * stageCount);
+    // One descriptor set layout per stage, with an empty layout for each unused stage
+    VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
 
-    uint32_t stageIndex = 0;
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
         Stage* stage = &stages[i];
-
-        if (stage->shader->shader == GR_NULL_HANDLE) {
-            continue;
-        }
 
         VkDescriptorSetLayout layout = getVkDescriptorSetLayout(vkDevice, stage);
 
         if (layout == VK_NULL_HANDLE) {
             // Bail out
-            for (int j = 0; j < stageIndex; j++) {
+            for (int j = 0; j < i; j++) {
                 vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[j], NULL);
             }
-            free(descriptorSetLayouts);
             return VK_NULL_HANDLE;
         }
 
-        descriptorSetLayouts[stageIndex++] = layout;
+        descriptorSetLayouts[i] = layout;
     }
-
-    assert(stageIndex == stageCount);
 
     VkPipelineLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .setLayoutCount = stageCount,
+        .setLayoutCount = MAX_STAGE_COUNT,
         .pSetLayouts = descriptorSetLayouts,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = NULL,
@@ -128,12 +120,11 @@ static VkPipelineLayout getVkPipelineLayout(
 
     if (vkCreatePipelineLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
         printf("%s: vkCreatePipelineLayout failed\n", __func__);
-        for (int i = 0; i < stageCount; i++) {
+        for (int i = 0; i < MAX_STAGE_COUNT; i++) {
             vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[i], NULL);
         }
     }
 
-    free(descriptorSetLayouts);
     return layout;
 }
 
@@ -316,7 +307,7 @@ GR_RESULT grCreateGraphicsPipeline(
         };
     }
 
-    VkPipelineLayout layout = getVkPipelineLayout(vkDevice, stages, stageCount);
+    VkPipelineLayout layout = getVkPipelineLayout(vkDevice, stages);
 
     if (layout == VK_NULL_HANDLE) {
         free(shaderStageCreateInfo);
