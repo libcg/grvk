@@ -354,7 +354,7 @@ VkDescriptorType getVkDescriptorType(
 {
     switch (slotObjectType) {
     case GR_SLOT_UNUSED:
-        break; // Invalid
+        return VK_DESCRIPTOR_TYPE_SAMPLER; // Ignored
     case GR_SLOT_SHADER_RESOURCE:
         return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     case GR_SLOT_SHADER_UAV:

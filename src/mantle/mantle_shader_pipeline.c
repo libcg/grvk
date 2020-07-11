@@ -17,44 +17,39 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
     uint32_t bindingCount = 0;
 
     if (stage->shader->shader != GR_NULL_HANDLE) {
-        // Count descriptors in this stage
-        for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-            const GR_DESCRIPTOR_SET_MAPPING* mapping =
-                &stage->shader->descriptorSetMapping[i];
+        for (int i = 1; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+            const GR_DESCRIPTOR_SET_MAPPING* mapping = &stage->shader->descriptorSetMapping[i];
 
-            for (int j = 0; j < mapping->descriptorCount; j++) {
-                const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
-
-                if (info->slotObjectType == GR_SLOT_UNUSED) {
-                    continue;
-                }
-
-                if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-                    printf("%s: nested descriptor sets are not implemented\n", __func__);
-                    continue;
-                }
-
-                bindingCount++;
+            if (mapping->descriptorCount > 0) {
+                printf("%s: multiple descriptor sets per stage is not supported\n", __func__);
+                break;
             }
         }
 
-        bindings = malloc(sizeof(VkDescriptorSetLayoutBinding) * bindingCount);
+        // TODO handle all descriptor sets
+        const GR_DESCRIPTOR_SET_MAPPING* mapping = &stage->shader->descriptorSetMapping[0];
 
-        // Fill out descriptor array
-        uint32_t bindingIndex = 0;
-        for (int i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-            const GR_DESCRIPTOR_SET_MAPPING* mapping =
-                &stage->shader->descriptorSetMapping[i];
+        bindings = malloc(sizeof(VkDescriptorSetLayoutBinding) * mapping->descriptorCount);
+        bindingCount = mapping->descriptorCount;
 
-            for (int j = 0; j < mapping->descriptorCount; j++) {
-                const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[j];
+        for (int i = 0; i < mapping->descriptorCount; i++) {
+            const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[i];
 
-                if (info->slotObjectType == GR_SLOT_UNUSED ||
-                    info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-                    continue;
-                }
+            if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
+                printf("%s: nested descriptor sets are not implemented\n", __func__);
+                continue;
+            }
 
-                bindings[bindingIndex++] = (VkDescriptorSetLayoutBinding) {
+            if (info->slotObjectType == GR_SLOT_UNUSED) {
+                bindings[i] = (VkDescriptorSetLayoutBinding) {
+                    .binding = 0,
+                    .descriptorType = getVkDescriptorType(info->slotObjectType),
+                    .descriptorCount = 0,
+                    .stageFlags = 0,
+                    .pImmutableSamplers = NULL,
+                };
+            } else {
+                bindings[i] = (VkDescriptorSetLayoutBinding) {
                     .binding = info->shaderEntityIndex,
                     .descriptorType = getVkDescriptorType(info->slotObjectType),
                     .descriptorCount = 1,
@@ -63,8 +58,6 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
                 };
             }
         }
-
-        assert(bindingIndex == bindingCount);
     }
 
     VkDescriptorSetLayoutCreateInfo createInfo = {
