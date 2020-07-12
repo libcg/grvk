@@ -218,50 +218,6 @@ GR_VOID grEndDescriptorSetUpdate(
     printf("STUB: %s\n", __func__);
 }
 
-GR_VOID grAttachSamplerDescriptors(
-    GR_DESCRIPTOR_SET descriptorSet,
-    GR_UINT startSlot,
-    GR_UINT slotCount,
-    const GR_SAMPLER* pSamplers)
-{
-    printf("STUB: %s\n", __func__);
-}
-
-GR_VOID grAttachImageViewDescriptors(
-    GR_DESCRIPTOR_SET descriptorSet,
-    GR_UINT startSlot,
-    GR_UINT slotCount,
-    const GR_IMAGE_VIEW_ATTACH_INFO* pImageViews)
-{
-    printf("STUB: %s\n", __func__);
-}
-
-GR_VOID grAttachMemoryViewDescriptors(
-    GR_DESCRIPTOR_SET descriptorSet,
-    GR_UINT startSlot,
-    GR_UINT slotCount,
-    const GR_MEMORY_VIEW_ATTACH_INFO* pMemViews)
-{
-    printf("STUB: %s\n", __func__);
-}
-
-GR_VOID grAttachNestedDescriptors(
-    GR_DESCRIPTOR_SET descriptorSet,
-    GR_UINT startSlot,
-    GR_UINT slotCount,
-    const GR_DESCRIPTOR_SET_ATTACH_INFO* pNestedDescriptorSets)
-{
-    printf("STUB: %s\n", __func__);
-}
-
-GR_VOID grClearDescriptorSetSlots(
-    GR_DESCRIPTOR_SET descriptorSet,
-    GR_UINT startSlot,
-    GR_UINT slotCount)
-{
-    printf("STUB: %s\n", __func__);
-}
-
 // Query and Synchronization Function
 
 GR_RESULT grCreateQueryPool(

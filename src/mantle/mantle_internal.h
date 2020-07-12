@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "mantle/mantle.h"
 #include "vulkan/vulkan.h"
 #include "grvk_object.h"
