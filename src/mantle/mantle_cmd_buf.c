@@ -13,8 +13,8 @@ GR_VOID grCmdPrepareMemoryRegions(
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
 
         // TODO use buffer memory barrier
-        const VkBufferMemoryBarrier bufferMemoryBarrier = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        const VkMemoryBarrier memoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
             .pNext = NULL,
             .srcAccessMask = getVkAccessFlagsMemory(stateTransition->oldState),
             .dstAccessMask = getVkAccessFlagsMemory(stateTransition->newState),
@@ -24,7 +24,7 @@ GR_VOID grCmdPrepareMemoryRegions(
         vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             0, 0, NULL, 1, &bufferMemoryBarrier, 0, NULL);
+                             0, 1, &memoryBarrier, 0, NULL, 0, NULL);
     }
 }
 
