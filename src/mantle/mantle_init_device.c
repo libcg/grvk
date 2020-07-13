@@ -84,9 +84,11 @@ GR_RESULT grCreateDevice(
     VkDevice vkDevice = VK_NULL_HANDLE;
     uint32_t universalQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t universalQueueCount = 0;
+    bool universalQueueRequested = false;
     VkCommandPool universalCommandPool = VK_NULL_HANDLE;
     uint32_t computeQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t computeQueueCount = 0;
+    bool computeQueueRequested = false;
     VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
     uint32_t queueFamilyPropertyCount = 0;
@@ -141,6 +143,12 @@ GR_RESULT grCreateDevice(
             .queueCount = requestedQueue->queueCount,
             .pQueuePriorities = queuePriorities,
         };
+
+        if (requestedQueue->queueType == GR_QUEUE_UNIVERSAL) {
+            universalQueueRequested = true;
+        } else if (requestedQueue->queueType == GR_QUEUE_COMPUTE) {
+            computeQueueRequested = true;
+        }
     }
 
     if (res != GR_SUCCESS) {
@@ -166,7 +174,7 @@ GR_RESULT grCreateDevice(
         goto bail;
     }
 
-    if (universalQueueIndex != INVALID_QUEUE_INDEX) {
+    if (universalQueueRequested && universalQueueIndex != INVALID_QUEUE_INDEX) {
         VkCommandPoolCreateInfo poolCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .pNext = NULL,
@@ -181,7 +189,7 @@ GR_RESULT grCreateDevice(
             goto bail;
         }
     }
-    if (computeQueueIndex != INVALID_QUEUE_INDEX) {
+    if (computeQueueRequested && computeQueueIndex != INVALID_QUEUE_INDEX) {
         VkCommandPoolCreateInfo poolCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .pNext = NULL,
