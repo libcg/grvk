@@ -29,6 +29,16 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         // TODO handle all descriptor sets
         const GR_DESCRIPTOR_SET_MAPPING* mapping = &stage->shader->descriptorSetMapping[0];
 
+        // Find maximum entity index to generate unique binding numbers for unused slots
+        uint32_t maxEntityIndex = 0;
+        for (int i = 0; i < mapping->descriptorCount; i++) {
+            const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[i];
+
+            if (info->shaderEntityIndex > maxEntityIndex) {
+                maxEntityIndex = info->shaderEntityIndex;
+            }
+        }
+
         bindings = malloc(sizeof(VkDescriptorSetLayoutBinding) * mapping->descriptorCount);
         bindingCount = mapping->descriptorCount;
 
@@ -42,7 +52,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
             if (info->slotObjectType == GR_SLOT_UNUSED) {
                 bindings[i] = (VkDescriptorSetLayoutBinding) {
-                    .binding = 0,
+                    .binding = maxEntityIndex + 1 + i, // HACK: unique binding number, ignored
                     .descriptorType = getVkDescriptorType(info->slotObjectType),
                     .descriptorCount = 0,
                     .stageFlags = 0,
