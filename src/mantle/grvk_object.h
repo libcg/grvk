@@ -3,6 +3,8 @@
 
 #include "vulkan/vulkan.h"
 
+#define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
+
 typedef enum _GrvkStructType {
     GRVK_STRUCT_TYPE_COMMAND_BUFFER,
     GRVK_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
@@ -49,9 +51,11 @@ typedef struct _GrvkDepthStencilStateObject {
 
 typedef struct _GrvkDescriptorSet {
     GrvkStructType sType;
+    VkDevice device;
     VkDescriptorPool descriptorPool;
     void* slots;
     uint32_t slotCount;
+    VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
 } GrvkDescriptorSet;
 
 typedef struct _GrvkDevice {

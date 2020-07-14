@@ -1,7 +1,5 @@
 #include "mantle_internal.h"
 
-#define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
-
 typedef struct _Stage {
     const GR_PIPELINE_SHADER* shader;
     const char* entryPoint;
@@ -47,10 +45,10 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
             if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
                 printf("%s: nested descriptor sets are not implemented\n", __func__);
-                continue;
             }
 
-            if (info->slotObjectType == GR_SLOT_UNUSED) {
+            if (info->slotObjectType == GR_SLOT_UNUSED ||
+                info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
                 bindings[i] = (VkDescriptorSetLayoutBinding) {
                     .binding = maxEntityIndex + 1 + i, // HACK: unique binding number, ignored
                     .descriptorType = getVkDescriptorType(info->slotObjectType),

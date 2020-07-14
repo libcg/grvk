@@ -354,7 +354,7 @@ VkDescriptorType getVkDescriptorType(
 {
     switch (slotObjectType) {
     case GR_SLOT_UNUSED:
-        return VK_DESCRIPTOR_TYPE_SAMPLER; // Ignored
+        return 0; // Ignored
     case GR_SLOT_SHADER_RESOURCE:
         return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     case GR_SLOT_SHADER_UAV:
@@ -376,4 +376,24 @@ VkColorComponentFlags getVkColorComponentFlags(
            (writeMask & 2 ? VK_COLOR_COMPONENT_G_BIT : 0) |
            (writeMask & 4 ? VK_COLOR_COMPONENT_B_BIT : 0) |
            (writeMask & 8 ? VK_COLOR_COMPONENT_A_BIT : 0);
+}
+
+VkShaderStageFlags getVkShaderStageFlags(
+    uint32_t stageIndex)
+{
+    switch (stageIndex) {
+    case 0:
+        return VK_SHADER_STAGE_VERTEX_BIT;
+    case 1:
+        return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    case 2:
+        return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    case 3:
+        return VK_SHADER_STAGE_GEOMETRY_BIT;
+    case 4:
+        return VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
+
+    printf("%s: unsupported stage index %d\n", __func__, stageIndex);
+    return 0;
 }

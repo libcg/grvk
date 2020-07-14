@@ -68,4 +68,7 @@ VkDescriptorType getVkDescriptorType(
 VkColorComponentFlags getVkColorComponentFlags(
     GR_UINT8 writeMask);
 
+VkShaderStageFlags getVkShaderStageFlags(
+    uint32_t stageIndex);
+
 #endif // MANTLE_INTERNAL_H_

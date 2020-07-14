@@ -204,20 +204,6 @@ GR_RESULT grLoadPipeline(
     return GR_UNSUPPORTED;
 }
 
-// Descriptor Set Functions
-
-GR_VOID grBeginDescriptorSetUpdate(
-    GR_DESCRIPTOR_SET descriptorSet)
-{
-    printf("STUB: %s\n", __func__);
-}
-
-GR_VOID grEndDescriptorSetUpdate(
-    GR_DESCRIPTOR_SET descriptorSet)
-{
-    printf("STUB: %s\n", __func__);
-}
-
 // Query and Synchronization Function
 
 GR_RESULT grCreateQueryPool(

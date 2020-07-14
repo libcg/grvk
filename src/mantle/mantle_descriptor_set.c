@@ -86,13 +86,98 @@ GR_RESULT grCreateDescriptorSet(
     GrvkDescriptorSet* grvkDescriptorSet = malloc(sizeof(GrvkDescriptorSet));
     *grvkDescriptorSet = (GrvkDescriptorSet) {
         .sType = GRVK_STRUCT_TYPE_DESCRIPTOR_SET,
+        .device = grvkDevice->device,
         .descriptorPool = vkDescriptorPool,
         .slots = slots,
         .slotCount = pCreateInfo->slots,
+        .descriptorSets = { VK_NULL_HANDLE },
     };
 
     *pDescriptorSet = (GR_DESCRIPTOR_SET)grvkDescriptorSet;
     return GR_SUCCESS;
+}
+
+GR_VOID grBeginDescriptorSetUpdate(
+    GR_DESCRIPTOR_SET descriptorSet)
+{
+    // TODO keep track of diff?
+}
+
+GR_VOID grEndDescriptorSetUpdate(
+    GR_DESCRIPTOR_SET descriptorSet)
+{
+    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+
+    // TODO free old descriptor sets and layouts if applicable
+
+    VkDescriptorSetLayout vkLayouts[MAX_STAGE_COUNT];
+    for (int i = 0; i < MAX_STAGE_COUNT; i++) {
+        VkDescriptorSetLayoutBinding* bindings =
+            malloc(sizeof(VkDescriptorSetLayoutBinding) * grvkDescriptorSet->slotCount);
+
+        for (int j = 0; j < grvkDescriptorSet->slotCount; j++) {
+            const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[j];
+
+            if (slot->type == SLOT_TYPE_NESTED ||
+                slot->type == SLOT_TYPE_IMAGE_VIEW ||
+                slot->type == SLOT_TYPE_SAMPLER) {
+                // TODO support other types
+                printf("%s: unsupported slot type %d\n", __func__, slot->type);
+            }
+
+            if (slot->type == SLOT_TYPE_NONE || slot->type == SLOT_TYPE_NESTED) {
+                bindings[j] = (VkDescriptorSetLayoutBinding) {
+                    .binding = j, // Ignored
+                    .descriptorType = 0,
+                    .descriptorCount = 0,
+                    .stageFlags = 0,
+                    .pImmutableSamplers = NULL,
+                };
+            } else {
+                if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
+                    GR_MEMORY_VIEW_ATTACH_INFO* info = (GR_MEMORY_VIEW_ATTACH_INFO*)slot->info;
+
+                    // TODO support other states
+                    if (info->state != GR_MEMORY_STATE_GRAPHICS_SHADER_READ_ONLY) {
+                        printf("%s: unsupported memory state 0x%x\n", __func__, info->state);
+                    }
+                }
+
+                bindings[j] = (VkDescriptorSetLayoutBinding) {
+                    .binding = j, // Ignored
+                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    .descriptorCount = 1,
+                    .stageFlags = getVkShaderStageFlags(i),
+                    .pImmutableSamplers = NULL,
+                };
+            }
+        }
+
+        VkDescriptorSetLayoutCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .bindingCount = grvkDescriptorSet->slotCount,
+            .pBindings = bindings,
+        };
+
+        vkCreateDescriptorSetLayout(grvkDescriptorSet->device, &createInfo, NULL, &vkLayouts[i]);
+
+        free(bindings);
+    }
+
+    const VkDescriptorSetAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = NULL,
+        .descriptorPool = grvkDescriptorSet->descriptorPool,
+        .descriptorSetCount = MAX_STAGE_COUNT,
+        .pSetLayouts = vkLayouts,
+    };
+
+    vkAllocateDescriptorSets(grvkDescriptorSet->device, &allocateInfo,
+                             grvkDescriptorSet->descriptorSets);
+
+    // TODO update descriptor sets
 }
 
 GR_VOID grAttachSamplerDescriptors(
