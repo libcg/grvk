@@ -75,6 +75,33 @@ GR_VOID grCmdPrepareImages(
     }
 }
 
+GR_VOID grCmdDraw(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_UINT firstVertex,
+    GR_UINT vertexCount,
+    GR_UINT firstInstance,
+    GR_UINT instanceCount)
+{
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+
+    vkCmdDraw(grvkCmdBuffer->commandBuffer,
+              vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+GR_VOID grCmdDrawIndexed(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_UINT firstIndex,
+    GR_UINT indexCount,
+    GR_INT vertexOffset,
+    GR_UINT firstInstance,
+    GR_UINT instanceCount)
+{
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+
+    vkCmdDrawIndexed(grvkCmdBuffer->commandBuffer,
+                     indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
 GR_VOID grCmdClearColorImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
