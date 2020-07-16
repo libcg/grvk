@@ -553,26 +553,6 @@ GR_VOID grCmdFillMemory(
     printf("STUB: %s\n", __func__);
 }
 
-GR_VOID grCmdClearColorImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE image,
-    const GR_FLOAT color[4],
-    GR_UINT rangeCount,
-    const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
-{
-    printf("STUB: %s\n", __func__);
-}
-
-GR_VOID grCmdClearColorImageRaw(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE image,
-    const GR_UINT32 color[4],
-    GR_UINT rangeCount,
-    const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
-{
-    printf("STUB: %s\n", __func__);
-}
-
 GR_VOID grCmdClearDepthStencil(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
