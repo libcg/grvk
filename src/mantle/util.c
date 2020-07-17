@@ -28,6 +28,8 @@ VkFormat getVkFormat(
     uint32_t packed = PACK_FORMAT(format.channelFormat, format.numericFormat);
 
     switch (packed) {
+    case PACK_FORMAT(GR_CH_FMT_UNDEFINED, GR_NUM_FMT_UNDEFINED):
+        return VK_FORMAT_UNDEFINED;
     case PACK_FORMAT(GR_CH_FMT_R8G8B8A8, GR_NUM_FMT_UNORM):
         return VK_FORMAT_R8G8B8A8_UNORM;
     }

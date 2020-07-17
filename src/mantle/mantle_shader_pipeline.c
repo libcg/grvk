@@ -7,8 +7,8 @@ typedef struct _Stage {
 } Stage;
 
 static VkDescriptorSetLayout getVkDescriptorSetLayout(
-    VkDevice vkDevice,
-    Stage* stage)
+    const VkDevice vkDevice,
+    const Stage* stage)
 {
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     VkDescriptorSetLayoutBinding* bindings = NULL;
@@ -68,7 +68,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         }
     }
 
-    VkDescriptorSetLayoutCreateInfo createInfo = {
+    const VkDescriptorSetLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -85,8 +85,8 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 }
 
 static VkPipelineLayout getVkPipelineLayout(
-    VkDevice vkDevice,
-    Stage* stages)
+    const VkDevice vkDevice,
+    const Stage* stages)
 {
     VkPipelineLayout layout = VK_NULL_HANDLE;
 
@@ -94,7 +94,7 @@ static VkPipelineLayout getVkPipelineLayout(
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
 
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
-        Stage* stage = &stages[i];
+        const Stage* stage = &stages[i];
 
         VkDescriptorSetLayout layout = getVkDescriptorSetLayout(vkDevice, stage);
 
@@ -109,7 +109,7 @@ static VkPipelineLayout getVkPipelineLayout(
         descriptorSetLayouts[i] = layout;
     }
 
-    VkPipelineLayoutCreateInfo createInfo = {
+    const VkPipelineLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -127,6 +127,125 @@ static VkPipelineLayout getVkPipelineLayout(
     }
 
     return layout;
+}
+
+static VkRenderPass getVkRenderPass(
+    const VkDevice vkDevice,
+    const GR_PIPELINE_CB_TARGET_STATE* cbTargets,
+    const GR_PIPELINE_DB_STATE* dbTarget)
+{
+    VkRenderPass renderPass = VK_NULL_HANDLE;
+    VkAttachmentDescription descriptions[GR_MAX_COLOR_TARGETS + 1];
+    VkAttachmentReference colorReferences[GR_MAX_COLOR_TARGETS];
+    VkAttachmentReference depthStencilReference;
+    uint32_t descriptionIdx = 0;
+    uint32_t colorReferenceIdx = 0;
+    bool hasDepthStencil = false;
+
+    for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+        const GR_PIPELINE_CB_TARGET_STATE* target = &cbTargets[i];
+        VkFormat vkFormat = getVkFormat(target->format);
+
+        if (vkFormat == VK_FORMAT_UNDEFINED) {
+            continue;
+        }
+
+        descriptions[descriptionIdx] = (VkAttachmentDescription) {
+            .flags = 0,
+            .format = vkFormat,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = (target->channelWriteMask & 0xF) != 0 ?
+                       VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+
+        colorReferences[colorReferenceIdx] = (VkAttachmentReference) {
+            .attachment = descriptionIdx,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+
+        descriptionIdx++;
+        colorReferenceIdx++;
+    }
+
+    VkFormat dbVkFormat = getVkFormat(dbTarget->format);
+    if (dbVkFormat != VK_FORMAT_UNDEFINED) {
+        // Table 10 in the API reference
+        bool hasDepth = dbTarget->format.channelFormat == GR_CH_FMT_R16 ||
+                        dbTarget->format.channelFormat == GR_CH_FMT_R32 ||
+                        dbTarget->format.channelFormat == GR_CH_FMT_R16G8 ||
+                        dbTarget->format.channelFormat == GR_CH_FMT_R32G8;
+        bool hasStencil = dbTarget->format.channelFormat == GR_CH_FMT_R8 ||
+                          dbTarget->format.channelFormat == GR_CH_FMT_R16G8 ||
+                          dbTarget->format.channelFormat == GR_CH_FMT_R32G8;
+
+        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        if (hasDepth && hasStencil) {
+            layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        } else if (hasDepth && !hasStencil) {
+            layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        } else if (!hasDepth && hasStencil) {
+            layout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL;
+        }
+
+        descriptions[descriptionIdx] = (VkAttachmentDescription) {
+            .flags = 0,
+            .format = dbVkFormat,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = hasDepth ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .storeOp = hasDepth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .stencilLoadOp = hasStencil ?
+                             VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = hasStencil ?
+                             VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = layout,
+            .finalLayout = layout,
+        };
+
+        depthStencilReference = (VkAttachmentReference) {
+            .attachment = descriptionIdx,
+            .layout = layout,
+        };
+
+        descriptionIdx++;
+        hasDepthStencil = true;
+    }
+
+    const VkSubpassDescription subpass = {
+        .flags = 0,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = NULL,
+        .colorAttachmentCount = colorReferenceIdx,
+        .pColorAttachments = colorReferences,
+        .pResolveAttachments = NULL,
+        .pDepthStencilAttachment = hasDepthStencil ? &depthStencilReference : NULL,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = NULL,
+    };
+
+    const VkRenderPassCreateInfo renderPassCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .attachmentCount = descriptionIdx,
+        .pAttachments = descriptions,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 0,
+        .pDependencies = NULL,
+    };
+
+    if (vkCreateRenderPass(vkDevice, &renderPassCreateInfo, NULL, &renderPass) != VK_SUCCESS) {
+        printf("%s: vkCreateRenderPass failed\n", __func__);
+        return VK_NULL_HANDLE;
+    }
+
+    return renderPass;
 }
 
 // Shader and Pipeline Functions
@@ -173,13 +292,11 @@ GR_RESULT grCreateGraphicsPipeline(
     const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline)
 {
-    VkDevice vkDevice = ((GrvkDevice*)device)->device;
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
 
     // Ignored parameters:
     // - iaState.disableVertexReuse (hint)
     // - tessState.optimalTessFactor (hint)
-    // - cbState.format (defined at draw time)
-    // - dbState.format (defined at draw time)
 
     // FIXME entry points are guessed
     Stage stages[MAX_STAGE_COUNT] = {
@@ -308,8 +425,7 @@ GR_RESULT grCreateGraphicsPipeline(
         };
     }
 
-    VkPipelineLayout layout = getVkPipelineLayout(vkDevice, stages);
-
+    VkPipelineLayout layout = getVkPipelineLayout(grvkDevice->device, stages);
     if (layout == VK_NULL_HANDLE) {
         free(shaderStageCreateInfo);
         free(vertexInputStateCreateInfo);
@@ -317,6 +433,20 @@ GR_RESULT grCreateGraphicsPipeline(
         free(tessellationStateCreateInfo);
         free(depthClipStateCreateInfo);
         free(attachments);
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    VkRenderPass renderPass = getVkRenderPass(grvkDevice->device,
+                                              pCreateInfo->cbState.target, &pCreateInfo->dbState);
+    if (renderPass == VK_NULL_HANDLE)
+    {
+        free(shaderStageCreateInfo);
+        free(vertexInputStateCreateInfo);
+        free(inputAssemblyStateCreateInfo);
+        free(tessellationStateCreateInfo);
+        free(depthClipStateCreateInfo);
+        free(attachments);
+        vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -341,8 +471,8 @@ GR_RESULT grCreateGraphicsPipeline(
             (VkPipelineColorBlendStateCreateInfo*)attachments,
         .pDynamicState = NULL, // TODO implement VK_EXT_extended_dynamic_state
         .layout = layout,
-        .renderPass = VK_NULL_HANDLE, // Filled in later
-        .subpass = 0, // Filled in later
+        .renderPass = renderPass,
+        .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = -1,
     };
