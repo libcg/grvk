@@ -17,7 +17,7 @@ GR_RESULT grGetMemoryHeapCount(
     }
 
     VkPhysicalDeviceMemoryProperties vkMemoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(grvkDevice->physicalDevice, &vkMemoryProperties);
+    vki.vkGetPhysicalDeviceMemoryProperties(grvkDevice->physicalDevice, &vkMemoryProperties);
 
     *pCount = vkMemoryProperties.memoryTypeCount;
     return GR_SUCCESS;
@@ -48,7 +48,7 @@ GR_RESULT grGetMemoryHeapInfo(
     }
 
     VkPhysicalDeviceMemoryProperties vkMemoryProperties;
-    vkGetPhysicalDeviceMemoryProperties(grvkDevice->physicalDevice, &vkMemoryProperties);
+    vki.vkGetPhysicalDeviceMemoryProperties(grvkDevice->physicalDevice, &vkMemoryProperties);
 
     if (heapId >= vkMemoryProperties.memoryTypeCount) {
         return GR_ERROR_INVALID_ORDINAL;
@@ -111,7 +111,7 @@ GR_RESULT grAllocMemory(
     };
 
     VkDeviceMemory vkMemory = VK_NULL_HANDLE;
-    if (vkAllocateMemory(grvkDevice->device, &allocateInfo, NULL, &vkMemory) != VK_SUCCESS) {
+    if (vki.vkAllocateMemory(grvkDevice->device, &allocateInfo, NULL, &vkMemory) != VK_SUCCESS) {
         printf("%s: vkAllocateMemory failed\n", __func__);
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
@@ -144,7 +144,7 @@ GR_RESULT grMapMemory(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    if (vkMapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory,
+    if (vki.vkMapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory,
                     0, VK_WHOLE_SIZE, 0, ppData) != VK_SUCCESS) {
         printf("%s: vkMapMemory failed\n", __func__);
         return GR_ERROR_MEMORY_MAP_FAILED;
@@ -164,7 +164,7 @@ GR_RESULT grUnmapMemory(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    vkUnmapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory);
+    vki.vkUnmapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory);
 
     return GR_SUCCESS;
 }

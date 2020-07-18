@@ -76,7 +76,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         .pBindings = bindings,
     };
 
-    if (vkCreateDescriptorSetLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
+    if (vki.vkCreateDescriptorSetLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
         printf("%s: vkCreateDescriptorSetLayout failed\n", __func__);
     }
 
@@ -101,7 +101,7 @@ static VkPipelineLayout getVkPipelineLayout(
         if (layout == VK_NULL_HANDLE) {
             // Bail out
             for (int j = 0; j < i; j++) {
-                vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[j], NULL);
+                vki.vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[j], NULL);
             }
             return VK_NULL_HANDLE;
         }
@@ -119,10 +119,10 @@ static VkPipelineLayout getVkPipelineLayout(
         .pPushConstantRanges = NULL,
     };
 
-    if (vkCreatePipelineLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
+    if (vki.vkCreatePipelineLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
         printf("%s: vkCreatePipelineLayout failed\n", __func__);
         for (int i = 0; i < MAX_STAGE_COUNT; i++) {
-            vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[i], NULL);
+            vki.vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[i], NULL);
         }
     }
 
@@ -240,7 +240,7 @@ static VkRenderPass getVkRenderPass(
         .pDependencies = NULL,
     };
 
-    if (vkCreateRenderPass(vkDevice, &renderPassCreateInfo, NULL, &renderPass) != VK_SUCCESS) {
+    if (vki.vkCreateRenderPass(vkDevice, &renderPassCreateInfo, NULL, &renderPass) != VK_SUCCESS) {
         printf("%s: vkCreateRenderPass failed\n", __func__);
         return VK_NULL_HANDLE;
     }
@@ -272,7 +272,7 @@ GR_RESULT grCreateShader(
         .pCode = pCreateInfo->pCode,
     };
 
-    if (vkCreateShaderModule(grvkDevice->device, &createInfo, NULL, &vkShaderModule)) {
+    if (vki.vkCreateShaderModule(grvkDevice->device, &createInfo, NULL, &vkShaderModule)) {
         printf("%s: vkCreateShaderModule failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -532,7 +532,7 @@ GR_RESULT grCreateGraphicsPipeline(
                                               pCreateInfo->cbState.target, &pCreateInfo->dbState);
     if (renderPass == VK_NULL_HANDLE)
     {
-        vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
+        vki.vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -562,11 +562,11 @@ GR_RESULT grCreateGraphicsPipeline(
         .basePipelineIndex = -1,
     };
 
-    if (vkCreateGraphicsPipelines(grvkDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
-                                  NULL, &vkPipeline) != VK_SUCCESS) {
+    if (vki.vkCreateGraphicsPipelines(grvkDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
+                                      NULL, &vkPipeline) != VK_SUCCESS) {
         printf("%s: vkCreateGraphicsPipelines failed\n", __func__);
-        vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
-        vkDestroyRenderPass(grvkDevice->device, renderPass, NULL);
+        vki.vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
+        vki.vkDestroyRenderPass(grvkDevice->device, renderPass, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 

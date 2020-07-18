@@ -35,10 +35,10 @@ GR_VOID grCmdPrepareMemoryRegions(
         };
 
         // TODO batch
-        vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             0, 1, &memoryBarrier, 0, NULL, 0, NULL);
+        vki.vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                                 0, 1, &memoryBarrier, 0, NULL, 0, NULL);
     }
 }
 
@@ -68,10 +68,10 @@ GR_VOID grCmdPrepareImages(
         };
 
         // TODO batch
-        vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
+        vki.vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                                 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
     }
 }
 
@@ -84,8 +84,8 @@ GR_VOID grCmdDraw(
 {
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
-    vkCmdDraw(grvkCmdBuffer->commandBuffer,
-              vertexCount, instanceCount, firstVertex, firstInstance);
+    vki.vkCmdDraw(grvkCmdBuffer->commandBuffer,
+                  vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
 GR_VOID grCmdDrawIndexed(
@@ -98,8 +98,8 @@ GR_VOID grCmdDrawIndexed(
 {
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
-    vkCmdDrawIndexed(grvkCmdBuffer->commandBuffer,
-                     indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    vki.vkCmdDrawIndexed(grvkCmdBuffer->commandBuffer,
+                         indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
 GR_VOID grCmdClearColorImage(
@@ -121,9 +121,9 @@ GR_VOID grCmdClearColorImage(
         vkRanges[i] = getVkImageSubresourceRange(&pRanges[i]);
     }
 
-    vkCmdClearColorImage(grvkCmdBuffer->commandBuffer, grvkImage->image,
-                         getVkImageLayout(GR_IMAGE_STATE_CLEAR),
-                         &vkColor, rangeCount, vkRanges);
+    vki.vkCmdClearColorImage(grvkCmdBuffer->commandBuffer, grvkImage->image,
+                             getVkImageLayout(GR_IMAGE_STATE_CLEAR),
+                             &vkColor, rangeCount, vkRanges);
 
     free(vkRanges);
 }
@@ -147,9 +147,9 @@ GR_VOID grCmdClearColorImageRaw(
         vkRanges[i] = getVkImageSubresourceRange(&pRanges[i]);
     }
 
-    vkCmdClearColorImage(grvkCmdBuffer->commandBuffer, grvkImage->image,
-                         getVkImageLayout(GR_IMAGE_STATE_CLEAR),
-                         &vkColor, rangeCount, vkRanges);
+    vki.vkCmdClearColorImage(grvkCmdBuffer->commandBuffer, grvkImage->image,
+                             getVkImageLayout(GR_IMAGE_STATE_CLEAR),
+                             &vkColor, rangeCount, vkRanges);
 
     free(vkRanges);
 }

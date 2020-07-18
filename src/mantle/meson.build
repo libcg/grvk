@@ -12,6 +12,7 @@ mantle_src = [
   'mantle_wsi.c',
   'stub.c',
   'util.c',
+  'vulkan_loader.c',
 ]
 
 mantle_dll = shared_library('mantle'+dll_variant, mantle_src,

@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mantle/mantle.h"
-#include "vulkan/vulkan.h"
 #include "grvk_object.h"
+#include "vulkan_loader.h"
 
 #define INVALID_QUEUE_INDEX -1u
 

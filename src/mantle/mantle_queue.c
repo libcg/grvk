@@ -31,7 +31,7 @@ GR_RESULT grGetDeviceQueue(
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
-    vkGetDeviceQueue(grvkDevice->device, queueIndex, queueId, &vkQueue);
+    vki.vkGetDeviceQueue(grvkDevice->device, queueIndex, queueId, &vkQueue);
 
     GrvkQueue* grvkQueue = malloc(sizeof(GrvkQueue));
     *grvkQueue = (GrvkQueue) {
@@ -75,7 +75,7 @@ GR_RESULT grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    if (vkQueueSubmit(vkQueue, 1, &submitInfo, vkFence) != VK_SUCCESS) {
+    if (vki.vkQueueSubmit(vkQueue, 1, &submitInfo, vkFence) != VK_SUCCESS) {
         printf("%s: vkQueueSubmit failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }

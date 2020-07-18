@@ -1,6 +1,7 @@
 #ifndef GRVK_OBJECT_H_
 #define GRVK_OBJECT_H_
 
+#define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
 #define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS

@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "mantle/mantleWsiWinExt.h"
-#include "vulkan/vulkan.h"
 #include "mantle_internal.h"
 
 GR_RESULT grWsiWinCreatePresentableImage(
@@ -32,13 +31,13 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    if (vkCreateImage(vkDevice, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
+    if (vki.vkCreateImage(vkDevice, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
         printf("%s: vkCreateImage failed\n", __func__);
         return GR_ERROR_INVALID_VALUE;
     }
 
     VkMemoryRequirements memoryRequirements;
-    vkGetImageMemoryRequirements(vkDevice, vkImage, &memoryRequirements);
+    vki.vkGetImageMemoryRequirements(vkDevice, vkImage, &memoryRequirements);
 
     VkMemoryAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -47,16 +46,16 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .memoryTypeIndex = 0, // FIXME don't hardcode
     };
 
-    if (vkAllocateMemory(vkDevice, &allocateInfo, NULL, &vkDeviceMemory) != VK_SUCCESS) {
+    if (vki.vkAllocateMemory(vkDevice, &allocateInfo, NULL, &vkDeviceMemory) != VK_SUCCESS) {
         printf("%s: vkAllocateMemory failed\n", __func__);
-        vkDestroyImage(vkDevice, vkImage, NULL);
+        vki.vkDestroyImage(vkDevice, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    if (vkBindImageMemory(vkDevice, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
+    if (vki.vkBindImageMemory(vkDevice, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
         printf("%s: vkBindImageMemory failed\n", __func__);
-        vkFreeMemory(vkDevice, vkDeviceMemory, NULL);
-        vkDestroyImage(vkDevice, vkImage, NULL);
+        vki.vkFreeMemory(vkDevice, vkDeviceMemory, NULL);
+        vki.vkDestroyImage(vkDevice, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 

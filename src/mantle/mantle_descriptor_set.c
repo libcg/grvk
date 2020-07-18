@@ -69,8 +69,8 @@ GR_RESULT grCreateDescriptorSet(
     };
 
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
-    if (vkCreateDescriptorPool(grvkDevice->device, &poolCreateInfo, NULL,
-                               &vkDescriptorPool) != VK_SUCCESS) {
+    if (vki.vkCreateDescriptorPool(grvkDevice->device, &poolCreateInfo, NULL,
+                                   &vkDescriptorPool) != VK_SUCCESS) {
         printf("%s: vkCreateDescriptorPool failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -161,7 +161,8 @@ GR_VOID grEndDescriptorSetUpdate(
             .pBindings = bindings,
         };
 
-        vkCreateDescriptorSetLayout(grvkDescriptorSet->device, &createInfo, NULL, &vkLayouts[i]);
+        vki.vkCreateDescriptorSetLayout(grvkDescriptorSet->device, &createInfo, NULL,
+                                        &vkLayouts[i]);
 
         free(bindings);
     }
@@ -174,8 +175,8 @@ GR_VOID grEndDescriptorSetUpdate(
         .pSetLayouts = vkLayouts,
     };
 
-    vkAllocateDescriptorSets(grvkDescriptorSet->device, &allocateInfo,
-                             grvkDescriptorSet->descriptorSets);
+    vki.vkAllocateDescriptorSets(grvkDescriptorSet->device, &allocateInfo,
+                                 grvkDescriptorSet->descriptorSets);
 
     // TODO update descriptor sets
 }

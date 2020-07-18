@@ -13,6 +13,8 @@ GR_RESULT grInitAndEnumerateGpus(
 {
     VkInstance vkInstance = VK_NULL_HANDLE;
 
+    vulkanLoaderLibraryInit();
+
     printf("%s: app \"%s\" (%08X), engine \"%s\" (%08X), api %08X\n", __func__,
            pAppInfo->pAppName, pAppInfo->appVersion,
            pAppInfo->pEngineName, pAppInfo->engineVersion,
@@ -46,19 +48,21 @@ GR_RESULT grInitAndEnumerateGpus(
         .ppEnabledExtensionNames = NULL,
     };
 
-    if (vkCreateInstance(&createInfo, NULL, &vkInstance) != VK_SUCCESS) {
+    if (vkl.vkCreateInstance(&createInfo, NULL, &vkInstance) != VK_SUCCESS) {
         printf("%s: vkCreateInstance failed\n", __func__);
         return GR_ERROR_INITIALIZATION_FAILED;
     }
 
+    vulkanLoaderInstanceInit(vkInstance);
+
     uint32_t physicalDeviceCount = 0;
-    vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, NULL);
+    vki.vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, NULL);
     if (physicalDeviceCount > GR_MAX_PHYSICAL_GPUS) {
         physicalDeviceCount = GR_MAX_PHYSICAL_GPUS;
     }
 
     VkPhysicalDevice physicalDevices[GR_MAX_PHYSICAL_GPUS];
-    vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, physicalDevices);
+    vki.vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, physicalDevices);
 
     *pGpuCount = physicalDeviceCount;
     for (int i = 0; i < *pGpuCount; i++) {
@@ -92,12 +96,12 @@ GR_RESULT grCreateDevice(
     VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
     uint32_t queueFamilyPropertyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount, NULL);
+    vki.vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount, NULL);
 
     VkQueueFamilyProperties* queueFamilyProperties =
         malloc(sizeof(VkQueueFamilyProperties) * queueFamilyPropertyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount,
-                                             queueFamilyProperties);
+    vki.vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount,
+                                                 queueFamilyProperties);
 
     for (int i = 0; i < queueFamilyPropertyCount; i++) {
         const VkQueueFamilyProperties* queueFamilyProperty = &queueFamilyProperties[i];
@@ -177,7 +181,7 @@ GR_RESULT grCreateDevice(
         .pEnabledFeatures = &deviceFeatures,
     };
 
-    if (vkCreateDevice(physicalDevice, &createInfo, NULL, &vkDevice) != VK_SUCCESS) {
+    if (vki.vkCreateDevice(physicalDevice, &createInfo, NULL, &vkDevice) != VK_SUCCESS) {
         printf("%s: vkCreateDevice failed\n", __func__);
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
@@ -191,8 +195,8 @@ GR_RESULT grCreateDevice(
             .queueFamilyIndex = universalQueueIndex,
         };
 
-        if (vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
-                                &universalCommandPool) != VK_SUCCESS) {
+        if (vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
+                                    &universalCommandPool) != VK_SUCCESS) {
             printf("%s: vkCreateCommandPool failed\n", __func__);
             res = GR_ERROR_INITIALIZATION_FAILED;
             goto bail;
@@ -206,8 +210,8 @@ GR_RESULT grCreateDevice(
             .queueFamilyIndex = computeQueueIndex,
         };
 
-        if (vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
-                                &computeCommandPool) != VK_SUCCESS) {
+        if (vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
+                                    &computeCommandPool) != VK_SUCCESS) {
             printf("%s: vkCreateCommandPool failed\n", __func__);
             res = GR_ERROR_INITIALIZATION_FAILED;
             goto bail;
@@ -235,13 +239,13 @@ bail:
 
     if (res != GR_SUCCESS) {
         if (universalCommandPool != VK_NULL_HANDLE) {
-            vkDestroyCommandPool(vkDevice, universalCommandPool, NULL);
+            vki.vkDestroyCommandPool(vkDevice, universalCommandPool, NULL);
         }
         if (computeCommandPool != VK_NULL_HANDLE) {
-            vkDestroyCommandPool(vkDevice, computeCommandPool, NULL);
+            vki.vkDestroyCommandPool(vkDevice, computeCommandPool, NULL);
         }
         if (vkDevice != VK_NULL_HANDLE) {
-            vkDestroyDevice(vkDevice, NULL);
+            vki.vkDestroyDevice(vkDevice, NULL);
         }
     }
 

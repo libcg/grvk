@@ -29,8 +29,8 @@ GR_RESULT grCreateCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    if (vkAllocateCommandBuffers(grvkDevice->device, &allocateInfo,
-                                 &vkCommandBuffer) != VK_SUCCESS) {
+    if (vki.vkAllocateCommandBuffers(grvkDevice->device, &allocateInfo,
+                                     &vkCommandBuffer) != VK_SUCCESS) {
         printf("%s: vkAllocateCommandBuffers failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -63,7 +63,7 @@ GR_RESULT grBeginCommandBuffer(
         .pInheritanceInfo = NULL,
     };
 
-    if (vkBeginCommandBuffer(vkCommandBuffer, &beginInfo) != VK_SUCCESS) {
+    if (vki.vkBeginCommandBuffer(vkCommandBuffer, &beginInfo) != VK_SUCCESS) {
         printf("%s: vkBeginCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -76,7 +76,7 @@ GR_RESULT grEndCommandBuffer(
 {
     VkCommandBuffer vkCommandBuffer = ((GrvkCmdBuffer*)cmdBuffer)->commandBuffer;
 
-    if (vkEndCommandBuffer(vkCommandBuffer) != VK_SUCCESS) {
+    if (vki.vkEndCommandBuffer(vkCommandBuffer) != VK_SUCCESS) {
         printf("%s: vkEndCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
