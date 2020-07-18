@@ -375,14 +375,6 @@ GR_VOID grCmdBindPipeline(
     printf("STUB: %s\n", __func__);
 }
 
-GR_VOID grCmdBindStateObject(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM stateBindPoint,
-    GR_STATE_OBJECT state)
-{
-    printf("STUB: %s\n", __func__);
-}
-
 GR_VOID grCmdBindDescriptorSet(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,

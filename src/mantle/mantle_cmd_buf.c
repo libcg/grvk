@@ -16,6 +16,75 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
 
 // Command Buffer Building Functions
 
+GR_VOID grCmdBindStateObject(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM stateBindPoint,
+    GR_STATE_OBJECT state)
+{
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrvkViewportStateObject* viewportState = (GrvkViewportStateObject*)state;
+    GrvkRasterStateObject* rasterState = (GrvkRasterStateObject*)state;
+    GrvkDepthStencilStateObject* depthStencilState = (GrvkDepthStencilStateObject*)state;
+    GrvkColorBlendStateObject* colorBlendState = (GrvkColorBlendStateObject*)state;
+
+    switch ((GR_STATE_BIND_POINT)stateBindPoint) {
+    case GR_STATE_BIND_VIEWPORT:
+        vki.vkCmdSetViewportWithCountEXT(grvkCmdBuffer->commandBuffer,
+                                         viewportState->viewportCount, viewportState->viewports);
+        vki.vkCmdSetScissorWithCountEXT(grvkCmdBuffer->commandBuffer, viewportState->scissorCount,
+                                        viewportState->scissors);
+        break;
+    case GR_STATE_BIND_RASTER:
+        vki.vkCmdSetCullModeEXT(grvkCmdBuffer->commandBuffer, rasterState->cullMode);
+        vki.vkCmdSetFrontFaceEXT(grvkCmdBuffer->commandBuffer, rasterState->frontFace);
+        vki.vkCmdSetDepthBias(grvkCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
+                              rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
+        break;
+    case GR_STATE_BIND_DEPTH_STENCIL:
+        vki.vkCmdSetDepthTestEnableEXT(grvkCmdBuffer->commandBuffer,
+                                       depthStencilState->depthTestEnable);
+        vki.vkCmdSetDepthWriteEnableEXT(grvkCmdBuffer->commandBuffer,
+                                        depthStencilState->depthWriteEnable);
+        vki.vkCmdSetDepthCompareOpEXT(grvkCmdBuffer->commandBuffer,
+                                      depthStencilState->depthCompareOp);
+        vki.vkCmdSetDepthBoundsTestEnableEXT(grvkCmdBuffer->commandBuffer,
+                                             depthStencilState->depthBoundsTestEnable);
+        vki.vkCmdSetStencilTestEnableEXT(grvkCmdBuffer->commandBuffer,
+                                         depthStencilState->stencilTestEnable);
+        vki.vkCmdSetStencilOpEXT(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+                                 depthStencilState->front.failOp,
+                                 depthStencilState->front.passOp,
+                                 depthStencilState->front.depthFailOp,
+                                 depthStencilState->front.compareOp);
+        vki.vkCmdSetStencilCompareMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+                                       depthStencilState->front.compareMask);
+        vki.vkCmdSetStencilWriteMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+                                     depthStencilState->front.writeMask);
+        vki.vkCmdSetStencilReference(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+                                     depthStencilState->front.reference);
+        vki.vkCmdSetStencilOpEXT(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+                                 depthStencilState->back.failOp,
+                                 depthStencilState->back.passOp,
+                                 depthStencilState->back.depthFailOp,
+                                 depthStencilState->back.compareOp);
+        vki.vkCmdSetStencilCompareMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+                                       depthStencilState->back.compareMask);
+        vki.vkCmdSetStencilWriteMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+                                     depthStencilState->back.writeMask);
+        vki.vkCmdSetStencilReference(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+                                     depthStencilState->back.reference);
+        vki.vkCmdSetDepthBounds(grvkCmdBuffer->commandBuffer,
+                                depthStencilState->minDepthBounds, depthStencilState->maxDepthBounds);
+        break;
+    case GR_STATE_BIND_COLOR_BLEND:
+        vki.vkCmdSetBlendConstants(grvkCmdBuffer->commandBuffer, colorBlendState->blendConstants);
+        break;
+    case GR_STATE_BIND_MSAA:
+        // TODO
+        break;
+    }
+}
+
 GR_VOID grCmdPrepareMemoryRegions(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT transitionCount,
