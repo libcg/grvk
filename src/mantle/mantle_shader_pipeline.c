@@ -440,6 +440,24 @@ GR_RESULT grCreateGraphicsPipeline(
         .alphaToOneEnable = VK_FALSE,
     };
 
+    VkPipelineDepthStencilStateCreateInfo* depthStencilStateCreateInfo =
+        malloc(sizeof(VkPipelineDepthStencilStateCreateInfo));
+
+    *depthStencilStateCreateInfo = (VkPipelineDepthStencilStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .depthTestEnable = 0, // Dynamic state
+        .depthWriteEnable = 0, // Dynamic state
+        .depthCompareOp = 0, // Dynamic state
+        .depthBoundsTestEnable = 0, // Dynamic state
+        .stencilTestEnable = 0, // Dynamic state
+        .front = { 0 }, // Dynamic state
+        .back = { 0 }, // Dynamic state
+        .minDepthBounds = 0.f, // Dynamic state
+        .maxDepthBounds = 0.f, // Dynamic state
+    };
+
     VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo =
         malloc(sizeof(VkPipelineColorBlendStateCreateInfo));
     VkPipelineColorBlendAttachmentState* attachments =
@@ -530,7 +548,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .pViewportState = viewportStateCreateInfo,
         .pRasterizationState = rasterizationStateCreateInfo,
         .pMultisampleState = msaaStateCreateInfo,
-        .pDepthStencilState = NULL, // Filled in at bind time
+        .pDepthStencilState = depthStencilStateCreateInfo,
         .pColorBlendState = colorBlendStateCreateInfo,
         .pDynamicState = NULL, // TODO implement VK_EXT_extended_dynamic_state
         .layout = layout,

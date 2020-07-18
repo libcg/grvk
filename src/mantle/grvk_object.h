@@ -46,7 +46,15 @@ typedef struct _GrvkColorTargetView {
 
 typedef struct _GrvkDepthStencilStateObject {
     GrvkStructType sType;
-    VkPipelineDepthStencilStateCreateInfo* depthStencilStateCreateInfo;
+    VkBool32 depthTestEnable;
+    VkBool32 depthWriteEnable;
+    VkCompareOp depthCompareOp;
+    VkBool32 depthBoundsTestEnable;
+    VkBool32 stencilTestEnable;
+    VkStencilOpState front;
+    VkStencilOpState back;
+    float minDepthBounds;
+    float maxDepthBounds;
 } GrvkDepthStencilStateObject;
 
 typedef struct _GrvkDescriptorSet {

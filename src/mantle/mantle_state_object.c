@@ -115,45 +115,35 @@ GR_RESULT grCreateDepthStencilState(
     const GR_DEPTH_STENCIL_STATE_CREATE_INFO* pCreateInfo,
     GR_DEPTH_STENCIL_STATE_OBJECT* pState)
 {
-    VkPipelineDepthStencilStateCreateInfo* depthStencilStateCreateInfo =
-        malloc(sizeof(VkPipelineDepthStencilStateCreateInfo));
-
-    *depthStencilStateCreateInfo = (VkPipelineDepthStencilStateCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .depthTestEnable = pCreateInfo->depthEnable, // vkCmdSetDepthTestEnableEXT
-        .depthWriteEnable = pCreateInfo->depthWriteEnable, // vkCmdSetDepthWriteEnableEXT
-        .depthCompareOp = getVkCompareOp(pCreateInfo->depthFunc), // vkCmdSetDepthCompareOpEXT
-        .depthBoundsTestEnable = pCreateInfo->depthBoundsEnable, // vkCmdSetDepthBoundsTestEnableEXT
-        .stencilTestEnable = pCreateInfo->stencilEnable, // vkCmdSetStencilTestEnableEXT
-        .front = {
-            .failOp = getVkStencilOp(pCreateInfo->front.stencilFailOp), // vkCmdSetStencilOpEXT
-            .passOp = getVkStencilOp(pCreateInfo->front.stencilPassOp), // ^
-            .depthFailOp = getVkStencilOp(pCreateInfo->front.stencilDepthFailOp), // ^
-            .compareOp = getVkCompareOp(pCreateInfo->front.stencilFunc), // ^
-            .compareMask = pCreateInfo->stencilReadMask, // vkCmdSetStencilCompareMask
-            .writeMask = pCreateInfo->stencilWriteMask, // vkCmdSetStencilWriteMask
-            .reference = pCreateInfo->front.stencilRef, // vkCmdSetStencilReference
-        },
-        .back = {
-            .failOp = getVkStencilOp(pCreateInfo->back.stencilFailOp), // vkCmdSetStencilOpEXT
-            .passOp = getVkStencilOp(pCreateInfo->back.stencilPassOp), // ^
-            .depthFailOp = getVkStencilOp(pCreateInfo->back.stencilDepthFailOp), // ^
-            .compareOp = getVkCompareOp(pCreateInfo->back.stencilFunc), // ^
-            .compareMask = pCreateInfo->stencilReadMask, // vkCmdSetStencilCompareMask
-            .writeMask = pCreateInfo->stencilWriteMask, // vkCmdSetStencilWriteMask
-            .reference = pCreateInfo->back.stencilRef, // vkCmdSetStencilReference
-        },
-        .minDepthBounds = pCreateInfo->minDepth, // vkCmdSetDepthBounds
-        .maxDepthBounds = pCreateInfo->maxDepth, // ^
-    };
-
     GrvkDepthStencilStateObject* grvkDepthStencilStateObject =
         malloc(sizeof(GrvkDepthStencilStateObject));
     *grvkDepthStencilStateObject = (GrvkDepthStencilStateObject) {
         .sType = GRVK_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
-        .depthStencilStateCreateInfo = depthStencilStateCreateInfo,
+        .depthTestEnable = pCreateInfo->depthEnable,
+        .depthWriteEnable = pCreateInfo->depthWriteEnable,
+        .depthCompareOp = getVkCompareOp(pCreateInfo->depthFunc),
+        .depthBoundsTestEnable = pCreateInfo->depthBoundsEnable,
+        .stencilTestEnable = pCreateInfo->stencilEnable,
+        .front = {
+            .failOp = getVkStencilOp(pCreateInfo->front.stencilFailOp),
+            .passOp = getVkStencilOp(pCreateInfo->front.stencilPassOp),
+            .depthFailOp = getVkStencilOp(pCreateInfo->front.stencilDepthFailOp),
+            .compareOp = getVkCompareOp(pCreateInfo->front.stencilFunc),
+            .compareMask = pCreateInfo->stencilReadMask,
+            .writeMask = pCreateInfo->stencilWriteMask,
+            .reference = pCreateInfo->front.stencilRef,
+        },
+        .back = {
+            .failOp = getVkStencilOp(pCreateInfo->back.stencilFailOp),
+            .passOp = getVkStencilOp(pCreateInfo->back.stencilPassOp),
+            .depthFailOp = getVkStencilOp(pCreateInfo->back.stencilDepthFailOp),
+            .compareOp = getVkCompareOp(pCreateInfo->back.stencilFunc),
+            .compareMask = pCreateInfo->stencilReadMask,
+            .writeMask = pCreateInfo->stencilWriteMask,
+            .reference = pCreateInfo->back.stencilRef,
+        },
+        .minDepthBounds = pCreateInfo->minDepth,
+        .maxDepthBounds = pCreateInfo->maxDepth,
     };
 
     *pState = (GR_DEPTH_STENCIL_STATE_OBJECT)grvkDepthStencilStateObject;
