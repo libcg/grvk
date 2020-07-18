@@ -36,7 +36,7 @@ typedef struct _GrvkCmdBuffer {
 
 typedef struct _GrvkColorBlendStateObject {
     GrvkStructType sType;
-    VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo;
+    float blendConstants[4];
 } GrvkColorBlendStateObject;
 
 typedef struct _GrvkColorTargetView {

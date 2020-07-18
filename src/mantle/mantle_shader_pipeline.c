@@ -425,6 +425,8 @@ GR_RESULT grCreateGraphicsPipeline(
         .lineWidth = 1.f,
     };
 
+    VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo =
+        malloc(sizeof(VkPipelineColorBlendStateCreateInfo));
     VkPipelineColorBlendAttachmentState* attachments =
         malloc(sizeof(VkPipelineColorBlendAttachmentState) * GR_MAX_COLOR_TARGETS);
 
@@ -433,8 +435,9 @@ GR_RESULT grCreateGraphicsPipeline(
         printf("%s: alpha-to-coverage is not implemented\n", __func__);
     }
 
+    // TODO implement
     if (pCreateInfo->cbState.dualSourceBlendEnable) {
-        // Nothing to do, set through VkBlendFactor
+        printf("%s: dual source blend is not implemented\n", __func__);
     }
 
     // TODO implement
@@ -445,17 +448,42 @@ GR_RESULT grCreateGraphicsPipeline(
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_PIPELINE_CB_TARGET_STATE* target = &pCreateInfo->cbState.target[i];
 
-        attachments[i] = (VkPipelineColorBlendAttachmentState) {
-            .blendEnable = target->blendEnable,
-            .srcColorBlendFactor = 0, // Filled in grCreateColorBlendState
-            .dstColorBlendFactor = 0, // Filled in grCreateColorBlendState
-            .colorBlendOp = 0, // Filled in grCreateColorBlendState
-            .srcAlphaBlendFactor = 0, // Filled in grCreateColorBlendState
-            .dstAlphaBlendFactor = 0, // Filled in grCreateColorBlendState
-            .alphaBlendOp = 0, // Filled in grCreateColorBlendState
-            .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
-        };
+        if (target->blendEnable) {
+            // TODO implement blend settings
+            attachments[i] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = VK_TRUE,
+                .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                .colorBlendOp = VK_BLEND_OP_ADD,
+                .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                .alphaBlendOp = VK_BLEND_OP_ADD,
+                .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
+            };
+        } else {
+            attachments[i] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = VK_FALSE,
+                .srcColorBlendFactor = 0, // Ignored
+                .dstColorBlendFactor = 0, // Ignored
+                .colorBlendOp = 0, // Ignored
+                .srcAlphaBlendFactor = 0, // Ignored
+                .dstAlphaBlendFactor = 0, // Ignored
+                .alphaBlendOp = 0, // Ignored
+                .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
+            };
+        }
     }
+
+    *colorBlendStateCreateInfo = (VkPipelineColorBlendStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = 0, // Ignored
+        .attachmentCount = GR_MAX_COLOR_TARGETS,
+        .pAttachments = attachments,
+        .blendConstants = { 0.f }, // Dynamic state
+    };
 
     VkPipelineLayout layout = getVkPipelineLayout(grvkDevice->device, stages);
     if (layout == VK_NULL_HANDLE) {
@@ -498,8 +526,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .pRasterizationState = rasterizationStateCreateInfo,
         .pMultisampleState = NULL, // Filled in at bind time
         .pDepthStencilState = NULL, // Filled in at bind time
-        .pColorBlendState = // Combined with color blend state at bind time
-            (VkPipelineColorBlendStateCreateInfo*)attachments,
+        .pColorBlendState = colorBlendStateCreateInfo,
         .pDynamicState = NULL, // TODO implement VK_EXT_extended_dynamic_state
         .layout = layout,
         .renderPass = renderPass,

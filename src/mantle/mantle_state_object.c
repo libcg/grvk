@@ -80,56 +80,30 @@ GR_RESULT grCreateColorBlendState(
     const GR_COLOR_BLEND_STATE_CREATE_INFO* pCreateInfo,
     GR_COLOR_BLEND_STATE_OBJECT* pState)
 {
-    VkPipelineColorBlendAttachmentState* attachments =
-        malloc(sizeof(VkPipelineColorBlendAttachmentState) * GR_MAX_COLOR_TARGETS);
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
-        if (pCreateInfo->target[i].blendEnable) {
-            attachments[i] = (VkPipelineColorBlendAttachmentState) {
-                .blendEnable = VK_TRUE,
-                .srcColorBlendFactor = getVkBlendFactor(pCreateInfo->target[i].srcBlendColor),
-                .dstColorBlendFactor = getVkBlendFactor(pCreateInfo->target[i].destBlendColor),
-                .colorBlendOp = getVkBlendOp(pCreateInfo->target[i].blendFuncColor),
-                .srcAlphaBlendFactor = getVkBlendFactor(pCreateInfo->target[i].srcBlendAlpha),
-                .dstAlphaBlendFactor = getVkBlendFactor(pCreateInfo->target[i].destBlendAlpha),
-                .alphaBlendOp = getVkBlendOp(pCreateInfo->target[i].blendFuncAlpha),
-                .colorWriteMask = 0, // Set from grCreateGraphicsPipeline
-            };
-        } else {
-            attachments[i] = (VkPipelineColorBlendAttachmentState) {
-                .blendEnable = VK_FALSE,
-                .srcColorBlendFactor = 0, // Ignored
-                .dstColorBlendFactor = 0, // Ignored
-                .colorBlendOp = 0, // Ignored
-                .srcAlphaBlendFactor = 0, // Ignored
-                .dstAlphaBlendFactor = 0, // Ignored
-                .alphaBlendOp = 0, // Ignored
-                .colorWriteMask = 0, // Set from grCreateGraphicsPipeline
-            };
+        const GR_COLOR_TARGET_BLEND_STATE* target = &pCreateInfo->target[i];
+
+        if (target->blendEnable &&
+            (target->srcBlendColor != GR_BLEND_SRC_ALPHA ||
+             target->destBlendColor != GR_BLEND_ONE_MINUS_SRC_ALPHA ||
+             target->blendFuncColor != GR_BLEND_FUNC_ADD ||
+             target->srcBlendAlpha != GR_BLEND_ONE ||
+             target->destBlendAlpha != GR_BLEND_ONE ||
+             target->blendFuncAlpha != GR_BLEND_FUNC_ADD)) {
+            printf("%s: unsupported blend settings 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", __func__,
+                   target->srcBlendColor, target->destBlendColor, target->blendFuncColor,
+                   target->srcBlendAlpha, target->destBlendAlpha, target->blendFuncAlpha);
         }
     }
-
-    VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo =
-        malloc(sizeof(VkPipelineColorBlendStateCreateInfo));
-
-    *colorBlendStateCreateInfo = (VkPipelineColorBlendStateCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .logicOpEnable = VK_FALSE,
-        .logicOp = 0, // Ignored
-        .attachmentCount = GR_MAX_COLOR_TARGETS,
-        .pAttachments = attachments, // TODO no dynamic state
-        .blendConstants = { // vkCmdSetBlendConstants
-            pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
-            pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
-        },
-    };
 
     GrvkColorBlendStateObject* grvkColorBlendStateObject =
         malloc(sizeof(GrvkColorBlendStateObject));
     *grvkColorBlendStateObject = (GrvkColorBlendStateObject) {
         .sType = GRVK_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
-        .colorBlendStateCreateInfo = colorBlendStateCreateInfo,
+        .blendConstants = {
+            pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
+            pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
+        },
     };
 
     *pState = (GR_COLOR_BLEND_STATE_OBJECT)grvkColorBlendStateObject;
