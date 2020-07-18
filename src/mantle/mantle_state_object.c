@@ -7,30 +7,34 @@ GR_RESULT grCreateViewportState(
     const GR_VIEWPORT_STATE_CREATE_INFO* pCreateInfo,
     GR_VIEWPORT_STATE_OBJECT* pState)
 {
-    uint32_t scissorCount = pCreateInfo->scissorEnable ? pCreateInfo->viewportCount : 0;
+    const uint32_t scissorCount = pCreateInfo->scissorEnable ? pCreateInfo->viewportCount : 0;
 
     VkViewport *vkViewports = malloc(sizeof(VkViewport) * pCreateInfo->viewportCount);
     for (int i = 0; i < pCreateInfo->viewportCount; i++) {
+        const GR_VIEWPORT* viewport = &pCreateInfo->viewports[i];
+
         vkViewports[i] = (VkViewport) {
-            .x = pCreateInfo->viewports[i].originX,
-            .y = pCreateInfo->viewports[i].originY,
-            .width = pCreateInfo->viewports[i].width,
-            .height = pCreateInfo->viewports[i].height,
-            .minDepth = pCreateInfo->viewports[i].minDepth,
-            .maxDepth = pCreateInfo->viewports[i].maxDepth,
+            .x = viewport->originX,
+            .y = viewport->originY,
+            .width = viewport->width,
+            .height = viewport->height,
+            .minDepth = viewport->minDepth,
+            .maxDepth = viewport->maxDepth,
         };
     }
 
     VkRect2D *vkScissors = malloc(sizeof(VkViewport) * scissorCount);
     for (int i = 0; i < scissorCount; i++) {
+        const GR_RECT* scissor = &pCreateInfo->scissors[i];
+
         vkScissors[i] = (VkRect2D) {
             .offset = {
-                .x = pCreateInfo->scissors[i].offset.x,
-                .y = pCreateInfo->scissors[i].offset.y,
+                .x = scissor->offset.x,
+                .y = scissor->offset.y,
             },
             .extent = {
-                .width = pCreateInfo->scissors[i].extent.width,
-                .height = pCreateInfo->scissors[i].extent.height,
+                .width = scissor->extent.width,
+                .height = scissor->extent.height,
             },
         };
     }
