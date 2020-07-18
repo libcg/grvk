@@ -7,8 +7,6 @@ GR_RESULT grCreateViewportState(
     const GR_VIEWPORT_STATE_CREATE_INFO* pCreateInfo,
     GR_VIEWPORT_STATE_OBJECT* pState)
 {
-    const uint32_t scissorCount = pCreateInfo->scissorEnable ? pCreateInfo->viewportCount : 0;
-
     VkViewport *vkViewports = malloc(sizeof(VkViewport) * pCreateInfo->viewportCount);
     for (int i = 0; i < pCreateInfo->viewportCount; i++) {
         const GR_VIEWPORT* viewport = &pCreateInfo->viewports[i];
@@ -23,20 +21,33 @@ GR_RESULT grCreateViewportState(
         };
     }
 
-    VkRect2D *vkScissors = malloc(sizeof(VkViewport) * scissorCount);
-    for (int i = 0; i < scissorCount; i++) {
+    VkRect2D *vkScissors = malloc(sizeof(VkViewport) * pCreateInfo->viewportCount);
+    for (int i = 0; i < pCreateInfo->viewportCount; i++) {
         const GR_RECT* scissor = &pCreateInfo->scissors[i];
 
-        vkScissors[i] = (VkRect2D) {
-            .offset = {
-                .x = scissor->offset.x,
-                .y = scissor->offset.y,
-            },
-            .extent = {
-                .width = scissor->extent.width,
-                .height = scissor->extent.height,
-            },
-        };
+        if (pCreateInfo->scissorEnable) {
+            vkScissors[i] = (VkRect2D) {
+                .offset = {
+                    .x = scissor->offset.x,
+                    .y = scissor->offset.y,
+                },
+                .extent = {
+                    .width = scissor->extent.width,
+                    .height = scissor->extent.height,
+                },
+            };
+        } else {
+            vkScissors[i] = (VkRect2D) {
+                .offset = {
+                    .x = INT32_MIN,
+                    .y = INT32_MIN,
+                },
+                .extent = {
+                    .width = UINT32_MAX,
+                    .height = UINT32_MAX,
+                },
+            };
+        }
     }
 
     GrvkViewportStateObject* grvkViewportStateObject = malloc(sizeof(GrvkViewportStateObject));
@@ -45,7 +56,7 @@ GR_RESULT grCreateViewportState(
         .viewports = vkViewports,
         .viewportCount = pCreateInfo->viewportCount,
         .scissors = vkScissors,
-        .scissorCount = scissorCount,
+        .scissorCount = pCreateInfo->viewportCount,
     };
 
     *pState = (GR_VIEWPORT_STATE_OBJECT)grvkViewportStateObject;
