@@ -74,4 +74,7 @@ VkColorComponentFlags getVkColorComponentFlags(
 VkShaderStageFlags getVkShaderStageFlags(
     uint32_t stageIndex);
 
+VkPipelineBindPoint getVkPipelineBindPoint(
+    GR_PIPELINE_BIND_POINT bindPoint);
+
 #endif // MANTLE_INTERNAL_H_

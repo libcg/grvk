@@ -16,6 +16,18 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
 
 // Command Buffer Building Functions
 
+GR_VOID grCmdBindPipeline(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM pipelineBindPoint,
+    GR_PIPELINE pipeline)
+{
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrvkPipeline* grvkPipeline = (GrvkPipeline*)pipeline;
+
+    vki.vkCmdBindPipeline(grvkCmdBuffer->commandBuffer, getVkPipelineBindPoint(pipelineBindPoint),
+                          grvkPipeline->pipeline);
+}
+
 GR_VOID grCmdBindStateObject(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM stateBindPoint,

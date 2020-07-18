@@ -587,3 +587,17 @@ VkShaderStageFlags getVkShaderStageFlags(
     printf("%s: unsupported stage index %d\n", __func__, stageIndex);
     return 0;
 }
+
+VkPipelineBindPoint getVkPipelineBindPoint(
+    GR_PIPELINE_BIND_POINT bindPoint)
+{
+    switch (bindPoint) {
+    case GR_PIPELINE_BIND_POINT_COMPUTE:
+        return VK_PIPELINE_BIND_POINT_COMPUTE;
+    case GR_PIPELINE_BIND_POINT_GRAPHICS:
+        return VK_PIPELINE_BIND_POINT_GRAPHICS;
+    }
+
+    printf("%s: unsupported pipeline bind point 0x%x\n", __func__, bindPoint);
+    return GR_PIPELINE_BIND_POINT_GRAPHICS;
+}
