@@ -165,26 +165,14 @@ GR_RESULT grCreateMsaaState(
     const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState)
 {
-    VkPipelineMultisampleStateCreateInfo* msaaStateCreateInfo =
-        malloc(sizeof(VkPipelineMultisampleStateCreateInfo));
-
-    // TODO no dynamic state
-    *msaaStateCreateInfo = (VkPipelineMultisampleStateCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .rasterizationSamples = getVkSampleCountFlagBits(pCreateInfo->samples),
-        .sampleShadingEnable = VK_FALSE,
-        .minSampleShading = 0.f,
-        .pSampleMask = &pCreateInfo->sampleMask,
-        .alphaToCoverageEnable = VK_FALSE,
-        .alphaToOneEnable = VK_FALSE,
-    };
+    if (pCreateInfo->samples != 1) {
+        // TODO implement (don't forget samplingMask)
+        printf("%s: unsupported MSAA level %d\n", __func__, pCreateInfo->samples);
+    }
 
     GrvkMsaaStateObject* grvkMsaaStateObject = malloc(sizeof(GrvkMsaaStateObject));
     *grvkMsaaStateObject = (GrvkMsaaStateObject) {
         .sType = GRVK_STRUCT_TYPE_MSAA_STATE_OBJECT,
-        .multisampleStateCreateInfo = msaaStateCreateInfo,
     };
 
     *pState = (GR_MSAA_STATE_OBJECT)grvkMsaaStateObject;

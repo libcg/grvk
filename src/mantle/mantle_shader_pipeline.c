@@ -425,15 +425,25 @@ GR_RESULT grCreateGraphicsPipeline(
         .lineWidth = 1.f,
     };
 
+    VkPipelineMultisampleStateCreateInfo* msaaStateCreateInfo =
+        malloc(sizeof(VkPipelineMultisampleStateCreateInfo));
+
+    *msaaStateCreateInfo = (VkPipelineMultisampleStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT, // TODO implement MSAA
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 0.f,
+        .pSampleMask = NULL, // TODO implement MSAA
+        .alphaToCoverageEnable = pCreateInfo->cbState.alphaToCoverageEnable ? VK_TRUE : VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
+
     VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo =
         malloc(sizeof(VkPipelineColorBlendStateCreateInfo));
     VkPipelineColorBlendAttachmentState* attachments =
         malloc(sizeof(VkPipelineColorBlendAttachmentState) * GR_MAX_COLOR_TARGETS);
-
-    // TODO implement
-    if (pCreateInfo->cbState.alphaToCoverageEnable) {
-        printf("%s: alpha-to-coverage is not implemented\n", __func__);
-    }
 
     // TODO implement
     if (pCreateInfo->cbState.dualSourceBlendEnable) {
@@ -519,7 +529,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .pTessellationState = tessellationStateCreateInfo,
         .pViewportState = viewportStateCreateInfo,
         .pRasterizationState = rasterizationStateCreateInfo,
-        .pMultisampleState = NULL, // Filled in at bind time
+        .pMultisampleState = msaaStateCreateInfo,
         .pDepthStencilState = NULL, // Filled in at bind time
         .pColorBlendState = colorBlendStateCreateInfo,
         .pDynamicState = NULL, // TODO implement VK_EXT_extended_dynamic_state

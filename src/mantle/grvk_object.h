@@ -86,7 +86,6 @@ typedef struct _GrvkImage {
 
 typedef struct _GrvkMsaaStateObject {
     GrvkStructType sType;
-    VkPipelineMultisampleStateCreateInfo* multisampleStateCreateInfo;
 } GrvkMsaaStateObject;
 
 typedef struct _GrvkPhysicalGpu {
