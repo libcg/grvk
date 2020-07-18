@@ -384,13 +384,32 @@ GR_RESULT grCreateGraphicsPipeline(
         };
     }
 
+    VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo =
+        malloc(sizeof(VkPipelineRasterizationStateCreateInfo));
     VkPipelineRasterizationDepthClipStateCreateInfoEXT* depthClipStateCreateInfo =
         malloc(sizeof(VkPipelineRasterizationDepthClipStateCreateInfoEXT));
+
     *depthClipStateCreateInfo = (VkPipelineRasterizationDepthClipStateCreateInfoEXT) {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
         .pNext = NULL,
         .flags = 0,
         .depthClipEnable = pCreateInfo->rsState.depthClipEnable,
+    };
+
+    *rasterizationStateCreateInfo = (VkPipelineRasterizationStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pNext = depthClipStateCreateInfo,
+        .flags = 0,
+        .depthClampEnable = VK_TRUE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL, // TODO implement wireframe
+        .cullMode = 0, // Dynamic state
+        .frontFace = 0, // Dynamic state
+        .depthBiasEnable = VK_TRUE,
+        .depthBiasConstantFactor = 0.f, // Dynamic state
+        .depthBiasClamp = 0.f, // Dynamic state
+        .depthBiasSlopeFactor = 0.f, // Dynamic state
+        .lineWidth = 1.f,
     };
 
     VkPipelineColorBlendAttachmentState* attachments =
@@ -463,8 +482,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .pInputAssemblyState = inputAssemblyStateCreateInfo,
         .pTessellationState = tessellationStateCreateInfo,
         .pViewportState = NULL, // Filled in at bind time
-        .pRasterizationState = // Combined with raster state at bind time
-            (VkPipelineRasterizationStateCreateInfo*)depthClipStateCreateInfo,
+        .pRasterizationState = rasterizationStateCreateInfo,
         .pMultisampleState = NULL, // Filled in at bind time
         .pDepthStencilState = NULL, // Filled in at bind time
         .pColorBlendState = // Combined with color blend state at bind time

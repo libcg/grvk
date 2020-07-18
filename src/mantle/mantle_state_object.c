@@ -64,29 +64,18 @@ GR_RESULT grCreateRasterState(
     const GR_RASTER_STATE_CREATE_INFO* pCreateInfo,
     GR_RASTER_STATE_OBJECT* pState)
 {
-    VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo =
-        malloc(sizeof(VkPipelineRasterizationStateCreateInfo));
-
-    *rasterizationStateCreateInfo = (VkPipelineRasterizationStateCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .depthClampEnable = VK_TRUE, // depthClipEnable is set from grCreateGraphicsPipeline
-        .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = getVkPolygonMode(pCreateInfo->fillMode), // TODO no dynamic state
-        .cullMode = getVkCullModeFlags(pCreateInfo->cullMode), // vkCmdSetCullModeEXT
-        .frontFace = getVkFrontFace(pCreateInfo->frontFace), // vkCmdSetFrontFaceEXT
-        .depthBiasEnable = VK_TRUE,
-        .depthBiasConstantFactor = pCreateInfo->depthBias, // vkCmdSetDepthBias
-        .depthBiasClamp = pCreateInfo->depthBiasClamp, // vkCmdSetDepthBias
-        .depthBiasSlopeFactor = pCreateInfo->slopeScaledDepthBias, // vkCmdSetDepthBias
-        .lineWidth = 1.f,
-    };
+    if (pCreateInfo->fillMode != GR_FILL_SOLID) {
+        printf("%s: fill mode 0x%x is not supported\n", __func__, pCreateInfo->fillMode);
+    }
 
     GrvkRasterStateObject* grvkRasterStateObject = malloc(sizeof(GrvkRasterStateObject));
     *grvkRasterStateObject = (GrvkRasterStateObject) {
         .sType = GRVK_STRUCT_TYPE_RASTER_STATE_OBJECT,
-        .rasterizationStateCreateInfo = rasterizationStateCreateInfo,
+        .cullMode = getVkCullModeFlags(pCreateInfo->cullMode),
+        .frontFace = getVkFrontFace(pCreateInfo->frontFace),
+        .depthBiasConstantFactor = pCreateInfo->depthBias,
+        .depthBiasClamp = pCreateInfo->depthBiasClamp,
+        .depthBiasSlopeFactor = pCreateInfo->slopeScaledDepthBias,
     };
 
     *pState = (GR_RASTER_STATE_OBJECT)grvkRasterStateObject;

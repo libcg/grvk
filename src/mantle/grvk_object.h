@@ -101,7 +101,11 @@ typedef struct _GrvkPipeline {
 
 typedef struct _GrvkRasterStateObject {
     GrvkStructType sType;
-    VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo;
+    VkCullModeFlags cullMode;
+    VkFrontFace frontFace;
+    float depthBiasConstantFactor;
+    float depthBiasClamp;
+    float depthBiasSlopeFactor;
 } GrvkRasterStateObject;
 
 typedef struct _GrvkShader {
