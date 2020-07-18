@@ -166,4 +166,19 @@ void vulkanLoaderInstanceInit(VkInstance instance)
     LOAD_VULKAN_FN(vki, instance, vkUpdateDescriptorSetWithTemplate);
     LOAD_VULKAN_FN(vki, instance, vkUpdateDescriptorSets);
     LOAD_VULKAN_FN(vki, instance, vkWaitForFences);
+
+#ifdef VK_EXT_extended_dynamic_state
+    LOAD_VULKAN_FN(vki, instance, vkCmdBindVertexBuffers2EXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetCullModeEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetDepthBoundsTestEnableEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetDepthCompareOpEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetDepthTestEnableEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetDepthWriteEnableEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetFrontFaceEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetPrimitiveTopologyEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetScissorWithCountEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetStencilOpEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetStencilTestEnableEXT);
+    LOAD_VULKAN_FN(vki, instance, vkCmdSetViewportWithCountEXT);
+#endif
 }

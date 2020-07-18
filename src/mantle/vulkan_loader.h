@@ -160,6 +160,21 @@ typedef struct _VULKAN_INSTANCE {
     VULKAN_FN(vkUpdateDescriptorSets);
     VULKAN_FN(vkUpdateDescriptorSetWithTemplate);
     VULKAN_FN(vkWaitForFences);
+
+#ifdef VK_EXT_extended_dynamic_state
+    VULKAN_FN(vkCmdBindVertexBuffers2EXT);
+    VULKAN_FN(vkCmdSetCullModeEXT);
+    VULKAN_FN(vkCmdSetDepthBoundsTestEnableEXT);
+    VULKAN_FN(vkCmdSetDepthCompareOpEXT);
+    VULKAN_FN(vkCmdSetDepthTestEnableEXT);
+    VULKAN_FN(vkCmdSetDepthWriteEnableEXT);
+    VULKAN_FN(vkCmdSetFrontFaceEXT);
+    VULKAN_FN(vkCmdSetPrimitiveTopologyEXT);
+    VULKAN_FN(vkCmdSetScissorWithCountEXT);
+    VULKAN_FN(vkCmdSetStencilOpEXT);
+    VULKAN_FN(vkCmdSetStencilTestEnableEXT);
+    VULKAN_FN(vkCmdSetViewportWithCountEXT);
+#endif
 } VULKAN_INSTANCE;
 
 extern VULKAN_LIBRARY vkl;

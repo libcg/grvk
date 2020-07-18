@@ -84,7 +84,7 @@ GR_RESULT grCreateDevice(
     GR_DEVICE* pDevice)
 {
     GR_RESULT res = GR_SUCCESS;
-    VkPhysicalDevice physicalDevice = ((GrvkPhysicalGpu*)gpu)->physicalDevice;
+    GrvkPhysicalGpu* grvkPhysicalGpu = (GrvkPhysicalGpu*)gpu;
     VkDevice vkDevice = VK_NULL_HANDLE;
     uint32_t universalQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t universalQueueCount = 0;
@@ -96,12 +96,13 @@ GR_RESULT grCreateDevice(
     VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
     uint32_t queueFamilyPropertyCount = 0;
-    vki.vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount, NULL);
+    vki.vkGetPhysicalDeviceQueueFamilyProperties(grvkPhysicalGpu->physicalDevice,
+                                                 &queueFamilyPropertyCount, NULL);
 
     VkQueueFamilyProperties* queueFamilyProperties =
         malloc(sizeof(VkQueueFamilyProperties) * queueFamilyPropertyCount);
-    vki.vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertyCount,
-                                                 queueFamilyProperties);
+    vki.vkGetPhysicalDeviceQueueFamilyProperties(grvkPhysicalGpu->physicalDevice,
+                                                 &queueFamilyPropertyCount, queueFamilyProperties);
 
     for (int i = 0; i < queueFamilyPropertyCount; i++) {
         const VkQueueFamilyProperties* queueFamilyProperty = &queueFamilyProperties[i];
@@ -159,6 +160,12 @@ GR_RESULT grCreateDevice(
         goto bail;
     }
 
+    const VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicState = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+        .pNext = NULL,
+        .extendedDynamicState = VK_TRUE,
+    };
+
     const VkPhysicalDeviceFeatures deviceFeatures = {
         .geometryShader = VK_TRUE,
         .tessellationShader = VK_TRUE,
@@ -168,20 +175,25 @@ GR_RESULT grCreateDevice(
         .multiViewport = VK_TRUE,
     };
 
-    VkDeviceCreateInfo createInfo = {
+    const char *extensions[] = {
+        "VK_EXT_extended_dynamic_state",
+    };
+
+    const VkDeviceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = NULL,
+        .pNext = &extendedDynamicState,
         .flags = 0,
         .queueCreateInfoCount = pCreateInfo->queueRecordCount,
         .pQueueCreateInfos = queueCreateInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = NULL,
+        .enabledExtensionCount = sizeof(extensions) / sizeof(extensions[0]),
+        .ppEnabledExtensionNames = extensions,
         .pEnabledFeatures = &deviceFeatures,
     };
 
-    if (vki.vkCreateDevice(physicalDevice, &createInfo, NULL, &vkDevice) != VK_SUCCESS) {
+    if (vki.vkCreateDevice(grvkPhysicalGpu->physicalDevice, &createInfo, NULL,
+                           &vkDevice) != VK_SUCCESS) {
         printf("%s: vkCreateDevice failed\n", __func__);
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
@@ -222,7 +234,7 @@ GR_RESULT grCreateDevice(
     *grvkDevice = (GrvkDevice) {
         .sType = GRVK_STRUCT_TYPE_DEVICE,
         .device = vkDevice,
-        .physicalDevice = physicalDevice,
+        .physicalDevice = grvkPhysicalGpu->physicalDevice,
         .universalQueueIndex = universalQueueIndex,
         .universalCommandPool = universalCommandPool,
         .computeQueueIndex = computeQueueIndex,
