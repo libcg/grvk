@@ -103,7 +103,7 @@ typedef struct _GrvkPhysicalGpu {
 
 typedef struct _GrvkPipeline {
     GrvkStructType sType;
-    VkGraphicsPipelineCreateInfo* graphicsPipelineCreateInfo;
+    VkPipeline pipeline;
 } GrvkPipeline;
 
 typedef struct _GrvkRasterStateObject {

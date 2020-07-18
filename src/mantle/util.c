@@ -546,7 +546,7 @@ VkDescriptorType getVkDescriptorType(
     case GR_SLOT_UNUSED:
         return 0; // Ignored
     case GR_SLOT_SHADER_RESOURCE:
-        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
     case GR_SLOT_SHADER_UAV:
         return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     case GR_SLOT_SHADER_SAMPLER:

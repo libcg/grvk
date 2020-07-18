@@ -155,6 +155,15 @@ GR_RESULT grCreateDevice(
         goto bail;
     }
 
+    const VkPhysicalDeviceFeatures deviceFeatures = {
+        .geometryShader = VK_TRUE,
+        .tessellationShader = VK_TRUE,
+        .dualSrcBlend = VK_TRUE,
+        .logicOp = VK_TRUE,
+        .depthClamp = VK_TRUE,
+        .multiViewport = VK_TRUE,
+    };
+
     VkDeviceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = NULL,
@@ -165,7 +174,7 @@ GR_RESULT grCreateDevice(
         .ppEnabledLayerNames = NULL,
         .enabledExtensionCount = 0,
         .ppEnabledExtensionNames = NULL,
-        .pEnabledFeatures = NULL,
+        .pEnabledFeatures = &deviceFeatures,
     };
 
     if (vkCreateDevice(physicalDevice, &createInfo, NULL, &vkDevice) != VK_SUCCESS) {

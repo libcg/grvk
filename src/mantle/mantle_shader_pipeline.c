@@ -255,7 +255,7 @@ GR_RESULT grCreateShader(
     const GR_SHADER_CREATE_INFO* pCreateInfo,
     GR_SHADER* pShader)
 {
-    VkDevice vkDevice = ((GrvkDevice*)device)->device;
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
 
     // TODO support AMDIL shaders
@@ -272,7 +272,7 @@ GR_RESULT grCreateShader(
         .pCode = pCreateInfo->pCode,
     };
 
-    if (vkCreateShaderModule(vkDevice, &createInfo, NULL, &vkShaderModule)) {
+    if (vkCreateShaderModule(grvkDevice->device, &createInfo, NULL, &vkShaderModule)) {
         printf("%s: vkCreateShaderModule failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -315,8 +315,7 @@ GR_RESULT grCreateGraphicsPipeline(
         }
     }
 
-    VkPipelineShaderStageCreateInfo* shaderStageCreateInfo =
-        malloc(sizeof(VkPipelineShaderStageCreateInfo) * stageCount);
+    VkPipelineShaderStageCreateInfo shaderStageCreateInfo[MAX_STAGE_COUNT];
 
     // Fill in the info array
     uint32_t stageIndex = 0;
@@ -337,12 +336,14 @@ GR_RESULT grCreateGraphicsPipeline(
             printf("%s: dynamic memory view mapping is not implemented\n", __func__);
         }
 
+        GrvkShader* grvkShader = (GrvkShader*)stage->shader->shader;
+
         shaderStageCreateInfo[stageIndex++] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
             .stage = stage->flags,
-            .module = (VkShaderModule)stage->shader->shader,
+            .module = grvkShader->shaderModule,
             .pName = stage->entryPoint,
             .pSpecializationInfo = NULL,
         };
@@ -350,9 +351,7 @@ GR_RESULT grCreateGraphicsPipeline(
 
     assert(stageIndex == stageCount);
 
-    VkPipelineVertexInputStateCreateInfo* vertexInputStateCreateInfo =
-        malloc(sizeof(VkPipelineVertexInputStateCreateInfo));
-    *vertexInputStateCreateInfo = (VkPipelineVertexInputStateCreateInfo) {
+    const VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -362,9 +361,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .pVertexAttributeDescriptions = NULL,
     };
 
-    VkPipelineInputAssemblyStateCreateInfo* inputAssemblyStateCreateInfo =
-        malloc(sizeof(VkPipelineInputAssemblyStateCreateInfo));
-    *inputAssemblyStateCreateInfo = (VkPipelineInputAssemblyStateCreateInfo) {
+    const VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -372,46 +369,34 @@ GR_RESULT grCreateGraphicsPipeline(
         .primitiveRestartEnable = VK_FALSE,
     };
 
-    VkPipelineTessellationStateCreateInfo* tessellationStateCreateInfo = NULL;
+    // Ignored if no tessellation shaders are present
+    const VkPipelineTessellationStateCreateInfo tessellationStateCreateInfo =  {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
+    };
 
-    if (pCreateInfo->hs.shader != GR_NULL_HANDLE && pCreateInfo->ds.shader != GR_NULL_HANDLE) {
-        tessellationStateCreateInfo = malloc(sizeof(VkPipelineTessellationStateCreateInfo));
-        *tessellationStateCreateInfo = (VkPipelineTessellationStateCreateInfo) {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
-            .pNext = NULL,
-            .flags = 0,
-            .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
-        };
-    }
-
-    VkPipelineViewportStateCreateInfo* viewportStateCreateInfo =
-        malloc(sizeof(VkPipelineViewportStateCreateInfo));
-
-    *viewportStateCreateInfo = (VkPipelineViewportStateCreateInfo) {
+    const VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .viewportCount = 0, // Dynamic state
+        .viewportCount = 1, // Dynamic state
         .pViewports = NULL, // Dynamic state
-        .scissorCount = 0, // Dynamic state
+        .scissorCount = 1, // Dynamic state
         .pScissors = NULL, // Dynamic state
     };
 
-    VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo =
-        malloc(sizeof(VkPipelineRasterizationStateCreateInfo));
-    VkPipelineRasterizationDepthClipStateCreateInfoEXT* depthClipStateCreateInfo =
-        malloc(sizeof(VkPipelineRasterizationDepthClipStateCreateInfoEXT));
-
-    *depthClipStateCreateInfo = (VkPipelineRasterizationDepthClipStateCreateInfoEXT) {
+    const VkPipelineRasterizationDepthClipStateCreateInfoEXT depthClipStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
         .pNext = NULL,
         .flags = 0,
         .depthClipEnable = pCreateInfo->rsState.depthClipEnable,
     };
 
-    *rasterizationStateCreateInfo = (VkPipelineRasterizationStateCreateInfo) {
+    const VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .pNext = depthClipStateCreateInfo,
+        .pNext = &depthClipStateCreateInfo,
         .flags = 0,
         .depthClampEnable = VK_TRUE,
         .rasterizerDiscardEnable = VK_FALSE,
@@ -425,10 +410,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .lineWidth = 1.f,
     };
 
-    VkPipelineMultisampleStateCreateInfo* msaaStateCreateInfo =
-        malloc(sizeof(VkPipelineMultisampleStateCreateInfo));
-
-    *msaaStateCreateInfo = (VkPipelineMultisampleStateCreateInfo) {
+    const VkPipelineMultisampleStateCreateInfo msaaStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -440,10 +422,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .alphaToOneEnable = VK_FALSE,
     };
 
-    VkPipelineDepthStencilStateCreateInfo* depthStencilStateCreateInfo =
-        malloc(sizeof(VkPipelineDepthStencilStateCreateInfo));
-
-    *depthStencilStateCreateInfo = (VkPipelineDepthStencilStateCreateInfo) {
+    const VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -458,22 +437,27 @@ GR_RESULT grCreateGraphicsPipeline(
         .maxDepthBounds = 0.f, // Dynamic state
     };
 
-    VkPipelineColorBlendStateCreateInfo* colorBlendStateCreateInfo =
-        malloc(sizeof(VkPipelineColorBlendStateCreateInfo));
-    VkPipelineColorBlendAttachmentState* attachments =
-        malloc(sizeof(VkPipelineColorBlendAttachmentState) * GR_MAX_COLOR_TARGETS);
-
     // TODO implement
     if (pCreateInfo->cbState.dualSourceBlendEnable) {
         printf("%s: dual source blend is not implemented\n", __func__);
     }
 
+    VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
+    uint32_t attachmentIdx = 0;
+
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_PIPELINE_CB_TARGET_STATE* target = &pCreateInfo->cbState.target[i];
 
+        if (!target->blendEnable &&
+            target->format.channelFormat == GR_CH_FMT_UNDEFINED &&
+            target->format.numericFormat == GR_NUM_FMT_UNDEFINED &&
+            target->channelWriteMask == 0) {
+            continue;
+        }
+
         if (target->blendEnable) {
             // TODO implement blend settings
-            attachments[i] = (VkPipelineColorBlendAttachmentState) {
+            attachments[attachmentIdx] = (VkPipelineColorBlendAttachmentState) {
                 .blendEnable = VK_TRUE,
                 .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
                 .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
@@ -484,7 +468,7 @@ GR_RESULT grCreateGraphicsPipeline(
                 .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
             };
         } else {
-            attachments[i] = (VkPipelineColorBlendAttachmentState) {
+            attachments[attachmentIdx] = (VkPipelineColorBlendAttachmentState) {
                 .blendEnable = VK_FALSE,
                 .srcColorBlendFactor = 0, // Ignored
                 .dstColorBlendFactor = 0, // Ignored
@@ -495,27 +479,52 @@ GR_RESULT grCreateGraphicsPipeline(
                 .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
             };
         }
+
+        attachmentIdx++;
     }
 
-    *colorBlendStateCreateInfo = (VkPipelineColorBlendStateCreateInfo) {
+    const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .logicOpEnable = VK_TRUE,
         .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
-        .attachmentCount = GR_MAX_COLOR_TARGETS,
+        .attachmentCount = attachmentIdx,
         .pAttachments = attachments,
         .blendConstants = { 0.f }, // Dynamic state
     };
 
+    const VkDynamicState dynamicStates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_DEPTH_BIAS,
+        VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+        VK_DYNAMIC_STATE_DEPTH_BOUNDS,
+        VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+        VK_DYNAMIC_STATE_CULL_MODE_EXT,
+        VK_DYNAMIC_STATE_FRONT_FACE_EXT,
+        VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT,
+        VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT,
+        VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT,
+        VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT,
+        VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT,
+        VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT,
+        VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT,
+        VK_DYNAMIC_STATE_STENCIL_OP_EXT,
+    };
+
+    const VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .dynamicStateCount = sizeof(dynamicStates) / sizeof(VkDynamicState),
+        .pDynamicStates = dynamicStates,
+    };
+
     VkPipelineLayout layout = getVkPipelineLayout(grvkDevice->device, stages);
     if (layout == VK_NULL_HANDLE) {
-        free(shaderStageCreateInfo);
-        free(vertexInputStateCreateInfo);
-        free(inputAssemblyStateCreateInfo);
-        free(tessellationStateCreateInfo);
-        free(depthClipStateCreateInfo);
-        free(attachments);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -523,34 +532,29 @@ GR_RESULT grCreateGraphicsPipeline(
                                               pCreateInfo->cbState.target, &pCreateInfo->dbState);
     if (renderPass == VK_NULL_HANDLE)
     {
-        free(shaderStageCreateInfo);
-        free(vertexInputStateCreateInfo);
-        free(inputAssemblyStateCreateInfo);
-        free(tessellationStateCreateInfo);
-        free(depthClipStateCreateInfo);
-        free(attachments);
         vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+
     // Pipeline will be created at bind time because we're missing some state
-    VkGraphicsPipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(VkGraphicsPipelineCreateInfo));
-    *pipelineCreateInfo = (VkGraphicsPipelineCreateInfo) {
+    const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .pNext = NULL,
         .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
                  VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
         .stageCount = stageCount,
         .pStages = shaderStageCreateInfo,
-        .pVertexInputState = vertexInputStateCreateInfo,
-        .pInputAssemblyState = inputAssemblyStateCreateInfo,
-        .pTessellationState = tessellationStateCreateInfo,
-        .pViewportState = viewportStateCreateInfo,
-        .pRasterizationState = rasterizationStateCreateInfo,
-        .pMultisampleState = msaaStateCreateInfo,
-        .pDepthStencilState = depthStencilStateCreateInfo,
-        .pColorBlendState = colorBlendStateCreateInfo,
-        .pDynamicState = NULL, // TODO implement VK_EXT_extended_dynamic_state
+        .pVertexInputState = &vertexInputStateCreateInfo,
+        .pInputAssemblyState = &inputAssemblyStateCreateInfo,
+        .pTessellationState = &tessellationStateCreateInfo,
+        .pViewportState = &viewportStateCreateInfo,
+        .pRasterizationState = &rasterizationStateCreateInfo,
+        .pMultisampleState = &msaaStateCreateInfo,
+        .pDepthStencilState = &depthStencilStateCreateInfo,
+        .pColorBlendState = &colorBlendStateCreateInfo,
+        .pDynamicState = &dynamicStateCreateInfo,
         .layout = layout,
         .renderPass = renderPass,
         .subpass = 0,
@@ -558,10 +562,18 @@ GR_RESULT grCreateGraphicsPipeline(
         .basePipelineIndex = -1,
     };
 
+    if (vkCreateGraphicsPipelines(grvkDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
+                                  NULL, &vkPipeline) != VK_SUCCESS) {
+        printf("%s: vkCreateGraphicsPipelines failed\n", __func__);
+        vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
+        vkDestroyRenderPass(grvkDevice->device, renderPass, NULL);
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
     GrvkPipeline* grvkPipeline = malloc(sizeof(GrvkPipeline));
     *grvkPipeline = (GrvkPipeline) {
         .sType = GRVK_STRUCT_TYPE_PIPELINE,
-        .graphicsPipelineCreateInfo = pipelineCreateInfo,
+        .pipeline = vkPipeline,
     };
 
     *pPipeline = (GR_PIPELINE)grvkPipeline;
