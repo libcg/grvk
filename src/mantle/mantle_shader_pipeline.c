@@ -440,11 +440,6 @@ GR_RESULT grCreateGraphicsPipeline(
         printf("%s: dual source blend is not implemented\n", __func__);
     }
 
-    // TODO implement
-    if (pCreateInfo->cbState.logicOp != GR_LOGIC_OP_COPY) {
-        printf("%s: unsupported logic operation %X\n", __func__, pCreateInfo->cbState.logicOp);
-    }
-
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_PIPELINE_CB_TARGET_STATE* target = &pCreateInfo->cbState.target[i];
 
@@ -478,8 +473,8 @@ GR_RESULT grCreateGraphicsPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .logicOpEnable = VK_FALSE,
-        .logicOp = 0, // Ignored
+        .logicOpEnable = VK_TRUE,
+        .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
         .attachmentCount = GR_MAX_COLOR_TARGETS,
         .pAttachments = attachments,
         .blendConstants = { 0.f }, // Dynamic state

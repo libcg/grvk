@@ -47,6 +47,9 @@ VkBlendOp getVkBlendOp(
 VkCompareOp getVkCompareOp(
     GR_COMPARE_FUNC compareFunc);
 
+VkLogicOp getVkLogicOp(
+    GR_LOGIC_OP logicOp);
+
 VkStencilOp getVkStencilOp(
     GR_STENCIL_OP stencilOp);
 

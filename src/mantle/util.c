@@ -392,6 +392,48 @@ VkCompareOp getVkCompareOp(
     return VK_COMPARE_OP_NEVER;
 }
 
+VkLogicOp getVkLogicOp(
+    GR_LOGIC_OP logicOp)
+{
+    switch (logicOp) {
+    case GR_LOGIC_OP_COPY:
+        return VK_LOGIC_OP_COPY;
+    case GR_LOGIC_OP_CLEAR:
+        return VK_LOGIC_OP_CLEAR;
+    case GR_LOGIC_OP_AND:
+        return VK_LOGIC_OP_AND;
+    case GR_LOGIC_OP_AND_REVERSE:
+        return VK_LOGIC_OP_AND_REVERSE;
+    case GR_LOGIC_OP_AND_INVERTED:
+        return VK_LOGIC_OP_AND_INVERTED;
+    case GR_LOGIC_OP_NOOP:
+        return VK_LOGIC_OP_NO_OP;
+    case GR_LOGIC_OP_XOR:
+        return VK_LOGIC_OP_XOR;
+    case GR_LOGIC_OP_OR:
+        return VK_LOGIC_OP_OR;
+    case GR_LOGIC_OP_NOR:
+        return VK_LOGIC_OP_NOR;
+    case GR_LOGIC_OP_EQUIV:
+        return VK_LOGIC_OP_EQUIVALENT;
+    case GR_LOGIC_OP_INVERT:
+        return VK_LOGIC_OP_INVERT;
+    case GR_LOGIC_OP_OR_REVERSE:
+        return VK_LOGIC_OP_OR_REVERSE;
+    case GR_LOGIC_OP_COPY_INVERTED:
+        return VK_LOGIC_OP_COPY_INVERTED;
+    case GR_LOGIC_OP_OR_INVERTED:
+        return VK_LOGIC_OP_OR_INVERTED;
+    case GR_LOGIC_OP_NAND:
+        return VK_LOGIC_OP_NAND;
+    case GR_LOGIC_OP_SET:
+        return VK_LOGIC_OP_SET;
+    }
+
+    printf("%s: unsupported logic op 0x%x\n", __func__, logicOp);
+    return VK_LOGIC_OP_COPY;
+}
+
 VkStencilOp getVkStencilOp(
     GR_STENCIL_OP stencilOp)
 {
