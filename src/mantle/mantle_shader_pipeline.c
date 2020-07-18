@@ -384,6 +384,19 @@ GR_RESULT grCreateGraphicsPipeline(
         };
     }
 
+    VkPipelineViewportStateCreateInfo* viewportStateCreateInfo =
+        malloc(sizeof(VkPipelineViewportStateCreateInfo));
+
+    *viewportStateCreateInfo = (VkPipelineViewportStateCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .viewportCount = 0, // Dynamic state
+        .pViewports = NULL, // Dynamic state
+        .scissorCount = 0, // Dynamic state
+        .pScissors = NULL, // Dynamic state
+    };
+
     VkPipelineRasterizationStateCreateInfo* rasterizationStateCreateInfo =
         malloc(sizeof(VkPipelineRasterizationStateCreateInfo));
     VkPipelineRasterizationDepthClipStateCreateInfoEXT* depthClipStateCreateInfo =
@@ -481,7 +494,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .pVertexInputState = vertexInputStateCreateInfo,
         .pInputAssemblyState = inputAssemblyStateCreateInfo,
         .pTessellationState = tessellationStateCreateInfo,
-        .pViewportState = NULL, // Filled in at bind time
+        .pViewportState = viewportStateCreateInfo,
         .pRasterizationState = rasterizationStateCreateInfo,
         .pMultisampleState = NULL, // Filled in at bind time
         .pDepthStencilState = NULL, // Filled in at bind time

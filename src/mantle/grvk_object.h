@@ -120,7 +120,10 @@ typedef struct _GrvkQueue {
 
 typedef struct _GrvkViewportStateObject {
     GrvkStructType sType;
-    VkPipelineViewportStateCreateInfo* viewportStateCreateInfo;
+    VkViewport* viewports;
+    uint32_t viewportCount;
+    VkRect2D* scissors;
+    uint32_t scissorCount;
 } GrvkViewportStateObject;
 
 #endif // GRVK_OBJECT_H_

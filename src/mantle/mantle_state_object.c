@@ -35,24 +35,13 @@ GR_RESULT grCreateViewportState(
         };
     }
 
-    VkPipelineViewportStateCreateInfo* viewportStateCreateInfo =
-        malloc(sizeof(VkPipelineViewportStateCreateInfo));
-
-    // Will be set dynamically with vkCmdSet{Viewport/Scissor}WithCountEXT
-    *viewportStateCreateInfo = (VkPipelineViewportStateCreateInfo) {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .viewportCount = pCreateInfo->viewportCount,
-        .pViewports = vkViewports,
-        .scissorCount = scissorCount,
-        .pScissors = vkScissors,
-    };
-
     GrvkViewportStateObject* grvkViewportStateObject = malloc(sizeof(GrvkViewportStateObject));
     *grvkViewportStateObject = (GrvkViewportStateObject) {
         .sType = GRVK_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
-        .viewportStateCreateInfo = viewportStateCreateInfo,
+        .viewports = vkViewports,
+        .viewportCount = pCreateInfo->viewportCount,
+        .scissors = vkScissors,
+        .scissorCount = scissorCount,
     };
 
     *pState = (GR_VIEWPORT_STATE_OBJECT)grvkViewportStateObject;
