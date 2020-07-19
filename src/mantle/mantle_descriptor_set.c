@@ -55,15 +55,15 @@ GR_RESULT grCreateDescriptorSet(
 
     // Create descriptor pool in a way that allows any type to fill all the requested slots
     const VkDescriptorPoolSize poolSize = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // TODO support other types
-        .descriptorCount = pCreateInfo->slots,
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, // TODO support other types
+        .descriptorCount = MAX_STAGE_COUNT * pCreateInfo->slots,
     };
 
     const VkDescriptorPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .maxSets = pCreateInfo->slots,
+        .maxSets = MAX_STAGE_COUNT,
         .poolSizeCount = 1,
         .pPoolSizes = &poolSize,
     };
@@ -145,7 +145,7 @@ GR_VOID grEndDescriptorSetUpdate(
 
                 bindings[j] = (VkDescriptorSetLayoutBinding) {
                     .binding = j, // Ignored
-                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
                     .descriptorCount = 1,
                     .stageFlags = getVkShaderStageFlags(i),
                     .pImmutableSamplers = NULL,
@@ -175,8 +175,10 @@ GR_VOID grEndDescriptorSetUpdate(
         .pSetLayouts = vkLayouts,
     };
 
-    vki.vkAllocateDescriptorSets(grvkDescriptorSet->device, &allocateInfo,
-                                 grvkDescriptorSet->descriptorSets);
+    if (vki.vkAllocateDescriptorSets(grvkDescriptorSet->device, &allocateInfo,
+                                     grvkDescriptorSet->descriptorSets) != VK_SUCCESS) {
+        printf("%s: vkAllocateDescriptorSets failed\n", __func__);
+    }
 
     // TODO update descriptor sets
 }
