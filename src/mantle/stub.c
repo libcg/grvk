@@ -367,16 +367,6 @@ GR_RESULT grResetCommandBuffer(
 
 // Command Buffer Building Functions
 
-GR_VOID grCmdBindDescriptorSet(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM pipelineBindPoint,
-    GR_UINT index,
-    GR_DESCRIPTOR_SET descriptorSet,
-    GR_UINT slotOffset)
-{
-    printf("STUB: %s\n", __func__);
-}
-
 GR_VOID grCmdBindDynamicMemoryView(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,

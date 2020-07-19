@@ -26,6 +26,13 @@ GR_VOID grCmdBindPipeline(
 
     vki.vkCmdBindPipeline(grvkCmdBuffer->commandBuffer, getVkPipelineBindPoint(pipelineBindPoint),
                           grvkPipeline->pipeline);
+    grvkCmdBuffer->boundPipeline = grvkPipeline;
+
+    // Check if the descriptor set needs binding. Pipeline layout is required.
+    if (grvkCmdBuffer->descriptorSet != NULL && !grvkCmdBuffer->descriptorSetIsBound) {
+        grCmdBindDescriptorSet(cmdBuffer, pipelineBindPoint, 0,
+                               (GR_DESCRIPTOR_SET)grvkCmdBuffer->descriptorSet, 0);
+    }
 }
 
 GR_VOID grCmdBindStateObject(
@@ -94,6 +101,39 @@ GR_VOID grCmdBindStateObject(
     case GR_STATE_BIND_MSAA:
         // TODO
         break;
+    }
+}
+
+GR_VOID grCmdBindDescriptorSet(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM pipelineBindPoint,
+    GR_UINT index,
+    GR_DESCRIPTOR_SET descriptorSet,
+    GR_UINT slotOffset)
+{
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+
+    if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
+        printf("%s: unsupported bind point 0x%x\n", __func__, pipelineBindPoint);
+    } else if (index != 0) {
+        printf("%s: unsupported index %u\n", __func__, index);
+    } else if (slotOffset != 0) {
+        printf("%s: unsupported slot offset %u\n", __func__, slotOffset);
+    }
+
+    if (grvkCmdBuffer->boundPipeline != NULL) {
+        vki.vkCmdBindDescriptorSets(grvkCmdBuffer->commandBuffer,
+                                    getVkPipelineBindPoint(pipelineBindPoint),
+                                    grvkCmdBuffer->boundPipeline->pipelineLayout,
+                                    0, MAX_STAGE_COUNT, grvkDescriptorSet->descriptorSets,
+                                    0, NULL);
+        grvkCmdBuffer->descriptorSet = grvkDescriptorSet;
+        grvkCmdBuffer->descriptorSetIsBound = true;
+    } else {
+        // Defer descriptor set binding to pipeline bind call
+        grvkCmdBuffer->descriptorSet = grvkDescriptorSet;
+        grvkCmdBuffer->descriptorSetIsBound = false;
     }
 }
 

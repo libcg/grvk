@@ -573,6 +573,7 @@ GR_RESULT grCreateGraphicsPipeline(
     GrvkPipeline* grvkPipeline = malloc(sizeof(GrvkPipeline));
     *grvkPipeline = (GrvkPipeline) {
         .sType = GRVK_STRUCT_TYPE_PIPELINE,
+        .pipelineLayout = layout,
         .pipeline = vkPipeline,
     };
 

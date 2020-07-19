@@ -25,6 +25,9 @@ typedef enum _GrvkStructType {
     GRVK_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
 } GrvkStructType;
 
+typedef struct _GrvkDescriptorSet GrvkDescriptorSet;
+typedef struct _GrvkPipeline GrvkPipeline;
+
 // Generic object used to read the object type
 typedef struct _GrvkObject {
     GrvkStructType sType;
@@ -33,6 +36,9 @@ typedef struct _GrvkObject {
 typedef struct _GrvkCmdBuffer {
     GrvkStructType sType;
     VkCommandBuffer commandBuffer;
+    GrvkPipeline* boundPipeline;
+    GrvkDescriptorSet* descriptorSet;
+    bool descriptorSetIsBound;
 } GrvkCmdBuffer;
 
 typedef struct _GrvkColorBlendStateObject {
@@ -104,6 +110,7 @@ typedef struct _GrvkPhysicalGpu {
 
 typedef struct _GrvkPipeline {
     GrvkStructType sType;
+    VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
 } GrvkPipeline;
 
