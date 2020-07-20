@@ -168,7 +168,7 @@ GR_VOID grCmdPrepareImages(
     GR_UINT transitionCount,
     const GR_IMAGE_STATE_TRANSITION* pStateTransitions)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    const GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];

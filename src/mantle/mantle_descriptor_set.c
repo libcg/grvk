@@ -135,7 +135,8 @@ GR_VOID grEndDescriptorSetUpdate(
                 };
             } else {
                 if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
-                    GR_MEMORY_VIEW_ATTACH_INFO* info = (GR_MEMORY_VIEW_ATTACH_INFO*)slot->info;
+                    const GR_MEMORY_VIEW_ATTACH_INFO* info =
+                        (GR_MEMORY_VIEW_ATTACH_INFO*)slot->info;
 
                     // TODO support other states
                     if (info->state != GR_MEMORY_STATE_GRAPHICS_SHADER_READ_ONLY) {
@@ -153,7 +154,7 @@ GR_VOID grEndDescriptorSetUpdate(
             }
         }
 
-        VkDescriptorSetLayoutCreateInfo createInfo = {
+        const VkDescriptorSetLayoutCreateInfo createInfo = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,

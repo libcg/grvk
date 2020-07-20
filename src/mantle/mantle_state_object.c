@@ -51,6 +51,7 @@ GR_RESULT grCreateViewportState(
     }
 
     GrvkViewportStateObject* grvkViewportStateObject = malloc(sizeof(GrvkViewportStateObject));
+
     *grvkViewportStateObject = (GrvkViewportStateObject) {
         .sType = GRVK_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
         .viewports = vkViewports,
@@ -73,6 +74,7 @@ GR_RESULT grCreateRasterState(
     }
 
     GrvkRasterStateObject* grvkRasterStateObject = malloc(sizeof(GrvkRasterStateObject));
+
     *grvkRasterStateObject = (GrvkRasterStateObject) {
         .sType = GRVK_STRUCT_TYPE_RASTER_STATE_OBJECT,
         .cullMode = getVkCullModeFlags(pCreateInfo->cullMode),
@@ -109,6 +111,7 @@ GR_RESULT grCreateColorBlendState(
 
     GrvkColorBlendStateObject* grvkColorBlendStateObject =
         malloc(sizeof(GrvkColorBlendStateObject));
+
     *grvkColorBlendStateObject = (GrvkColorBlendStateObject) {
         .sType = GRVK_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
         .blendConstants = {
@@ -128,6 +131,7 @@ GR_RESULT grCreateDepthStencilState(
 {
     GrvkDepthStencilStateObject* grvkDepthStencilStateObject =
         malloc(sizeof(GrvkDepthStencilStateObject));
+
     *grvkDepthStencilStateObject = (GrvkDepthStencilStateObject) {
         .sType = GRVK_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
         .depthTestEnable = pCreateInfo->depthEnable,

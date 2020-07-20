@@ -51,7 +51,7 @@ GR_RESULT grQueueSubmit(
     const GR_MEMORY_REF* pMemRefs,
     GR_FENCE fence)
 {
-    VkQueue vkQueue = ((GrvkQueue*)queue)->queue;
+    GrvkQueue* grvkQueue = (GrvkQueue*)queue;
     VkFence vkFence = VK_NULL_HANDLE;
 
     if ((GrvkFence*)fence != NULL) {
@@ -63,7 +63,7 @@ GR_RESULT grQueueSubmit(
         vkCommandBuffers[i] = ((GrvkCmdBuffer*)pCmdBuffers[i])->commandBuffer;
     }
 
-    VkSubmitInfo submitInfo = {
+    const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
         .waitSemaphoreCount = 0,
@@ -75,7 +75,7 @@ GR_RESULT grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    if (vki.vkQueueSubmit(vkQueue, 1, &submitInfo, vkFence) != VK_SUCCESS) {
+    if (vki.vkQueueSubmit(grvkQueue->queue, 1, &submitInfo, vkFence) != VK_SUCCESS) {
         printf("%s: vkQueueSubmit failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }

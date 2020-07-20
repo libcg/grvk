@@ -21,7 +21,7 @@ GR_RESULT grCreateCommandBuffer(
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
-    VkCommandBufferAllocateInfo allocateInfo = {
+    const VkCommandBufferAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .pNext = NULL,
         .commandPool = vkCommandPool,
@@ -52,21 +52,21 @@ GR_RESULT grBeginCommandBuffer(
     GR_CMD_BUFFER cmdBuffer,
     GR_FLAGS flags)
 {
-    VkCommandBuffer vkCommandBuffer = ((GrvkCmdBuffer*)cmdBuffer)->commandBuffer;
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
     VkCommandBufferUsageFlags vkUsageFlags = 0;
 
     if ((flags & GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT) != 0) {
         vkUsageFlags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     }
 
-    VkCommandBufferBeginInfo beginInfo = {
+    const VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = NULL,
         .flags = vkUsageFlags,
         .pInheritanceInfo = NULL,
     };
 
-    if (vki.vkBeginCommandBuffer(vkCommandBuffer, &beginInfo) != VK_SUCCESS) {
+    if (vki.vkBeginCommandBuffer(grvkCmdBuffer->commandBuffer, &beginInfo) != VK_SUCCESS) {
         printf("%s: vkBeginCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -77,9 +77,9 @@ GR_RESULT grBeginCommandBuffer(
 GR_RESULT grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
-    VkCommandBuffer vkCommandBuffer = ((GrvkCmdBuffer*)cmdBuffer)->commandBuffer;
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
-    if (vki.vkEndCommandBuffer(vkCommandBuffer) != VK_SUCCESS) {
+    if (vki.vkEndCommandBuffer(grvkCmdBuffer->commandBuffer) != VK_SUCCESS) {
         printf("%s: vkEndCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }

@@ -264,7 +264,7 @@ GR_RESULT grCreateShader(
         return GR_ERROR_BAD_SHADER_CODE;
     }
 
-    VkShaderModuleCreateInfo createInfo = {
+    const VkShaderModuleCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -538,7 +538,6 @@ GR_RESULT grCreateGraphicsPipeline(
 
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
-    // Pipeline will be created at bind time because we're missing some state
     const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .pNext = NULL,

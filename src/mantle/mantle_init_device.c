@@ -28,8 +28,9 @@ GR_RESULT grInitAndEnumerateGpus(
         mFreeFun = pAllocCb->pfnFree;
     }
 
-    VkApplicationInfo appInfo = {
+    const VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pNext = NULL,
         .pApplicationName = pAppInfo->pAppName,
         .applicationVersion = pAppInfo->appVersion,
         .pEngineName = pAppInfo->pEngineName,
@@ -37,7 +38,7 @@ GR_RESULT grInitAndEnumerateGpus(
         .apiVersion = VK_API_VERSION_1_2,
     };
 
-    VkInstanceCreateInfo createInfo = {
+    const VkInstanceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -66,13 +67,13 @@ GR_RESULT grInitAndEnumerateGpus(
 
     *pGpuCount = physicalDeviceCount;
     for (int i = 0; i < *pGpuCount; i++) {
-        GrvkPhysicalGpu* gpu = malloc(sizeof(GrvkPhysicalGpu));
-        *gpu = (GrvkPhysicalGpu) {
+        GrvkPhysicalGpu* grvkPhysicalGpu = malloc(sizeof(GrvkPhysicalGpu));
+        *grvkPhysicalGpu = (GrvkPhysicalGpu) {
             .sType = GRVK_STRUCT_TYPE_PHYSICAL_GPU,
             .physicalDevice = physicalDevices[i],
         };
 
-        gpus[i] = (GR_PHYSICAL_GPU)gpu;
+        gpus[i] = (GR_PHYSICAL_GPU)grvkPhysicalGpu;
     }
 
     return GR_SUCCESS;
@@ -200,7 +201,7 @@ GR_RESULT grCreateDevice(
     }
 
     if (universalQueueRequested && universalQueueIndex != INVALID_QUEUE_INDEX) {
-        VkCommandPoolCreateInfo poolCreateInfo = {
+        const VkCommandPoolCreateInfo poolCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
@@ -215,7 +216,7 @@ GR_RESULT grCreateDevice(
         }
     }
     if (computeQueueRequested && computeQueueIndex != INVALID_QUEUE_INDEX) {
-        VkCommandPoolCreateInfo poolCreateInfo = {
+        const VkCommandPoolCreateInfo poolCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,

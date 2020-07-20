@@ -8,11 +8,11 @@ GR_RESULT grWsiWinCreatePresentableImage(
     GR_IMAGE* pImage,
     GR_GPU_MEMORY* pMem)
 {
-    VkDevice vkDevice = ((GrvkDevice*)device)->device;
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
     VkImage vkImage = VK_NULL_HANDLE;
     VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
 
-    VkImageCreateInfo createInfo = {
+    const VkImageCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -31,31 +31,32 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    if (vki.vkCreateImage(vkDevice, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
+    if (vki.vkCreateImage(grvkDevice->device, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
         printf("%s: vkCreateImage failed\n", __func__);
         return GR_ERROR_INVALID_VALUE;
     }
 
     VkMemoryRequirements memoryRequirements;
-    vki.vkGetImageMemoryRequirements(vkDevice, vkImage, &memoryRequirements);
+    vki.vkGetImageMemoryRequirements(grvkDevice->device, vkImage, &memoryRequirements);
 
-    VkMemoryAllocateInfo allocateInfo = {
+    const VkMemoryAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = NULL,
         .allocationSize = memoryRequirements.size,
         .memoryTypeIndex = 0, // FIXME don't hardcode
     };
 
-    if (vki.vkAllocateMemory(vkDevice, &allocateInfo, NULL, &vkDeviceMemory) != VK_SUCCESS) {
+    if (vki.vkAllocateMemory(grvkDevice->device, &allocateInfo, NULL,
+                             &vkDeviceMemory) != VK_SUCCESS) {
         printf("%s: vkAllocateMemory failed\n", __func__);
-        vki.vkDestroyImage(vkDevice, vkImage, NULL);
+        vki.vkDestroyImage(grvkDevice->device, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    if (vki.vkBindImageMemory(vkDevice, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
+    if (vki.vkBindImageMemory(grvkDevice->device, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
         printf("%s: vkBindImageMemory failed\n", __func__);
-        vki.vkFreeMemory(vkDevice, vkDeviceMemory, NULL);
-        vki.vkDestroyImage(vkDevice, vkImage, NULL);
+        vki.vkFreeMemory(grvkDevice->device, vkDeviceMemory, NULL);
+        vki.vkDestroyImage(grvkDevice->device, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 

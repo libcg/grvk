@@ -7,10 +7,10 @@ GR_RESULT grCreateColorTargetView(
     const GR_COLOR_TARGET_VIEW_CREATE_INFO* pCreateInfo,
     GR_COLOR_TARGET_VIEW* pView)
 {
-    VkDevice vkDevice = ((GrvkDevice*)device)->device;
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
     VkImageView vkImageView = VK_NULL_HANDLE;
 
-    VkImageViewCreateInfo createInfo = {
+    const VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -33,7 +33,7 @@ GR_RESULT grCreateColorTargetView(
         }
     };
 
-    if (vki.vkCreateImageView(vkDevice, &createInfo, NULL, &vkImageView) != VK_SUCCESS) {
+    if (vki.vkCreateImageView(grvkDevice->device, &createInfo, NULL, &vkImageView) != VK_SUCCESS) {
         printf("%s: vkCreateImageView failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
