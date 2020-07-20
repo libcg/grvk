@@ -116,11 +116,37 @@ GR_RESULT grAllocMemory(
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
+    const VkBufferCreateInfo bufferCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .size = pAllocInfo->size,
+        .usage = VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, // FIXME incomplete
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = NULL,
+    };
+
+    VkBuffer vkBuffer = VK_NULL_HANDLE;
+    if (vki.vkCreateBuffer(grvkDevice->device, &bufferCreateInfo, NULL, &vkBuffer) != VK_SUCCESS) {
+        printf("%s: vkCreateBuffer failed\n", __func__);
+        vki.vkFreeMemory(grvkDevice->device, vkMemory, NULL);
+        return GR_ERROR_OUT_OF_GPU_MEMORY;
+    }
+
+    if (vki.vkBindBufferMemory(grvkDevice->device, vkBuffer, vkMemory, 0) != VK_SUCCESS) {
+        printf("%s: vkBindBufferMemory failed\n", __func__);
+        vki.vkDestroyBuffer(grvkDevice->device, vkBuffer, NULL);
+        vki.vkFreeMemory(grvkDevice->device, vkMemory, NULL);
+        return GR_ERROR_OUT_OF_GPU_MEMORY;
+    }
+
     GrvkGpuMemory* grvkGpuMemory = malloc(sizeof(GrvkGpuMemory));
     *grvkGpuMemory = (GrvkGpuMemory) {
         .sType = GRVK_STRUCT_TYPE_GPU_MEMORY,
         .deviceMemory = vkMemory,
         .device = grvkDevice->device,
+        .buffer = vkBuffer,
     };
 
     *pMem = (GR_GPU_MEMORY)grvkGpuMemory;

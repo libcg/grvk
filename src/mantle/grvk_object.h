@@ -92,6 +92,7 @@ typedef struct _GrvkGpuMemory {
     GrvkStructType sType;
     VkDeviceMemory deviceMemory;
     VkDevice device;
+    VkBuffer buffer;
 } GrvkGpuMemory;
 
 typedef struct _GrvkImage {
