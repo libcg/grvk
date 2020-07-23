@@ -123,10 +123,11 @@ GR_VOID grCmdBindDescriptorSet(
     }
 
     if (grvkCmdBuffer->boundPipeline != NULL) {
+        printf("%s: HACK only one descriptor bound\n", __func__);
         vki.vkCmdBindDescriptorSets(grvkCmdBuffer->commandBuffer,
                                     getVkPipelineBindPoint(pipelineBindPoint),
                                     grvkCmdBuffer->boundPipeline->pipelineLayout,
-                                    0, MAX_STAGE_COUNT, grvkDescriptorSet->descriptorSets,
+                                    0, 1, grvkDescriptorSet->descriptorSets,
                                     0, NULL);
         grvkCmdBuffer->descriptorSet = grvkDescriptorSet;
         grvkCmdBuffer->descriptorSetIsBound = true;
