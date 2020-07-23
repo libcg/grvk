@@ -39,9 +39,9 @@ GR_RESULT grCreateCommandBuffer(
     *grvkCmdBuffer = (GrvkCmdBuffer) {
         .sType = GRVK_STRUCT_TYPE_COMMAND_BUFFER,
         .commandBuffer = vkCommandBuffer,
-        .boundPipeline = NULL,
-        .descriptorSet = NULL,
-        .descriptorSetIsBound = false,
+        .grvkPipeline = NULL,
+        .grvkDescriptorSet = NULL,
+        .dirty = false,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grvkCmdBuffer;

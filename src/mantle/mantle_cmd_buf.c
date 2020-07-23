@@ -14,6 +14,23 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
     };
 }
 
+static void bindCmdBufferResources(
+    GrvkCmdBuffer* grvkCmdBuffer)
+{
+    VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
+
+    vki.vkCmdBindPipeline(grvkCmdBuffer->commandBuffer, bindPoint,
+                          grvkCmdBuffer->grvkPipeline->pipeline);
+
+    printf("%s: HACK only one descriptor bound\n", __func__);
+    vki.vkCmdBindDescriptorSets(grvkCmdBuffer->commandBuffer, bindPoint,
+                                grvkCmdBuffer->grvkPipeline->pipelineLayout,
+                                0, 1, grvkCmdBuffer->grvkDescriptorSet->descriptorSets,
+                                0, NULL);
+
+    grvkCmdBuffer->dirty = false;
+}
+
 // Command Buffer Building Functions
 
 GR_VOID grCmdBindPipeline(
@@ -24,15 +41,12 @@ GR_VOID grCmdBindPipeline(
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
     GrvkPipeline* grvkPipeline = (GrvkPipeline*)pipeline;
 
-    vki.vkCmdBindPipeline(grvkCmdBuffer->commandBuffer, getVkPipelineBindPoint(pipelineBindPoint),
-                          grvkPipeline->pipeline);
-    grvkCmdBuffer->boundPipeline = grvkPipeline;
-
-    // Check if the descriptor set needs binding. Pipeline layout is required.
-    if (grvkCmdBuffer->descriptorSet != NULL && !grvkCmdBuffer->descriptorSetIsBound) {
-        grCmdBindDescriptorSet(cmdBuffer, pipelineBindPoint, 0,
-                               (GR_DESCRIPTOR_SET)grvkCmdBuffer->descriptorSet, 0);
+    if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
+        printf("%s: unsupported bind point 0x%x\n", __func__, pipelineBindPoint);
     }
+
+    grvkCmdBuffer->grvkPipeline = grvkPipeline;
+    grvkCmdBuffer->dirty = true;
 }
 
 GR_VOID grCmdBindStateObject(
@@ -122,20 +136,8 @@ GR_VOID grCmdBindDescriptorSet(
         printf("%s: unsupported slot offset %u\n", __func__, slotOffset);
     }
 
-    if (grvkCmdBuffer->boundPipeline != NULL) {
-        printf("%s: HACK only one descriptor bound\n", __func__);
-        vki.vkCmdBindDescriptorSets(grvkCmdBuffer->commandBuffer,
-                                    getVkPipelineBindPoint(pipelineBindPoint),
-                                    grvkCmdBuffer->boundPipeline->pipelineLayout,
-                                    0, 1, grvkDescriptorSet->descriptorSets,
-                                    0, NULL);
-        grvkCmdBuffer->descriptorSet = grvkDescriptorSet;
-        grvkCmdBuffer->descriptorSetIsBound = true;
-    } else {
-        // Defer descriptor set binding to pipeline bind call
-        grvkCmdBuffer->descriptorSet = grvkDescriptorSet;
-        grvkCmdBuffer->descriptorSetIsBound = false;
-    }
+    grvkCmdBuffer->grvkDescriptorSet = grvkDescriptorSet;
+    grvkCmdBuffer->dirty = true;
 }
 
 GR_VOID grCmdPrepareMemoryRegions(
@@ -206,6 +208,10 @@ GR_VOID grCmdDraw(
 {
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
+    if (grvkCmdBuffer->dirty) {
+        bindCmdBufferResources(grvkCmdBuffer);
+    }
+
     vki.vkCmdDraw(grvkCmdBuffer->commandBuffer,
                   vertexCount, instanceCount, firstVertex, firstInstance);
 }
@@ -219,6 +225,10 @@ GR_VOID grCmdDrawIndexed(
     GR_UINT instanceCount)
 {
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+
+    if (grvkCmdBuffer->dirty) {
+        bindCmdBufferResources(grvkCmdBuffer);
+    }
 
     vki.vkCmdDrawIndexed(grvkCmdBuffer->commandBuffer,
                          indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);

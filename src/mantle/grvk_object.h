@@ -36,9 +36,9 @@ typedef struct _GrvkObject {
 typedef struct _GrvkCmdBuffer {
     GrvkStructType sType;
     VkCommandBuffer commandBuffer;
-    GrvkPipeline* boundPipeline;
-    GrvkDescriptorSet* descriptorSet;
-    bool descriptorSetIsBound;
+    GrvkPipeline* grvkPipeline;
+    GrvkDescriptorSet* grvkDescriptorSet;
+    bool dirty;
 } GrvkCmdBuffer;
 
 typedef struct _GrvkColorBlendStateObject {
