@@ -204,7 +204,7 @@ GR_RESULT grLoadPipeline(
     return GR_UNSUPPORTED;
 }
 
-// Query and Synchronization Function
+// Query and Synchronization Functions
 
 GR_RESULT grCreateQueryPool(
     GR_DEVICE device,
@@ -221,15 +221,6 @@ GR_RESULT grGetQueryPoolResults(
     GR_UINT queryCount,
     GR_SIZE* pDataSize,
     GR_VOID* pData)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grCreateFence(
-    GR_DEVICE device,
-    const GR_FENCE_CREATE_INFO* pCreateInfo,
-    GR_FENCE* pFence)
 {
     printf("STUB: %s\n", __func__);
     return GR_UNSUPPORTED;

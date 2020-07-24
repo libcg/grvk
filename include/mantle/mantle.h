@@ -1533,7 +1533,7 @@ GR_RESULT grCreateMsaaState(
     const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState);
 
-// Query and Synchronization Function
+// Query and Synchronization Functions
 
 GR_RESULT grCreateQueryPool(
     GR_DEVICE device,
