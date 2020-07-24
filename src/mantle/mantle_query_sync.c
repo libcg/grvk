@@ -32,3 +32,43 @@ GR_RESULT grCreateFence(
 
     return GR_SUCCESS;
 }
+
+GR_RESULT grWaitForFences(
+    GR_DEVICE device,
+    GR_UINT fenceCount,
+    const GR_FENCE* pFences,
+    GR_BOOL waitAll,
+    GR_FLOAT timeout)
+{
+    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    uint64_t vkTimeout = timeout * 1000000000ull; // Convert to nanoseconds
+    VkResult res;
+
+    if (grvkDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (fenceCount == 0) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if (pFences == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    VkFence* vkFences = malloc(sizeof(VkFence) * fenceCount);
+    for (int i = 0; i < fenceCount; i++) {
+        GrvkFence* grvkFence = (GrvkFence*)pFences[i];
+
+        vkFences[i] = grvkFence->fence;
+    }
+
+    res = vki.vkWaitForFences(grvkDevice->device, fenceCount, vkFences, waitAll, vkTimeout);
+    free(vkFences);
+
+    if (res == VK_SUCCESS) {
+        return GR_SUCCESS;
+    } else if (res == VK_TIMEOUT) {
+        return GR_TIMEOUT;
+    } else {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+}

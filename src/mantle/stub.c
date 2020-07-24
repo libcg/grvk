@@ -233,17 +233,6 @@ GR_RESULT grGetFenceStatus(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWaitForFences(
-    GR_DEVICE device,
-    GR_UINT fenceCount,
-    const GR_FENCE* pFences,
-    GR_BOOL waitAll,
-    GR_FLOAT timeout)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grCreateQueueSemaphore(
     GR_DEVICE device,
     const GR_QUEUE_SEMAPHORE_CREATE_INFO* pCreateInfo,
