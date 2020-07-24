@@ -110,6 +110,7 @@ GR_VOID grEndDescriptorSetUpdate(
 
     // TODO free old descriptor sets and layouts if applicable
 
+    uint32_t descriptorCount = 0;
     VkDescriptorSetLayout vkLayouts[MAX_STAGE_COUNT];
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
         VkDescriptorSetLayoutBinding* bindings =
@@ -151,6 +152,8 @@ GR_VOID grEndDescriptorSetUpdate(
                     .stageFlags = getVkShaderStageFlags(i),
                     .pImmutableSamplers = NULL,
                 };
+
+                descriptorCount++;
             }
         }
 
@@ -162,8 +165,10 @@ GR_VOID grEndDescriptorSetUpdate(
             .pBindings = bindings,
         };
 
-        vki.vkCreateDescriptorSetLayout(grvkDescriptorSet->device, &createInfo, NULL,
-                                        &vkLayouts[i]);
+        if (vki.vkCreateDescriptorSetLayout(grvkDescriptorSet->device, &createInfo, NULL,
+                                            &vkLayouts[i]) != VK_SUCCESS) {
+            printf("%s: vkCreateDescriptorSetLayout failed\n", __func__);
+        }
 
         free(bindings);
     }
@@ -181,7 +186,52 @@ GR_VOID grEndDescriptorSetUpdate(
         printf("%s: vkAllocateDescriptorSets failed\n", __func__);
     }
 
-    // TODO update descriptor sets
+    VkWriteDescriptorSet* writes = malloc(sizeof(VkWriteDescriptorSet) * descriptorCount);
+    uint32_t writeIdx = 0;
+
+    for (int i = 0; i < MAX_STAGE_COUNT; i++) {
+        for (int j = 0; j < grvkDescriptorSet->slotCount; j++) {
+            const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[j];
+
+            if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
+                const GR_MEMORY_VIEW_ATTACH_INFO* info = (GR_MEMORY_VIEW_ATTACH_INFO*)slot->info;
+                GrvkGpuMemory* grvkGpuMemory = (GrvkGpuMemory*)info->mem;
+                VkBufferView bufferView = VK_NULL_HANDLE;
+
+                const VkBufferViewCreateInfo createInfo = {
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
+                    .pNext = NULL,
+                    .flags = 0,
+                    .buffer = grvkGpuMemory->buffer,
+                    .format = getVkFormat(info->format),
+                    .offset = info->offset,
+                    .range = info->range,
+                };
+
+                // TODO track buffer view reference
+                if (vki.vkCreateBufferView(grvkDescriptorSet->device, &createInfo, NULL,
+                                           &bufferView) != VK_SUCCESS) {
+                    printf("%s: vkCreateBufferView failed\n", __func__);
+                }
+
+                writes[writeIdx++] = (VkWriteDescriptorSet) {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .pNext = NULL,
+                    .dstSet = grvkDescriptorSet->descriptorSets[i],
+                    .dstBinding = j,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+                    .pImageInfo = NULL,
+                    .pBufferInfo = NULL,
+                    .pTexelBufferView = &bufferView,
+                };
+            }
+        }
+    }
+
+    vki.vkUpdateDescriptorSets(grvkDescriptorSet->device, writeIdx, writes, 0, NULL);
+    free(writes);
 }
 
 GR_VOID grAttachSamplerDescriptors(
