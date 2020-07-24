@@ -69,6 +69,7 @@ GR_RESULT grWaitForFences(
     } else if (res == VK_TIMEOUT) {
         return GR_TIMEOUT;
     } else {
+        printf("%s: vkWaitForFences failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 }

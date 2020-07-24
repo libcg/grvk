@@ -37,6 +37,7 @@ GR_RESULT grGetDeviceQueue(
     *grvkQueue = (GrvkQueue) {
         .sType = GRVK_STRUCT_TYPE_QUEUE,
         .queue = vkQueue,
+        .device = grvkDevice->device,
     };
 
     *pQueue = (GR_QUEUE)grvkQueue;
@@ -52,10 +53,17 @@ GR_RESULT grQueueSubmit(
     GR_FENCE fence)
 {
     GrvkQueue* grvkQueue = (GrvkQueue*)queue;
+    GrvkFence* grvkFence = (GrvkFence*)fence;
+    VkResult res;
     VkFence vkFence = VK_NULL_HANDLE;
 
-    if ((GrvkFence*)fence != NULL) {
-        vkFence = ((GrvkFence*)fence)->fence;
+    if (grvkFence != NULL) {
+        vkFence = grvkFence->fence;
+
+        if (vki.vkResetFences(grvkQueue->device, 1, &vkFence) != VK_SUCCESS) {
+            printf("%s: vkResetFences failed\n", __func__);
+            return GR_ERROR_OUT_OF_MEMORY;
+        }
     }
 
     VkCommandBuffer* vkCommandBuffers = malloc(sizeof(VkCommandBuffer) * cmdBufferCount);
@@ -75,12 +83,13 @@ GR_RESULT grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    if (vki.vkQueueSubmit(grvkQueue->queue, 1, &submitInfo, vkFence) != VK_SUCCESS) {
+    res = vki.vkQueueSubmit(grvkQueue->queue, 1, &submitInfo, vkFence);
+    free(vkCommandBuffers);
+
+    if (res != VK_SUCCESS) {
         printf("%s: vkQueueSubmit failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
-
-    free(vkCommandBuffers);
 
     return GR_SUCCESS;
 }
