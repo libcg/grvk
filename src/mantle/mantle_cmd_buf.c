@@ -14,21 +14,88 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
     };
 }
 
-static void bindCmdBufferResources(
+static VkFramebuffer getVkFramebuffer(
+    VkDevice device,
+    VkRenderPass renderPass,
+    uint32_t colorTargetCount,
+    const GR_COLOR_TARGET_BIND_INFO* pColorTargets,
+    const GR_DEPTH_STENCIL_BIND_INFO* pDepthTarget)
+{
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
+
+    VkImageView attachments[GR_MAX_COLOR_TARGETS + 1];
+    int attachmentIdx = 0;
+
+    for (int i = 0; i < colorTargetCount; i++) {
+        GrvkColorTargetView* grvkColorTargetView = (GrvkColorTargetView*)pColorTargets[i].view;
+
+        attachments[attachmentIdx++] = grvkColorTargetView->imageView;
+    }
+
+    // TODO
+    if (pDepthTarget != NULL) {
+        printf("%s: depth targets are not supported\n", __func__);
+    }
+
+    const VkFramebufferCreateInfo framebufferCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .renderPass = renderPass,
+        .attachmentCount = attachmentIdx,
+        .pAttachments = attachments,
+        .width = 1280, // FIXME hardcoded
+        .height = 720, // FIXME hardcoded
+        .layers = 1, // FIXME hardcoded
+    };
+
+    if (vki.vkCreateFramebuffer(device, &framebufferCreateInfo, NULL,
+                                &framebuffer) != VK_SUCCESS) {
+        printf("%s: vkCreateFramebuffer failed\n", __func__);
+        return VK_NULL_HANDLE;
+    }
+
+    return framebuffer;
+}
+
+static void initCmdBufferResources(
     GrvkCmdBuffer* grvkCmdBuffer)
 {
+    GrvkPipeline* grvkPipeline = grvkCmdBuffer->grvkPipeline;
     VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
 
-    vki.vkCmdBindPipeline(grvkCmdBuffer->commandBuffer, bindPoint,
-                          grvkCmdBuffer->grvkPipeline->pipeline);
+    vki.vkCmdBindPipeline(grvkCmdBuffer->commandBuffer, bindPoint, grvkPipeline->pipeline);
 
     printf("%s: HACK only one descriptor bound\n", __func__);
     vki.vkCmdBindDescriptorSets(grvkCmdBuffer->commandBuffer, bindPoint,
-                                grvkCmdBuffer->grvkPipeline->pipelineLayout,
-                                0, 1, grvkCmdBuffer->grvkDescriptorSet->descriptorSets,
-                                0, NULL);
+                                grvkPipeline->pipelineLayout, 0, 1,
+                                grvkCmdBuffer->grvkDescriptorSet->descriptorSets, 0, NULL);
 
-    grvkCmdBuffer->dirty = false;
+    VkFramebuffer framebuffer =
+        getVkFramebuffer(grvkCmdBuffer->grvkDescriptorSet->device, grvkPipeline->renderPass,
+                         grvkCmdBuffer->colorTargetCount, grvkCmdBuffer->colorTargets,
+                         grvkCmdBuffer->hasDepthTarget ? &grvkCmdBuffer->depthTarget : NULL);
+
+    const VkRenderPassBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = NULL,
+        .renderPass = grvkPipeline->renderPass,
+        .framebuffer = framebuffer,
+        .renderArea = (VkRect2D) {
+            .offset = { 0, 0 }, // FIXME hardcoded
+            .extent = { 1280, 720 }, // FIXME hardcoded
+        },
+        .clearValueCount = 0,
+        .pClearValues = NULL,
+    };
+
+    if (grvkCmdBuffer->hasActiveRenderPass) {
+        vki.vkCmdEndRenderPass(grvkCmdBuffer->commandBuffer);
+    }
+    vki.vkCmdBeginRenderPass(grvkCmdBuffer->commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    grvkCmdBuffer->hasActiveRenderPass = true;
+
+    grvkCmdBuffer->isDirty = false;
 }
 
 // Command Buffer Building Functions
@@ -46,7 +113,7 @@ GR_VOID grCmdBindPipeline(
     }
 
     grvkCmdBuffer->grvkPipeline = grvkPipeline;
-    grvkCmdBuffer->dirty = true;
+    grvkCmdBuffer->isDirty = true;
 }
 
 GR_VOID grCmdBindStateObject(
@@ -137,7 +204,7 @@ GR_VOID grCmdBindDescriptorSet(
     }
 
     grvkCmdBuffer->grvkDescriptorSet = grvkDescriptorSet;
-    grvkCmdBuffer->dirty = true;
+    grvkCmdBuffer->isDirty = true;
 }
 
 GR_VOID grCmdPrepareMemoryRegions(
@@ -163,6 +230,26 @@ GR_VOID grCmdPrepareMemoryRegions(
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                                  0, 1, &memoryBarrier, 0, NULL, 0, NULL);
+    }
+}
+
+GR_VOID grCmdBindTargets(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_UINT colorTargetCount,
+    const GR_COLOR_TARGET_BIND_INFO* pColorTargets,
+    const GR_DEPTH_STENCIL_BIND_INFO* pDepthTarget)
+{
+    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+
+    memcpy(grvkCmdBuffer->colorTargets, pColorTargets,
+           sizeof(GR_COLOR_TARGET_BIND_INFO) * colorTargetCount);
+    grvkCmdBuffer->colorTargetCount = colorTargetCount;
+
+    if (pDepthTarget == NULL) {
+        grvkCmdBuffer->hasDepthTarget = false;
+    } else {
+        memcpy(&grvkCmdBuffer->depthTarget, pDepthTarget, sizeof(GR_DEPTH_STENCIL_BIND_INFO));
+        grvkCmdBuffer->hasDepthTarget = true;
     }
 }
 
@@ -208,8 +295,8 @@ GR_VOID grCmdDraw(
 {
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
-    if (grvkCmdBuffer->dirty) {
-        bindCmdBufferResources(grvkCmdBuffer);
+    if (grvkCmdBuffer->isDirty) {
+        initCmdBufferResources(grvkCmdBuffer);
     }
 
     vki.vkCmdDraw(grvkCmdBuffer->commandBuffer,
@@ -226,8 +313,8 @@ GR_VOID grCmdDrawIndexed(
 {
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
 
-    if (grvkCmdBuffer->dirty) {
-        bindCmdBufferResources(grvkCmdBuffer);
+    if (grvkCmdBuffer->isDirty) {
+        initCmdBufferResources(grvkCmdBuffer);
     }
 
     vki.vkCmdDrawIndexed(grvkCmdBuffer->commandBuffer,

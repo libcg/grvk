@@ -41,7 +41,12 @@ GR_RESULT grCreateCommandBuffer(
         .commandBuffer = vkCommandBuffer,
         .grvkPipeline = NULL,
         .grvkDescriptorSet = NULL,
-        .dirty = false,
+        .colorTargets = {},
+        .colorTargetCount = 0,
+        .depthTarget = {},
+        .hasDepthTarget = false,
+        .hasActiveRenderPass = false,
+        .isDirty = false,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grvkCmdBuffer;
@@ -78,6 +83,10 @@ GR_RESULT grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
     GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+
+    if (grvkCmdBuffer->hasActiveRenderPass) {
+        vki.vkCmdEndRenderPass(grvkCmdBuffer->commandBuffer);
+    }
 
     if (vki.vkEndCommandBuffer(grvkCmdBuffer->commandBuffer) != VK_SUCCESS) {
         printf("%s: vkEndCommandBuffer failed\n", __func__);

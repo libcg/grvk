@@ -1,6 +1,7 @@
 #ifndef GRVK_OBJECT_H_
 #define GRVK_OBJECT_H_
 
+#include "mantle/mantle.h"
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
@@ -38,7 +39,12 @@ typedef struct _GrvkCmdBuffer {
     VkCommandBuffer commandBuffer;
     GrvkPipeline* grvkPipeline;
     GrvkDescriptorSet* grvkDescriptorSet;
-    bool dirty;
+    GR_COLOR_TARGET_BIND_INFO colorTargets[GR_MAX_COLOR_TARGETS];
+    uint32_t colorTargetCount;
+    GR_DEPTH_STENCIL_BIND_INFO depthTarget;
+    bool hasDepthTarget;
+    bool hasActiveRenderPass;
+    bool isDirty;
 } GrvkCmdBuffer;
 
 typedef struct _GrvkColorBlendStateObject {
@@ -113,6 +119,7 @@ typedef struct _GrvkPipeline {
     GrvkStructType sType;
     VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
+    VkRenderPass renderPass;
 } GrvkPipeline;
 
 typedef struct _GrvkRasterStateObject {

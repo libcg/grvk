@@ -574,6 +574,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .sType = GRVK_STRUCT_TYPE_PIPELINE,
         .pipelineLayout = layout,
         .pipeline = vkPipeline,
+        .renderPass = renderPass,
     };
 
     *pPipeline = (GR_PIPELINE)grvkPipeline;

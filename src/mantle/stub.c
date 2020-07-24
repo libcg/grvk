@@ -384,15 +384,6 @@ GR_VOID grCmdBindIndexData(
     printf("STUB: %s\n", __func__);
 }
 
-GR_VOID grCmdBindTargets(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_UINT colorTargetCount,
-    const GR_COLOR_TARGET_BIND_INFO* pColorTargets,
-    const GR_DEPTH_STENCIL_BIND_INFO* pDepthTarget)
-{
-    printf("STUB: %s\n", __func__);
-}
-
 GR_VOID grCmdDrawIndirect(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,
