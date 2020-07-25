@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define MANTLE_HANDLE(name) typedef uint64_t name
+#define MANTLE_HANDLE(name) typedef void* name
 
 #define GR_STDCALL
 
@@ -65,7 +65,7 @@ MANTLE_HANDLE(GR_VIEWPORT_STATE_OBJECT);
 #define GR_MAX_PHYSICAL_GPUS 16
 #define GR_MAX_PHYSICAL_GPU_NAME 256
 #define GR_MAX_VIEWPORTS 16
-#define GR_NULL_HANDLE (uint64_t)NULL
+#define GR_NULL_HANDLE NULL
 #define GR_LAST_MIP_OR_SLICE ~0U
 
 // Enumerations
