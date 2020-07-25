@@ -42,7 +42,7 @@ static void initSwapchain(
         .flags = 0,
         .surface = mSurface,
         .minImageCount = 3,
-        .imageFormat = VK_FORMAT_B8G8R8A8_SRGB,
+        .imageFormat = VK_FORMAT_B8G8R8A8_UNORM,
         .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
         .imageExtent = { 1280, 720 }, // FIXME placeholder
         .imageArrayLayers = 1,
@@ -51,7 +51,7 @@ static void initSwapchain(
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = NULL,
-        .preTransform = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR,
+        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
         .clipped = VK_TRUE,
@@ -131,28 +131,29 @@ static void buildCopyCommandBuffer(
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, 1, &preCopyBarrier);
 
-    const VkImageCopy region = {
+    const VkImageBlit region = {
         .srcSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .mipLevel = 0,
             .baseArrayLayer = 0,
             .layerCount = 1,
         },
-        .srcOffset = { 0, 0, 0 },
+        .srcOffsets[0] = { 0, 0, 0 },
+        .srcOffsets[1] = { 1280, 720, 1 },
         .dstSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .mipLevel = 0,
             .baseArrayLayer = 0,
             .layerCount = 1,
         },
-        .dstOffset = { 0, 0, 0 },
-        .extent = { 1280, 720, 1 },
+        .dstOffsets[0] = { 0, 0, 0 },
+        .dstOffsets[1] = { 1280, 720, 1 },
     };
 
-    vki.vkCmdCopyImage(mCopyCommandBuffer,
+    vki.vkCmdBlitImage(mCopyCommandBuffer,
                        srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                        dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                       1, &region);
+                       1, &region, VK_FILTER_NEAREST);
 
     const VkImageMemoryBarrier postCopyBarrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,

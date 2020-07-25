@@ -13,9 +13,9 @@ GR_RESULT grCreateViewportState(
 
         vkViewports[i] = (VkViewport) {
             .x = viewport->originX,
-            .y = viewport->originY,
+            .y = viewport->height - viewport->originY,
             .width = viewport->width,
-            .height = viewport->height,
+            .height = -viewport->height,
             .minDepth = viewport->minDepth,
             .maxDepth = viewport->maxDepth,
         };
