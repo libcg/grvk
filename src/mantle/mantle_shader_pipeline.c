@@ -255,7 +255,7 @@ GR_RESULT grCreateShader(
     const GR_SHADER_CREATE_INFO* pCreateInfo,
     GR_SHADER* pShader)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
 
     // TODO support AMDIL shaders
@@ -272,18 +272,18 @@ GR_RESULT grCreateShader(
         .pCode = pCreateInfo->pCode,
     };
 
-    if (vki.vkCreateShaderModule(grvkDevice->device, &createInfo, NULL, &vkShaderModule)) {
+    if (vki.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule)) {
         printf("%s: vkCreateShaderModule failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    GrvkShader* grvkShader = malloc(sizeof(GrvkShader));
-    *grvkShader = (GrvkShader) {
-        .sType = GRVK_STRUCT_TYPE_SHADER,
+    GrShader* grShader = malloc(sizeof(GrShader));
+    *grShader = (GrShader) {
+        .sType = GR_STRUCT_TYPE_SHADER,
         .shaderModule = vkShaderModule,
     };
 
-    *pShader = (GR_SHADER)grvkShader;
+    *pShader = (GR_SHADER)grShader;
     return GR_SUCCESS;
 }
 
@@ -292,7 +292,7 @@ GR_RESULT grCreateGraphicsPipeline(
     const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
 
     // Ignored parameters:
     // - iaState.disableVertexReuse (hint)
@@ -336,14 +336,14 @@ GR_RESULT grCreateGraphicsPipeline(
             printf("%s: dynamic memory view mapping is not implemented\n", __func__);
         }
 
-        GrvkShader* grvkShader = (GrvkShader*)stage->shader->shader;
+        GrShader* grShader = (GrShader*)stage->shader->shader;
 
         shaderStageCreateInfo[stageIndex++] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
             .stage = stage->flags,
-            .module = grvkShader->shaderModule,
+            .module = grShader->shaderModule,
             .pName = stage->entryPoint,
             .pSpecializationInfo = NULL,
         };
@@ -523,16 +523,16 @@ GR_RESULT grCreateGraphicsPipeline(
         .pDynamicStates = dynamicStates,
     };
 
-    VkPipelineLayout layout = getVkPipelineLayout(grvkDevice->device, stages);
+    VkPipelineLayout layout = getVkPipelineLayout(grDevice->device, stages);
     if (layout == VK_NULL_HANDLE) {
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    VkRenderPass renderPass = getVkRenderPass(grvkDevice->device,
+    VkRenderPass renderPass = getVkRenderPass(grDevice->device,
                                               pCreateInfo->cbState.target, &pCreateInfo->dbState);
     if (renderPass == VK_NULL_HANDLE)
     {
-        vki.vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
+        vki.vkDestroyPipelineLayout(grDevice->device, layout, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -561,22 +561,22 @@ GR_RESULT grCreateGraphicsPipeline(
         .basePipelineIndex = -1,
     };
 
-    if (vki.vkCreateGraphicsPipelines(grvkDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
+    if (vki.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
                                       NULL, &vkPipeline) != VK_SUCCESS) {
         printf("%s: vkCreateGraphicsPipelines failed\n", __func__);
-        vki.vkDestroyPipelineLayout(grvkDevice->device, layout, NULL);
-        vki.vkDestroyRenderPass(grvkDevice->device, renderPass, NULL);
+        vki.vkDestroyPipelineLayout(grDevice->device, layout, NULL);
+        vki.vkDestroyRenderPass(grDevice->device, renderPass, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    GrvkPipeline* grvkPipeline = malloc(sizeof(GrvkPipeline));
-    *grvkPipeline = (GrvkPipeline) {
-        .sType = GRVK_STRUCT_TYPE_PIPELINE,
+    GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
+    *grPipeline = (GrPipeline) {
+        .sType = GR_STRUCT_TYPE_PIPELINE,
         .pipelineLayout = layout,
         .pipeline = vkPipeline,
         .renderPass = renderPass,
     };
 
-    *pPipeline = (GR_PIPELINE)grvkPipeline;
+    *pPipeline = (GR_PIPELINE)grPipeline;
     return GR_SUCCESS;
 }

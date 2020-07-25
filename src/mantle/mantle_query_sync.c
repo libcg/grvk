@@ -7,7 +7,7 @@ GR_RESULT grCreateFence(
     const GR_FENCE_CREATE_INFO* pCreateInfo,
     GR_FENCE* pFence)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
 
     VkFence vkFence = VK_NULL_HANDLE;
 
@@ -17,18 +17,18 @@ GR_RESULT grCreateFence(
         .flags = 0,
     };
 
-    if (vki.vkCreateFence(grvkDevice->device, &createInfo, NULL, &vkFence) != VK_SUCCESS) {
+    if (vki.vkCreateFence(grDevice->device, &createInfo, NULL, &vkFence) != VK_SUCCESS) {
         printf("%s: vkCreateFence failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    GrvkFence* grvkFence = malloc(sizeof(GrvkFence));
-    *grvkFence = (GrvkFence) {
-        .sType = GRVK_STRUCT_TYPE_FENCE,
+    GrFence* grFence = malloc(sizeof(GrFence));
+    *grFence = (GrFence) {
+        .sType = GR_STRUCT_TYPE_FENCE,
         .fence = vkFence,
     };
 
-    *pFence = (GR_FENCE)grvkFence;
+    *pFence = (GR_FENCE)grFence;
 
     return GR_SUCCESS;
 }
@@ -40,13 +40,13 @@ GR_RESULT grWaitForFences(
     GR_BOOL waitAll,
     GR_FLOAT timeout)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
     uint64_t vkTimeout = timeout * 1000000000ull; // Convert to nanoseconds
     VkResult res;
 
-    if (grvkDevice == NULL) {
+    if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (fenceCount == 0) {
         return GR_ERROR_INVALID_VALUE;
@@ -56,12 +56,12 @@ GR_RESULT grWaitForFences(
 
     VkFence* vkFences = malloc(sizeof(VkFence) * fenceCount);
     for (int i = 0; i < fenceCount; i++) {
-        GrvkFence* grvkFence = (GrvkFence*)pFences[i];
+        GrFence* grFence = (GrFence*)pFences[i];
 
-        vkFences[i] = grvkFence->fence;
+        vkFences[i] = grFence->fence;
     }
 
-    res = vki.vkWaitForFences(grvkDevice->device, fenceCount, vkFences, waitAll, vkTimeout);
+    res = vki.vkWaitForFences(grDevice->device, fenceCount, vkFences, waitAll, vkTimeout);
     free(vkFences);
 
     if (res == VK_SUCCESS) {

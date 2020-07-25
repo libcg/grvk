@@ -21,8 +21,8 @@ GR_RESULT grInitAndEnumerateGpus(
            pAppInfo->apiVersion);
 
     if (pAllocCb == NULL) {
-        mAllocFun = grvkAlloc;
-        mFreeFun = grvkFree;
+        mAllocFun = grAlloc;
+        mFreeFun = grFree;
     } else {
         mAllocFun = pAllocCb->pfnAlloc;
         mFreeFun = pAllocCb->pfnFree;
@@ -72,13 +72,13 @@ GR_RESULT grInitAndEnumerateGpus(
 
     *pGpuCount = physicalDeviceCount;
     for (int i = 0; i < *pGpuCount; i++) {
-        GrvkPhysicalGpu* grvkPhysicalGpu = malloc(sizeof(GrvkPhysicalGpu));
-        *grvkPhysicalGpu = (GrvkPhysicalGpu) {
-            .sType = GRVK_STRUCT_TYPE_PHYSICAL_GPU,
+        GrPhysicalGpu* grPhysicalGpu = malloc(sizeof(GrPhysicalGpu));
+        *grPhysicalGpu = (GrPhysicalGpu) {
+            .sType = GR_STRUCT_TYPE_PHYSICAL_GPU,
             .physicalDevice = physicalDevices[i],
         };
 
-        gpus[i] = (GR_PHYSICAL_GPU)grvkPhysicalGpu;
+        gpus[i] = (GR_PHYSICAL_GPU)grPhysicalGpu;
     }
 
     return GR_SUCCESS;
@@ -90,7 +90,7 @@ GR_RESULT grCreateDevice(
     GR_DEVICE* pDevice)
 {
     GR_RESULT res = GR_SUCCESS;
-    GrvkPhysicalGpu* grvkPhysicalGpu = (GrvkPhysicalGpu*)gpu;
+    GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
     VkDevice vkDevice = VK_NULL_HANDLE;
     uint32_t universalQueueIndex = INVALID_QUEUE_INDEX;
     uint32_t universalQueueCount = 0;
@@ -102,12 +102,12 @@ GR_RESULT grCreateDevice(
     VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
     uint32_t queueFamilyPropertyCount = 0;
-    vki.vkGetPhysicalDeviceQueueFamilyProperties(grvkPhysicalGpu->physicalDevice,
+    vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
                                                  &queueFamilyPropertyCount, NULL);
 
     VkQueueFamilyProperties* queueFamilyProperties =
         malloc(sizeof(VkQueueFamilyProperties) * queueFamilyPropertyCount);
-    vki.vkGetPhysicalDeviceQueueFamilyProperties(grvkPhysicalGpu->physicalDevice,
+    vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
                                                  &queueFamilyPropertyCount, queueFamilyProperties);
 
     for (int i = 0; i < queueFamilyPropertyCount; i++) {
@@ -199,7 +199,7 @@ GR_RESULT grCreateDevice(
         .pEnabledFeatures = &deviceFeatures,
     };
 
-    if (vki.vkCreateDevice(grvkPhysicalGpu->physicalDevice, &createInfo, NULL,
+    if (vki.vkCreateDevice(grPhysicalGpu->physicalDevice, &createInfo, NULL,
                            &vkDevice) != VK_SUCCESS) {
         printf("%s: vkCreateDevice failed\n", __func__);
         res = GR_ERROR_INITIALIZATION_FAILED;
@@ -237,18 +237,18 @@ GR_RESULT grCreateDevice(
         }
     }
 
-    GrvkDevice* grvkDevice = malloc(sizeof(GrvkDevice));
-    *grvkDevice = (GrvkDevice) {
-        .sType = GRVK_STRUCT_TYPE_DEVICE,
+    GrDevice* grDevice = malloc(sizeof(GrDevice));
+    *grDevice = (GrDevice) {
+        .sType = GR_STRUCT_TYPE_DEVICE,
         .device = vkDevice,
-        .physicalDevice = grvkPhysicalGpu->physicalDevice,
+        .physicalDevice = grPhysicalGpu->physicalDevice,
         .universalQueueIndex = universalQueueIndex,
         .universalCommandPool = universalCommandPool,
         .computeQueueIndex = computeQueueIndex,
         .computeCommandPool = computeCommandPool,
     };
 
-    *pDevice = (GR_DEVICE)grvkDevice;
+    *pDevice = (GR_DEVICE)grDevice;
 
 bail:
     for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {

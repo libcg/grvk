@@ -1,14 +1,14 @@
 #include "mantle_internal.h"
 
 static uint32_t getVkQueueFamilyIndex(
-    GrvkDevice* grvkDevice,
+    GrDevice* grDevice,
     GR_QUEUE_TYPE queueType)
 {
     switch (queueType) {
     case GR_QUEUE_UNIVERSAL:
-        return grvkDevice->universalQueueIndex;
+        return grDevice->universalQueueIndex;
     case GR_QUEUE_COMPUTE:
-        return grvkDevice->computeQueueIndex;
+        return grDevice->computeQueueIndex;
     }
 
     printf("%s: invalid queue type %d\n", __func__, queueType);
@@ -23,25 +23,25 @@ GR_RESULT grGetDeviceQueue(
     GR_UINT queueId,
     GR_QUEUE* pQueue)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
     VkQueue vkQueue = VK_NULL_HANDLE;
 
-    uint32_t queueIndex = getVkQueueFamilyIndex(grvkDevice, queueType);
+    uint32_t queueIndex = getVkQueueFamilyIndex(grDevice, queueType);
     if (queueIndex == INVALID_QUEUE_INDEX) {
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
-    vki.vkGetDeviceQueue(grvkDevice->device, queueIndex, queueId, &vkQueue);
+    vki.vkGetDeviceQueue(grDevice->device, queueIndex, queueId, &vkQueue);
 
-    GrvkQueue* grvkQueue = malloc(sizeof(GrvkQueue));
-    *grvkQueue = (GrvkQueue) {
-        .sType = GRVK_STRUCT_TYPE_QUEUE,
-        .grvkDevice = grvkDevice,
+    GrQueue* grQueue = malloc(sizeof(GrQueue));
+    *grQueue = (GrQueue) {
+        .sType = GR_STRUCT_TYPE_QUEUE,
+        .grDevice = grDevice,
         .queue = vkQueue,
         .queueIndex = queueIndex,
     };
 
-    *pQueue = (GR_QUEUE)grvkQueue;
+    *pQueue = (GR_QUEUE)grQueue;
     return GR_SUCCESS;
 }
 
@@ -53,15 +53,15 @@ GR_RESULT grQueueSubmit(
     const GR_MEMORY_REF* pMemRefs,
     GR_FENCE fence)
 {
-    GrvkQueue* grvkQueue = (GrvkQueue*)queue;
-    GrvkFence* grvkFence = (GrvkFence*)fence;
+    GrQueue* grQueue = (GrQueue*)queue;
+    GrFence* grFence = (GrFence*)fence;
     VkResult res;
     VkFence vkFence = VK_NULL_HANDLE;
 
-    if (grvkFence != NULL) {
-        vkFence = grvkFence->fence;
+    if (grFence != NULL) {
+        vkFence = grFence->fence;
 
-        if (vki.vkResetFences(grvkQueue->grvkDevice->device, 1, &vkFence) != VK_SUCCESS) {
+        if (vki.vkResetFences(grQueue->grDevice->device, 1, &vkFence) != VK_SUCCESS) {
             printf("%s: vkResetFences failed\n", __func__);
             return GR_ERROR_OUT_OF_MEMORY;
         }
@@ -69,7 +69,7 @@ GR_RESULT grQueueSubmit(
 
     VkCommandBuffer* vkCommandBuffers = malloc(sizeof(VkCommandBuffer) * cmdBufferCount);
     for (int i = 0; i < cmdBufferCount; i++) {
-        vkCommandBuffers[i] = ((GrvkCmdBuffer*)pCmdBuffers[i])->commandBuffer;
+        vkCommandBuffers[i] = ((GrCmdBuffer*)pCmdBuffers[i])->commandBuffer;
     }
 
     const VkSubmitInfo submitInfo = {
@@ -84,7 +84,7 @@ GR_RESULT grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    res = vki.vkQueueSubmit(grvkQueue->queue, 1, &submitInfo, vkFence);
+    res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
     free(vkCommandBuffers);
 
     if (res != VK_SUCCESS) {

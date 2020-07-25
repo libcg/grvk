@@ -43,11 +43,11 @@ GR_RESULT grCreateDescriptorSet(
     const GR_DESCRIPTOR_SET_CREATE_INFO* pCreateInfo,
     GR_DESCRIPTOR_SET* pDescriptorSet)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
 
-    if (grvkDevice == NULL) {
+    if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pCreateInfo == NULL || pDescriptorSet == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -69,7 +69,7 @@ GR_RESULT grCreateDescriptorSet(
     };
 
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
-    if (vki.vkCreateDescriptorPool(grvkDevice->device, &poolCreateInfo, NULL,
+    if (vki.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL,
                                    &vkDescriptorPool) != VK_SUCCESS) {
         printf("%s: vkCreateDescriptorPool failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
@@ -83,17 +83,17 @@ GR_RESULT grCreateDescriptorSet(
         };
     }
 
-    GrvkDescriptorSet* grvkDescriptorSet = malloc(sizeof(GrvkDescriptorSet));
-    *grvkDescriptorSet = (GrvkDescriptorSet) {
-        .sType = GRVK_STRUCT_TYPE_DESCRIPTOR_SET,
-        .device = grvkDevice->device,
+    GrDescriptorSet* grDescriptorSet = malloc(sizeof(GrDescriptorSet));
+    *grDescriptorSet = (GrDescriptorSet) {
+        .sType = GR_STRUCT_TYPE_DESCRIPTOR_SET,
+        .device = grDevice->device,
         .descriptorPool = vkDescriptorPool,
         .slots = slots,
         .slotCount = pCreateInfo->slots,
         .descriptorSets = { VK_NULL_HANDLE },
     };
 
-    *pDescriptorSet = (GR_DESCRIPTOR_SET)grvkDescriptorSet;
+    *pDescriptorSet = (GR_DESCRIPTOR_SET)grDescriptorSet;
     return GR_SUCCESS;
 }
 
@@ -106,7 +106,7 @@ GR_VOID grBeginDescriptorSetUpdate(
 GR_VOID grEndDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet)
 {
-    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+    GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     // TODO free old descriptor sets and layouts if applicable
 
@@ -114,10 +114,10 @@ GR_VOID grEndDescriptorSetUpdate(
     VkDescriptorSetLayout vkLayouts[MAX_STAGE_COUNT];
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
         VkDescriptorSetLayoutBinding* bindings =
-            malloc(sizeof(VkDescriptorSetLayoutBinding) * grvkDescriptorSet->slotCount);
+            malloc(sizeof(VkDescriptorSetLayoutBinding) * grDescriptorSet->slotCount);
 
-        for (int j = 0; j < grvkDescriptorSet->slotCount; j++) {
-            const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[j];
+        for (int j = 0; j < grDescriptorSet->slotCount; j++) {
+            const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[j];
 
             if (slot->type == SLOT_TYPE_NESTED ||
                 slot->type == SLOT_TYPE_IMAGE_VIEW ||
@@ -161,11 +161,11 @@ GR_VOID grEndDescriptorSetUpdate(
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
-            .bindingCount = grvkDescriptorSet->slotCount,
+            .bindingCount = grDescriptorSet->slotCount,
             .pBindings = bindings,
         };
 
-        if (vki.vkCreateDescriptorSetLayout(grvkDescriptorSet->device, &createInfo, NULL,
+        if (vki.vkCreateDescriptorSetLayout(grDescriptorSet->device, &createInfo, NULL,
                                             &vkLayouts[i]) != VK_SUCCESS) {
             printf("%s: vkCreateDescriptorSetLayout failed\n", __func__);
         }
@@ -176,37 +176,37 @@ GR_VOID grEndDescriptorSetUpdate(
     const VkDescriptorSetAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = NULL,
-        .descriptorPool = grvkDescriptorSet->descriptorPool,
+        .descriptorPool = grDescriptorSet->descriptorPool,
         .descriptorSetCount = MAX_STAGE_COUNT,
         .pSetLayouts = vkLayouts,
     };
 
-    if (vki.vkAllocateDescriptorSets(grvkDescriptorSet->device, &allocateInfo,
-                                     grvkDescriptorSet->descriptorSets) != VK_SUCCESS) {
+    if (vki.vkAllocateDescriptorSets(grDescriptorSet->device, &allocateInfo,
+                                     grDescriptorSet->descriptorSets) != VK_SUCCESS) {
         printf("%s: vkAllocateDescriptorSets failed\n", __func__);
     }
 
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
-        for (int j = 0; j < grvkDescriptorSet->slotCount; j++) {
-            const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[j];
+        for (int j = 0; j < grDescriptorSet->slotCount; j++) {
+            const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[j];
 
             if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
                 const GR_MEMORY_VIEW_ATTACH_INFO* info = (GR_MEMORY_VIEW_ATTACH_INFO*)slot->info;
-                GrvkGpuMemory* grvkGpuMemory = (GrvkGpuMemory*)info->mem;
+                GrGpuMemory* grGpuMemory = (GrGpuMemory*)info->mem;
                 VkBufferView bufferView = VK_NULL_HANDLE;
 
                 const VkBufferViewCreateInfo createInfo = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
                     .pNext = NULL,
                     .flags = 0,
-                    .buffer = grvkGpuMemory->buffer,
+                    .buffer = grGpuMemory->buffer,
                     .format = getVkFormat(info->format),
                     .offset = info->offset,
                     .range = info->range,
                 };
 
                 // TODO track buffer view reference
-                if (vki.vkCreateBufferView(grvkDescriptorSet->device, &createInfo, NULL,
+                if (vki.vkCreateBufferView(grDescriptorSet->device, &createInfo, NULL,
                                            &bufferView) != VK_SUCCESS) {
                     printf("%s: vkCreateBufferView failed\n", __func__);
                 }
@@ -214,7 +214,7 @@ GR_VOID grEndDescriptorSetUpdate(
                 VkWriteDescriptorSet writeDescriptorSet = {
                     .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                     .pNext = NULL,
-                    .dstSet = grvkDescriptorSet->descriptorSets[i],
+                    .dstSet = grDescriptorSet->descriptorSets[i],
                     .dstBinding = j,
                     .dstArrayElement = 0,
                     .descriptorCount = 1,
@@ -225,7 +225,7 @@ GR_VOID grEndDescriptorSetUpdate(
                 };
 
                 // TODO batch
-                vki.vkUpdateDescriptorSets(grvkDescriptorSet->device, 1, &writeDescriptorSet,
+                vki.vkUpdateDescriptorSets(grDescriptorSet->device, 1, &writeDescriptorSet,
                                            0, NULL);
             }
         }
@@ -238,10 +238,10 @@ GR_VOID grAttachSamplerDescriptors(
     GR_UINT slotCount,
     const GR_SAMPLER* pSamplers)
 {
-    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+    GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
-        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[startSlot + i];
+        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[startSlot + i];
 
         setDescriptorSetSlot(slot, SLOT_TYPE_SAMPLER, &pSamplers[i], sizeof(GR_SAMPLER));
     }
@@ -253,10 +253,10 @@ GR_VOID grAttachImageViewDescriptors(
     GR_UINT slotCount,
     const GR_IMAGE_VIEW_ATTACH_INFO* pImageViews)
 {
-    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+    GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
-        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[startSlot + i];
+        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[startSlot + i];
 
         setDescriptorSetSlot(slot, SLOT_TYPE_IMAGE_VIEW,
                              &pImageViews[i], sizeof(GR_IMAGE_VIEW_ATTACH_INFO));
@@ -269,10 +269,10 @@ GR_VOID grAttachMemoryViewDescriptors(
     GR_UINT slotCount,
     const GR_MEMORY_VIEW_ATTACH_INFO* pMemViews)
 {
-    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+    GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
-        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[startSlot + i];
+        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[startSlot + i];
 
         setDescriptorSetSlot(slot, SLOT_TYPE_MEMORY_VIEW,
                              &pMemViews[i], sizeof(GR_MEMORY_VIEW_ATTACH_INFO));
@@ -285,10 +285,10 @@ GR_VOID grAttachNestedDescriptors(
     GR_UINT slotCount,
     const GR_DESCRIPTOR_SET_ATTACH_INFO* pNestedDescriptorSets)
 {
-    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+    GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
-        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[startSlot + i];
+        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[startSlot + i];
 
         setDescriptorSetSlot(slot, SLOT_TYPE_NESTED,
                              &pNestedDescriptorSets[i], sizeof(GR_DESCRIPTOR_SET_ATTACH_INFO));
@@ -300,10 +300,10 @@ GR_VOID grClearDescriptorSetSlots(
     GR_UINT startSlot,
     GR_UINT slotCount)
 {
-    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+    GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
-        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[startSlot + i];
+        DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[startSlot + i];
 
         clearDescriptorSetSlot(slot);
     }

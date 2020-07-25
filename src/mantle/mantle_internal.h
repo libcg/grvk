@@ -7,17 +7,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mantle/mantle.h"
-#include "grvk_object.h"
+#include "mantle_object.h"
 #include "vulkan_loader.h"
 
 #define INVALID_QUEUE_INDEX -1u
 
-GR_VOID* grvkAlloc(
+GR_VOID* grAlloc(
     GR_SIZE size,
     GR_SIZE alignment,
     GR_ENUM allocType);
 
-GR_VOID grvkFree(
+GR_VOID grFree(
     GR_VOID* pMem);
 
 VkFormat getVkFormat(

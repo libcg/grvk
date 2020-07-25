@@ -6,18 +6,18 @@ GR_RESULT grGetMemoryHeapCount(
     GR_DEVICE device,
     GR_UINT* pCount)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
 
-    if (grvkDevice == NULL) {
+    if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pCount == NULL) {
         return GR_ERROR_INVALID_POINTER;
     }
 
     VkPhysicalDeviceMemoryProperties vkMemoryProperties;
-    vki.vkGetPhysicalDeviceMemoryProperties(grvkDevice->physicalDevice, &vkMemoryProperties);
+    vki.vkGetPhysicalDeviceMemoryProperties(grDevice->physicalDevice, &vkMemoryProperties);
 
     *pCount = vkMemoryProperties.memoryTypeCount;
     return GR_SUCCESS;
@@ -30,11 +30,11 @@ GR_RESULT grGetMemoryHeapInfo(
     GR_SIZE* pDataSize,
     GR_VOID* pData)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
 
-    if (grvkDevice == NULL) {
+    if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (infoType != GR_INFO_TYPE_MEMORY_HEAP_PROPERTIES) {
         return GR_ERROR_INVALID_VALUE;
@@ -48,7 +48,7 @@ GR_RESULT grGetMemoryHeapInfo(
     }
 
     VkPhysicalDeviceMemoryProperties vkMemoryProperties;
-    vki.vkGetPhysicalDeviceMemoryProperties(grvkDevice->physicalDevice, &vkMemoryProperties);
+    vki.vkGetPhysicalDeviceMemoryProperties(grDevice->physicalDevice, &vkMemoryProperties);
 
     if (heapId >= vkMemoryProperties.memoryTypeCount) {
         return GR_ERROR_INVALID_ORDINAL;
@@ -84,11 +84,11 @@ GR_RESULT grAllocMemory(
     const GR_MEMORY_ALLOC_INFO* pAllocInfo,
     GR_GPU_MEMORY* pMem)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
 
-    if (grvkDevice == NULL) {
+    if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grvkDevice->sType != GRVK_STRUCT_TYPE_DEVICE) {
+    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pAllocInfo == NULL || pMem == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -111,7 +111,7 @@ GR_RESULT grAllocMemory(
     };
 
     VkDeviceMemory vkMemory = VK_NULL_HANDLE;
-    if (vki.vkAllocateMemory(grvkDevice->device, &allocateInfo, NULL, &vkMemory) != VK_SUCCESS) {
+    if (vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory) != VK_SUCCESS) {
         printf("%s: vkAllocateMemory failed\n", __func__);
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
@@ -128,28 +128,28 @@ GR_RESULT grAllocMemory(
     };
 
     VkBuffer vkBuffer = VK_NULL_HANDLE;
-    if (vki.vkCreateBuffer(grvkDevice->device, &bufferCreateInfo, NULL, &vkBuffer) != VK_SUCCESS) {
+    if (vki.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer) != VK_SUCCESS) {
         printf("%s: vkCreateBuffer failed\n", __func__);
-        vki.vkFreeMemory(grvkDevice->device, vkMemory, NULL);
+        vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
-    if (vki.vkBindBufferMemory(grvkDevice->device, vkBuffer, vkMemory, 0) != VK_SUCCESS) {
+    if (vki.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0) != VK_SUCCESS) {
         printf("%s: vkBindBufferMemory failed\n", __func__);
-        vki.vkDestroyBuffer(grvkDevice->device, vkBuffer, NULL);
-        vki.vkFreeMemory(grvkDevice->device, vkMemory, NULL);
+        vki.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
+        vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
-    GrvkGpuMemory* grvkGpuMemory = malloc(sizeof(GrvkGpuMemory));
-    *grvkGpuMemory = (GrvkGpuMemory) {
-        .sType = GRVK_STRUCT_TYPE_GPU_MEMORY,
+    GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
+    *grGpuMemory = (GrGpuMemory) {
+        .sType = GR_STRUCT_TYPE_GPU_MEMORY,
         .deviceMemory = vkMemory,
-        .device = grvkDevice->device,
+        .device = grDevice->device,
         .buffer = vkBuffer,
     };
 
-    *pMem = (GR_GPU_MEMORY)grvkGpuMemory;
+    *pMem = (GR_GPU_MEMORY)grGpuMemory;
     return GR_SUCCESS;
 }
 
@@ -158,11 +158,11 @@ GR_RESULT grMapMemory(
     GR_FLAGS flags,
     GR_VOID** ppData)
 {
-    GrvkGpuMemory* grvkGpuMemory = (GrvkGpuMemory*)mem;
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
-    if (grvkGpuMemory == NULL) {
+    if (grGpuMemory == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grvkGpuMemory->sType != GRVK_STRUCT_TYPE_GPU_MEMORY) {
+    } else if (grGpuMemory->sType != GR_STRUCT_TYPE_GPU_MEMORY) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (flags != 0) {
         return GR_ERROR_INVALID_FLAGS;
@@ -170,7 +170,7 @@ GR_RESULT grMapMemory(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    if (vki.vkMapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory,
+    if (vki.vkMapMemory(grGpuMemory->device, grGpuMemory->deviceMemory,
                     0, VK_WHOLE_SIZE, 0, ppData) != VK_SUCCESS) {
         printf("%s: vkMapMemory failed\n", __func__);
         return GR_ERROR_MEMORY_MAP_FAILED;
@@ -182,15 +182,15 @@ GR_RESULT grMapMemory(
 GR_RESULT grUnmapMemory(
     GR_GPU_MEMORY mem)
 {
-    GrvkGpuMemory* grvkGpuMemory = (GrvkGpuMemory*)mem;
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
-    if (grvkGpuMemory == NULL) {
+    if (grGpuMemory == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grvkGpuMemory->sType != GRVK_STRUCT_TYPE_GPU_MEMORY) {
+    } else if (grGpuMemory->sType != GR_STRUCT_TYPE_GPU_MEMORY) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    vki.vkUnmapMemory(grvkGpuMemory->device, grvkGpuMemory->deviceMemory);
+    vki.vkUnmapMemory(grGpuMemory->device, grGpuMemory->deviceMemory);
 
     return GR_SUCCESS;
 }

@@ -27,9 +27,9 @@ static VkFramebuffer getVkFramebuffer(
     int attachmentIdx = 0;
 
     for (int i = 0; i < colorTargetCount; i++) {
-        GrvkColorTargetView* grvkColorTargetView = (GrvkColorTargetView*)pColorTargets[i].view;
+        GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
-        attachments[attachmentIdx++] = grvkColorTargetView->imageView;
+        attachments[attachmentIdx++] = grColorTargetView->imageView;
     }
 
     // TODO
@@ -59,27 +59,27 @@ static VkFramebuffer getVkFramebuffer(
 }
 
 static void initCmdBufferResources(
-    GrvkCmdBuffer* grvkCmdBuffer)
+    GrCmdBuffer* grCmdBuffer)
 {
-    GrvkPipeline* grvkPipeline = grvkCmdBuffer->grvkPipeline;
+    GrPipeline* grPipeline = grCmdBuffer->grPipeline;
     VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
 
-    vki.vkCmdBindPipeline(grvkCmdBuffer->commandBuffer, bindPoint, grvkPipeline->pipeline);
+    vki.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
 
     printf("%s: HACK only one descriptor bound\n", __func__);
-    vki.vkCmdBindDescriptorSets(grvkCmdBuffer->commandBuffer, bindPoint,
-                                grvkPipeline->pipelineLayout, 0, 1,
-                                grvkCmdBuffer->grvkDescriptorSet->descriptorSets, 0, NULL);
+    vki.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint,
+                                grPipeline->pipelineLayout, 0, 1,
+                                grCmdBuffer->grDescriptorSet->descriptorSets, 0, NULL);
 
     VkFramebuffer framebuffer =
-        getVkFramebuffer(grvkCmdBuffer->grvkDescriptorSet->device, grvkPipeline->renderPass,
-                         grvkCmdBuffer->colorTargetCount, grvkCmdBuffer->colorTargets,
-                         grvkCmdBuffer->hasDepthTarget ? &grvkCmdBuffer->depthTarget : NULL);
+        getVkFramebuffer(grCmdBuffer->grDescriptorSet->device, grPipeline->renderPass,
+                         grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets,
+                         grCmdBuffer->hasDepthTarget ? &grCmdBuffer->depthTarget : NULL);
 
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = NULL,
-        .renderPass = grvkPipeline->renderPass,
+        .renderPass = grPipeline->renderPass,
         .framebuffer = framebuffer,
         .renderArea = (VkRect2D) {
             .offset = { 0, 0 }, // FIXME hardcoded
@@ -89,13 +89,13 @@ static void initCmdBufferResources(
         .pClearValues = NULL,
     };
 
-    if (grvkCmdBuffer->hasActiveRenderPass) {
-        vki.vkCmdEndRenderPass(grvkCmdBuffer->commandBuffer);
+    if (grCmdBuffer->hasActiveRenderPass) {
+        vki.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
     }
-    vki.vkCmdBeginRenderPass(grvkCmdBuffer->commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    grvkCmdBuffer->hasActiveRenderPass = true;
+    vki.vkCmdBeginRenderPass(grCmdBuffer->commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    grCmdBuffer->hasActiveRenderPass = true;
 
-    grvkCmdBuffer->isDirty = false;
+    grCmdBuffer->isDirty = false;
 }
 
 // Command Buffer Building Functions
@@ -105,15 +105,15 @@ GR_VOID grCmdBindPipeline(
     GR_ENUM pipelineBindPoint,
     GR_PIPELINE pipeline)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
-    GrvkPipeline* grvkPipeline = (GrvkPipeline*)pipeline;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrPipeline* grPipeline = (GrPipeline*)pipeline;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
         printf("%s: unsupported bind point 0x%x\n", __func__, pipelineBindPoint);
     }
 
-    grvkCmdBuffer->grvkPipeline = grvkPipeline;
-    grvkCmdBuffer->isDirty = true;
+    grCmdBuffer->grPipeline = grPipeline;
+    grCmdBuffer->isDirty = true;
 }
 
 GR_VOID grCmdBindStateObject(
@@ -121,63 +121,63 @@ GR_VOID grCmdBindStateObject(
     GR_ENUM stateBindPoint,
     GR_STATE_OBJECT state)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
-    GrvkViewportStateObject* viewportState = (GrvkViewportStateObject*)state;
-    GrvkRasterStateObject* rasterState = (GrvkRasterStateObject*)state;
-    GrvkDepthStencilStateObject* depthStencilState = (GrvkDepthStencilStateObject*)state;
-    GrvkColorBlendStateObject* colorBlendState = (GrvkColorBlendStateObject*)state;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrViewportStateObject* viewportState = (GrViewportStateObject*)state;
+    GrRasterStateObject* rasterState = (GrRasterStateObject*)state;
+    GrDepthStencilStateObject* depthStencilState = (GrDepthStencilStateObject*)state;
+    GrColorBlendStateObject* colorBlendState = (GrColorBlendStateObject*)state;
 
     switch ((GR_STATE_BIND_POINT)stateBindPoint) {
     case GR_STATE_BIND_VIEWPORT:
-        vki.vkCmdSetViewportWithCountEXT(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdSetViewportWithCountEXT(grCmdBuffer->commandBuffer,
                                          viewportState->viewportCount, viewportState->viewports);
-        vki.vkCmdSetScissorWithCountEXT(grvkCmdBuffer->commandBuffer, viewportState->scissorCount,
+        vki.vkCmdSetScissorWithCountEXT(grCmdBuffer->commandBuffer, viewportState->scissorCount,
                                         viewportState->scissors);
         break;
     case GR_STATE_BIND_RASTER:
-        vki.vkCmdSetCullModeEXT(grvkCmdBuffer->commandBuffer, rasterState->cullMode);
-        vki.vkCmdSetFrontFaceEXT(grvkCmdBuffer->commandBuffer, rasterState->frontFace);
-        vki.vkCmdSetDepthBias(grvkCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
+        vki.vkCmdSetCullModeEXT(grCmdBuffer->commandBuffer, rasterState->cullMode);
+        vki.vkCmdSetFrontFaceEXT(grCmdBuffer->commandBuffer, rasterState->frontFace);
+        vki.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
         break;
     case GR_STATE_BIND_DEPTH_STENCIL:
-        vki.vkCmdSetDepthTestEnableEXT(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdSetDepthTestEnableEXT(grCmdBuffer->commandBuffer,
                                        depthStencilState->depthTestEnable);
-        vki.vkCmdSetDepthWriteEnableEXT(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdSetDepthWriteEnableEXT(grCmdBuffer->commandBuffer,
                                         depthStencilState->depthWriteEnable);
-        vki.vkCmdSetDepthCompareOpEXT(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdSetDepthCompareOpEXT(grCmdBuffer->commandBuffer,
                                       depthStencilState->depthCompareOp);
-        vki.vkCmdSetDepthBoundsTestEnableEXT(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdSetDepthBoundsTestEnableEXT(grCmdBuffer->commandBuffer,
                                              depthStencilState->depthBoundsTestEnable);
-        vki.vkCmdSetStencilTestEnableEXT(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdSetStencilTestEnableEXT(grCmdBuffer->commandBuffer,
                                          depthStencilState->stencilTestEnable);
-        vki.vkCmdSetStencilOpEXT(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+        vki.vkCmdSetStencilOpEXT(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
                                  depthStencilState->front.failOp,
                                  depthStencilState->front.passOp,
                                  depthStencilState->front.depthFailOp,
                                  depthStencilState->front.compareOp);
-        vki.vkCmdSetStencilCompareMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+        vki.vkCmdSetStencilCompareMask(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
                                        depthStencilState->front.compareMask);
-        vki.vkCmdSetStencilWriteMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+        vki.vkCmdSetStencilWriteMask(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
                                      depthStencilState->front.writeMask);
-        vki.vkCmdSetStencilReference(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
+        vki.vkCmdSetStencilReference(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_FRONT_BIT,
                                      depthStencilState->front.reference);
-        vki.vkCmdSetStencilOpEXT(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+        vki.vkCmdSetStencilOpEXT(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
                                  depthStencilState->back.failOp,
                                  depthStencilState->back.passOp,
                                  depthStencilState->back.depthFailOp,
                                  depthStencilState->back.compareOp);
-        vki.vkCmdSetStencilCompareMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+        vki.vkCmdSetStencilCompareMask(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
                                        depthStencilState->back.compareMask);
-        vki.vkCmdSetStencilWriteMask(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+        vki.vkCmdSetStencilWriteMask(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
                                      depthStencilState->back.writeMask);
-        vki.vkCmdSetStencilReference(grvkCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
+        vki.vkCmdSetStencilReference(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
                                      depthStencilState->back.reference);
-        vki.vkCmdSetDepthBounds(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdSetDepthBounds(grCmdBuffer->commandBuffer,
                                 depthStencilState->minDepthBounds, depthStencilState->maxDepthBounds);
         break;
     case GR_STATE_BIND_COLOR_BLEND:
-        vki.vkCmdSetBlendConstants(grvkCmdBuffer->commandBuffer, colorBlendState->blendConstants);
+        vki.vkCmdSetBlendConstants(grCmdBuffer->commandBuffer, colorBlendState->blendConstants);
         break;
     case GR_STATE_BIND_MSAA:
         // TODO
@@ -192,8 +192,8 @@ GR_VOID grCmdBindDescriptorSet(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT slotOffset)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
-    GrvkDescriptorSet* grvkDescriptorSet = (GrvkDescriptorSet*)descriptorSet;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
         printf("%s: unsupported bind point 0x%x\n", __func__, pipelineBindPoint);
@@ -203,8 +203,8 @@ GR_VOID grCmdBindDescriptorSet(
         printf("%s: unsupported slot offset %u\n", __func__, slotOffset);
     }
 
-    grvkCmdBuffer->grvkDescriptorSet = grvkDescriptorSet;
-    grvkCmdBuffer->isDirty = true;
+    grCmdBuffer->grDescriptorSet = grDescriptorSet;
+    grCmdBuffer->isDirty = true;
 }
 
 GR_VOID grCmdPrepareMemoryRegions(
@@ -212,7 +212,7 @@ GR_VOID grCmdPrepareMemoryRegions(
     GR_UINT transitionCount,
     const GR_MEMORY_STATE_TRANSITION* pStateTransitions)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
@@ -226,7 +226,7 @@ GR_VOID grCmdPrepareMemoryRegions(
         };
 
         // TODO batch
-        vki.vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                                  0, 1, &memoryBarrier, 0, NULL, 0, NULL);
@@ -239,17 +239,17 @@ GR_VOID grCmdBindTargets(
     const GR_COLOR_TARGET_BIND_INFO* pColorTargets,
     const GR_DEPTH_STENCIL_BIND_INFO* pDepthTarget)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
-    memcpy(grvkCmdBuffer->colorTargets, pColorTargets,
+    memcpy(grCmdBuffer->colorTargets, pColorTargets,
            sizeof(GR_COLOR_TARGET_BIND_INFO) * colorTargetCount);
-    grvkCmdBuffer->colorTargetCount = colorTargetCount;
+    grCmdBuffer->colorTargetCount = colorTargetCount;
 
     if (pDepthTarget == NULL) {
-        grvkCmdBuffer->hasDepthTarget = false;
+        grCmdBuffer->hasDepthTarget = false;
     } else {
-        memcpy(&grvkCmdBuffer->depthTarget, pDepthTarget, sizeof(GR_DEPTH_STENCIL_BIND_INFO));
-        grvkCmdBuffer->hasDepthTarget = true;
+        memcpy(&grCmdBuffer->depthTarget, pDepthTarget, sizeof(GR_DEPTH_STENCIL_BIND_INFO));
+        grCmdBuffer->hasDepthTarget = true;
     }
 }
 
@@ -258,12 +258,12 @@ GR_VOID grCmdPrepareImages(
     GR_UINT transitionCount,
     const GR_IMAGE_STATE_TRANSITION* pStateTransitions)
 {
-    const GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         const GR_IMAGE_SUBRESOURCE_RANGE* range = &stateTransition->subresourceRange;
-        GrvkImage* grvkImage = (GrvkImage*)stateTransition->image;
+        GrImage* grImage = (GrImage*)stateTransition->image;
 
         const VkImageMemoryBarrier imageMemoryBarrier = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -274,12 +274,12 @@ GR_VOID grCmdPrepareImages(
             .newLayout = getVkImageLayout(stateTransition->newState),
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = grvkImage->image,
+            .image = grImage->image,
             .subresourceRange = getVkImageSubresourceRange(range),
         };
 
         // TODO batch
-        vki.vkCmdPipelineBarrier(grvkCmdBuffer->commandBuffer,
+        vki.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                                  0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
@@ -293,13 +293,13 @@ GR_VOID grCmdDraw(
     GR_UINT firstInstance,
     GR_UINT instanceCount)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
-    if (grvkCmdBuffer->isDirty) {
-        initCmdBufferResources(grvkCmdBuffer);
+    if (grCmdBuffer->isDirty) {
+        initCmdBufferResources(grCmdBuffer);
     }
 
-    vki.vkCmdDraw(grvkCmdBuffer->commandBuffer,
+    vki.vkCmdDraw(grCmdBuffer->commandBuffer,
                   vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
@@ -311,13 +311,13 @@ GR_VOID grCmdDrawIndexed(
     GR_UINT firstInstance,
     GR_UINT instanceCount)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
-    if (grvkCmdBuffer->isDirty) {
-        initCmdBufferResources(grvkCmdBuffer);
+    if (grCmdBuffer->isDirty) {
+        initCmdBufferResources(grCmdBuffer);
     }
 
-    vki.vkCmdDrawIndexed(grvkCmdBuffer->commandBuffer,
+    vki.vkCmdDrawIndexed(grCmdBuffer->commandBuffer,
                          indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
@@ -328,8 +328,8 @@ GR_VOID grCmdClearColorImage(
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
-    GrvkImage* grvkImage = (GrvkImage*)image;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrImage* grImage = (GrImage*)image;
 
     const VkClearColorValue vkColor = {
         .float32 = { color[0], color[1], color[2], color[3] },
@@ -340,7 +340,7 @@ GR_VOID grCmdClearColorImage(
         vkRanges[i] = getVkImageSubresourceRange(&pRanges[i]);
     }
 
-    vki.vkCmdClearColorImage(grvkCmdBuffer->commandBuffer, grvkImage->image,
+    vki.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
                              getVkImageLayout(GR_IMAGE_STATE_CLEAR),
                              &vkColor, rangeCount, vkRanges);
 
@@ -354,8 +354,8 @@ GR_VOID grCmdClearColorImageRaw(
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
-    GrvkImage* grvkImage = (GrvkImage*)image;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrImage* grImage = (GrImage*)image;
 
     const VkClearColorValue vkColor = {
         .uint32 = { color[0], color[1], color[2], color[3] },
@@ -366,7 +366,7 @@ GR_VOID grCmdClearColorImageRaw(
         vkRanges[i] = getVkImageSubresourceRange(&pRanges[i]);
     }
 
-    vki.vkCmdClearColorImage(grvkCmdBuffer->commandBuffer, grvkImage->image,
+    vki.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
                              getVkImageLayout(GR_IMAGE_STATE_CLEAR),
                              &vkColor, rangeCount, vkRanges);
 

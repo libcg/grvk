@@ -7,14 +7,14 @@ GR_RESULT grCreateCommandBuffer(
     const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
     GR_CMD_BUFFER* pCmdBuffer)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
 
     if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
-        vkCommandPool = grvkDevice->universalCommandPool;
+        vkCommandPool = grDevice->universalCommandPool;
     } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
-        vkCommandPool = grvkDevice->computeCommandPool;
+        vkCommandPool = grDevice->computeCommandPool;
     }
 
     if (vkCommandPool == VK_NULL_HANDLE) {
@@ -29,18 +29,18 @@ GR_RESULT grCreateCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    if (vki.vkAllocateCommandBuffers(grvkDevice->device, &allocateInfo,
+    if (vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo,
                                      &vkCommandBuffer) != VK_SUCCESS) {
         printf("%s: vkAllocateCommandBuffers failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    GrvkCmdBuffer* grvkCmdBuffer = malloc(sizeof(GrvkCmdBuffer));
-    *grvkCmdBuffer = (GrvkCmdBuffer) {
-        .sType = GRVK_STRUCT_TYPE_COMMAND_BUFFER,
+    GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
+    *grCmdBuffer = (GrCmdBuffer) {
+        .sType = GR_STRUCT_TYPE_COMMAND_BUFFER,
         .commandBuffer = vkCommandBuffer,
-        .grvkPipeline = NULL,
-        .grvkDescriptorSet = NULL,
+        .grPipeline = NULL,
+        .grDescriptorSet = NULL,
         .colorTargets = {},
         .colorTargetCount = 0,
         .depthTarget = {},
@@ -49,7 +49,7 @@ GR_RESULT grCreateCommandBuffer(
         .isDirty = false,
     };
 
-    *pCmdBuffer = (GR_CMD_BUFFER)grvkCmdBuffer;
+    *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;
     return GR_SUCCESS;
 }
 
@@ -57,7 +57,7 @@ GR_RESULT grBeginCommandBuffer(
     GR_CMD_BUFFER cmdBuffer,
     GR_FLAGS flags)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     VkCommandBufferUsageFlags vkUsageFlags = 0;
 
     if ((flags & GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT) != 0) {
@@ -71,7 +71,7 @@ GR_RESULT grBeginCommandBuffer(
         .pInheritanceInfo = NULL,
     };
 
-    if (vki.vkBeginCommandBuffer(grvkCmdBuffer->commandBuffer, &beginInfo) != VK_SUCCESS) {
+    if (vki.vkBeginCommandBuffer(grCmdBuffer->commandBuffer, &beginInfo) != VK_SUCCESS) {
         printf("%s: vkBeginCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -82,13 +82,13 @@ GR_RESULT grBeginCommandBuffer(
 GR_RESULT grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
-    GrvkCmdBuffer* grvkCmdBuffer = (GrvkCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
-    if (grvkCmdBuffer->hasActiveRenderPass) {
-        vki.vkCmdEndRenderPass(grvkCmdBuffer->commandBuffer);
+    if (grCmdBuffer->hasActiveRenderPass) {
+        vki.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
     }
 
-    if (vki.vkEndCommandBuffer(grvkCmdBuffer->commandBuffer) != VK_SUCCESS) {
+    if (vki.vkEndCommandBuffer(grCmdBuffer->commandBuffer) != VK_SUCCESS) {
         printf("%s: vkEndCommandBuffer failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }

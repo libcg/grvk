@@ -50,17 +50,17 @@ GR_RESULT grCreateViewportState(
         }
     }
 
-    GrvkViewportStateObject* grvkViewportStateObject = malloc(sizeof(GrvkViewportStateObject));
+    GrViewportStateObject* grViewportStateObject = malloc(sizeof(GrViewportStateObject));
 
-    *grvkViewportStateObject = (GrvkViewportStateObject) {
-        .sType = GRVK_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
+    *grViewportStateObject = (GrViewportStateObject) {
+        .sType = GR_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
         .viewports = vkViewports,
         .viewportCount = pCreateInfo->viewportCount,
         .scissors = vkScissors,
         .scissorCount = pCreateInfo->viewportCount,
     };
 
-    *pState = (GR_VIEWPORT_STATE_OBJECT)grvkViewportStateObject;
+    *pState = (GR_VIEWPORT_STATE_OBJECT)grViewportStateObject;
     return GR_SUCCESS;
 }
 
@@ -73,10 +73,10 @@ GR_RESULT grCreateRasterState(
         printf("%s: fill mode 0x%x is not supported\n", __func__, pCreateInfo->fillMode);
     }
 
-    GrvkRasterStateObject* grvkRasterStateObject = malloc(sizeof(GrvkRasterStateObject));
+    GrRasterStateObject* grRasterStateObject = malloc(sizeof(GrRasterStateObject));
 
-    *grvkRasterStateObject = (GrvkRasterStateObject) {
-        .sType = GRVK_STRUCT_TYPE_RASTER_STATE_OBJECT,
+    *grRasterStateObject = (GrRasterStateObject) {
+        .sType = GR_STRUCT_TYPE_RASTER_STATE_OBJECT,
         .cullMode = getVkCullModeFlags(pCreateInfo->cullMode),
         .frontFace = getVkFrontFace(pCreateInfo->frontFace),
         .depthBiasConstantFactor = pCreateInfo->depthBias,
@@ -84,7 +84,7 @@ GR_RESULT grCreateRasterState(
         .depthBiasSlopeFactor = pCreateInfo->slopeScaledDepthBias,
     };
 
-    *pState = (GR_RASTER_STATE_OBJECT)grvkRasterStateObject;
+    *pState = (GR_RASTER_STATE_OBJECT)grRasterStateObject;
     return GR_SUCCESS;
 }
 
@@ -109,18 +109,18 @@ GR_RESULT grCreateColorBlendState(
         }
     }
 
-    GrvkColorBlendStateObject* grvkColorBlendStateObject =
-        malloc(sizeof(GrvkColorBlendStateObject));
+    GrColorBlendStateObject* grColorBlendStateObject =
+        malloc(sizeof(GrColorBlendStateObject));
 
-    *grvkColorBlendStateObject = (GrvkColorBlendStateObject) {
-        .sType = GRVK_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
+    *grColorBlendStateObject = (GrColorBlendStateObject) {
+        .sType = GR_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
         .blendConstants = {
             pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
             pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
         },
     };
 
-    *pState = (GR_COLOR_BLEND_STATE_OBJECT)grvkColorBlendStateObject;
+    *pState = (GR_COLOR_BLEND_STATE_OBJECT)grColorBlendStateObject;
     return GR_SUCCESS;
 }
 
@@ -129,11 +129,11 @@ GR_RESULT grCreateDepthStencilState(
     const GR_DEPTH_STENCIL_STATE_CREATE_INFO* pCreateInfo,
     GR_DEPTH_STENCIL_STATE_OBJECT* pState)
 {
-    GrvkDepthStencilStateObject* grvkDepthStencilStateObject =
-        malloc(sizeof(GrvkDepthStencilStateObject));
+    GrDepthStencilStateObject* grDepthStencilStateObject =
+        malloc(sizeof(GrDepthStencilStateObject));
 
-    *grvkDepthStencilStateObject = (GrvkDepthStencilStateObject) {
-        .sType = GRVK_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
+    *grDepthStencilStateObject = (GrDepthStencilStateObject) {
+        .sType = GR_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
         .depthTestEnable = pCreateInfo->depthEnable,
         .depthWriteEnable = pCreateInfo->depthWriteEnable,
         .depthCompareOp = getVkCompareOp(pCreateInfo->depthFunc),
@@ -161,7 +161,7 @@ GR_RESULT grCreateDepthStencilState(
         .maxDepthBounds = pCreateInfo->maxDepth,
     };
 
-    *pState = (GR_DEPTH_STENCIL_STATE_OBJECT)grvkDepthStencilStateObject;
+    *pState = (GR_DEPTH_STENCIL_STATE_OBJECT)grDepthStencilStateObject;
     return GR_SUCCESS;
 }
 
@@ -175,11 +175,11 @@ GR_RESULT grCreateMsaaState(
         printf("%s: unsupported MSAA level %d\n", __func__, pCreateInfo->samples);
     }
 
-    GrvkMsaaStateObject* grvkMsaaStateObject = malloc(sizeof(GrvkMsaaStateObject));
-    *grvkMsaaStateObject = (GrvkMsaaStateObject) {
-        .sType = GRVK_STRUCT_TYPE_MSAA_STATE_OBJECT,
+    GrMsaaStateObject* grMsaaStateObject = malloc(sizeof(GrMsaaStateObject));
+    *grMsaaStateObject = (GrMsaaStateObject) {
+        .sType = GR_STRUCT_TYPE_MSAA_STATE_OBJECT,
     };
 
-    *pState = (GR_MSAA_STATE_OBJECT)grvkMsaaStateObject;
+    *pState = (GR_MSAA_STATE_OBJECT)grMsaaStateObject;
     return GR_SUCCESS;
 }

@@ -8,7 +8,7 @@ GR_RESULT grGetObjectInfo(
     GR_SIZE* pDataSize,
     GR_VOID* pData)
 {
-    GrvkObject* grvkObject = (GrvkObject*)object;
+    GrObject* grObject = (GrObject*)object;
 
     if (pDataSize == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -25,8 +25,8 @@ GR_RESULT grGetObjectInfo(
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
-        if (grvkObject->sType == GRVK_STRUCT_TYPE_DESCRIPTOR_SET ||
-            grvkObject->sType == GRVK_STRUCT_TYPE_PIPELINE) {
+        if (grObject->sType == GR_STRUCT_TYPE_DESCRIPTOR_SET ||
+            grObject->sType == GR_STRUCT_TYPE_PIPELINE) {
             // No memory requirements
             *memReqs = (GR_MEMORY_REQUIREMENTS) {
                 .size = 0,
@@ -35,7 +35,7 @@ GR_RESULT grGetObjectInfo(
             };
         } else {
             printf("%s: unsupported type %d for info type 0x%X\n", __func__,
-                   grvkObject->sType, infoType);
+                   grObject->sType, infoType);
             return GR_ERROR_INVALID_VALUE;
         }
     }   break;
@@ -52,17 +52,17 @@ GR_RESULT grBindObjectMemory(
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset)
 {
-    GrvkObject* grvkObject = (GrvkObject*)object;
+    GrObject* grObject = (GrObject*)object;
 
-    if (grvkObject == NULL) {
+    if (grObject == NULL) {
         return GR_ERROR_INVALID_HANDLE;
     }
 
-    if (grvkObject->sType == GRVK_STRUCT_TYPE_DESCRIPTOR_SET ||
-        grvkObject->sType == GRVK_STRUCT_TYPE_PIPELINE) {
+    if (grObject->sType == GR_STRUCT_TYPE_DESCRIPTOR_SET ||
+        grObject->sType == GR_STRUCT_TYPE_PIPELINE) {
         // Nothing to do
     } else {
-        printf("%s: unsupported object type %d\n", __func__, grvkObject->sType);
+        printf("%s: unsupported object type %d\n", __func__, grObject->sType);
         return GR_ERROR_UNAVAILABLE;
     }
 

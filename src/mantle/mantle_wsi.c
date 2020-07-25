@@ -11,7 +11,7 @@ static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
 
 static void initSwapchain(
-    GrvkDevice* grvkDevice,
+    GrDevice* grDevice,
     HWND hwnd,
     uint32_t queueIndex)
 {
@@ -28,7 +28,7 @@ static void initSwapchain(
     }
 
     VkBool32 supported = VK_FALSE;
-    if (vki.vkGetPhysicalDeviceSurfaceSupportKHR(grvkDevice->physicalDevice, queueIndex, mSurface,
+    if (vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueIndex, mSurface,
                                                  &supported) != VK_SUCCESS) {
         printf("%s: vkGetPhysicalDeviceSurfaceSupportKHR failed\n", __func__);
     }
@@ -58,25 +58,25 @@ static void initSwapchain(
         .oldSwapchain = VK_NULL_HANDLE,
     };
 
-    if (vki.vkCreateSwapchainKHR(grvkDevice->device, &swapchainCreateInfo, NULL,
+    if (vki.vkCreateSwapchainKHR(grDevice->device, &swapchainCreateInfo, NULL,
                                  &mSwapchain) != VK_SUCCESS) {
         printf("%s: vkCreateSwapchainKHR failed\n", __func__);
         return;
     }
 
-    vki.vkGetSwapchainImagesKHR(grvkDevice->device, mSwapchain, &mImageCount, NULL);
+    vki.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, NULL);
     mImages = malloc(sizeof(VkImage) * mImageCount);
-    vki.vkGetSwapchainImagesKHR(grvkDevice->device, mSwapchain, &mImageCount, mImages);
+    vki.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, mImages);
 
     const VkCommandBufferAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .pNext = NULL,
-        .commandPool = grvkDevice->universalCommandPool,
+        .commandPool = grDevice->universalCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
 
-    if (vki.vkAllocateCommandBuffers(grvkDevice->device, &allocateInfo,
+    if (vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo,
                                      &mCopyCommandBuffer) != VK_SUCCESS) {
         printf("%s: vkAllocateCommandBuffers failed\n", __func__);
         return;
@@ -88,8 +88,8 @@ static void initSwapchain(
         .flags = 0,
     };
 
-    vki.vkCreateSemaphore(grvkDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
-    vki.vkCreateSemaphore(grvkDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
+    vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
+    vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
 }
 
 static void buildCopyCommandBuffer(
@@ -192,7 +192,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     GR_IMAGE* pImage,
     GR_GPU_MEMORY* pMem)
 {
-    GrvkDevice* grvkDevice = (GrvkDevice*)device;
+    GrDevice* grDevice = (GrDevice*)device;
     VkImage vkImage = VK_NULL_HANDLE;
     VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
 
@@ -216,13 +216,13 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    if (vki.vkCreateImage(grvkDevice->device, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
+    if (vki.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
         printf("%s: vkCreateImage failed\n", __func__);
         return GR_ERROR_INVALID_VALUE;
     }
 
     VkMemoryRequirements memoryRequirements;
-    vki.vkGetImageMemoryRequirements(grvkDevice->device, vkImage, &memoryRequirements);
+    vki.vkGetImageMemoryRequirements(grDevice->device, vkImage, &memoryRequirements);
 
     const VkMemoryAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -231,34 +231,34 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .memoryTypeIndex = 0, // FIXME don't hardcode
     };
 
-    if (vki.vkAllocateMemory(grvkDevice->device, &allocateInfo, NULL,
+    if (vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL,
                              &vkDeviceMemory) != VK_SUCCESS) {
         printf("%s: vkAllocateMemory failed\n", __func__);
-        vki.vkDestroyImage(grvkDevice->device, vkImage, NULL);
+        vki.vkDestroyImage(grDevice->device, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    if (vki.vkBindImageMemory(grvkDevice->device, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
+    if (vki.vkBindImageMemory(grDevice->device, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
         printf("%s: vkBindImageMemory failed\n", __func__);
-        vki.vkFreeMemory(grvkDevice->device, vkDeviceMemory, NULL);
-        vki.vkDestroyImage(grvkDevice->device, vkImage, NULL);
+        vki.vkFreeMemory(grDevice->device, vkDeviceMemory, NULL);
+        vki.vkDestroyImage(grDevice->device, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    GrvkImage* grvkImage = malloc(sizeof(GrvkImage));
-    *grvkImage = (GrvkImage) {
-        .sType = GRVK_STRUCT_TYPE_IMAGE,
+    GrImage* grImage = malloc(sizeof(GrImage));
+    *grImage = (GrImage) {
+        .sType = GR_STRUCT_TYPE_IMAGE,
         .image = vkImage,
     };
 
-    GrvkGpuMemory* grvkGpuMemory = malloc(sizeof(GrvkGpuMemory));
-    *grvkGpuMemory = (GrvkGpuMemory) {
-        .sType = GRVK_STRUCT_TYPE_GPU_MEMORY,
+    GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
+    *grGpuMemory = (GrGpuMemory) {
+        .sType = GR_STRUCT_TYPE_GPU_MEMORY,
         .deviceMemory = vkDeviceMemory,
     };
 
-    *pImage = (GR_IMAGE)grvkImage;
-    *pMem = (GR_GPU_MEMORY)grvkGpuMemory;
+    *pImage = (GR_IMAGE)grImage;
+    *pMem = (GR_GPU_MEMORY)grGpuMemory;
 
     return GR_SUCCESS;
 }
@@ -267,22 +267,22 @@ GR_RESULT grWsiWinQueuePresent(
     GR_QUEUE queue,
     const GR_WSI_WIN_PRESENT_INFO* pPresentInfo)
 {
-    GrvkQueue* grvkQueue = (GrvkQueue*)queue;
-    GrvkImage* srcGrvkImage = (GrvkImage*)pPresentInfo->srcImage;
+    GrQueue* grQueue = (GrQueue*)queue;
+    GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
 
     if (mSwapchain == VK_NULL_HANDLE) {
-        initSwapchain(grvkQueue->grvkDevice, pPresentInfo->hWndDest, grvkQueue->queueIndex);
+        initSwapchain(grQueue->grDevice, pPresentInfo->hWndDest, grQueue->queueIndex);
     }
 
     uint32_t imageIndex = 0;
 
-    if (vki.vkAcquireNextImageKHR(grvkQueue->grvkDevice->device, mSwapchain, UINT64_MAX,
+    if (vki.vkAcquireNextImageKHR(grQueue->grDevice->device, mSwapchain, UINT64_MAX,
                                   mAcquireSemaphore, VK_NULL_HANDLE, &imageIndex) != VK_SUCCESS) {
         printf("%s: vkAcquireNextImageKHR failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    buildCopyCommandBuffer(srcGrvkImage->image, mImages[imageIndex]);
+    buildCopyCommandBuffer(srcGrImage->image, mImages[imageIndex]);
 
     VkPipelineStageFlagBits stageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
     const VkSubmitInfo submitInfo = {
@@ -297,7 +297,7 @@ GR_RESULT grWsiWinQueuePresent(
         .pSignalSemaphores = &mCopySemaphore,
     };
 
-    if (vki.vkQueueSubmit(grvkQueue->queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+    if (vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         printf("%s: vkQueueSubmit failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
     }
@@ -313,7 +313,7 @@ GR_RESULT grWsiWinQueuePresent(
         .pResults = NULL,
     };
 
-    if (vki.vkQueuePresentKHR(grvkQueue->queue, &vkPresentInfo) != VK_SUCCESS) {
+    if (vki.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo) != VK_SUCCESS) {
         printf("%s: vkQueuePresentKHR failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY; // TODO use better error code
     }
