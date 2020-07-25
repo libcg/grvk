@@ -186,9 +186,6 @@ GR_VOID grEndDescriptorSetUpdate(
         printf("%s: vkAllocateDescriptorSets failed\n", __func__);
     }
 
-    VkWriteDescriptorSet* writes = malloc(sizeof(VkWriteDescriptorSet) * descriptorCount);
-    uint32_t writeIdx = 0;
-
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
         for (int j = 0; j < grvkDescriptorSet->slotCount; j++) {
             const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grvkDescriptorSet->slots)[j];
@@ -214,7 +211,7 @@ GR_VOID grEndDescriptorSetUpdate(
                     printf("%s: vkCreateBufferView failed\n", __func__);
                 }
 
-                writes[writeIdx++] = (VkWriteDescriptorSet) {
+                VkWriteDescriptorSet writeDescriptorSet = {
                     .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                     .pNext = NULL,
                     .dstSet = grvkDescriptorSet->descriptorSets[i],
@@ -226,12 +223,13 @@ GR_VOID grEndDescriptorSetUpdate(
                     .pBufferInfo = NULL,
                     .pTexelBufferView = &bufferView,
                 };
+
+                // TODO batch
+                vki.vkUpdateDescriptorSets(grvkDescriptorSet->device, 1, &writeDescriptorSet,
+                                           0, NULL);
             }
         }
     }
-
-    vki.vkUpdateDescriptorSets(grvkDescriptorSet->device, writeIdx, writes, 0, NULL);
-    free(writes);
 }
 
 GR_VOID grAttachSamplerDescriptors(
