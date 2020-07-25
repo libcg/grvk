@@ -9,6 +9,7 @@ PFN_vkVoidFunction vkGetInstanceProcAddr(
 
 VULKAN_LIBRARY vkl;
 VULKAN_INSTANCE vki;
+VkInstance vk;
 
 void vulkanLoaderLibraryInit()
 {
@@ -19,6 +20,8 @@ void vulkanLoaderLibraryInit()
 
 void vulkanLoaderInstanceInit(VkInstance instance)
 {
+    vk = instance;
+
     LOAD_VULKAN_FN(vki, instance, vkCreateDevice);
     LOAD_VULKAN_FN(vki, instance, vkDestroyInstance);
     LOAD_VULKAN_FN(vki, instance, vkEnumerateDeviceExtensionProperties);
@@ -180,5 +183,30 @@ void vulkanLoaderInstanceInit(VkInstance instance)
     LOAD_VULKAN_FN(vki, instance, vkCmdSetStencilOpEXT);
     LOAD_VULKAN_FN(vki, instance, vkCmdSetStencilTestEnableEXT);
     LOAD_VULKAN_FN(vki, instance, vkCmdSetViewportWithCountEXT);
+#endif
+
+#ifdef VK_KHR_surface
+    LOAD_VULKAN_FN(vki, instance, vkDestroySurfaceKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetPhysicalDeviceSurfaceSupportKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetPhysicalDeviceSurfaceFormatsKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetPhysicalDeviceSurfacePresentModesKHR);
+#endif
+
+#ifdef VK_KHR_swapchain
+    LOAD_VULKAN_FN(vki, instance, vkCreateSwapchainKHR);
+    LOAD_VULKAN_FN(vki, instance, vkDestroySwapchainKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetSwapchainImagesKHR);
+    LOAD_VULKAN_FN(vki, instance, vkAcquireNextImageKHR);
+    LOAD_VULKAN_FN(vki, instance, vkQueuePresentKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetDeviceGroupPresentCapabilitiesKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetDeviceGroupSurfacePresentModesKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetPhysicalDevicePresentRectanglesKHR);
+    LOAD_VULKAN_FN(vki, instance, vkAcquireNextImage2KHR);
+#endif
+
+#ifdef VK_KHR_win32_surface
+    LOAD_VULKAN_FN(vki, instance, vkCreateWin32SurfaceKHR);
+    LOAD_VULKAN_FN(vki, instance, vkGetPhysicalDeviceWin32PresentationSupportKHR);
 #endif
 }

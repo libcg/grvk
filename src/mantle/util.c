@@ -201,7 +201,7 @@ VkImageLayout getVkImageLayout(
     switch ((GR_WSI_WIN_IMAGE_STATE)imageState) {
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_WINDOWED:
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_FULLSCREEN:
-        return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
     printf("%s: unsupported image state 0x%x\n", __func__, imageState);
@@ -226,7 +226,7 @@ VkAccessFlags getVkAccessFlagsImage(
     switch ((GR_WSI_WIN_IMAGE_STATE)imageState) {
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_WINDOWED:
     case GR_WSI_WIN_IMAGE_STATE_PRESENT_FULLSCREEN:
-        return VK_ACCESS_MEMORY_READ_BIT;
+        return VK_ACCESS_TRANSFER_READ_BIT;
     }
 
     printf("%s: unsupported image state 0x%x\n", __func__, imageState);

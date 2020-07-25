@@ -38,6 +38,11 @@ GR_RESULT grInitAndEnumerateGpus(
         .apiVersion = VK_API_VERSION_1_2,
     };
 
+    const char *instanceExtensions[] = {
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+    };
+
     const VkInstanceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pNext = NULL,
@@ -45,8 +50,8 @@ GR_RESULT grInitAndEnumerateGpus(
         .pApplicationInfo = &appInfo,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = NULL,
+        .enabledExtensionCount = sizeof(instanceExtensions) / sizeof(instanceExtensions[0]),
+        .ppEnabledExtensionNames = instanceExtensions,
     };
 
     if (vkl.vkCreateInstance(&createInfo, NULL, &vkInstance) != VK_SUCCESS) {
@@ -176,8 +181,9 @@ GR_RESULT grCreateDevice(
         .multiViewport = VK_TRUE,
     };
 
-    const char *extensions[] = {
-        "VK_EXT_extended_dynamic_state",
+    const char *deviceExtensions[] = {
+        VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 
     const VkDeviceCreateInfo createInfo = {
@@ -188,8 +194,8 @@ GR_RESULT grCreateDevice(
         .pQueueCreateInfos = queueCreateInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .enabledExtensionCount = sizeof(extensions) / sizeof(extensions[0]),
-        .ppEnabledExtensionNames = extensions,
+        .enabledExtensionCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]),
+        .ppEnabledExtensionNames = deviceExtensions,
         .pEnabledFeatures = &deviceFeatures,
     };
 
@@ -204,7 +210,7 @@ GR_RESULT grCreateDevice(
         const VkCommandPoolCreateInfo poolCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .pNext = NULL,
-            .flags = 0,
+            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
             .queueFamilyIndex = universalQueueIndex,
         };
 

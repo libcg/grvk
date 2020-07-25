@@ -138,8 +138,9 @@ typedef struct _GrvkShader {
 
 typedef struct _GrvkQueue {
     GrvkStructType sType;
+    GrvkDevice* grvkDevice;
     VkQueue queue;
-    VkDevice device;
+    uint32_t queueIndex;
 } GrvkQueue;
 
 typedef struct _GrvkViewportStateObject {

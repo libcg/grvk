@@ -36,8 +36,9 @@ GR_RESULT grGetDeviceQueue(
     GrvkQueue* grvkQueue = malloc(sizeof(GrvkQueue));
     *grvkQueue = (GrvkQueue) {
         .sType = GRVK_STRUCT_TYPE_QUEUE,
+        .grvkDevice = grvkDevice,
         .queue = vkQueue,
-        .device = grvkDevice->device,
+        .queueIndex = queueIndex,
     };
 
     *pQueue = (GR_QUEUE)grvkQueue;
@@ -60,7 +61,7 @@ GR_RESULT grQueueSubmit(
     if (grvkFence != NULL) {
         vkFence = grvkFence->fence;
 
-        if (vki.vkResetFences(grvkQueue->device, 1, &vkFence) != VK_SUCCESS) {
+        if (vki.vkResetFences(grvkQueue->grvkDevice->device, 1, &vkFence) != VK_SUCCESS) {
             printf("%s: vkResetFences failed\n", __func__);
             return GR_ERROR_OUT_OF_MEMORY;
         }

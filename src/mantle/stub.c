@@ -712,14 +712,6 @@ GR_RESULT grWsiWinGetScanLine(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWsiWinQueuePresent(
-    GR_QUEUE queue,
-    const GR_WSI_WIN_PRESENT_INFO* pPresentInfo)
-{
-    printf("STUB: %s\n", __func__);
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grWsiWinSetMaxQueuedFrames(
     GR_DEVICE device,
     GR_UINT maxFrames)
