@@ -27,3 +27,9 @@ meson --cross-file build-win64.txt --prefix $(pwd) build.w64
 cd build.w64
 ninja
 ```
+
+## Credits
+
+- [Philip Rebohle](https://github.com/doitsujin/) and [Joshua Ashton](https://github.com/Joshua-Ashton) for [DXVK](https://github.com/doitsujin/dxvk), a DirectX to Vulkan translation layer
+- [Alexander Overvoorde](https://github.com/Overv) for the [MantleHelloTriangle](https://github.com/Overv/MantleHelloTriangle) example used to bring up GRVK
+- AMD for making the API and publicly releasing the [Mantle specification](https://drive.google.com/file/d/13AbMuQltP8t-XabtmnTATlDGj5aGHRyq/view)
