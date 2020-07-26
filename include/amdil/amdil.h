@@ -120,6 +120,7 @@ enum ILOpCode
   IL_OP_MMUL,
   IL_OP_MOD,
   IL_OP_MOV,
+  IL_OP_MOVA,
   IL_OP_MUL,
   IL_OP_NOISE,
   IL_OP_NOP,
