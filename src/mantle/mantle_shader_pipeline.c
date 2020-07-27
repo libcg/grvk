@@ -1,4 +1,5 @@
 #include "mantle_internal.h"
+#include "amdilc.h"
 
 typedef struct _Stage {
     const GR_PIPELINE_SHADER* shader;
@@ -261,6 +262,7 @@ GR_RESULT grCreateShader(
     // TODO support AMDIL shaders
     if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
         printf("%s: AMDIL shaders not supported\n", __func__);
+        ilcDumpShader(pCreateInfo->pCode, pCreateInfo->codeSize);
         return GR_ERROR_BAD_SHADER_CODE;
     }
 

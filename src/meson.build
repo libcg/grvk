@@ -1,1 +1,2 @@
+subdir('amdilc')
 subdir('mantle')
