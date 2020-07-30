@@ -1,7 +1,9 @@
 amdilc_src = [
   'amdilc.c',
+  'amdilc_compiler.c',
   'amdilc_decoder.c',
   'amdilc_dump.c',
+  'amdilc_spirv.c',
   'util.c',
 ]
 

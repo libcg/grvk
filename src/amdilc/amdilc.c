@@ -17,13 +17,21 @@ static void freeKernel(
     free(kernel->instrs);
 }
 
-void ilcDumpShader(
+uint32_t* ilcCompileShader(
+    uint32_t* compiledSize,
     const void* code,
-    uint32_t size)
+    uint32_t size,
+    bool dump)
 {
+    uint32_t* compiledCode;
     Kernel* kernel = ilcDecodeStream((Token*)code, size / sizeof(Token));
 
-    ilcDumpKernel(kernel);
+    if (dump) {
+        ilcDumpKernel(kernel);
+    }
+    compiledCode = ilcCompileKernel(compiledSize, kernel);
+
     freeKernel(kernel);
     free(kernel);
+    return compiledCode;
 }

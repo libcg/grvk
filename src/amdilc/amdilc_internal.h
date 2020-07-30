@@ -71,4 +71,8 @@ Kernel* ilcDecodeStream(
 void ilcDumpKernel(
     const Kernel* kernel);
 
+uint32_t* ilcCompileKernel(
+    uint32_t* size,
+    const Kernel* kernel);
+
 #endif // AMDILC_INTERNAL_H_

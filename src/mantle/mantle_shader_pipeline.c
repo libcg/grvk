@@ -258,25 +258,36 @@ GR_RESULT grCreateShader(
 {
     GrDevice* grDevice = (GrDevice*)device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
+    uint32_t spirvCodeSize;
+    uint32_t* spirvCode;
 
-    // TODO support AMDIL shaders
+    if ((pCreateInfo->flags & GR_SHADER_CREATE_ALLOW_RE_Z) != 0) {
+        printf("%s: unhandled Re-Z flag\n", __func__);
+    }
+
     if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
-        printf("%s: AMDIL shaders not supported\n", __func__);
-        ilcDumpShader(pCreateInfo->pCode, pCreateInfo->codeSize);
-        return GR_ERROR_BAD_SHADER_CODE;
+        spirvCode = ilcCompileShader(&spirvCodeSize,
+                                     pCreateInfo->pCode, pCreateInfo->codeSize, true);
+    } else {
+        spirvCodeSize = pCreateInfo->codeSize;
+        spirvCode = (uint32_t*)pCreateInfo->pCode;
     }
 
     const VkShaderModuleCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .codeSize = pCreateInfo->codeSize,
-        .pCode = pCreateInfo->pCode,
+        .codeSize = spirvCodeSize,
+        .pCode = spirvCode,
     };
 
     if (vki.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule)) {
         printf("%s: vkCreateShaderModule failed\n", __func__);
         return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
+        free(spirvCode);
     }
 
     GrShader* grShader = malloc(sizeof(GrShader));
