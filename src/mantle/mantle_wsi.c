@@ -284,7 +284,7 @@ GR_RESULT grWsiWinQueuePresent(
 
     buildCopyCommandBuffer(srcGrImage->image, mImages[imageIndex]);
 
-    VkPipelineStageFlagBits stageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    VkPipelineStageFlags stageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
     const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
