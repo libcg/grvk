@@ -41,7 +41,7 @@ GR_RESULT grWaitForFences(
     GR_FLOAT timeout)
 {
     GrDevice* grDevice = (GrDevice*)device;
-    uint64_t vkTimeout = timeout * 1000000000ull; // Convert to nanoseconds
+    uint64_t vkTimeout = (uint64_t)(timeout * 1000000000.0f); // Convert to nanoseconds
     VkResult res;
 
     if (grDevice == NULL) {
