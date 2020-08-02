@@ -5,6 +5,22 @@ static GR_FREE_FUNCTION mFreeFun = NULL;
 
 // Initialization and Device Functions
 
+GR_VOID* grAlloc(
+    GR_SIZE size,
+    GR_SIZE alignment,
+    GR_ENUM allocType)
+{
+    // malloc is always suitably aligned to store
+    // any type of variable.
+    return malloc(size);
+}
+
+GR_VOID grFree(
+    GR_VOID* pMem)
+{
+    free(pMem);
+}
+
 GR_RESULT grInitAndEnumerateGpus(
     const GR_APPLICATION_INFO* pAppInfo,
     const GR_ALLOC_CALLBACKS* pAllocCb,
