@@ -79,7 +79,7 @@ GR_RESULT grCreateRasterState(
         .sType = GR_STRUCT_TYPE_RASTER_STATE_OBJECT,
         .cullMode = getVkCullModeFlags(pCreateInfo->cullMode),
         .frontFace = getVkFrontFace(pCreateInfo->frontFace),
-        .depthBiasConstantFactor = pCreateInfo->depthBias,
+        .depthBiasConstantFactor = (float) pCreateInfo->depthBias,
         .depthBiasClamp = pCreateInfo->depthBiasClamp,
         .depthBiasSlopeFactor = pCreateInfo->slopeScaledDepthBias,
     };
