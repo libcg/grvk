@@ -22,7 +22,8 @@ mantle_dll = shared_library('mantle'+dll_variant, mantle_src,
   include_directories : grvk_include_path,
   install             : true,
   objects             : 'mantle' + dll_variant + '.def',
-  vs_module_defs      : 'mantle' + dll_variant + '.def')
+  vs_module_defs      : 'mantle' + dll_variant + '.def',
+  override_options    : [ 'c_std='+grvk_c_std ])
 
 mantle_dep = declare_dependency(
   link_with           : [ mantle_dll ],

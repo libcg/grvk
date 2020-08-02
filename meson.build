@@ -3,6 +3,7 @@ project('grvk', ['c', 'cpp'], version : 'v0.1', meson_version : '>= 0.46')
 cpu_family = target_machine.cpu_family()
 
 grvk_compiler = meson.get_compiler('cpp')
+grvk_c_std    = 'c99'
 
 grvk_include_path = include_directories('./include')
 
