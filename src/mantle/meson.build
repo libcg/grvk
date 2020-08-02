@@ -16,13 +16,15 @@ mantle_src = [
   'vulkan_loader.c',
 ]
 
+mantle_def = 'mantle' + dll_variant + '.def'
+
 mantle_dll = shared_library('mantle'+dll_variant, mantle_src,
   name_prefix         : '',
   dependencies        : [ lib_vulkan, amdilc_dep ],
   include_directories : grvk_include_path,
   install             : true,
-  objects             : 'mantle' + dll_variant + '.def',
-  vs_module_defs      : 'mantle' + dll_variant + '.def',
+  objects             : not grvk_msvc ? mantle_def : [],
+  vs_module_defs      : mantle_def,
   override_options    : [ 'c_std='+grvk_c_std ])
 
 mantle_dep = declare_dependency(

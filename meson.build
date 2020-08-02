@@ -4,6 +4,7 @@ cpu_family = target_machine.cpu_family()
 
 grvk_compiler = meson.get_compiler('cpp')
 grvk_c_std    = 'c99'
+grvk_msvc     = grvk_compiler.get_id() == 'msvc'
 
 grvk_include_path = include_directories('./include')
 
