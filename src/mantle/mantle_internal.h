@@ -10,7 +10,7 @@
 #include "mantle_object.h"
 #include "vulkan_loader.h"
 
-#define INVALID_QUEUE_INDEX -1u
+#define INVALID_QUEUE_INDEX (~0u)
 
 GR_VOID* grAlloc(
     GR_SIZE size,
