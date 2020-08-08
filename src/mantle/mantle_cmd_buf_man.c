@@ -41,7 +41,7 @@ GR_RESULT grCreateCommandBuffer(
         .commandBuffer = vkCommandBuffer,
         .grPipeline = NULL,
         .grDescriptorSet = NULL,
-        .colorTargets = { 0 },
+        .colorTargets = { { 0 } },
         .colorTargetCount = 0,
         .depthTarget = { 0 },
         .hasDepthTarget = false,
