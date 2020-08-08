@@ -12,14 +12,6 @@
 
 #define INVALID_QUEUE_INDEX (~0u)
 
-GR_VOID* grAlloc(
-    GR_SIZE size,
-    GR_SIZE alignment,
-    GR_ENUM allocType);
-
-GR_VOID grFree(
-    GR_VOID* pMem);
-
 VkFormat getVkFormat(
     GR_FORMAT format);
 

@@ -1,8 +1,5 @@
 #include "mantle_internal.h"
 
-static GR_ALLOC_FUNCTION mAllocFun = NULL;
-static GR_FREE_FUNCTION mFreeFun = NULL;
-
 // Initialization and Device Functions
 
 GR_RESULT grInitAndEnumerateGpus(
@@ -20,12 +17,8 @@ GR_RESULT grInitAndEnumerateGpus(
            pAppInfo->pEngineName, pAppInfo->engineVersion,
            pAppInfo->apiVersion);
 
-    if (pAllocCb == NULL) {
-        mAllocFun = grAlloc;
-        mFreeFun = grFree;
-    } else {
-        mAllocFun = pAllocCb->pfnAlloc;
-        mFreeFun = pAllocCb->pfnFree;
+    if (pAllocCb != NULL) {
+        printf("%s: unhandled alloc callbacks\n", __func__);
     }
 
     const VkApplicationInfo appInfo = {

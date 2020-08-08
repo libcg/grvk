@@ -1,26 +1,9 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include "mantle/mantleWsiWinExt.h"
 #include "mantle_internal.h"
 
 #define PACK_FORMAT(channel, numeric) \
     ((channel) << 16 | (numeric))
-
-GR_VOID* grvkAlloc(
-    GR_SIZE size,
-    GR_SIZE alignment,
-    GR_ENUM allocType)
-{
-#ifdef _WIN32
-    return _aligned_malloc(size, alignment);
-#endif
-}
-
-GR_VOID grvkFree(
-    GR_VOID* pMem)
-{
-    free(pMem);
-}
 
 VkFormat getVkFormat(
     GR_FORMAT format)
