@@ -7,6 +7,7 @@ amdilc_src = [
 ]
 
 amdilc_lib = static_library('amdilc', amdilc_src,
+  dependencies        : [ logger_dep ],
   include_directories : [ grvk_include_path ],
   override_options    : [ 'c_std=' + grvk_c_std ])
 

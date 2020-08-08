@@ -30,7 +30,7 @@ static void emitInstr(
         ilcSpvPutReturn(compiler->module);
         break;
     default:
-        printf("%s: unhandled instruction %d\n", __func__, instr->opcode);
+        LOGW("unhandled instruction %d\n", instr->opcode);
     }
 }
 

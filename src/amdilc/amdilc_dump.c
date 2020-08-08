@@ -204,57 +204,57 @@ static const char* getComponentName(
 static void dumpDestination(
     const Destination* dst)
 {
-    printf("%s%s %s%u",
-           mIlShiftScaleNames[dst->shiftScale],
-           dst->clamp ? "_sat" : "",
-           mIlRegTypeNames[dst->registerType],
-           dst->registerNum);
+    logPrintRaw("%s%s %s%u",
+                mIlShiftScaleNames[dst->shiftScale],
+                dst->clamp ? "_sat" : "",
+                mIlRegTypeNames[dst->registerType],
+                dst->registerNum);
 
     if (dst->component[0] != IL_MODCOMP_WRITE ||
         dst->component[1] != IL_MODCOMP_WRITE ||
         dst->component[2] != IL_MODCOMP_WRITE ||
         dst->component[3] != IL_MODCOMP_WRITE) {
-        printf(".%s%s%s%s",
-               getComponentName("x", dst->component[0]),
-               getComponentName("y", dst->component[1]),
-               getComponentName("z", dst->component[2]),
-               getComponentName("w", dst->component[3]));
+        logPrintRaw(".%s%s%s%s",
+                    getComponentName("x", dst->component[0]),
+                    getComponentName("y", dst->component[1]),
+                    getComponentName("z", dst->component[2]),
+                    getComponentName("w", dst->component[3]));
     }
 }
 
 static void dumpSource(
     const Source* src)
 {
-    printf(" %s%u%s%s%s%s%s%s%s",
-           mIlRegTypeNames[src->registerType],
-           src->registerNum,
-           src->invert ? "_invert" : "",
-           src->bias && !src->x2 ? "_bias" : "",
-           !src->bias && src->x2 ? "_x2" : "",
-           src->bias && src->x2 ? "_bx2" : "",
-           src->sign ? "_sign" : "",
-           mIlDivCompNames[src->divComp],
-           src->abs ? "_abs" : "");
+    logPrintRaw(" %s%u%s%s%s%s%s%s%s",
+                mIlRegTypeNames[src->registerType],
+                src->registerNum,
+                src->invert ? "_invert" : "",
+                src->bias && !src->x2 ? "_bias" : "",
+                !src->bias && src->x2 ? "_x2" : "",
+                src->bias && src->x2 ? "_bx2" : "",
+                src->sign ? "_sign" : "",
+                mIlDivCompNames[src->divComp],
+                src->abs ? "_abs" : "");
 
     if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
-        printf("_neg(%s%s%s%s)",
-               src->negate[0] ? "x" : "",
-               src->negate[1] ? "y" : "",
-               src->negate[2] ? "z" : "",
-               src->negate[3] ? "w" : "");
+        logPrintRaw("_neg(%s%s%s%s)",
+                    src->negate[0] ? "x" : "",
+                    src->negate[1] ? "y" : "",
+                    src->negate[2] ? "z" : "",
+                    src->negate[3] ? "w" : "");
     }
 
-    printf("%s", src->clamp ? "_sat" : "");
+    logPrintRaw("%s", src->clamp ? "_sat" : "");
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
         src->swizzle[1] != IL_COMPSEL_Y_G ||
         src->swizzle[2] != IL_COMPSEL_Z_B ||
         src->swizzle[3] != IL_COMPSEL_W_A) {
-        printf(".%s%s%s%s",
-               mIlComponentSelectNames[src->swizzle[0]],
-               mIlComponentSelectNames[src->swizzle[1]],
-               mIlComponentSelectNames[src->swizzle[2]],
-               mIlComponentSelectNames[src->swizzle[3]]);
+        logPrintRaw(".%s%s%s%s",
+                    mIlComponentSelectNames[src->swizzle[0]],
+                    mIlComponentSelectNames[src->swizzle[1]],
+                    mIlComponentSelectNames[src->swizzle[2]],
+                    mIlComponentSelectNames[src->swizzle[3]]);
     }
 }
 
@@ -263,47 +263,47 @@ static void dumpInstruction(
 {
     switch (instr->opcode) {
     case IL_OP_END:
-        printf("end");
+        logPrintRaw("end");
         break;
     case IL_OP_MOV:
-        printf("mov");
+        logPrintRaw("mov");
         break;
     case IL_OP_RET_DYN:
-        printf("ret_dyn");
+        logPrintRaw("ret_dyn");
         break;
     case IL_DCL_OUTPUT:
-        printf("dcl_output_%s",
-               mIlImportUsageNames[instr->control]);
+        logPrintRaw("dcl_output_%s",
+                    mIlImportUsageNames[instr->control]);
         break;
     case IL_DCL_INPUT:
-        printf("dcl_input_%s%s",
-               mIlImportUsageNames[getBits(instr->control, 0, 4)],
-               mIlInterpModeNames[getBits(instr->control, 5, 7)]);
+        logPrintRaw("dcl_input_%s%s",
+                    mIlImportUsageNames[getBits(instr->control, 0, 4)],
+                    mIlInterpModeNames[getBits(instr->control, 5, 7)]);
         break;
     case IL_DCL_RESOURCE:
-        printf("dcl_resource_id(%d)_type(%s%s)_fmtx(%s)_fmty(%s)_fmtz(%s)_fmtw(%s)",
-               getBits(instr->control, 0, 7),
-               mIlPixTexUsageNames[getBits(instr->control, 8, 11)],
-               getBit(instr->control, 31) ? ",unnorm" : "",
-               mIlElementFormatNames[getBits(instr->extras[0], 20, 22)],
-               mIlElementFormatNames[getBits(instr->extras[0], 23, 25)],
-               mIlElementFormatNames[getBits(instr->extras[0], 26, 28)],
-               mIlElementFormatNames[getBits(instr->extras[0], 29, 31)]);
+        logPrintRaw("dcl_resource_id(%d)_type(%s%s)_fmtx(%s)_fmty(%s)_fmtz(%s)_fmtw(%s)",
+                    getBits(instr->control, 0, 7),
+                    mIlPixTexUsageNames[getBits(instr->control, 8, 11)],
+                    getBit(instr->control, 31) ? ",unnorm" : "",
+                    mIlElementFormatNames[getBits(instr->extras[0], 20, 22)],
+                    mIlElementFormatNames[getBits(instr->extras[0], 23, 25)],
+                    mIlElementFormatNames[getBits(instr->extras[0], 26, 28)],
+                    mIlElementFormatNames[getBits(instr->extras[0], 29, 31)]);
         break;
     case IL_OP_LOAD:
         // Sampler ID is ignored
-        printf("load_resource(%d)",
-               getBits(instr->control, 0, 7));
+        logPrintRaw("load_resource(%d)",
+                    getBits(instr->control, 0, 7));
         break;
     case IL_DCL_GLOBAL_FLAGS:
-        printf("dcl_global_flags %s%s%s%s0",
-               (instr->control & 1) != 0 ? "refactoringAllowed|" : "",
-               (instr->control & 2) != 0 ? "forceEarlyDepthStencil|" : "",
-               (instr->control & 4) != 0 ? "enableRawStructuredBuffers|" : "",
-               (instr->control & 8) != 0 ? "enableDoublePrecisionFloatOps|" : "");
+        logPrintRaw("dcl_global_flags %s%s%s%s0",
+                    (instr->control & 1) != 0 ? "refactoringAllowed|" : "",
+                    (instr->control & 2) != 0 ? "forceEarlyDepthStencil|" : "",
+                    (instr->control & 4) != 0 ? "enableRawStructuredBuffers|" : "",
+                    (instr->control & 8) != 0 ? "enableDoublePrecisionFloatOps|" : "");
         break;
     default:
-        printf("%d?", instr->opcode);
+        logPrintRaw("%d?", instr->opcode);
         break;
     }
 
@@ -316,17 +316,17 @@ static void dumpInstruction(
         dumpSource(&instr->srcs[i]);
     }
 
-    printf("\n");
+    logPrintRaw("\n");
 }
 
 void ilcDumpKernel(
     const Kernel* kernel)
 {
-    printf("%s\nil_%s_%d_%d%s%s\n",
-           mIlLanguageTypeNames[kernel->clientType],
-           mIlShaderTypeNames[kernel->shaderType],
-           kernel->majorVersion, kernel->minorVersion,
-           kernel->multipass ? "_mp" : "", kernel->realtime ? "_rt" : "");
+    logPrintRaw("%s\nil_%s_%d_%d%s%s\n",
+                mIlLanguageTypeNames[kernel->clientType],
+                mIlShaderTypeNames[kernel->shaderType],
+                kernel->majorVersion, kernel->minorVersion,
+                kernel->multipass ? "_mp" : "", kernel->realtime ? "_rt" : "");
 
     for (int i = 0; i < kernel->instrCount; i++) {
         dumpInstruction(&kernel->instrs[i]);

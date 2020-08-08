@@ -78,19 +78,19 @@ static uint32_t decodeDestination(
 
     if (relativeAddress != IL_ADDR_ABSOLUTE) {
         // TODO
-        printf("%s: unhandled addressing %d\n", __func__, relativeAddress);
+        LOGW("unhandled addressing %d\n", relativeAddress);
     }
     if (dimension != 0) {
         // TODO
-        printf("%s: unhandled dimension %d\n", __func__, dimension);
+        LOGW("unhandled dimension %d\n", dimension);
     }
     if (immediatePresent) {
         // TODO
-        printf("%s: unhandled immediate value\n", __func__);
+        LOGW("unhandled immediate value\n");
     }
     if (extended) {
         // TODO
-        printf("%s: unhandled extended register addressing\n", __func__);
+        LOGW("unhandled extended register addressing\n");
     }
 
     return idx;
@@ -153,19 +153,19 @@ static uint32_t decodeSource(
 
     if (relativeAddress != IL_ADDR_ABSOLUTE) {
         // TODO
-        printf("%s: unhandled addressing %d\n", __func__, relativeAddress);
+        LOGW("unhandled addressing %d\n", relativeAddress);
     }
     if (dimension != 0) {
         // TODO
-        printf("%s: unhandled dimension %d\n", __func__, dimension);
+        LOGW("unhandled dimension %d\n", dimension);
     }
     if (immediatePresent) {
         // TODO
-        printf("%s: unhandled immediate value\n", __func__);
+        LOGW("unhandled immediate value\n");
     }
     if (extended) {
         // TODO
-        printf("%s: unhandled extended register addressing\n", __func__);
+        LOGW("unhandled extended register addressing\n");
     }
 
     return idx;
@@ -184,14 +184,14 @@ static uint32_t decodeInstruction(
     idx++;
 
     if (instr->opcode >= IL_OP_LAST) {
-        printf("%s: invalid opcode\n", __func__);
+        LOGE("invalid opcode\n");
         return idx;
     }
 
     OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
 
     if (info->opcode == IL_OP_UNKNOWN) {
-        printf("%s: unhandled opcode %d\n", __func__, instr->opcode);
+        LOGW("unhandled opcode %d\n", instr->opcode);
         return idx;
     }
     assert(instr->opcode == info->opcode);
@@ -210,10 +210,10 @@ static uint32_t decodeInstruction(
 
     if (info->hasIndexedResourceSampler) {
         if (getBit(instr->control, 12)) {
-            printf("%s: unhandled indexed args\n", __func__);
+            LOGW("unhandled indexed args\n");
         }
         if (getBit(instr->control, 13)) {
-            printf("%s: unhandled immediate address offset\n", __func__);
+            LOGW("unhandled immediate address offset\n");
         }
     }
 
