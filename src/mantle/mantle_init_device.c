@@ -10,6 +10,7 @@ GR_RESULT grInitAndEnumerateGpus(
 {
     VkInstance vkInstance = VK_NULL_HANDLE;
 
+    logInit();
     vulkanLoaderLibraryInit();
 
     LOGI("app \"%s\" (%08X), engine \"%s\" (%08X), api %08X\n",
