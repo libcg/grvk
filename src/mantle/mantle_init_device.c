@@ -11,6 +11,8 @@ GR_RESULT grInitAndEnumerateGpus(
     VkInstance vkInstance = VK_NULL_HANDLE;
 
     logInit();
+    logPrintRaw("=== GRVK ===\n");
+
     vulkanLoaderLibraryInit();
 
     LOGI("app \"%s\" (%08X), engine \"%s\" (%08X), api %08X\n",
