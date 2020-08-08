@@ -5,8 +5,10 @@
 #include "logger.h"
 
 static LogLevel mLogLevel = LOG_LEVEL_INFO;
+static char* mLogFilePath = "grvk.log";
+static FILE* mLogFile = NULL;
 
-void logInit()
+static void pickLogLevel()
 {
     const char* levelNames[] = { "verbose", "debug", "info", "warning", "error", "none" };
     char* envValue = getenv("GRVK_LOG_LEVEL");
@@ -18,6 +20,25 @@ void logInit()
                 break;
             }
         }
+    }
+}
+
+static void pickLogFile()
+{
+    char* envValue = getenv("GRVK_LOG_PATH");
+
+    if (envValue != NULL && strlen(envValue) > 0) {
+        mLogFilePath = envValue;
+    }
+}
+
+void logInit()
+{
+    pickLogLevel();
+    pickLogFile();
+
+    if (mLogLevel != LOG_LEVEL_NONE) {
+        mLogFile = fopen(mLogFilePath, "w");
     }
 }
 
@@ -33,10 +54,16 @@ void logPrint(
 
     const char* prefixes[] = { "V", "D", "I", "W", "E", "" };
     fprintf(stdout, "%s/%s: ", prefixes[level], name);
+    if (mLogFile != NULL) {
+        fprintf(mLogFile, "%s/%s: ", prefixes[level], name);
+    }
 
     va_list argptr;
     va_start(argptr, format);
     vfprintf(stdout, format, argptr);
+    if (mLogFile != NULL) {
+        vfprintf(mLogFile, format, argptr);
+    }
     va_end(argptr);
 }
 
@@ -51,6 +78,9 @@ void logPrintRaw(
     va_list argptr;
     va_start(argptr, format);
     vfprintf(stdout, format, argptr);
+    if (mLogFile != NULL) {
+        vfprintf(mLogFile, format, argptr);
+    }
     va_end(argptr);
 }
 
