@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "mantle/mantleWsiWinExt.h"
 #include "mantle_internal.h"
 
@@ -163,7 +162,7 @@ VkFormat getVkFormat(
         return VK_FORMAT_BC7_SRGB_BLOCK;
     }
 
-    printf("%s: unsupported format %u %u\n", __func__, format.channelFormat, format.numericFormat);
+    LOGW("unsupported format %u %u\n", format.channelFormat, format.numericFormat);
     return VK_FORMAT_UNDEFINED;
 }
 
@@ -187,7 +186,7 @@ VkImageLayout getVkImageLayout(
         return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
-    printf("%s: unsupported image state 0x%x\n", __func__, imageState);
+    LOGW("unsupported image state 0x%x\n", imageState);
     return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
@@ -212,7 +211,7 @@ VkAccessFlags getVkAccessFlagsImage(
         return VK_ACCESS_TRANSFER_READ_BIT;
     }
 
-    printf("%s: unsupported image state 0x%x\n", __func__, imageState);
+    LOGW("unsupported image state 0x%x\n", imageState);
     return 0;
 }
 
@@ -239,7 +238,7 @@ VkAccessFlags getVkAccessFlagsMemory(
         break;
     }
 
-    printf("%s: unsupported memory state 0x%x\n", __func__, memoryState);
+    LOGW("unsupported memory state 0x%x\n", memoryState);
     return 0;
 }
 
@@ -255,7 +254,7 @@ VkImageAspectFlags getVkImageAspectFlags(
         return VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    printf("%s: unsupported image aspect 0x%x\n", __func__, imageAspect);
+    LOGW("unsupported image aspect 0x%x\n", imageAspect);
     return 0;
 }
 
@@ -277,7 +276,7 @@ VkSampleCountFlagBits getVkSampleCountFlagBits(
         return VK_SAMPLE_COUNT_32_BIT;
     }
 
-    printf("%s: unsupported sample count %d\n", __func__, samples);
+    LOGW("unsupported sample count %d\n", samples);
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
@@ -325,7 +324,7 @@ VkBlendFactor getVkBlendFactor(
         return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
     }
 
-    printf("%s: unsupported blend factor 0x%x\n", __func__, blend);
+    LOGW("unsupported blend factor 0x%x\n", blend);
     return VK_BLEND_FACTOR_ZERO;
 }
 
@@ -345,7 +344,7 @@ VkBlendOp getVkBlendOp(
         return VK_BLEND_OP_MAX;
     }
 
-    printf("%s: unsupported blend func 0x%x\n", __func__, blendFunc);
+    LOGW("unsupported blend func 0x%x\n", blendFunc);
     return VK_BLEND_OP_ADD;
 }
 
@@ -371,7 +370,7 @@ VkCompareOp getVkCompareOp(
         return VK_COMPARE_OP_ALWAYS;
     }
 
-    printf("%s: unsupported compare func 0x%x\n", __func__, compareFunc);
+    LOGW("unsupported compare func 0x%x\n", compareFunc);
     return VK_COMPARE_OP_NEVER;
 }
 
@@ -413,7 +412,7 @@ VkLogicOp getVkLogicOp(
         return VK_LOGIC_OP_SET;
     }
 
-    printf("%s: unsupported logic op 0x%x\n", __func__, logicOp);
+    LOGW("unsupported logic op 0x%x\n", logicOp);
     return VK_LOGIC_OP_COPY;
 }
 
@@ -439,7 +438,7 @@ VkStencilOp getVkStencilOp(
         return VK_STENCIL_OP_DECREMENT_AND_WRAP;
     }
 
-    printf("%s: unsupported stencil op 0x%x\n", __func__, stencilOp);
+    LOGW("unsupported stencil op 0x%x\n", stencilOp);
     return VK_STENCIL_OP_KEEP;
 }
 
@@ -453,7 +452,7 @@ VkPolygonMode getVkPolygonMode(
         return VK_POLYGON_MODE_LINE;
     }
 
-    printf("%s: unsupported fill mode 0x%x\n", __func__, fillMode);
+    LOGW("unsupported fill mode 0x%x\n", fillMode);
     return VK_POLYGON_MODE_FILL;
 }
 
@@ -469,7 +468,7 @@ VkCullModeFlags getVkCullModeFlags(
         return VK_CULL_MODE_BACK_BIT;
     }
 
-    printf("%s: unsupported cull mode 0x%x\n", __func__, cullMode);
+    LOGW("unsupported cull mode 0x%x\n", cullMode);
     return VK_CULL_MODE_NONE;
 }
 
@@ -483,7 +482,7 @@ VkFrontFace getVkFrontFace(
         return VK_FRONT_FACE_CLOCKWISE;
     }
 
-    printf("%s: unsupported face orientation 0x%x\n", __func__, frontFace);
+    LOGW("unsupported face orientation 0x%x\n", frontFace);
     return VK_FRONT_FACE_COUNTER_CLOCKWISE;
 }
 
@@ -518,7 +517,7 @@ VkPrimitiveTopology getVkPrimitiveTopology(
         return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
     }
 
-    printf("%s: unsupported topology 0x%x\n", __func__, topology);
+    LOGW("unsupported topology 0x%x\n", topology);
     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 }
 
@@ -538,7 +537,7 @@ VkDescriptorType getVkDescriptorType(
         break; // Invalid
     }
 
-    printf("%s: unsupported slot object type 0x%x\n", __func__, slotObjectType);
+    LOGW("unsupported slot object type 0x%x\n", slotObjectType);
     return VK_DESCRIPTOR_TYPE_SAMPLER;
 }
 
@@ -567,7 +566,7 @@ VkShaderStageFlags getVkShaderStageFlags(
         return VK_SHADER_STAGE_FRAGMENT_BIT;
     }
 
-    printf("%s: unsupported stage index %d\n", __func__, stageIndex);
+    LOGW("unsupported stage index %d\n", stageIndex);
     return 0;
 }
 
@@ -581,6 +580,6 @@ VkPipelineBindPoint getVkPipelineBindPoint(
         return VK_PIPELINE_BIND_POINT_GRAPHICS;
     }
 
-    printf("%s: unsupported pipeline bind point 0x%x\n", __func__, bindPoint);
+    LOGW("unsupported pipeline bind point 0x%x\n", bindPoint);
     return GR_PIPELINE_BIND_POINT_GRAPHICS;
 }
