@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "mantle/mantleWsiWinExt.h"
 #include "mantle_internal.h"
 
@@ -24,16 +23,16 @@ static void initSwapchain(
     };
 
     if (vki.vkCreateWin32SurfaceKHR(vk, &surfaceCreateInfo, NULL, &mSurface) != VK_SUCCESS) {
-        printf("%s: vkCreateWin32SurfaceKHR failed\n", __func__);
+        LOGE("vkCreateWin32SurfaceKHR failed\n");
     }
 
     VkBool32 supported = VK_FALSE;
     if (vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueIndex, mSurface,
                                                  &supported) != VK_SUCCESS) {
-        printf("%s: vkGetPhysicalDeviceSurfaceSupportKHR failed\n", __func__);
+        LOGE("vkGetPhysicalDeviceSurfaceSupportKHR failed\n");
     }
     if (!supported) {
-        printf("%s: unsupported surface\n", __func__);
+        LOGW("unsupported surface\n");
     }
 
     const VkSwapchainCreateInfoKHR swapchainCreateInfo = {
@@ -60,7 +59,7 @@ static void initSwapchain(
 
     if (vki.vkCreateSwapchainKHR(grDevice->device, &swapchainCreateInfo, NULL,
                                  &mSwapchain) != VK_SUCCESS) {
-        printf("%s: vkCreateSwapchainKHR failed\n", __func__);
+        LOGE("vkCreateSwapchainKHR failed\n");
         return;
     }
 
@@ -78,7 +77,7 @@ static void initSwapchain(
 
     if (vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo,
                                      &mCopyCommandBuffer) != VK_SUCCESS) {
-        printf("%s: vkAllocateCommandBuffers failed\n", __func__);
+        LOGE("vkAllocateCommandBuffers failed\n");
         return;
     }
 
@@ -104,7 +103,7 @@ static void buildCopyCommandBuffer(
     };
 
     if (vki.vkBeginCommandBuffer(mCopyCommandBuffer, &beginInfo) != VK_SUCCESS) {
-        printf("%s: vkBeginCommandBuffer failed\n", __func__);
+        LOGE("vkBeginCommandBuffer failed\n");
     }
 
     const VkImageMemoryBarrier preCopyBarrier = {
@@ -180,7 +179,7 @@ static void buildCopyCommandBuffer(
                              0, 0, NULL, 0, NULL, 1, &postCopyBarrier);
 
     if (vki.vkEndCommandBuffer(mCopyCommandBuffer) != VK_SUCCESS) {
-        printf("%s: vkEndCommandBuffer failed\n", __func__);
+        LOGE("vkEndCommandBuffer failed\n");
     }
 }
 
@@ -217,7 +216,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     };
 
     if (vki.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
-        printf("%s: vkCreateImage failed\n", __func__);
+        LOGE("vkCreateImage failed\n");
         return GR_ERROR_INVALID_VALUE;
     }
 
@@ -233,13 +232,13 @@ GR_RESULT grWsiWinCreatePresentableImage(
 
     if (vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL,
                              &vkDeviceMemory) != VK_SUCCESS) {
-        printf("%s: vkAllocateMemory failed\n", __func__);
+        LOGE("vkAllocateMemory failed\n");
         vki.vkDestroyImage(grDevice->device, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
     if (vki.vkBindImageMemory(grDevice->device, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
-        printf("%s: vkBindImageMemory failed\n", __func__);
+        LOGE("vkBindImageMemory failed\n");
         vki.vkFreeMemory(grDevice->device, vkDeviceMemory, NULL);
         vki.vkDestroyImage(grDevice->device, vkImage, NULL);
         return GR_ERROR_OUT_OF_MEMORY;
@@ -278,7 +277,7 @@ GR_RESULT grWsiWinQueuePresent(
 
     if (vki.vkAcquireNextImageKHR(grQueue->grDevice->device, mSwapchain, UINT64_MAX,
                                   mAcquireSemaphore, VK_NULL_HANDLE, &imageIndex) != VK_SUCCESS) {
-        printf("%s: vkAcquireNextImageKHR failed\n", __func__);
+        LOGE("vkAcquireNextImageKHR failed\n");
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -298,7 +297,7 @@ GR_RESULT grWsiWinQueuePresent(
     };
 
     if (vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-        printf("%s: vkQueueSubmit failed\n", __func__);
+        LOGE("vkQueueSubmit failed\n");
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -314,7 +313,7 @@ GR_RESULT grWsiWinQueuePresent(
     };
 
     if (vki.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo) != VK_SUCCESS) {
-        printf("%s: vkQueuePresentKHR failed\n", __func__);
+        LOGE("vkQueuePresentKHR failed\n");
         return GR_ERROR_OUT_OF_MEMORY; // TODO use better error code
     }
 

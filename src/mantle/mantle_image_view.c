@@ -34,7 +34,7 @@ GR_RESULT grCreateColorTargetView(
     };
 
     if (vki.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView) != VK_SUCCESS) {
-        printf("%s: vkCreateImageView failed\n", __func__);
+        LOGE("vkCreateImageView failed\n");
         return GR_ERROR_OUT_OF_MEMORY;
     }
 

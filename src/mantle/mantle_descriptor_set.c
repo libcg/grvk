@@ -71,7 +71,7 @@ GR_RESULT grCreateDescriptorSet(
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
     if (vki.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL,
                                    &vkDescriptorPool) != VK_SUCCESS) {
-        printf("%s: vkCreateDescriptorPool failed\n", __func__);
+        LOGE("vkCreateDescriptorPool failed\n");
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -123,7 +123,7 @@ GR_VOID grEndDescriptorSetUpdate(
                 slot->type == SLOT_TYPE_IMAGE_VIEW ||
                 slot->type == SLOT_TYPE_SAMPLER) {
                 // TODO support other types
-                printf("%s: unsupported slot type %d\n", __func__, slot->type);
+                LOGW("unsupported slot type %d\n", slot->type);
             }
 
             if (slot->type == SLOT_TYPE_NONE || slot->type == SLOT_TYPE_NESTED) {
@@ -141,7 +141,7 @@ GR_VOID grEndDescriptorSetUpdate(
 
                     // TODO support other states
                     if (info->state != GR_MEMORY_STATE_GRAPHICS_SHADER_READ_ONLY) {
-                        printf("%s: unsupported memory state 0x%x\n", __func__, info->state);
+                        LOGW("unsupported memory state 0x%x\n", info->state);
                     }
                 }
 
@@ -167,7 +167,7 @@ GR_VOID grEndDescriptorSetUpdate(
 
         if (vki.vkCreateDescriptorSetLayout(grDescriptorSet->device, &createInfo, NULL,
                                             &vkLayouts[i]) != VK_SUCCESS) {
-            printf("%s: vkCreateDescriptorSetLayout failed\n", __func__);
+            LOGE("vkCreateDescriptorSetLayout failed\n");
         }
 
         free(bindings);
@@ -183,7 +183,7 @@ GR_VOID grEndDescriptorSetUpdate(
 
     if (vki.vkAllocateDescriptorSets(grDescriptorSet->device, &allocateInfo,
                                      grDescriptorSet->descriptorSets) != VK_SUCCESS) {
-        printf("%s: vkAllocateDescriptorSets failed\n", __func__);
+        LOGE("vkAllocateDescriptorSets failed\n");
     }
 
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
@@ -208,7 +208,7 @@ GR_VOID grEndDescriptorSetUpdate(
                 // TODO track buffer view reference
                 if (vki.vkCreateBufferView(grDescriptorSet->device, &createInfo, NULL,
                                            &bufferView) != VK_SUCCESS) {
-                    printf("%s: vkCreateBufferView failed\n", __func__);
+                    LOGE("vkCreateBufferView failed\n");
                 }
 
                 VkWriteDescriptorSet writeDescriptorSet = {

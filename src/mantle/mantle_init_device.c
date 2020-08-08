@@ -12,13 +12,13 @@ GR_RESULT grInitAndEnumerateGpus(
 
     vulkanLoaderLibraryInit();
 
-    printf("%s: app \"%s\" (%08X), engine \"%s\" (%08X), api %08X\n", __func__,
-           pAppInfo->pAppName, pAppInfo->appVersion,
-           pAppInfo->pEngineName, pAppInfo->engineVersion,
-           pAppInfo->apiVersion);
+    LOGI("app \"%s\" (%08X), engine \"%s\" (%08X), api %08X\n",
+         pAppInfo->pAppName, pAppInfo->appVersion,
+         pAppInfo->pEngineName, pAppInfo->engineVersion,
+         pAppInfo->apiVersion);
 
     if (pAllocCb != NULL) {
-        printf("%s: unhandled alloc callbacks\n", __func__);
+        LOGW("unhandled alloc callbacks\n");
     }
 
     const VkApplicationInfo appInfo = {
@@ -48,7 +48,7 @@ GR_RESULT grInitAndEnumerateGpus(
     };
 
     if (vkl.vkCreateInstance(&createInfo, NULL, &vkInstance) != VK_SUCCESS) {
-        printf("%s: vkCreateInstance failed\n", __func__);
+        LOGE("vkCreateInstance failed\n");
         return GR_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -132,8 +132,8 @@ GR_RESULT grCreateDevice(
              requestedQueue->queueCount > universalQueueCount) ||
             (requestedQueue->queueType == GR_QUEUE_COMPUTE &&
              requestedQueue->queueCount > computeQueueCount)) {
-            printf("%s: can't find requested queue type %X with count %d\n", __func__,
-                   requestedQueue->queueType, requestedQueue->queueCount);
+            LOGE("can't find requested queue type %X with count %d\n",
+                 requestedQueue->queueType, requestedQueue->queueCount);
             res = GR_ERROR_INVALID_VALUE;
             // Bail after the loop to properly release memory
         }
@@ -194,7 +194,7 @@ GR_RESULT grCreateDevice(
 
     if (vki.vkCreateDevice(grPhysicalGpu->physicalDevice, &createInfo, NULL,
                            &vkDevice) != VK_SUCCESS) {
-        printf("%s: vkCreateDevice failed\n", __func__);
+        LOGE("vkCreateDevice failed\n");
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
     }
@@ -209,7 +209,7 @@ GR_RESULT grCreateDevice(
 
         if (vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
                                     &universalCommandPool) != VK_SUCCESS) {
-            printf("%s: vkCreateCommandPool failed\n", __func__);
+            LOGE("vkCreateCommandPool failed\n");
             res = GR_ERROR_INITIALIZATION_FAILED;
             goto bail;
         }
@@ -224,7 +224,7 @@ GR_RESULT grCreateDevice(
 
         if (vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
                                     &computeCommandPool) != VK_SUCCESS) {
-            printf("%s: vkCreateCommandPool failed\n", __func__);
+            LOGE("vkCreateCommandPool failed\n");
             res = GR_ERROR_INITIALIZATION_FAILED;
             goto bail;
         }

@@ -11,7 +11,7 @@ static uint32_t getVkQueueFamilyIndex(
         return grDevice->computeQueueIndex;
     }
 
-    printf("%s: invalid queue type %d\n", __func__, queueType);
+    LOGE("invalid queue type %d\n", queueType);
     return INVALID_QUEUE_INDEX;
 }
 
@@ -62,7 +62,7 @@ GR_RESULT grQueueSubmit(
         vkFence = grFence->fence;
 
         if (vki.vkResetFences(grQueue->grDevice->device, 1, &vkFence) != VK_SUCCESS) {
-            printf("%s: vkResetFences failed\n", __func__);
+            LOGE("vkResetFences failed\n");
             return GR_ERROR_OUT_OF_MEMORY;
         }
     }
@@ -88,7 +88,7 @@ GR_RESULT grQueueSubmit(
     free(vkCommandBuffers);
 
     if (res != VK_SUCCESS) {
-        printf("%s: vkQueueSubmit failed\n", __func__);
+        LOGE("vkQueueSubmit failed\n");
         return GR_ERROR_OUT_OF_MEMORY;
     }
 

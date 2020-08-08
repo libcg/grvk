@@ -34,7 +34,7 @@ static VkFramebuffer getVkFramebuffer(
 
     // TODO
     if (pDepthTarget != NULL) {
-        printf("%s: depth targets are not supported\n", __func__);
+        LOGW("depth targets are not supported\n");
     }
 
     const VkFramebufferCreateInfo framebufferCreateInfo = {
@@ -51,7 +51,7 @@ static VkFramebuffer getVkFramebuffer(
 
     if (vki.vkCreateFramebuffer(device, &framebufferCreateInfo, NULL,
                                 &framebuffer) != VK_SUCCESS) {
-        printf("%s: vkCreateFramebuffer failed\n", __func__);
+        LOGE("vkCreateFramebuffer failed\n");
         return VK_NULL_HANDLE;
     }
 
@@ -66,7 +66,7 @@ static void initCmdBufferResources(
 
     vki.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
 
-    printf("%s: HACK only one descriptor bound\n", __func__);
+    LOGW("HACK only one descriptor bound\n");
     vki.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint,
                                 grPipeline->pipelineLayout, 0, 1,
                                 grCmdBuffer->grDescriptorSet->descriptorSets, 0, NULL);
@@ -109,7 +109,7 @@ GR_VOID grCmdBindPipeline(
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        printf("%s: unsupported bind point 0x%x\n", __func__, pipelineBindPoint);
+        LOGW("unsupported bind point 0x%x\n", pipelineBindPoint);
     }
 
     grCmdBuffer->grPipeline = grPipeline;
@@ -196,11 +196,11 @@ GR_VOID grCmdBindDescriptorSet(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        printf("%s: unsupported bind point 0x%x\n", __func__, pipelineBindPoint);
+        LOGW("unsupported bind point 0x%x\n", pipelineBindPoint);
     } else if (index != 0) {
-        printf("%s: unsupported index %u\n", __func__, index);
+        LOGW("unsupported index %u\n", index);
     } else if (slotOffset != 0) {
-        printf("%s: unsupported slot offset %u\n", __func__, slotOffset);
+        LOGW("unsupported slot offset %u\n", slotOffset);
     }
 
     grCmdBuffer->grDescriptorSet = grDescriptorSet;

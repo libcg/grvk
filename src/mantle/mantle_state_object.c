@@ -70,7 +70,7 @@ GR_RESULT grCreateRasterState(
     GR_RASTER_STATE_OBJECT* pState)
 {
     if (pCreateInfo->fillMode != GR_FILL_SOLID) {
-        printf("%s: fill mode 0x%x is not supported\n", __func__, pCreateInfo->fillMode);
+        LOGW("fill mode 0x%x is not supported\n", pCreateInfo->fillMode);
     }
 
     GrRasterStateObject* grRasterStateObject = malloc(sizeof(GrRasterStateObject));
@@ -103,9 +103,9 @@ GR_RESULT grCreateColorBlendState(
              target->srcBlendAlpha != GR_BLEND_ONE ||
              target->destBlendAlpha != GR_BLEND_ONE ||
              target->blendFuncAlpha != GR_BLEND_FUNC_ADD)) {
-            printf("%s: unsupported blend settings 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", __func__,
-                   target->srcBlendColor, target->destBlendColor, target->blendFuncColor,
-                   target->srcBlendAlpha, target->destBlendAlpha, target->blendFuncAlpha);
+            LOGW("unsupported blend settings 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+                 target->srcBlendColor, target->destBlendColor, target->blendFuncColor,
+                 target->srcBlendAlpha, target->destBlendAlpha, target->blendFuncAlpha);
         }
     }
 
@@ -172,7 +172,7 @@ GR_RESULT grCreateMsaaState(
 {
     if (pCreateInfo->samples != 1) {
         // TODO implement (don't forget samplingMask)
-        printf("%s: unsupported MSAA level %d\n", __func__, pCreateInfo->samples);
+        LOGW("unsupported MSAA level %d\n", pCreateInfo->samples);
     }
 
     GrMsaaStateObject* grMsaaStateObject = malloc(sizeof(GrMsaaStateObject));

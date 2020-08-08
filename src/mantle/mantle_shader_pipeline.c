@@ -20,7 +20,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
             const GR_DESCRIPTOR_SET_MAPPING* mapping = &stage->shader->descriptorSetMapping[i];
 
             if (mapping->descriptorCount > 0) {
-                printf("%s: multiple descriptor sets per stage is not supported\n", __func__);
+                LOGW("multiple descriptor sets per stage is not supported\n");
                 break;
             }
         }
@@ -45,7 +45,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
             const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[i];
 
             if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-                printf("%s: nested descriptor sets are not implemented\n", __func__);
+                LOGW("nested descriptor sets are not implemented\n");
             }
 
             if (info->slotObjectType == GR_SLOT_UNUSED ||
@@ -78,7 +78,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
     };
 
     if (vki.vkCreateDescriptorSetLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
-        printf("%s: vkCreateDescriptorSetLayout failed\n", __func__);
+        LOGE("vkCreateDescriptorSetLayout failed\n");
     }
 
     free(bindings);
@@ -121,7 +121,7 @@ static VkPipelineLayout getVkPipelineLayout(
     };
 
     if (vki.vkCreatePipelineLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
-        printf("%s: vkCreatePipelineLayout failed\n", __func__);
+        LOGE("vkCreatePipelineLayout failed\n");
         for (int i = 0; i < MAX_STAGE_COUNT; i++) {
             vki.vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[i], NULL);
         }
@@ -242,7 +242,7 @@ static VkRenderPass getVkRenderPass(
     };
 
     if (vki.vkCreateRenderPass(vkDevice, &renderPassCreateInfo, NULL, &renderPass) != VK_SUCCESS) {
-        printf("%s: vkCreateRenderPass failed\n", __func__);
+        LOGE("vkCreateRenderPass failed\n");
         return VK_NULL_HANDLE;
     }
 
@@ -262,7 +262,7 @@ GR_RESULT grCreateShader(
     uint32_t* spirvCode;
 
     if ((pCreateInfo->flags & GR_SHADER_CREATE_ALLOW_RE_Z) != 0) {
-        printf("%s: unhandled Re-Z flag\n", __func__);
+        LOGW("unhandled Re-Z flag\n");
     }
 
     if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
@@ -282,7 +282,7 @@ GR_RESULT grCreateShader(
     };
 
     if (vki.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule)) {
-        printf("%s: vkCreateShaderModule failed\n", __func__);
+        LOGE("vkCreateShaderModule failed\n");
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
@@ -341,12 +341,12 @@ GR_RESULT grCreateGraphicsPipeline(
 
         if (stage->shader->linkConstBufferCount > 0) {
             // TODO implement
-            printf("%s: link-time constant buffers are not implemented\n", __func__);
+            LOGW("link-time constant buffers are not implemented\n");
         }
 
         if (stage->shader->dynamicMemoryViewMapping.slotObjectType != GR_SLOT_UNUSED) {
             // TODO implement
-            printf("%s: dynamic memory view mapping is not implemented\n", __func__);
+            LOGW("dynamic memory view mapping is not implemented\n");
         }
 
         GrShader* grShader = (GrShader*)stage->shader->shader;
@@ -452,7 +452,7 @@ GR_RESULT grCreateGraphicsPipeline(
 
     // TODO implement
     if (pCreateInfo->cbState.dualSourceBlendEnable) {
-        printf("%s: dual source blend is not implemented\n", __func__);
+        LOGW("dual source blend is not implemented\n");
     }
 
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
@@ -576,7 +576,7 @@ GR_RESULT grCreateGraphicsPipeline(
 
     if (vki.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
                                       NULL, &vkPipeline) != VK_SUCCESS) {
-        printf("%s: vkCreateGraphicsPipelines failed\n", __func__);
+        LOGE("vkCreateGraphicsPipelines failed\n");
         vki.vkDestroyPipelineLayout(grDevice->device, layout, NULL);
         vki.vkDestroyRenderPass(grDevice->device, renderPass, NULL);
         return GR_ERROR_OUT_OF_MEMORY;

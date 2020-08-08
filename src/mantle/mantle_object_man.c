@@ -34,13 +34,13 @@ GR_RESULT grGetObjectInfo(
                 .heapCount = 0,
             };
         } else {
-            printf("%s: unsupported type %d for info type 0x%X\n", __func__,
+            LOGW("unsupported type %d for info type 0x%X\n",
                    grObject->sType, infoType);
             return GR_ERROR_INVALID_VALUE;
         }
     }   break;
     default:
-        printf("%s: unsupported info type 0x%X\n", __func__, infoType);
+        LOGW("unsupported info type 0x%X\n", infoType);
         return GR_ERROR_INVALID_VALUE;
     }
 
@@ -62,7 +62,7 @@ GR_RESULT grBindObjectMemory(
         grObject->sType == GR_STRUCT_TYPE_PIPELINE) {
         // Nothing to do
     } else {
-        printf("%s: unsupported object type %d\n", __func__, grObject->sType);
+        LOGW("unsupported object type %d\n", grObject->sType);
         return GR_ERROR_UNAVAILABLE;
     }
 

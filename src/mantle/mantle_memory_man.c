@@ -95,11 +95,11 @@ GR_RESULT grAllocMemory(
     }
 
     if (pAllocInfo->flags != 0) { // TODO
-        printf("%s: allocation flags %d are not supported\n", __func__, pAllocInfo->flags);
+        LOGW("allocation flags %d are not supported\n", pAllocInfo->flags);
         return GR_ERROR_INVALID_FLAGS;
     }
     if (pAllocInfo->heapCount > 1) { // TODO
-        printf("%s: multi-heap allocation is not implemented\n", __func__);
+        LOGW("multi-heap allocation is not implemented\n");
         return GR_ERROR_INVALID_VALUE;
     }
 
@@ -112,7 +112,7 @@ GR_RESULT grAllocMemory(
 
     VkDeviceMemory vkMemory = VK_NULL_HANDLE;
     if (vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory) != VK_SUCCESS) {
-        printf("%s: vkAllocateMemory failed\n", __func__);
+        LOGE("vkAllocateMemory failed\n");
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
@@ -129,13 +129,13 @@ GR_RESULT grAllocMemory(
 
     VkBuffer vkBuffer = VK_NULL_HANDLE;
     if (vki.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer) != VK_SUCCESS) {
-        printf("%s: vkCreateBuffer failed\n", __func__);
+        LOGE("vkCreateBuffer failed\n");
         vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
     if (vki.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0) != VK_SUCCESS) {
-        printf("%s: vkBindBufferMemory failed\n", __func__);
+        LOGE("vkBindBufferMemory failed\n");
         vki.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
         vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
         return GR_ERROR_OUT_OF_GPU_MEMORY;
@@ -172,7 +172,7 @@ GR_RESULT grMapMemory(
 
     if (vki.vkMapMemory(grGpuMemory->device, grGpuMemory->deviceMemory,
                     0, VK_WHOLE_SIZE, 0, ppData) != VK_SUCCESS) {
-        printf("%s: vkMapMemory failed\n", __func__);
+        LOGE("vkMapMemory failed\n");
         return GR_ERROR_MEMORY_MAP_FAILED;
     }
 

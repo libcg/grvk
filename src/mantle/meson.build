@@ -20,7 +20,7 @@ mantle_def = 'mantle' + dll_variant + '.def'
 
 mantle_dll = shared_library('mantle' + dll_variant, mantle_src,
   name_prefix         : '',
-  dependencies        : [ lib_vulkan, amdilc_dep ],
+  dependencies        : [ lib_vulkan, amdilc_dep, logger_dep ],
   include_directories : grvk_include_path,
   install             : true,
   objects             : not grvk_msvc ? mantle_def : [],
