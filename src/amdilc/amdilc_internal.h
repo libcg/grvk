@@ -55,18 +55,26 @@ typedef struct {
     Instruction* instrs;
 } Kernel;
 
-uint32_t getBits(
-    const uint32_t dword,
-    const uint32_t firstBit,
-    const uint32_t lastBit);
+inline uint32_t getBits(
+    uint32_t dword,
+    uint32_t firstBit,
+    uint32_t lastBit)
+{
+    assert(firstBit >= 0 && lastBit < 32 && firstBit <= lastBit);
 
-uint32_t getBit(
-    const uint32_t dword,
-    const uint32_t bit);
+    return (dword >> firstBit) & (0xFFFFFFFF >> (32 - (lastBit - firstBit + 1)));
+}
+
+inline uint32_t getBit(
+    uint32_t dword,
+    uint32_t bit)
+{
+    return getBits(dword, bit, bit);
+}
 
 Kernel* ilcDecodeStream(
     const Token* tokens,
-    const uint32_t count);
+    uint32_t count);
 
 void ilcDumpKernel(
     const Kernel* kernel);

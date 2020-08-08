@@ -227,7 +227,7 @@ static uint32_t decodeInstruction(
 
 Kernel* ilcDecodeStream(
     const Token* tokens,
-    const uint32_t count)
+    uint32_t count)
 {
     Kernel* kernel = malloc(sizeof(Kernel));
     uint32_t idx = 0;
