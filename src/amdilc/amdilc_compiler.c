@@ -8,6 +8,29 @@ typedef struct {
     IlcSpvId entryPointId;
 } IlcCompiler;
 
+static void emitGlobalFlags(
+    IlcCompiler* compiler,
+    Instruction* instr)
+{
+    bool refactoringAllowed = getBit(instr->control, 0);
+    bool forceEarlyDepthStencil = getBit(instr->control, 1);
+    bool enableRawStructuredBuffers = getBit(instr->control, 2);
+    bool enableDoublePrecisionFloatOps = getBit(instr->control, 3);
+
+    if (!refactoringAllowed) {
+        LOGW("unhandled !refactoringAllowed flag\n");
+    }
+    if (forceEarlyDepthStencil) {
+        LOGW("unhandled forceEarlyDepthStencil flag\n");
+    }
+    if (enableRawStructuredBuffers) {
+        LOGW("unhandled enableRawStructuredBuffers flag\n");
+    }
+    if (enableDoublePrecisionFloatOps) {
+        LOGW("unhandled enableDoublePrecisionFloatOps flag\n");
+    }
+}
+
 static void emitFunc(
     IlcCompiler* compiler,
     IlcSpvId id)
@@ -28,6 +51,9 @@ static void emitInstr(
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
+        break;
+    case IL_DCL_GLOBAL_FLAGS:
+        emitGlobalFlags(compiler, instr);
         break;
     default:
         LOGW("unhandled instruction %d\n", instr->opcode);

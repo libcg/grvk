@@ -297,10 +297,10 @@ static void dumpInstruction(
         break;
     case IL_DCL_GLOBAL_FLAGS:
         logPrintRaw("dcl_global_flags %s%s%s%s0",
-                    (instr->control & 1) != 0 ? "refactoringAllowed|" : "",
-                    (instr->control & 2) != 0 ? "forceEarlyDepthStencil|" : "",
-                    (instr->control & 4) != 0 ? "enableRawStructuredBuffers|" : "",
-                    (instr->control & 8) != 0 ? "enableDoublePrecisionFloatOps|" : "");
+                    getBit(instr->control, 0) ? "refactoringAllowed|" : "",
+                    getBit(instr->control, 1) ? "forceEarlyDepthStencil|" : "",
+                    getBit(instr->control, 2) ? "enableRawStructuredBuffers|" : "",
+                    getBit(instr->control, 3) ? "enableDoublePrecisionFloatOps|" : "");
         break;
     default:
         logPrintRaw("%d?", instr->opcode);
