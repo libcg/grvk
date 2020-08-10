@@ -11,7 +11,9 @@ typedef enum {
     ID_ENTRY_POINTS,
     ID_EXEC_MODES,
     ID_NAMES,
+    ID_DECORATIONS,
     ID_TYPES,
+    ID_VARIABLES,
     ID_CODE,
     ID_MAX,
 } IlcSpvBufferId;
@@ -57,8 +59,25 @@ void ilcSpvPutExecMode(
     IlcSpvId id,
     SpvExecutionMode execMode);
 
+void ilcSpvPutCapability(
+    IlcSpvModule* module,
+    IlcSpvWord capability);
+
 IlcSpvId ilcSpvPutVoidType(
     IlcSpvModule* module);
+
+IlcSpvId ilcSpvPutFloatType(
+    IlcSpvModule* module);
+
+IlcSpvId ilcSpvPutVectorType(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    unsigned count);
+
+IlcSpvId ilcSpvPutPointerType(
+    IlcSpvModule* module,
+    IlcSpvWord storageClass,
+    IlcSpvId typeId);
 
 IlcSpvId ilcSpvPutFunctionType(
     IlcSpvModule* module,
@@ -75,6 +94,18 @@ void ilcSpvPutFunction(
 
 void ilcSpvPutFunctionEnd(
     IlcSpvModule* module);
+
+IlcSpvId ilcSpvPutVariable(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord storageClass);
+
+void ilcSpvPutDecoration(
+    IlcSpvModule* module,
+    IlcSpvId target,
+    IlcSpvWord decoration,
+    unsigned argCount,
+    IlcSpvWord* args);
 
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module);

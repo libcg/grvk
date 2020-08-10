@@ -1,11 +1,19 @@
+#include <stdio.h>
 #include "spirv/spirv.h"
 #include "amdilc_spirv.h"
 #include "amdilc_internal.h"
 
 typedef struct {
+    IlcSpvId id;
+    uint32_t registerNum;
+} IlcInput;
+
+typedef struct {
     IlcSpvModule* module;
     const Kernel* kernel;
     IlcSpvId entryPointId;
+    unsigned inputCount;
+    IlcInput *inputs;
 } IlcCompiler;
 
 static void emitGlobalFlags(
@@ -31,6 +39,74 @@ static void emitGlobalFlags(
     }
 }
 
+static void emitInput(
+    IlcCompiler* compiler,
+    Instruction* instr)
+{
+    uint8_t importUsage = getBits(instr->control, 0, 4);
+    uint8_t interpMode = getBits(instr->control, 5, 7);
+
+    if (importUsage != IL_IMPORTUSAGE_GENERIC) {
+        LOGW("unhandled import usage %d\n", importUsage);
+    }
+
+    assert(instr->dstCount == 1 &&
+           instr->srcCount == 0 &&
+           instr->extraCount == 0);
+
+    Destination* dst = &instr->dsts[0];
+
+    assert(dst->registerType == IL_REGTYPE_INPUT &&
+           !dst->clamp &&
+           dst->shiftScale == IL_SHIFT_NONE);
+
+    if (dst->component[0] != IL_MODCOMP_WRITE ||
+        dst->component[1] != IL_MODCOMP_WRITE ||
+        dst->component[2] != IL_MODCOMP_WRITE ||
+        dst->component[3] != IL_MODCOMP_WRITE) {
+        LOGW("unhandled component mod %d %d %d %d\n",
+             dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
+    }
+
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, vectorId);
+    IlcSpvId inputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassInput);
+
+    char name[16];
+    snprintf(name, 16, "v%u", dst->registerNum);
+    ilcSpvPutName(compiler->module, inputId, name);
+
+    IlcSpvWord locationIdx = 0; // FIXME hardcoded to match glslc VS slot
+    ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
+
+    // Handle interpolation modes in pixel shaders
+    if (interpMode == IL_INTERPMODE_CONSTANT) {
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationFlat, 0, NULL);
+    }
+    if (interpMode == IL_INTERPMODE_LINEAR_CENTROID ||
+        interpMode == IL_INTERPMODE_LINEAR_NOPERSPECTIVE_CENTROID) {
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationCentroid, 0, NULL);
+    }
+    if (interpMode == IL_INTERPMODE_LINEAR_NOPERSPECTIVE ||
+        interpMode == IL_INTERPMODE_LINEAR_NOPERSPECTIVE_CENTROID ||
+        interpMode == IL_INTERPMODE_LINEAR_NOPERSPECTIVE_SAMPLE) {
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationNoPerspective, 0, NULL);
+    }
+    if (interpMode == IL_INTERPMODE_LINEAR_SAMPLE ||
+        interpMode == IL_INTERPMODE_LINEAR_NOPERSPECTIVE_SAMPLE) {
+        ilcSpvPutCapability(compiler->module, SpvCapabilitySampleRateShading);
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationSample, 0, NULL);
+    }
+
+    compiler->inputCount++;
+    compiler->inputs = realloc(compiler->inputs, sizeof(IlcInput) * compiler->inputCount);
+    compiler->inputs[compiler->inputCount - 1] = (IlcInput) {
+        .id = inputId,
+        .registerNum = dst->registerNum
+    };
+}
+
 static void emitFunc(
     IlcCompiler* compiler,
     IlcSpvId id)
@@ -51,6 +127,9 @@ static void emitInstr(
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
+        break;
+    case IL_DCL_INPUT:
+        emitInput(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
@@ -121,6 +200,8 @@ uint32_t* ilcCompileKernel(
         .module = &module,
         .kernel = kernel,
         .entryPointId = ilcSpvAllocId(&module),
+        .inputCount = 0,
+        .inputs = NULL,
     };
 
     emitFunc(&compiler, compiler.entryPointId);
@@ -129,6 +210,8 @@ uint32_t* ilcCompileKernel(
     }
 
     emitEntryPoint(&compiler);
+
+    free(compiler.inputs);
     ilcSpvFinish(&module);
 
     *size = sizeof(IlcSpvWord) * module.buffer[ID_MAIN].wordCount;

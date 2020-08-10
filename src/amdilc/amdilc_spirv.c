@@ -72,23 +72,6 @@ static void putHeader(
     putWord(buffer, 0);
 }
 
-static void putCapability(
-    IlcSpvModule* module,
-    IlcSpvWord capability)
-{
-    IlcSpvBuffer* buffer = &module->buffer[ID_CAPABILITIES];
-
-    // Check if the capability is already present
-    for (unsigned i = 0; i < buffer->wordCount; i += 2) {
-        if (buffer->words[i + 1] == capability) {
-            return;
-        }
-    }
-
-    putInstr(buffer, SpvOpCapability, 2);
-    putWord(buffer, capability);
-}
-
 static IlcSpvId putType(
     IlcSpvModule* module,
     SpvOp op,
@@ -167,7 +150,7 @@ void ilcSpvInit(
         module->buffer[i] = (IlcSpvBuffer) { 0, NULL };
     }
 
-    putCapability(module, SpvCapabilityShader);
+    ilcSpvPutCapability(module, SpvCapabilityShader);
     putExtInstImport(module, module->glsl450ImportId, "GLSL.std.450");
     putMemoryModel(module, SpvAddressingModelLogical, SpvMemoryModelGLSL450);
 }
@@ -233,10 +216,55 @@ void ilcSpvPutExecMode(
     putWord(buffer, execMode);
 }
 
+void ilcSpvPutCapability(
+    IlcSpvModule* module,
+    IlcSpvWord capability)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CAPABILITIES];
+
+    // Check if the capability is already present
+    for (unsigned i = 0; i < buffer->wordCount; i += 2) {
+        if (buffer->words[i + 1] == capability) {
+            return;
+        }
+    }
+
+    putInstr(buffer, SpvOpCapability, 2);
+    putWord(buffer, capability);
+}
+
 IlcSpvId ilcSpvPutVoidType(
     IlcSpvModule* module)
 {
     return putType(module, SpvOpTypeVoid, 0, NULL);
+}
+
+IlcSpvId ilcSpvPutFloatType(
+    IlcSpvModule* module)
+{
+    IlcSpvWord width = 32;
+
+    return putType(module, SpvOpTypeFloat, 1, &width);
+}
+
+IlcSpvId ilcSpvPutVectorType(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    unsigned count)
+{
+    IlcSpvWord args[] = { typeId, count };
+
+    return putType(module, SpvOpTypeVector, 2, args);
+}
+
+IlcSpvId ilcSpvPutPointerType(
+    IlcSpvModule* module,
+    IlcSpvWord storageClass,
+    IlcSpvId typeId)
+{
+    IlcSpvWord args[] = { storageClass, typeId };
+
+    return putType(module, SpvOpTypePointer, 2, args);
 }
 
 IlcSpvId ilcSpvPutFunctionType(
@@ -279,6 +307,38 @@ void ilcSpvPutFunctionEnd(
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     putInstr(buffer, SpvOpFunctionEnd, 1);
+}
+
+IlcSpvId ilcSpvPutVariable(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord storageClass)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_VARIABLES];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpVariable, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, storageClass);
+    return id;
+}
+
+void ilcSpvPutDecoration(
+    IlcSpvModule* module,
+    IlcSpvId target,
+    IlcSpvWord decoration,
+    unsigned argCount,
+    IlcSpvWord* args)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_DECORATIONS];
+
+    putInstr(buffer, SpvOpDecorate, 3 + argCount);
+    putWord(buffer, target);
+    putWord(buffer, decoration);
+    for (int i = 0; i < argCount; i++) {
+        putWord(buffer, args[i]);
+    }
 }
 
 IlcSpvId ilcSpvPutLabel(
