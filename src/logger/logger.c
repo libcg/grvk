@@ -67,6 +67,7 @@ void logPrint(
     vfprintf(stdout, format, argptr);
     if (mLogFile != NULL) {
         vfprintf(mLogFile, format, argptr);
+        fflush(mLogFile);
     }
     va_end(argptr);
 }
@@ -84,6 +85,7 @@ void logPrintRaw(
     vfprintf(stdout, format, argptr);
     if (mLogFile != NULL) {
         vfprintf(mLogFile, format, argptr);
+        fflush(mLogFile);
     }
     va_end(argptr);
 }
