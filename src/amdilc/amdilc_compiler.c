@@ -156,7 +156,7 @@ static void emitInput(
         inputId = ilcSpvPutVariable(compiler->module, pv4f32Id, SpvStorageClassInput);
         typeId = v4f32Id;
 
-        IlcSpvWord locationIdx = 0; // FIXME hardcoded to match glslc VS slot
+        IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
     } else if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
         IlcSpvId u32Id = ilcSpvPutIntType(compiler->module, false);
