@@ -74,6 +74,58 @@ static const IlcResource* addResource(
     return &compiler->resources[compiler->resourceCount - 1];
 }
 
+static const IlcResource* findResource(
+    IlcCompiler* compiler,
+    uint32_t ilId)
+{
+    for (int i = 0; i < compiler->resourceCount; i++) {
+        const IlcResource* resource = &compiler->resources[i];
+
+        if (resource->ilId == ilId) {
+            return resource;
+        }
+    }
+
+    return NULL;
+}
+
+static IlcSpvId loadSource(
+    IlcCompiler* compiler,
+    const Source* src)
+{
+    const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
+
+    return ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
+}
+
+static void storeDestination(
+    IlcCompiler* compiler,
+    const Destination* dst,
+    IlcSpvId varId)
+{
+    const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
+
+    if (dstReg == NULL && dst->registerType == IL_REGTYPE_TEMP) {
+        // Create temporary register
+        IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+        IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
+        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
+                                                  vectorId);
+        IlcSpvId tempId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassPrivate);
+
+        const IlcRegister reg = {
+            .id = tempId,
+            .typeId = vectorId,
+            .ilType = IL_REGTYPE_TEMP,
+            .ilNum = dst->registerNum,
+        };
+
+        dstReg = addRegister(compiler, &reg, 'r');
+    }
+
+    ilcSpvPutStore(compiler->module, dstReg->id, varId);
+}
+
 static void emitGlobalFlags(
     IlcCompiler* compiler,
     Instruction* instr)
@@ -289,32 +341,24 @@ static void emitMov(
     IlcCompiler* compiler,
     Instruction* instr)
 {
-    Source* src = &instr->srcs[0];
-    const IlcRegister* srcReg = findRegister(compiler, src->registerType, src->registerNum);
-    IlcSpvId srcId = ilcSpvPutLoad(compiler->module, srcReg->typeId, srcReg->id);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0]);
+    storeDestination(compiler, &instr->dsts[0], srcId);
+}
 
-    Destination* dst = &instr->dsts[0];
+static void emitLoad(
+    IlcCompiler* compiler,
+    Instruction* instr)
+{
+    uint8_t ilResourceId = getBits(instr->control, 0, 7);
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+
+    const Destination* dst = &instr->dsts[0];
     const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
 
-    if (dstReg == NULL && dst->registerType == IL_REGTYPE_TEMP) {
-        // Create private variable that will hold the temporary register content
-        IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
-        IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
-        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
-                                                  vectorId);
-        IlcSpvId tempId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassPrivate);
-
-        const IlcRegister reg = {
-            .id = tempId,
-            .typeId = vectorId,
-            .ilType = IL_REGTYPE_TEMP,
-            .ilNum = dst->registerNum,
-        };
-
-        dstReg = addRegister(compiler, &reg, 'r');
-    }
-
-    ilcSpvPutStore(compiler->module, dstReg->id, srcId);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0]);
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, srcId);
+    storeDestination(compiler, dst, fetchId);
 }
 
 static void emitInstr(
@@ -340,6 +384,9 @@ static void emitInstr(
     case IL_DCL_RESOURCE:
         emitResource(compiler, instr);
         break;
+    case IL_OP_LOAD:
+        emitLoad(compiler, instr);
+        break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
         break;
@@ -353,8 +400,6 @@ static void emitEntryPoint(
 {
     IlcSpvWord execution = 0;
     const char* name = "main";
-    unsigned interfaceRegCount = 0;
-    IlcSpvWord* interfaceRegs = NULL;
 
     switch (compiler->kernel->shaderType) {
     case IL_SHADER_VERTEX:
@@ -377,16 +422,21 @@ static void emitEntryPoint(
         break;
     }
 
+    unsigned interfaceCount = compiler->regCount + compiler->resourceCount;
+    IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
     for (int i = 0; i < compiler->regCount; i++) {
         IlcRegister* reg = &compiler->regs[i];
 
-        interfaceRegCount++;
-        interfaceRegs = realloc(interfaceRegs, sizeof(IlcSpvWord) * interfaceRegCount);
-        interfaceRegs[interfaceRegCount - 1] = reg->id;
+        interfaces[i] = reg->id;
+    }
+    for (int i = 0; i < compiler->resourceCount; i++) {
+        IlcResource* resource = &compiler->resources[i];
+
+        interfaces[compiler->regCount + i] = resource->id;
     }
 
     ilcSpvPutEntryPoint(compiler->module, compiler->entryPointId, execution, name,
-                        interfaceRegCount, interfaceRegs);
+                        interfaceCount, interfaces);
     ilcSpvPutName(compiler->module, compiler->entryPointId, name);
 
     switch (compiler->kernel->shaderType) {
@@ -396,7 +446,7 @@ static void emitEntryPoint(
         break;
     }
 
-    free(interfaceRegs);
+    free(interfaces);
 }
 
 uint32_t* ilcCompileKernel(

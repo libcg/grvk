@@ -132,6 +132,12 @@ void ilcSpvPutDecoration(
     unsigned argCount,
     IlcSpvWord* args);
 
+IlcSpvId ilcSpvPutImageFetch(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId);
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module);
 

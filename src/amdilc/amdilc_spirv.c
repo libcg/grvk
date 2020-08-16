@@ -400,6 +400,23 @@ void ilcSpvPutDecoration(
     }
 }
 
+IlcSpvId ilcSpvPutImageFetch(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpImageFetch, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, imageId);
+    putWord(buffer, coordinateId);
+    return id;
+}
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module)
 {
