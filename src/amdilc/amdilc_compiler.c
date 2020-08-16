@@ -11,11 +11,19 @@ typedef struct {
 } IlcRegister;
 
 typedef struct {
+    IlcSpvId id;
+    IlcSpvId typeId;
+    uint32_t ilId;
+} IlcResource;
+
+typedef struct {
     IlcSpvModule* module;
     const Kernel* kernel;
     IlcSpvId entryPointId;
     unsigned regCount;
     IlcRegister *regs;
+    unsigned resourceCount;
+    IlcResource *resources;
 } IlcCompiler;
 
 static const IlcRegister* addRegister(
@@ -48,6 +56,22 @@ static const IlcRegister* findRegister(
     }
 
     return NULL;
+}
+
+static const IlcResource* addResource(
+    IlcCompiler* compiler,
+    const IlcResource* resource)
+{
+    char name[32];
+    snprintf(name, 32, "resource%u", resource->ilId);
+    ilcSpvPutName(compiler->module, resource->id, name);
+
+    compiler->resourceCount++;
+    compiler->resources = realloc(compiler->resources,
+                                  sizeof(IlcResource) * compiler->resourceCount);
+    compiler->resources[compiler->resourceCount - 1] = *resource;
+
+    return &compiler->resources[compiler->resourceCount - 1];
 }
 
 static void emitGlobalFlags(
@@ -199,6 +223,58 @@ static void emitInput(
     addRegister(compiler, &reg, 'v');
 }
 
+static void emitResource(
+    IlcCompiler* compiler,
+    Instruction* instr)
+{
+    assert(instr->dstCount == 0 &&
+           instr->srcCount == 0 &&
+           instr->extraCount == 1);
+
+    uint8_t id = getBits(instr->control, 0, 7);
+    uint8_t type = getBits(instr->control, 8, 11);
+    bool unnorm = getBit(instr->control, 31);
+    uint8_t fmtx = getBits(instr->extras[0], 20, 22);
+    uint8_t fmty = getBits(instr->extras[0], 23, 25);
+    uint8_t fmtz = getBits(instr->extras[0], 26, 28);
+    uint8_t fmtw = getBits(instr->extras[0], 29, 31);
+
+    if (type != IL_USAGE_PIXTEX_BUFFER || unnorm) {
+        LOGE("unhandled resource type %d %d\n", type, unnorm);
+        assert(false);
+    }
+    if (fmtx != IL_ELEMENTFORMAT_FLOAT || fmty != IL_ELEMENTFORMAT_FLOAT ||
+        fmtz != IL_ELEMENTFORMAT_FLOAT || fmtw != IL_ELEMENTFORMAT_FLOAT) {
+        LOGE("unhandled resource format %d %d %d %d\n", fmtx, fmty, fmtz, fmtw);
+        assert(false);
+    }
+
+    IlcSpvId f32Id = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, f32Id, SpvDimBuffer, 0, 0, 0, 1,
+                                          SpvImageFormatRgba32f);
+    IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                             imageId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                            SpvStorageClassUniformConstant);
+
+    ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
+    ilcSpvPutName(compiler->module, imageId, "float4Buffer");
+
+    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    IlcSpvWord bindingIdx = id;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+
+    const IlcResource resource = {
+        .id = resourceId,
+        .typeId = imageId,
+        .ilId = id,
+    };
+
+    addResource(compiler, &resource);
+}
+
 static void emitFunc(
     IlcCompiler* compiler,
     IlcSpvId id)
@@ -260,6 +336,9 @@ static void emitInstr(
         break;
     case IL_DCL_INPUT:
         emitInput(compiler, instr);
+        break;
+    case IL_DCL_RESOURCE:
+        emitResource(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
@@ -344,6 +423,7 @@ uint32_t* ilcCompileKernel(
     emitEntryPoint(&compiler);
 
     free(compiler.regs);
+    free(compiler.resources);
     ilcSpvFinish(&module);
 
     *size = sizeof(IlcSpvWord) * module.buffer[ID_MAIN].wordCount;

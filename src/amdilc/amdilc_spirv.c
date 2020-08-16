@@ -266,6 +266,29 @@ IlcSpvId ilcSpvPutVectorType(
     return putType(module, SpvOpTypeVector, 2, args);
 }
 
+IlcSpvId ilcSpvPutImageType(
+    IlcSpvModule* module,
+    IlcSpvId sampledTypeId,
+    IlcSpvWord dim,
+    IlcSpvWord depth,
+    IlcSpvWord arrayed,
+    IlcSpvWord ms,
+    IlcSpvWord sampled,
+    IlcSpvWord format)
+{
+    IlcSpvWord args[] = {
+        sampledTypeId,
+        dim,
+        depth,
+        arrayed,
+        ms,
+        sampled,
+        format
+    };
+
+    return putType(module, SpvOpTypeImage, 7, args);
+}
+
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,
     IlcSpvWord storageClass,

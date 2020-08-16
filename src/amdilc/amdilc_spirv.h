@@ -79,6 +79,16 @@ IlcSpvId ilcSpvPutVectorType(
     IlcSpvId typeId,
     unsigned count);
 
+IlcSpvId ilcSpvPutImageType(
+    IlcSpvModule* module,
+    IlcSpvId sampledTypeId,
+    IlcSpvWord dim,
+    IlcSpvWord depth,
+    IlcSpvWord arrayed,
+    IlcSpvWord ms,
+    IlcSpvWord sampled,
+    IlcSpvWord format);
+
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,
     IlcSpvWord storageClass,
