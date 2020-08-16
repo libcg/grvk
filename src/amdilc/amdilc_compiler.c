@@ -273,34 +273,28 @@ static void emitEntryPoint(
     IlcCompiler* compiler)
 {
     IlcSpvWord execution = 0;
-    const char* name = NULL;
+    const char* name = "main";
     unsigned interfaceRegCount = 0;
     IlcSpvWord* interfaceRegs = NULL;
 
     switch (compiler->kernel->shaderType) {
     case IL_SHADER_VERTEX:
         execution = SpvExecutionModelVertex;
-        name = "VShader";
         break;
     case IL_SHADER_PIXEL:
         execution = SpvExecutionModelFragment;
-        name = "PShader";
         break;
     case IL_SHADER_GEOMETRY:
         execution = SpvExecutionModelGeometry;
-        name = "GShader";
         break;
     case IL_SHADER_COMPUTE:
         execution = SpvExecutionModelGLCompute;
-        name = "CShader";
         break;
     case IL_SHADER_HULL:
         execution = SpvExecutionModelTessellationControl;
-        name = "HShader";
         break;
     case IL_SHADER_DOMAIN:
         execution = SpvExecutionModelTessellationEvaluation;
-        name = "DShader";
         break;
     }
 

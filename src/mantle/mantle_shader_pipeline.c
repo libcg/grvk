@@ -3,7 +3,6 @@
 
 typedef struct _Stage {
     const GR_PIPELINE_SHADER* shader;
-    const char* entryPoint;
     const VkShaderStageFlagBits flags;
 } Stage;
 
@@ -311,13 +310,12 @@ GR_RESULT grCreateGraphicsPipeline(
     // - iaState.disableVertexReuse (hint)
     // - tessState.optimalTessFactor (hint)
 
-    // FIXME entry points are guessed
     Stage stages[MAX_STAGE_COUNT] = {
-        { &pCreateInfo->vs, "VShader", VK_SHADER_STAGE_VERTEX_BIT },
-        { &pCreateInfo->hs, "HShader", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT },
-        { &pCreateInfo->ds, "DShader", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT },
-        { &pCreateInfo->gs, "GShader", VK_SHADER_STAGE_GEOMETRY_BIT },
-        { &pCreateInfo->ps, "PShader", VK_SHADER_STAGE_FRAGMENT_BIT },
+        { &pCreateInfo->vs, VK_SHADER_STAGE_VERTEX_BIT },
+        { &pCreateInfo->hs, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT },
+        { &pCreateInfo->ds, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT },
+        { &pCreateInfo->gs, VK_SHADER_STAGE_GEOMETRY_BIT },
+        { &pCreateInfo->ps, VK_SHADER_STAGE_FRAGMENT_BIT },
     };
 
     // Figure out how many stages are used before we allocate the info array
@@ -357,7 +355,7 @@ GR_RESULT grCreateGraphicsPipeline(
             .flags = 0,
             .stage = stage->flags,
             .module = grShader->shaderModule,
-            .pName = stage->entryPoint,
+            .pName = "main",
             .pSpecializationInfo = NULL,
         };
     }
