@@ -18,7 +18,7 @@ typedef struct {
     IlcRegister *regs;
 } IlcCompiler;
 
-static const IlcRegister* emitRegister(
+static const IlcRegister* addRegister(
     IlcCompiler* compiler,
     const IlcRegister* reg,
     char prefix)
@@ -116,7 +116,7 @@ static void emitOutput(
         .ilNum = dst->registerNum,
     };
 
-    emitRegister(compiler, &reg, 'o');
+    addRegister(compiler, &reg, 'o');
 }
 
 static void emitInput(
@@ -193,7 +193,7 @@ static void emitInput(
         .ilNum = dst->registerNum,
     };
 
-    emitRegister(compiler, &reg, 'v');
+    addRegister(compiler, &reg, 'v');
 }
 
 static void emitFunc(
@@ -232,7 +232,7 @@ static void emitMov(
             .ilNum = dst->registerNum,
         };
 
-        dstReg = emitRegister(compiler, &reg, 'r');
+        dstReg = addRegister(compiler, &reg, 'r');
     }
 
     ilcSpvPutStore(compiler->module, dstReg->id, srcId);
