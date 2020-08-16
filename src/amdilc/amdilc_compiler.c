@@ -79,10 +79,6 @@ static void emitOutput(
 {
     uint8_t importUsage = getBits(instr->control, 0, 4);
 
-    if (importUsage != IL_IMPORTUSAGE_GENERIC) {
-        LOGW("unhandled import usage %d\n", importUsage);
-    }
-
     assert(instr->dstCount == 1 &&
            instr->srcCount == 0 &&
            instr->extraCount == 0);
@@ -106,8 +102,15 @@ static void emitOutput(
     IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, vectorId);
     IlcSpvId outputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassOutput);
 
-    IlcSpvWord locationIdx = dst->registerNum;
-    ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
+    if (importUsage == IL_IMPORTUSAGE_POS) {
+        IlcSpvWord builtInType = SpvBuiltInPosition;
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
+    } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+        IlcSpvWord locationIdx = dst->registerNum;
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
+    } else {
+        LOGW("unhandled import usage %d\n", importUsage);
+    }
 
     const IlcRegister reg = {
         .id = outputId,
