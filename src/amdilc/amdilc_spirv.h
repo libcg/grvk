@@ -100,6 +100,16 @@ IlcSpvId ilcSpvPutVariable(
     IlcSpvId resultTypeId,
     IlcSpvWord storageClass);
 
+IlcSpvId ilcSpvPutLoad(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId pointerId);
+
+void ilcSpvPutStore(
+    IlcSpvModule* module,
+    IlcSpvId pointerId,
+    IlcSpvId objectId);
+
 void ilcSpvPutDecoration(
     IlcSpvModule* module,
     IlcSpvId target,

@@ -5,8 +5,9 @@
 
 typedef struct {
     IlcSpvId id;
-    uint32_t type; // ILRegType
-    uint32_t num;
+    IlcSpvId typeId;
+    uint32_t ilType; // ILRegType
+    uint32_t ilNum;
 } IlcRegister;
 
 typedef struct {
@@ -17,25 +18,31 @@ typedef struct {
     IlcRegister *regs;
 } IlcCompiler;
 
-static void emitRegister(
+static const IlcRegister* emitRegister(
     IlcCompiler* compiler,
-    IlcRegister reg)
+    const IlcRegister* reg)
 {
-    // Check if it's already emitted
-    for (int i = 0; i < compiler->regCount; i++) {
-        IlcRegister* emittedReg = &compiler->regs[i];
+    compiler->regCount++;
+    compiler->regs = realloc(compiler->regs, sizeof(IlcRegister) * compiler->regCount);
+    compiler->regs[compiler->regCount - 1] = *reg;
 
-        if (emittedReg->type == reg.type &&
-            emittedReg->num == reg.num) {
-            // We have a match. Update emitted register info.
-            *emittedReg = reg;
-            return;
+    return &compiler->regs[compiler->regCount - 1];
+}
+
+static const IlcRegister* findRegister(
+    IlcCompiler* compiler,
+    uint32_t type,
+    uint32_t num)
+{
+    for (int i = 0; i < compiler->regCount; i++) {
+        const IlcRegister* reg = &compiler->regs[i];
+
+        if (reg->ilType == type && reg->ilNum == num) {
+            return reg;
         }
     }
 
-    compiler->regCount++;
-    compiler->regs = realloc(compiler->regs, sizeof(IlcRegister) * compiler->regCount);
-    compiler->regs[compiler->regCount - 1] = reg;
+    return NULL;
 }
 
 static void emitGlobalFlags(
@@ -101,13 +108,14 @@ static void emitOutput(
     IlcSpvWord locationIdx = dst->registerNum;
     ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
 
-    IlcRegister reg = {
+    const IlcRegister reg = {
         .id = outputId,
-        .type = dst->registerType,
-        .num = dst->registerNum,
+        .typeId = vectorId,
+        .ilType = dst->registerType,
+        .ilNum = dst->registerNum,
     };
 
-    emitRegister(compiler, reg);
+    emitRegister(compiler, &reg);
 }
 
 static void emitInput(
@@ -170,13 +178,14 @@ static void emitInput(
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationSample, 0, NULL);
     }
 
-    IlcRegister reg = {
+    const IlcRegister reg = {
         .id = inputId,
-        .type = dst->registerType,
-        .num = dst->registerNum,
+        .typeId = vectorId,
+        .ilType = dst->registerType,
+        .ilNum = dst->registerNum,
     };
 
-    emitRegister(compiler, reg);
+    emitRegister(compiler, &reg);
 }
 
 static void emitFunc(
@@ -189,6 +198,42 @@ static void emitFunc(
     ilcSpvPutLabel(compiler->module);
 }
 
+static void emitMov(
+    IlcCompiler* compiler,
+    Instruction* instr)
+{
+    Source* src = &instr->srcs[0];
+    const IlcRegister* srcReg = findRegister(compiler, src->registerType, src->registerNum);
+    IlcSpvId srcId = ilcSpvPutLoad(compiler->module, srcReg->typeId, srcReg->id);
+
+    Destination* dst = &instr->dsts[0];
+    const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
+
+    if (dstReg == NULL && dst->registerType == IL_REGTYPE_TEMP) {
+        // Create private variable that will hold the temporary register content
+        IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+        IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
+        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
+                                                  vectorId);
+        IlcSpvId tempId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassPrivate);
+
+        char name[16];
+        snprintf(name, 16, "r%u", dst->registerNum);
+        ilcSpvPutName(compiler->module, tempId, name);
+
+        const IlcRegister reg = {
+            .id = tempId,
+            .typeId = vectorId,
+            .ilType = IL_REGTYPE_TEMP,
+            .ilNum = dst->registerNum,
+        };
+
+        dstReg = emitRegister(compiler, &reg);
+    }
+
+    ilcSpvPutStore(compiler->module, dstReg->id, srcId);
+}
+
 static void emitInstr(
     IlcCompiler* compiler,
     Instruction* instr)
@@ -196,6 +241,9 @@ static void emitInstr(
     switch (instr->opcode) {
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
+        break;
+    case IL_OP_MOV:
+        emitMov(compiler, instr);
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
@@ -252,11 +300,9 @@ static void emitEntryPoint(
     for (int i = 0; i < compiler->regCount; i++) {
         IlcRegister* reg = &compiler->regs[i];
 
-        if (reg->type == IL_REGTYPE_INPUT || reg->type == IL_REGTYPE_OUTPUT) {
-            interfaceRegCount++;
-            interfaceRegs = realloc(interfaceRegs, sizeof(IlcSpvWord) * interfaceRegCount);
-            interfaceRegs[interfaceRegCount - 1] = reg->id;
-        }
+        interfaceRegCount++;
+        interfaceRegs = realloc(interfaceRegs, sizeof(IlcSpvWord) * interfaceRegCount);
+        interfaceRegs[interfaceRegCount - 1] = reg->id;
     }
 
     ilcSpvPutEntryPoint(compiler->module, compiler->entryPointId, execution, name,

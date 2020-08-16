@@ -324,6 +324,33 @@ IlcSpvId ilcSpvPutVariable(
     return id;
 }
 
+IlcSpvId ilcSpvPutLoad(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId pointerId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpLoad, 4);
+    putWord(buffer, typeId);
+    putWord(buffer, id);
+    putWord(buffer, pointerId);
+    return id;
+}
+
+void ilcSpvPutStore(
+    IlcSpvModule* module,
+    IlcSpvId pointerId,
+    IlcSpvId objectId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpStore, 3);
+    putWord(buffer, pointerId);
+    putWord(buffer, objectId);
+}
+
 void ilcSpvPutDecoration(
     IlcSpvModule* module,
     IlcSpvId target,
