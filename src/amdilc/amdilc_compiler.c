@@ -20,8 +20,13 @@ typedef struct {
 
 static const IlcRegister* emitRegister(
     IlcCompiler* compiler,
-    const IlcRegister* reg)
+    const IlcRegister* reg,
+    char prefix)
 {
+    char name[16];
+    snprintf(name, 16, "%c%u", prefix, reg->ilNum);
+    ilcSpvPutName(compiler->module, reg->id, name);
+
     compiler->regCount++;
     compiler->regs = realloc(compiler->regs, sizeof(IlcRegister) * compiler->regCount);
     compiler->regs[compiler->regCount - 1] = *reg;
@@ -101,10 +106,6 @@ static void emitOutput(
     IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, vectorId);
     IlcSpvId outputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassOutput);
 
-    char name[16];
-    snprintf(name, 16, "o%u", dst->registerNum);
-    ilcSpvPutName(compiler->module, outputId, name);
-
     IlcSpvWord locationIdx = dst->registerNum;
     ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
 
@@ -115,7 +116,7 @@ static void emitOutput(
         .ilNum = dst->registerNum,
     };
 
-    emitRegister(compiler, &reg);
+    emitRegister(compiler, &reg, 'o');
 }
 
 static void emitInput(
@@ -166,10 +167,6 @@ static void emitInput(
         LOGW("unhandled import usage %d\n", importUsage);
     }
 
-    char name[16];
-    snprintf(name, 16, "v%u", dst->registerNum);
-    ilcSpvPutName(compiler->module, inputId, name);
-
     // Handle interpolation modes in pixel shaders
     if (interpMode == IL_INTERPMODE_CONSTANT) {
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationFlat, 0, NULL);
@@ -196,7 +193,7 @@ static void emitInput(
         .ilNum = dst->registerNum,
     };
 
-    emitRegister(compiler, &reg);
+    emitRegister(compiler, &reg, 'v');
 }
 
 static void emitFunc(
@@ -228,10 +225,6 @@ static void emitMov(
                                                   vectorId);
         IlcSpvId tempId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassPrivate);
 
-        char name[16];
-        snprintf(name, 16, "r%u", dst->registerNum);
-        ilcSpvPutName(compiler->module, tempId, name);
-
         const IlcRegister reg = {
             .id = tempId,
             .typeId = vectorId,
@@ -239,7 +232,7 @@ static void emitMov(
             .ilNum = dst->registerNum,
         };
 
-        dstReg = emitRegister(compiler, &reg);
+        dstReg = emitRegister(compiler, &reg, 'r');
     }
 
     ilcSpvPutStore(compiler->module, dstReg->id, srcId);
