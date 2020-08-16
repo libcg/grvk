@@ -5,16 +5,38 @@
 
 typedef struct {
     IlcSpvId id;
-    uint32_t registerNum;
-} IlcInput;
+    uint32_t type; // ILRegType
+    uint32_t num;
+} IlcRegister;
 
 typedef struct {
     IlcSpvModule* module;
     const Kernel* kernel;
     IlcSpvId entryPointId;
-    unsigned inputCount;
-    IlcInput *inputs;
+    unsigned regCount;
+    IlcRegister *regs;
 } IlcCompiler;
+
+static void emitRegister(
+    IlcCompiler* compiler,
+    IlcRegister reg)
+{
+    // Check if it's already emitted
+    for (int i = 0; i < compiler->regCount; i++) {
+        IlcRegister* emittedReg = &compiler->regs[i];
+
+        if (emittedReg->type == reg.type &&
+            emittedReg->num == reg.num) {
+            // We have a match. Update emitted register info.
+            *emittedReg = reg;
+            return;
+        }
+    }
+
+    compiler->regCount++;
+    compiler->regs = realloc(compiler->regs, sizeof(IlcRegister) * compiler->regCount);
+    compiler->regs[compiler->regCount - 1] = reg;
+}
 
 static void emitGlobalFlags(
     IlcCompiler* compiler,
@@ -37,6 +59,55 @@ static void emitGlobalFlags(
     if (enableDoublePrecisionFloatOps) {
         LOGW("unhandled enableDoublePrecisionFloatOps flag\n");
     }
+}
+
+static void emitOutput(
+    IlcCompiler* compiler,
+    Instruction* instr)
+{
+    uint8_t importUsage = getBits(instr->control, 0, 4);
+
+    if (importUsage != IL_IMPORTUSAGE_GENERIC) {
+        LOGW("unhandled import usage %d\n", importUsage);
+    }
+
+    assert(instr->dstCount == 1 &&
+           instr->srcCount == 0 &&
+           instr->extraCount == 0);
+
+    Destination* dst = &instr->dsts[0];
+
+    assert(dst->registerType == IL_REGTYPE_OUTPUT &&
+           !dst->clamp &&
+           dst->shiftScale == IL_SHIFT_NONE);
+
+    if (dst->component[0] != IL_MODCOMP_WRITE ||
+        dst->component[1] != IL_MODCOMP_WRITE ||
+        dst->component[2] != IL_MODCOMP_WRITE ||
+        dst->component[3] != IL_MODCOMP_WRITE) {
+        LOGW("unhandled component mod %d %d %d %d\n",
+             dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
+    }
+
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, vectorId);
+    IlcSpvId outputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassOutput);
+
+    char name[16];
+    snprintf(name, 16, "o%u", dst->registerNum);
+    ilcSpvPutName(compiler->module, outputId, name);
+
+    IlcSpvWord locationIdx = dst->registerNum;
+    ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
+
+    IlcRegister reg = {
+        .id = outputId,
+        .type = dst->registerType,
+        .num = dst->registerNum,
+    };
+
+    emitRegister(compiler, reg);
 }
 
 static void emitInput(
@@ -99,12 +170,13 @@ static void emitInput(
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationSample, 0, NULL);
     }
 
-    compiler->inputCount++;
-    compiler->inputs = realloc(compiler->inputs, sizeof(IlcInput) * compiler->inputCount);
-    compiler->inputs[compiler->inputCount - 1] = (IlcInput) {
+    IlcRegister reg = {
         .id = inputId,
-        .registerNum = dst->registerNum
+        .type = dst->registerType,
+        .num = dst->registerNum,
     };
+
+    emitRegister(compiler, reg);
 }
 
 static void emitFunc(
@@ -127,6 +199,9 @@ static void emitInstr(
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
+        break;
+    case IL_DCL_OUTPUT:
+        emitOutput(compiler, instr);
         break;
     case IL_DCL_INPUT:
         emitInput(compiler, instr);
@@ -200,8 +275,8 @@ uint32_t* ilcCompileKernel(
         .module = &module,
         .kernel = kernel,
         .entryPointId = ilcSpvAllocId(&module),
-        .inputCount = 0,
-        .inputs = NULL,
+        .regCount = 0,
+        .regs = NULL,
     };
 
     emitFunc(&compiler, compiler.entryPointId);
@@ -211,7 +286,7 @@ uint32_t* ilcCompileKernel(
 
     emitEntryPoint(&compiler);
 
-    free(compiler.inputs);
+    free(compiler.regs);
     ilcSpvFinish(&module);
 
     *size = sizeof(IlcSpvWord) * module.buffer[ID_MAIN].wordCount;
