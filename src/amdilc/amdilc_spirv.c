@@ -239,6 +239,15 @@ IlcSpvId ilcSpvPutVoidType(
     return putType(module, SpvOpTypeVoid, 0, NULL);
 }
 
+IlcSpvId ilcSpvPutIntType(
+    IlcSpvModule* module,
+    bool isSigned)
+{
+    IlcSpvWord args[2] = { 32, isSigned };
+
+    return putType(module, SpvOpTypeInt, 2, args);
+}
+
 IlcSpvId ilcSpvPutFloatType(
     IlcSpvModule* module)
 {

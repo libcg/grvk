@@ -124,10 +124,8 @@ static void emitInput(
 {
     uint8_t importUsage = getBits(instr->control, 0, 4);
     uint8_t interpMode = getBits(instr->control, 5, 7);
-
-    if (importUsage != IL_IMPORTUSAGE_GENERIC) {
-        LOGW("unhandled import usage %d\n", importUsage);
-    }
+    IlcSpvId inputId = 0;
+    IlcSpvId typeId = 0;
 
     assert(instr->dstCount == 1 &&
            instr->srcCount == 0 &&
@@ -147,17 +145,30 @@ static void emitInput(
              dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
     }
 
-    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
-    IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
-    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, vectorId);
-    IlcSpvId inputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassInput);
+    if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+        IlcSpvId f32Id = ilcSpvPutFloatType(compiler->module);
+        IlcSpvId v4f32Id = ilcSpvPutVectorType(compiler->module, f32Id, 4);
+        IlcSpvId pv4f32Id = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, v4f32Id);
+        inputId = ilcSpvPutVariable(compiler->module, pv4f32Id, SpvStorageClassInput);
+        typeId = v4f32Id;
+
+        IlcSpvWord locationIdx = 0; // FIXME hardcoded to match glslc VS slot
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
+    } else if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
+        IlcSpvId u32Id = ilcSpvPutIntType(compiler->module, false);
+        IlcSpvId pu32Id = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, u32Id);
+        inputId = ilcSpvPutVariable(compiler->module, pu32Id, SpvStorageClassInput);
+        typeId = u32Id;
+
+        IlcSpvWord builtInType = SpvBuiltInVertexIndex;
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
+    } else {
+        LOGW("unhandled import usage %d\n", importUsage);
+    }
 
     char name[16];
     snprintf(name, 16, "v%u", dst->registerNum);
     ilcSpvPutName(compiler->module, inputId, name);
-
-    IlcSpvWord locationIdx = 0; // FIXME hardcoded to match glslc VS slot
-    ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
 
     // Handle interpolation modes in pixel shaders
     if (interpMode == IL_INTERPMODE_CONSTANT) {
@@ -180,7 +191,7 @@ static void emitInput(
 
     const IlcRegister reg = {
         .id = inputId,
-        .typeId = vectorId,
+        .typeId = typeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
     };

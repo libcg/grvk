@@ -1,6 +1,7 @@
 #ifndef AMDILC_SPIRV_H_
 #define AMDILC_SPIRV_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef enum {
@@ -65,6 +66,10 @@ void ilcSpvPutCapability(
 
 IlcSpvId ilcSpvPutVoidType(
     IlcSpvModule* module);
+
+IlcSpvId ilcSpvPutIntType(
+    IlcSpvModule* module,
+    bool isSigned);
 
 IlcSpvId ilcSpvPutFloatType(
     IlcSpvModule* module);
