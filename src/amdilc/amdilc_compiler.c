@@ -219,8 +219,8 @@ static void emitEntryPoint(
 {
     IlcSpvWord execution = 0;
     const char* name = NULL;
-    unsigned inputCount = 0;
-    IlcSpvWord* inputs = NULL;
+    unsigned interfaceRegCount = 0;
+    IlcSpvWord* interfaceRegs = NULL;
 
     switch (compiler->kernel->shaderType) {
     case IL_SHADER_VERTEX:
@@ -249,10 +249,18 @@ static void emitEntryPoint(
         break;
     }
 
-    // FIXME gather inputs/outputs
+    for (int i = 0; i < compiler->regCount; i++) {
+        IlcRegister* reg = &compiler->regs[i];
+
+        if (reg->type == IL_REGTYPE_INPUT || reg->type == IL_REGTYPE_OUTPUT) {
+            interfaceRegCount++;
+            interfaceRegs = realloc(interfaceRegs, sizeof(IlcSpvWord) * interfaceRegCount);
+            interfaceRegs[interfaceRegCount - 1] = reg->id;
+        }
+    }
 
     ilcSpvPutEntryPoint(compiler->module, compiler->entryPointId, execution, name,
-                        inputCount, inputs);
+                        interfaceRegCount, interfaceRegs);
     ilcSpvPutName(compiler->module, compiler->entryPointId, name);
 
     switch (compiler->kernel->shaderType) {
@@ -261,6 +269,8 @@ static void emitEntryPoint(
                           SpvExecutionModeOriginUpperLeft);
         break;
     }
+
+    free(interfaceRegs);
 }
 
 uint32_t* ilcCompileKernel(
