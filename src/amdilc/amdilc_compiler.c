@@ -217,15 +217,15 @@ static void emitInput(
            !dst->clamp &&
            dst->shiftScale == IL_SHIFT_NONE);
 
-    if (dst->component[0] != IL_MODCOMP_WRITE ||
-        dst->component[1] != IL_MODCOMP_WRITE ||
-        dst->component[2] != IL_MODCOMP_WRITE ||
-        dst->component[3] != IL_MODCOMP_WRITE) {
-        LOGW("unhandled component mod %d %d %d %d\n",
-             dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
-    }
-
     if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+        if (dst->component[0] != IL_MODCOMP_WRITE ||
+            dst->component[1] != IL_MODCOMP_WRITE ||
+            dst->component[2] != IL_MODCOMP_WRITE ||
+            dst->component[3] != IL_MODCOMP_WRITE) {
+            LOGW("unhandled component mod %d %d %d %d\n",
+                 dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
+        }
+
         IlcSpvId f32Id = ilcSpvPutFloatType(compiler->module);
         IlcSpvId v4f32Id = ilcSpvPutVectorType(compiler->module, f32Id, 4);
         IlcSpvId pv4f32Id = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, v4f32Id);
