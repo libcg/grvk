@@ -27,8 +27,12 @@ static void pickLogFile()
 {
     char* envValue = getenv("GRVK_LOG_PATH");
 
-    if (envValue != NULL && strlen(envValue) > 0) {
-        mLogFilePath = envValue;
+    if (envValue != NULL) {
+        if (strlen(envValue) == 0) {
+            mLogFilePath = NULL;
+        } else {
+            mLogFilePath = envValue;
+        }
     }
 }
 
@@ -37,7 +41,7 @@ void logInit()
     pickLogLevel();
     pickLogFile();
 
-    if (mLogLevel != LOG_LEVEL_NONE) {
+    if (mLogLevel != LOG_LEVEL_NONE && mLogFilePath != NULL) {
         mLogFile = fopen(mLogFilePath, "w");
     }
 }
