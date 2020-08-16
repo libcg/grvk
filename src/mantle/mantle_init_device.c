@@ -9,6 +9,7 @@ GR_RESULT grInitAndEnumerateGpus(
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
 {
     VkInstance vkInstance = VK_NULL_HANDLE;
+    VkResult vkRes;
 
     logInit();
     logPrintRaw("=== GRVK ===\n");
@@ -50,8 +51,14 @@ GR_RESULT grInitAndEnumerateGpus(
         .ppEnabledExtensionNames = instanceExtensions,
     };
 
-    if (vkl.vkCreateInstance(&createInfo, NULL, &vkInstance) != VK_SUCCESS) {
-        LOGE("vkCreateInstance failed\n");
+    vkRes = vkl.vkCreateInstance(&createInfo, NULL, &vkInstance);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateInstance failed (%d)\n", vkRes);
+
+        if (vkRes == VK_ERROR_INCOMPATIBLE_DRIVER) {
+            LOGE("incompatible driver detected. Vulkan 1.2 support is required\n");
+        }
+
         return GR_ERROR_INITIALIZATION_FAILED;
     }
 
@@ -86,6 +93,7 @@ GR_RESULT grCreateDevice(
     GR_DEVICE* pDevice)
 {
     GR_RESULT res = GR_SUCCESS;
+    VkResult vkRes;
     GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
     VkDevice vkDevice = VK_NULL_HANDLE;
     uint32_t universalQueueIndex = INVALID_QUEUE_INDEX;
@@ -195,9 +203,15 @@ GR_RESULT grCreateDevice(
         .pEnabledFeatures = &deviceFeatures,
     };
 
-    if (vki.vkCreateDevice(grPhysicalGpu->physicalDevice, &createInfo, NULL,
-                           &vkDevice) != VK_SUCCESS) {
+    vkRes = vki.vkCreateDevice(grPhysicalGpu->physicalDevice, &createInfo, NULL, &vkDevice);
+    if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateDevice failed\n");
+
+        if (vkRes == VK_ERROR_EXTENSION_NOT_PRESENT) {
+            LOGE("missing extension. make sure your Vulkan driver supports "
+                 "VK_EXT_extended_dynamic_state\n");
+        }
+
         res = GR_ERROR_INITIALIZATION_FAILED;
         goto bail;
     }
