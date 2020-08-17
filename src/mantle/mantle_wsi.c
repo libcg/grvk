@@ -301,6 +301,7 @@ GR_RESULT grWsiWinQueuePresent(
 {
     GrQueue* grQueue = (GrQueue*)queue;
     GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
+    VkResult vkRes;
     VkCommandBuffer vkCopyCommandBuffer = VK_NULL_HANDLE;
 
     if (mSwapchain == VK_NULL_HANDLE) {
@@ -309,9 +310,11 @@ GR_RESULT grWsiWinQueuePresent(
 
     uint32_t imageIndex = 0;
 
-    if (vki.vkAcquireNextImageKHR(grQueue->grDevice->device, mSwapchain, UINT64_MAX,
-                                  mAcquireSemaphore, VK_NULL_HANDLE, &imageIndex) != VK_SUCCESS) {
-        LOGE("vkAcquireNextImageKHR failed\n");
+    vkRes = vki.vkAcquireNextImageKHR(grQueue->grDevice->device, mSwapchain, UINT64_MAX,
+                                      mAcquireSemaphore, VK_NULL_HANDLE, &imageIndex);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkAcquireNextImageKHR failed (%d)\n", vkRes);
+        assert(vkRes != VK_ERROR_OUT_OF_DATE_KHR); // FIXME temporary hack to avoid log spam
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
