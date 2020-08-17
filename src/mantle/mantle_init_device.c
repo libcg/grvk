@@ -105,6 +105,19 @@ GR_RESULT grCreateDevice(
     bool computeQueueRequested = false;
     VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
+    VkPhysicalDeviceProperties physicalDeviceProps;
+    vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
+    LOGI("%04X:%04X \"%s\" (Vulkan %d.%d.%d, driver %d.%d.%d)\n",
+         physicalDeviceProps.vendorID,
+         physicalDeviceProps.deviceID,
+         physicalDeviceProps.deviceName,
+         VK_VERSION_MAJOR(physicalDeviceProps.apiVersion),
+         VK_VERSION_MINOR(physicalDeviceProps.apiVersion),
+         VK_VERSION_PATCH(physicalDeviceProps.apiVersion),
+         VK_VERSION_MAJOR(physicalDeviceProps.driverVersion),
+         VK_VERSION_MINOR(physicalDeviceProps.driverVersion),
+         VK_VERSION_PATCH(physicalDeviceProps.driverVersion));
+
     uint32_t queueFamilyPropertyCount = 0;
     vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
                                                  &queueFamilyPropertyCount, NULL);
