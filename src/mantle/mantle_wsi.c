@@ -1,13 +1,136 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "mantle_internal.h"
 
+typedef struct {
+    VkImage dstImage;
+    VkImage srcImage;
+    VkCommandBuffer commandBuffer;
+} CopyCommandBuffer;
+
 static VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 static VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
-static uint32_t mImageCount = 0;
+static unsigned mPresentableImageCount = 0;
+static VkImage* mPresentableImages;
+static unsigned mImageCount = 0;
 static VkImage* mImages;
-static VkCommandBuffer mCopyCommandBuffer = VK_NULL_HANDLE;
+static unsigned mCopyCommandBufferCount = 0;
+static CopyCommandBuffer* mCopyCommandBuffers = 0;
 static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
+
+static CopyCommandBuffer buildCopyCommandBuffer(
+    const GrDevice* grDevice,
+    VkImage dstImage,
+    VkImage srcImage)
+{
+    CopyCommandBuffer copyCmdBuf = {
+        .dstImage = dstImage,
+        .srcImage = srcImage,
+        .commandBuffer = VK_NULL_HANDLE,
+    };
+
+    const VkCommandBufferAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = grDevice->universalCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    if (vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo,
+                                     &copyCmdBuf.commandBuffer) != VK_SUCCESS) {
+        LOGE("vkAllocateCommandBuffers failed\n");
+    }
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .pInheritanceInfo = NULL
+    };
+
+    if (vki.vkBeginCommandBuffer(copyCmdBuf.commandBuffer, &beginInfo) != VK_SUCCESS) {
+        LOGE("vkBeginCommandBuffer failed\n");
+    }
+
+    const VkImageMemoryBarrier preCopyBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = NULL,
+        .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = dstImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        }
+    };
+
+    vki.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             0, 0, NULL, 0, NULL, 1, &preCopyBarrier);
+
+    const VkImageBlit region = {
+        .srcSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+        .srcOffsets[0] = { 0, 0, 0 },
+        .srcOffsets[1] = { 1280, 720, 1 }, // FIXME placeholder
+        .dstSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+        .dstOffsets[0] = { 0, 0, 0 },
+        .dstOffsets[1] = { 1280, 720, 1 }, // FIXME placeholder
+    };
+
+    vki.vkCmdBlitImage(copyCmdBuf.commandBuffer,
+                       srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &region, VK_FILTER_NEAREST);
+
+    const VkImageMemoryBarrier postCopyBarrier = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext = NULL,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = dstImage,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        }
+    };
+
+    vki.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             0, 0, NULL, 0, NULL, 1, &postCopyBarrier);
+
+    if (vki.vkEndCommandBuffer(copyCmdBuf.commandBuffer) != VK_SUCCESS) {
+        LOGE("vkEndCommandBuffer failed\n");
+    }
+
+    return copyCmdBuf;
+}
 
 static void initSwapchain(
     GrDevice* grDevice,
@@ -67,18 +190,15 @@ static void initSwapchain(
     mImages = malloc(sizeof(VkImage) * mImageCount);
     vki.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, mImages);
 
-    const VkCommandBufferAllocateInfo allocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .pNext = NULL,
-        .commandPool = grDevice->universalCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-
-    if (vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo,
-                                     &mCopyCommandBuffer) != VK_SUCCESS) {
-        LOGE("vkAllocateCommandBuffers failed\n");
-        return;
+    // Build copy command buffers for all image combinations
+    for (int i = 0; i < mPresentableImageCount; i++) {
+        for (int j = 0; j < mImageCount; j++) {
+            mCopyCommandBufferCount++;
+            mCopyCommandBuffers = realloc(mCopyCommandBuffers,
+                                          sizeof(CopyCommandBuffer) * mCopyCommandBufferCount);
+            mCopyCommandBuffers[mCopyCommandBufferCount - 1] =
+                buildCopyCommandBuffer(grDevice, mImages[j], mPresentableImages[i]);
+        }
     }
 
     const VkSemaphoreCreateInfo semaphoreCreateInfo = {
@@ -89,98 +209,6 @@ static void initSwapchain(
 
     vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
     vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
-}
-
-static void buildCopyCommandBuffer(
-    VkImage srcImage,
-    VkImage dstImage)
-{
-    const VkCommandBufferBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .pNext = NULL,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-        .pInheritanceInfo = NULL
-    };
-
-    if (vki.vkBeginCommandBuffer(mCopyCommandBuffer, &beginInfo) != VK_SUCCESS) {
-        LOGE("vkBeginCommandBuffer failed\n");
-    }
-
-    const VkImageMemoryBarrier preCopyBarrier = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = NULL,
-        .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = dstImage,
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        }
-    };
-
-    vki.vkCmdPipelineBarrier(mCopyCommandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             0, 0, NULL, 0, NULL, 1, &preCopyBarrier);
-
-    const VkImageBlit region = {
-        .srcSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        },
-        .srcOffsets[0] = { 0, 0, 0 },
-        .srcOffsets[1] = { 1280, 720, 1 },
-        .dstSubresource = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        },
-        .dstOffsets[0] = { 0, 0, 0 },
-        .dstOffsets[1] = { 1280, 720, 1 },
-    };
-
-    vki.vkCmdBlitImage(mCopyCommandBuffer,
-                       srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                       1, &region, VK_FILTER_NEAREST);
-
-    const VkImageMemoryBarrier postCopyBarrier = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = NULL,
-        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = dstImage,
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        }
-    };
-
-    vki.vkCmdPipelineBarrier(mCopyCommandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             0, 0, NULL, 0, NULL, 1, &postCopyBarrier);
-
-    if (vki.vkEndCommandBuffer(mCopyCommandBuffer) != VK_SUCCESS) {
-        LOGE("vkEndCommandBuffer failed\n");
-    }
 }
 
 // Functions
@@ -244,6 +272,11 @@ GR_RESULT grWsiWinCreatePresentableImage(
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
+    // Keep track of presentable images to build copy command buffers in advance
+    mPresentableImageCount++;
+    mPresentableImages = realloc(mPresentableImages, sizeof(VkImage) * mPresentableImageCount);
+    mPresentableImages[mPresentableImageCount - 1] = vkImage;
+
     GrImage* grImage = malloc(sizeof(GrImage));
     *grImage = (GrImage) {
         .sType = GR_STRUCT_TYPE_IMAGE,
@@ -268,6 +301,7 @@ GR_RESULT grWsiWinQueuePresent(
 {
     GrQueue* grQueue = (GrQueue*)queue;
     GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
+    VkCommandBuffer vkCopyCommandBuffer = VK_NULL_HANDLE;
 
     if (mSwapchain == VK_NULL_HANDLE) {
         initSwapchain(grQueue->grDevice, pPresentInfo->hWndDest, grQueue->queueIndex);
@@ -281,7 +315,14 @@ GR_RESULT grWsiWinQueuePresent(
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    buildCopyCommandBuffer(srcGrImage->image, mImages[imageIndex]);
+    // Find suitable copy command buffer for presentable and swapchain images combination
+    for (int i = 0; i < mCopyCommandBufferCount; i++) {
+        if (mCopyCommandBuffers[i].dstImage == mImages[imageIndex] &&
+            mCopyCommandBuffers[i].srcImage == srcGrImage->image) {
+            vkCopyCommandBuffer = mCopyCommandBuffers[i].commandBuffer;
+        }
+    }
+    assert(vkCopyCommandBuffer != VK_NULL_HANDLE);
 
     VkPipelineStageFlags stageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
     const VkSubmitInfo submitInfo = {
@@ -291,7 +332,7 @@ GR_RESULT grWsiWinQueuePresent(
         .pWaitSemaphores = &mAcquireSemaphore,
         .pWaitDstStageMask = &stageMask,
         .commandBufferCount = 1,
-        .pCommandBuffers = &mCopyCommandBuffer,
+        .pCommandBuffers = &vkCopyCommandBuffer,
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &mCopySemaphore,
     };
