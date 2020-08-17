@@ -18,6 +18,14 @@ static CopyCommandBuffer* mCopyCommandBuffers = 0;
 static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
 
+static uint32_t getMemoryTypeIndex(
+    uint32_t memoryTypeBits)
+{
+    // Index corresponds to the location of the LSB
+    // TODO support MSVC
+    return __builtin_ctz(memoryTypeBits);
+}
+
 static CopyCommandBuffer buildCopyCommandBuffer(
     const GrDevice* grDevice,
     VkImage dstImage,
@@ -255,7 +263,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .pNext = NULL,
         .allocationSize = memoryRequirements.size,
-        .memoryTypeIndex = 0, // FIXME don't hardcode
+        .memoryTypeIndex = getMemoryTypeIndex(memoryRequirements.memoryTypeBits),
     };
 
     if (vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL,
