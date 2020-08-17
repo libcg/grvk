@@ -1,5 +1,7 @@
 #include "mantle_internal.h"
 
+#define NVIDIA_VENDOR_ID 0x10de
+
 // Initialization and Device Functions
 
 GR_RESULT grInitAndEnumerateGpus(
@@ -107,6 +109,15 @@ GR_RESULT grCreateDevice(
 
     VkPhysicalDeviceProperties physicalDeviceProps;
     vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
+
+    if (physicalDeviceProps.vendorID == NVIDIA_VENDOR_ID) {
+        // Fixup driver version
+        physicalDeviceProps.driverVersion =
+            VK_MAKE_VERSION(VK_VERSION_MAJOR(physicalDeviceProps.driverVersion),
+                            VK_VERSION_MINOR(physicalDeviceProps.driverVersion >> 0) >> 2,
+                            VK_VERSION_PATCH(physicalDeviceProps.driverVersion >> 2) >> 4);
+    }
+
     LOGI("%04X:%04X \"%s\" (Vulkan %d.%d.%d, driver %d.%d.%d)\n",
          physicalDeviceProps.vendorID,
          physicalDeviceProps.deviceID,
