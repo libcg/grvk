@@ -2,6 +2,11 @@
 #include "mantle_internal.h"
 
 typedef struct {
+    VkImage image;
+    VkExtent2D extent;
+} PresentableImage;
+
+typedef struct {
     VkImage dstImage;
     VkImage srcImage;
     VkCommandBuffer commandBuffer;
@@ -10,7 +15,7 @@ typedef struct {
 static VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 static VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 static unsigned mPresentableImageCount = 0;
-static VkImage* mPresentableImages;
+static PresentableImage* mPresentableImages;
 static unsigned mImageCount = 0;
 static VkImage* mImages;
 static unsigned mCopyCommandBufferCount = 0;
@@ -29,7 +34,9 @@ static uint32_t getMemoryTypeIndex(
 static CopyCommandBuffer buildCopyCommandBuffer(
     const GrDevice* grDevice,
     VkImage dstImage,
-    VkImage srcImage)
+    VkExtent2D dstExtent,
+    VkImage srcImage,
+    VkExtent2D srcExtent)
 {
     CopyCommandBuffer copyCmdBuf = {
         .dstImage = dstImage,
@@ -93,7 +100,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
             .layerCount = 1,
         },
         .srcOffsets[0] = { 0, 0, 0 },
-        .srcOffsets[1] = { 1280, 720, 1 }, // FIXME placeholder
+        .srcOffsets[1] = { srcExtent.width, srcExtent.height, 1 },
         .dstSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .mipLevel = 0,
@@ -101,7 +108,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
             .layerCount = 1,
         },
         .dstOffsets[0] = { 0, 0, 0 },
-        .dstOffsets[1] = { 1280, 720, 1 }, // FIXME placeholder
+        .dstOffsets[1] = { dstExtent.width, dstExtent.height, 1 },
     };
 
     vki.vkCmdBlitImage(copyCmdBuf.commandBuffer,
@@ -166,6 +173,11 @@ static void initSwapchain(
         LOGW("unsupported surface\n");
     }
 
+    // Get window dimensions
+    RECT clientRect;
+    GetClientRect(hwnd, &clientRect);
+    VkExtent2D imageExtent = { clientRect.right, clientRect.bottom };
+
     const VkSwapchainCreateInfoKHR swapchainCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .pNext = NULL,
@@ -174,7 +186,7 @@ static void initSwapchain(
         .minImageCount = 3,
         .imageFormat = VK_FORMAT_B8G8R8A8_UNORM,
         .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-        .imageExtent = { 1280, 720 }, // FIXME placeholder
+        .imageExtent = imageExtent,
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                       VK_IMAGE_USAGE_TRANSFER_DST_BIT,
@@ -200,12 +212,15 @@ static void initSwapchain(
 
     // Build copy command buffers for all image combinations
     for (int i = 0; i < mPresentableImageCount; i++) {
+        const PresentableImage* presentImage = &mPresentableImages[i];
+
         for (int j = 0; j < mImageCount; j++) {
             mCopyCommandBufferCount++;
             mCopyCommandBuffers = realloc(mCopyCommandBuffers,
                                           sizeof(CopyCommandBuffer) * mCopyCommandBufferCount);
             mCopyCommandBuffers[mCopyCommandBufferCount - 1] =
-                buildCopyCommandBuffer(grDevice, mImages[j], mPresentableImages[i]);
+                buildCopyCommandBuffer(grDevice, mImages[j], imageExtent,
+                                       presentImage->image, presentImage->extent);
         }
     }
 
@@ -280,10 +295,16 @@ GR_RESULT grWsiWinCreatePresentableImage(
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
+    const PresentableImage presentImage = {
+        .image = vkImage,
+        .extent = { pCreateInfo->extent.width, pCreateInfo->extent.height },
+    };
+
     // Keep track of presentable images to build copy command buffers in advance
     mPresentableImageCount++;
-    mPresentableImages = realloc(mPresentableImages, sizeof(VkImage) * mPresentableImageCount);
-    mPresentableImages[mPresentableImageCount - 1] = vkImage;
+    mPresentableImages = realloc(mPresentableImages,
+                                 sizeof(PresentableImage) * mPresentableImageCount);
+    mPresentableImages[mPresentableImageCount - 1] = presentImage;
 
     GrImage* grImage = malloc(sizeof(GrImage));
     *grImage = (GrImage) {
@@ -331,6 +352,7 @@ GR_RESULT grWsiWinQueuePresent(
         if (mCopyCommandBuffers[i].dstImage == mImages[imageIndex] &&
             mCopyCommandBuffers[i].srcImage == srcGrImage->image) {
             vkCopyCommandBuffer = mCopyCommandBuffers[i].commandBuffer;
+            break;
         }
     }
     assert(vkCopyCommandBuffer != VK_NULL_HANDLE);
