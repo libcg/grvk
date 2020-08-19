@@ -130,10 +130,10 @@ static void emitGlobalFlags(
     IlcCompiler* compiler,
     Instruction* instr)
 {
-    bool refactoringAllowed = getBit(instr->control, 0);
-    bool forceEarlyDepthStencil = getBit(instr->control, 1);
-    bool enableRawStructuredBuffers = getBit(instr->control, 2);
-    bool enableDoublePrecisionFloatOps = getBit(instr->control, 3);
+    bool refactoringAllowed = GET_BIT(instr->control, 0);
+    bool forceEarlyDepthStencil = GET_BIT(instr->control, 1);
+    bool enableRawStructuredBuffers = GET_BIT(instr->control, 2);
+    bool enableDoublePrecisionFloatOps = GET_BIT(instr->control, 3);
 
     if (!refactoringAllowed) {
         LOGW("unhandled !refactoringAllowed flag\n");
@@ -153,7 +153,7 @@ static void emitOutput(
     IlcCompiler* compiler,
     Instruction* instr)
 {
-    uint8_t importUsage = getBits(instr->control, 0, 4);
+    uint8_t importUsage = GET_BITS(instr->control, 0, 4);
 
     assert(instr->dstCount == 1 &&
            instr->srcCount == 0 &&
@@ -202,8 +202,8 @@ static void emitInput(
     IlcCompiler* compiler,
     Instruction* instr)
 {
-    uint8_t importUsage = getBits(instr->control, 0, 4);
-    uint8_t interpMode = getBits(instr->control, 5, 7);
+    uint8_t importUsage = GET_BITS(instr->control, 0, 4);
+    uint8_t interpMode = GET_BITS(instr->control, 5, 7);
     IlcSpvId inputId = 0;
     IlcSpvId typeId = 0;
 
@@ -283,13 +283,13 @@ static void emitResource(
            instr->srcCount == 0 &&
            instr->extraCount == 1);
 
-    uint8_t id = getBits(instr->control, 0, 7);
-    uint8_t type = getBits(instr->control, 8, 11);
-    bool unnorm = getBit(instr->control, 31);
-    uint8_t fmtx = getBits(instr->extras[0], 20, 22);
-    uint8_t fmty = getBits(instr->extras[0], 23, 25);
-    uint8_t fmtz = getBits(instr->extras[0], 26, 28);
-    uint8_t fmtw = getBits(instr->extras[0], 29, 31);
+    uint8_t id = GET_BITS(instr->control, 0, 7);
+    uint8_t type = GET_BITS(instr->control, 8, 11);
+    bool unnorm = GET_BIT(instr->control, 31);
+    uint8_t fmtx = GET_BITS(instr->extras[0], 20, 22);
+    uint8_t fmty = GET_BITS(instr->extras[0], 23, 25);
+    uint8_t fmtz = GET_BITS(instr->extras[0], 26, 28);
+    uint8_t fmtw = GET_BITS(instr->extras[0], 29, 31);
 
     if (type != IL_USAGE_PIXTEX_BUFFER || unnorm) {
         LOGE("unhandled resource type %d %d\n", type, unnorm);
@@ -349,7 +349,7 @@ static void emitLoad(
     IlcCompiler* compiler,
     Instruction* instr)
 {
-    uint8_t ilResourceId = getBits(instr->control, 0, 7);
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     const IlcResource* resource = findResource(compiler, ilResourceId);
 
     const Destination* dst = &instr->dsts[0];

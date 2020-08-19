@@ -23,7 +23,7 @@ static uint32_t decodeIlLang(
     Kernel* kernel,
     const Token* token)
 {
-    kernel->clientType = getBits(token[0], 0, 7);
+    kernel->clientType = GET_BITS(token[0], 0, 7);
     return 1;
 }
 
@@ -31,11 +31,11 @@ static uint32_t decodeIlVersion(
     Kernel* kernel,
     const Token* token)
 {
-    kernel->minorVersion = getBits(token[0], 0, 7);
-    kernel->majorVersion = getBits(token[0], 8, 15);
-    kernel->shaderType = getBits(token[0], 16, 23);
-    kernel->multipass = getBit(token[0], 24);
-    kernel->realtime = getBit(token[0], 25);
+    kernel->minorVersion = GET_BITS(token[0], 0, 7);
+    kernel->majorVersion = GET_BITS(token[0], 8, 15);
+    kernel->shaderType = GET_BITS(token[0], 16, 23);
+    kernel->multipass = GET_BIT(token[0], 24);
+    kernel->realtime = GET_BIT(token[0], 25);
     return 1;
 }
 
@@ -50,22 +50,22 @@ static uint32_t decodeDestination(
     bool immediatePresent;
     bool extended;
 
-    dst->registerNum = getBits(token[idx], 0, 15);
-    dst->registerType = getBits(token[idx], 16, 21);
-    modifierPresent = getBit(token[idx], 22);
-    relativeAddress = getBits(token[idx], 23, 24);
-    dimension = getBit(token[idx], 25);
-    immediatePresent = getBit(token[idx], 26);
-    extended = getBit(token[idx], 31);
+    dst->registerNum = GET_BITS(token[idx], 0, 15);
+    dst->registerType = GET_BITS(token[idx], 16, 21);
+    modifierPresent = GET_BIT(token[idx], 22);
+    relativeAddress = GET_BITS(token[idx], 23, 24);
+    dimension = GET_BIT(token[idx], 25);
+    immediatePresent = GET_BIT(token[idx], 26);
+    extended = GET_BIT(token[idx], 31);
     idx++;
 
     if (modifierPresent) {
-        dst->component[0] = getBits(token[idx], 0, 1);
-        dst->component[1] = getBits(token[idx], 2, 3);
-        dst->component[2] = getBits(token[idx], 4, 5);
-        dst->component[3] = getBits(token[idx], 6, 7);
-        dst->clamp = getBit(token[idx], 8);
-        dst->shiftScale = getBits(token[idx], 9, 12);
+        dst->component[0] = GET_BITS(token[idx], 0, 1);
+        dst->component[1] = GET_BITS(token[idx], 2, 3);
+        dst->component[2] = GET_BITS(token[idx], 4, 5);
+        dst->component[3] = GET_BITS(token[idx], 6, 7);
+        dst->clamp = GET_BIT(token[idx], 8);
+        dst->shiftScale = GET_BITS(token[idx], 9, 12);
         idx++;
     } else {
         dst->component[0] = IL_MODCOMP_WRITE;
@@ -107,31 +107,31 @@ static uint32_t decodeSource(
     bool immediatePresent;
     bool extended;
 
-    src->registerNum = getBits(token[idx], 0, 15);
-    src->registerType = getBits(token[idx], 16, 21);
-    modifierPresent = getBit(token[idx], 22);
-    relativeAddress = getBits(token[idx], 23, 24);
-    dimension = getBit(token[idx], 25);
-    immediatePresent = getBit(token[idx], 26);
-    extended = getBit(token[idx], 31);
+    src->registerNum = GET_BITS(token[idx], 0, 15);
+    src->registerType = GET_BITS(token[idx], 16, 21);
+    modifierPresent = GET_BIT(token[idx], 22);
+    relativeAddress = GET_BITS(token[idx], 23, 24);
+    dimension = GET_BIT(token[idx], 25);
+    immediatePresent = GET_BIT(token[idx], 26);
+    extended = GET_BIT(token[idx], 31);
     idx++;
 
     if (modifierPresent) {
-        src->swizzle[0] = getBits(token[idx], 0, 2);
-        src->swizzle[1] = getBits(token[idx], 4, 6);
-        src->swizzle[2] = getBits(token[idx], 8, 10);
-        src->swizzle[3] = getBits(token[idx], 12, 14);
-        src->negate[0] = getBit(token[idx], 3);
-        src->negate[1] = getBit(token[idx], 7);
-        src->negate[2] = getBit(token[idx], 11);
-        src->negate[3] = getBit(token[idx], 15);
-        src->invert = getBit(token[idx], 16);
-        src->bias = getBit(token[idx], 17);
-        src->x2 = getBit(token[idx], 18);
-        src->sign = getBit(token[idx], 19);
-        src->abs = getBit(token[idx], 20);
-        src->divComp = getBits(token[idx], 21, 23);
-        src->clamp = getBit(token[idx], 24);
+        src->swizzle[0] = GET_BITS(token[idx], 0, 2);
+        src->swizzle[1] = GET_BITS(token[idx], 4, 6);
+        src->swizzle[2] = GET_BITS(token[idx], 8, 10);
+        src->swizzle[3] = GET_BITS(token[idx], 12, 14);
+        src->negate[0] = GET_BIT(token[idx], 3);
+        src->negate[1] = GET_BIT(token[idx], 7);
+        src->negate[2] = GET_BIT(token[idx], 11);
+        src->negate[3] = GET_BIT(token[idx], 15);
+        src->invert = GET_BIT(token[idx], 16);
+        src->bias = GET_BIT(token[idx], 17);
+        src->x2 = GET_BIT(token[idx], 18);
+        src->sign = GET_BIT(token[idx], 19);
+        src->abs = GET_BIT(token[idx], 20);
+        src->divComp = GET_BITS(token[idx], 21, 23);
+        src->clamp = GET_BIT(token[idx], 24);
         idx++;
     } else {
         src->swizzle[0] = IL_COMPSEL_X_R;
@@ -179,8 +179,8 @@ static uint32_t decodeInstruction(
 
     memset(instr, 0, sizeof(*instr));
 
-    instr->opcode = getBits(token[idx], 0, 15);
-    instr->control = getBits(token[idx], 16, 31);
+    instr->opcode = GET_BITS(token[idx], 0, 15);
+    instr->control = GET_BITS(token[idx], 16, 31);
     idx++;
 
     if (instr->opcode >= IL_OP_LAST) {
@@ -209,10 +209,10 @@ static uint32_t decodeInstruction(
     }
 
     if (info->hasIndexedResourceSampler) {
-        if (getBit(instr->control, 12)) {
+        if (GET_BIT(instr->control, 12)) {
             LOGW("unhandled indexed args\n");
         }
-        if (getBit(instr->control, 13)) {
+        if (GET_BIT(instr->control, 13)) {
             LOGW("unhandled immediate address offset\n");
         }
     }

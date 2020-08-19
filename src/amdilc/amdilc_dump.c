@@ -277,30 +277,30 @@ static void dumpInstruction(
         break;
     case IL_DCL_INPUT:
         logPrintRaw("dcl_input_%s%s",
-                    mIlImportUsageNames[getBits(instr->control, 0, 4)],
-                    mIlInterpModeNames[getBits(instr->control, 5, 7)]);
+                    mIlImportUsageNames[GET_BITS(instr->control, 0, 4)],
+                    mIlInterpModeNames[GET_BITS(instr->control, 5, 7)]);
         break;
     case IL_DCL_RESOURCE:
         logPrintRaw("dcl_resource_id(%d)_type(%s%s)_fmtx(%s)_fmty(%s)_fmtz(%s)_fmtw(%s)",
-                    getBits(instr->control, 0, 7),
-                    mIlPixTexUsageNames[getBits(instr->control, 8, 11)],
-                    getBit(instr->control, 31) ? ",unnorm" : "",
-                    mIlElementFormatNames[getBits(instr->extras[0], 20, 22)],
-                    mIlElementFormatNames[getBits(instr->extras[0], 23, 25)],
-                    mIlElementFormatNames[getBits(instr->extras[0], 26, 28)],
-                    mIlElementFormatNames[getBits(instr->extras[0], 29, 31)]);
+                    GET_BITS(instr->control, 0, 7),
+                    mIlPixTexUsageNames[GET_BITS(instr->control, 8, 11)],
+                    GET_BIT(instr->control, 31) ? ",unnorm" : "",
+                    mIlElementFormatNames[GET_BITS(instr->extras[0], 20, 22)],
+                    mIlElementFormatNames[GET_BITS(instr->extras[0], 23, 25)],
+                    mIlElementFormatNames[GET_BITS(instr->extras[0], 26, 28)],
+                    mIlElementFormatNames[GET_BITS(instr->extras[0], 29, 31)]);
         break;
     case IL_OP_LOAD:
         // Sampler ID is ignored
         logPrintRaw("load_resource(%d)",
-                    getBits(instr->control, 0, 7));
+                    GET_BITS(instr->control, 0, 7));
         break;
     case IL_DCL_GLOBAL_FLAGS:
         logPrintRaw("dcl_global_flags %s%s%s%s0",
-                    getBit(instr->control, 0) ? "refactoringAllowed|" : "",
-                    getBit(instr->control, 1) ? "forceEarlyDepthStencil|" : "",
-                    getBit(instr->control, 2) ? "enableRawStructuredBuffers|" : "",
-                    getBit(instr->control, 3) ? "enableDoublePrecisionFloatOps|" : "");
+                    GET_BIT(instr->control, 0) ? "refactoringAllowed|" : "",
+                    GET_BIT(instr->control, 1) ? "forceEarlyDepthStencil|" : "",
+                    GET_BIT(instr->control, 2) ? "enableRawStructuredBuffers|" : "",
+                    GET_BIT(instr->control, 3) ? "enableDoublePrecisionFloatOps|" : "");
         break;
     default:
         logPrintRaw("%d?", instr->opcode);

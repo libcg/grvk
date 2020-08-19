@@ -9,6 +9,12 @@
 #include "logger.h"
 #include "amdilc.h"
 
+#define GET_BITS(dword, firstBit, lastBit) \
+    (((dword) >> (firstBit)) & (0xFFFFFFFF >> (32 - ((lastBit) - (firstBit) + 1))))
+
+#define GET_BIT(dword, bit) \
+    (GET_BITS(dword, bit, bit))
+
 typedef uint32_t Token;
 
 typedef struct {
@@ -54,23 +60,6 @@ typedef struct {
     uint32_t instrCount;
     Instruction* instrs;
 } Kernel;
-
-inline uint32_t getBits(
-    uint32_t dword,
-    uint32_t firstBit,
-    uint32_t lastBit)
-{
-    assert(firstBit >= 0 && lastBit < 32 && firstBit <= lastBit);
-
-    return (dword >> firstBit) & (0xFFFFFFFF >> (32 - (lastBit - firstBit + 1)));
-}
-
-inline uint32_t getBit(
-    uint32_t dword,
-    uint32_t bit)
-{
-    return getBits(dword, bit, bit);
-}
 
 Kernel* ilcDecodeStream(
     const Token* tokens,
