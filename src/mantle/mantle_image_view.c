@@ -8,13 +8,14 @@ GR_RESULT grCreateColorTargetView(
     GR_COLOR_TARGET_VIEW* pView)
 {
     GrDevice* grDevice = (GrDevice*)device;
+    GrImage* grImage = (GrImage*)pCreateInfo->image;
     VkImageView vkImageView = VK_NULL_HANDLE;
 
     const VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .image = ((GrImage*)pCreateInfo->image)->image,
+        .image = grImage->image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = getVkFormat(pCreateInfo->format),
         .components = {
@@ -28,8 +29,7 @@ GR_RESULT grCreateColorTargetView(
             .baseMipLevel = pCreateInfo->mipLevel,
             .levelCount = 1,
             .baseArrayLayer = pCreateInfo->baseArraySlice,
-            .layerCount = pCreateInfo->arraySize == GR_LAST_MIP_OR_SLICE ?
-                          VK_REMAINING_ARRAY_LAYERS : pCreateInfo->arraySize,
+            .layerCount = pCreateInfo->arraySize,
         }
     };
 
@@ -42,6 +42,7 @@ GR_RESULT grCreateColorTargetView(
     *grColorTargetView = (GrColorTargetView) {
         .sType = GR_STRUCT_TYPE_COLOR_TARGET_VIEW,
         .imageView = vkImageView,
+        .extent = { grImage->extent.width, grImage->extent.height, pCreateInfo->arraySize },
     };
 
     *pView = (GR_COLOR_TARGET_VIEW)grColorTargetView;

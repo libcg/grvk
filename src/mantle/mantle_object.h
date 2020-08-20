@@ -55,6 +55,7 @@ typedef struct _GrColorBlendStateObject {
 typedef struct _GrColorTargetView {
     GrStructType sType;
     VkImageView imageView;
+    VkExtent3D extent;
 } GrColorTargetView;
 
 typedef struct _GrDepthStencilStateObject {
@@ -104,6 +105,7 @@ typedef struct _GrGpuMemory {
 typedef struct _GrImage {
     GrStructType sType;
     VkImage image;
+    VkExtent2D extent;
 } GrImage;
 
 typedef struct _GrMsaaStateObject {

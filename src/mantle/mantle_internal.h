@@ -12,6 +12,9 @@
 
 #define INVALID_QUEUE_INDEX (~0u)
 
+#define MIN(a, b) \
+    ((a) < (b) ? (a) : (b))
+
 VkFormat getVkFormat(
     GR_FORMAT format);
 

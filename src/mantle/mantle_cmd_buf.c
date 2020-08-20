@@ -14,12 +14,37 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
     };
 }
 
+static VkExtent3D getMinimumExtent(
+    unsigned colorTargetCount,
+    const GR_COLOR_TARGET_BIND_INFO* colorTargets,
+    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget)
+{
+    VkExtent3D extent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
+
+    assert(colorTargetCount > 0 || depthTarget != NULL);
+
+    for (int i = 0; i < colorTargetCount; i++) {
+        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
+
+        extent.width = MIN(extent.width, grColorTargetView->extent.width);
+        extent.height = MIN(extent.height, grColorTargetView->extent.height);
+        extent.depth = MIN(extent.depth, grColorTargetView->extent.depth);
+    }
+
+    if (depthTarget != NULL) {
+        LOGW("unhandled depth target extent\n");
+    }
+
+    return extent;
+}
+
 static VkFramebuffer getVkFramebuffer(
     VkDevice device,
     VkRenderPass renderPass,
-    uint32_t colorTargetCount,
-    const GR_COLOR_TARGET_BIND_INFO* pColorTargets,
-    const GR_DEPTH_STENCIL_BIND_INFO* pDepthTarget)
+    unsigned colorTargetCount,
+    const GR_COLOR_TARGET_BIND_INFO* colorTargets,
+    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget,
+    VkExtent3D extent)
 {
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
 
@@ -27,13 +52,13 @@ static VkFramebuffer getVkFramebuffer(
     int attachmentIdx = 0;
 
     for (int i = 0; i < colorTargetCount; i++) {
-        GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
+        GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
 
         attachments[attachmentIdx++] = grColorTargetView->imageView;
     }
 
     // TODO
-    if (pDepthTarget != NULL) {
+    if (depthTarget != NULL) {
         LOGW("depth targets are not supported\n");
     }
 
@@ -44,9 +69,9 @@ static VkFramebuffer getVkFramebuffer(
         .renderPass = renderPass,
         .attachmentCount = attachmentIdx,
         .pAttachments = attachments,
-        .width = 1280, // FIXME hardcoded
-        .height = 720, // FIXME hardcoded
-        .layers = 1, // FIXME hardcoded
+        .width = extent.width,
+        .height = extent.height,
+        .layers = extent.depth,
     };
 
     if (vki.vkCreateFramebuffer(device, &framebufferCreateInfo, NULL,
@@ -61,8 +86,10 @@ static VkFramebuffer getVkFramebuffer(
 static void initCmdBufferResources(
     GrCmdBuffer* grCmdBuffer)
 {
-    GrPipeline* grPipeline = grCmdBuffer->grPipeline;
+    const GrPipeline* grPipeline = grCmdBuffer->grPipeline;
     VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
+    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget =
+        grCmdBuffer->hasDepthTarget ? &grCmdBuffer->depthTarget : NULL;
 
     vki.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
 
@@ -71,10 +98,13 @@ static void initCmdBufferResources(
                                 grPipeline->pipelineLayout, 0, 1,
                                 grCmdBuffer->grDescriptorSet->descriptorSets, 0, NULL);
 
+    VkExtent3D minExtent =
+        getMinimumExtent(grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets, depthTarget);
+
     VkFramebuffer framebuffer =
         getVkFramebuffer(grCmdBuffer->grDescriptorSet->device, grPipeline->renderPass,
                          grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets,
-                         grCmdBuffer->hasDepthTarget ? &grCmdBuffer->depthTarget : NULL);
+                         depthTarget, minExtent);
 
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -82,8 +112,8 @@ static void initCmdBufferResources(
         .renderPass = grPipeline->renderPass,
         .framebuffer = framebuffer,
         .renderArea = (VkRect2D) {
-            .offset = { 0, 0 }, // FIXME hardcoded
-            .extent = { 1280, 720 }, // FIXME hardcoded
+            .offset = { 0, 0 },
+            .extent = { minExtent.width, minExtent.height },
         },
         .clearValueCount = 0,
         .pClearValues = NULL,
