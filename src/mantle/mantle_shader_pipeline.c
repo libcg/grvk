@@ -138,8 +138,8 @@ static VkRenderPass getVkRenderPass(
     VkAttachmentDescription descriptions[GR_MAX_COLOR_TARGETS + 1];
     VkAttachmentReference colorReferences[GR_MAX_COLOR_TARGETS];
     VkAttachmentReference depthStencilReference;
-    uint32_t descriptionIdx = 0;
-    uint32_t colorReferenceIdx = 0;
+    uint32_t descriptionCount = 0;
+    uint32_t colorReferenceCount = 0;
     bool hasDepthStencil = false;
 
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
@@ -150,7 +150,7 @@ static VkRenderPass getVkRenderPass(
             continue;
         }
 
-        descriptions[descriptionIdx] = (VkAttachmentDescription) {
+        descriptions[descriptionCount] = (VkAttachmentDescription) {
             .flags = 0,
             .format = vkFormat,
             .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -163,13 +163,13 @@ static VkRenderPass getVkRenderPass(
             .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         };
 
-        colorReferences[colorReferenceIdx] = (VkAttachmentReference) {
-            .attachment = descriptionIdx,
+        colorReferences[colorReferenceCount] = (VkAttachmentReference) {
+            .attachment = descriptionCount,
             .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         };
 
-        descriptionIdx++;
-        colorReferenceIdx++;
+        descriptionCount++;
+        colorReferenceCount++;
     }
 
     VkFormat dbVkFormat = getVkFormat(dbTarget->format);
@@ -192,7 +192,7 @@ static VkRenderPass getVkRenderPass(
             layout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL;
         }
 
-        descriptions[descriptionIdx] = (VkAttachmentDescription) {
+        descriptions[descriptionCount] = (VkAttachmentDescription) {
             .flags = 0,
             .format = dbVkFormat,
             .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -207,11 +207,11 @@ static VkRenderPass getVkRenderPass(
         };
 
         depthStencilReference = (VkAttachmentReference) {
-            .attachment = descriptionIdx,
+            .attachment = descriptionCount,
             .layout = layout,
         };
 
-        descriptionIdx++;
+        descriptionCount++;
         hasDepthStencil = true;
     }
 
@@ -220,7 +220,7 @@ static VkRenderPass getVkRenderPass(
         .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
         .inputAttachmentCount = 0,
         .pInputAttachments = NULL,
-        .colorAttachmentCount = colorReferenceIdx,
+        .colorAttachmentCount = colorReferenceCount,
         .pColorAttachments = colorReferences,
         .pResolveAttachments = NULL,
         .pDepthStencilAttachment = hasDepthStencil ? &depthStencilReference : NULL,
@@ -232,7 +232,7 @@ static VkRenderPass getVkRenderPass(
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .attachmentCount = descriptionIdx,
+        .attachmentCount = descriptionCount,
         .pAttachments = descriptions,
         .subpassCount = 1,
         .pSubpasses = &subpass,
@@ -318,18 +318,9 @@ GR_RESULT grCreateGraphicsPipeline(
         { &pCreateInfo->ps, VK_SHADER_STAGE_FRAGMENT_BIT },
     };
 
-    // Figure out how many stages are used before we allocate the info array
     uint32_t stageCount = 0;
-    for (int i = 0; i < MAX_STAGE_COUNT; i++) {
-        if (stages[i].shader->shader != GR_NULL_HANDLE) {
-            stageCount++;
-        }
-    }
-
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo[MAX_STAGE_COUNT];
 
-    // Fill in the info array
-    uint32_t stageIndex = 0;
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
         Stage* stage = &stages[i];
 
@@ -349,7 +340,7 @@ GR_RESULT grCreateGraphicsPipeline(
 
         GrShader* grShader = (GrShader*)stage->shader->shader;
 
-        shaderStageCreateInfo[stageIndex++] = (VkPipelineShaderStageCreateInfo) {
+        shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
@@ -358,9 +349,9 @@ GR_RESULT grCreateGraphicsPipeline(
             .pName = "main",
             .pSpecializationInfo = NULL,
         };
-    }
 
-    assert(stageIndex == stageCount);
+        stageCount++;
+    }
 
     const VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -453,8 +444,8 @@ GR_RESULT grCreateGraphicsPipeline(
         LOGW("dual source blend is not implemented\n");
     }
 
+    uint32_t attachmentCount = 0;
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
-    uint32_t attachmentIdx = 0;
 
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_PIPELINE_CB_TARGET_STATE* target = &pCreateInfo->cbState.target[i];
@@ -468,7 +459,7 @@ GR_RESULT grCreateGraphicsPipeline(
 
         if (target->blendEnable) {
             // TODO implement blend settings
-            attachments[attachmentIdx] = (VkPipelineColorBlendAttachmentState) {
+            attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
                 .blendEnable = VK_TRUE,
                 .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
                 .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
@@ -479,7 +470,7 @@ GR_RESULT grCreateGraphicsPipeline(
                 .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
             };
         } else {
-            attachments[attachmentIdx] = (VkPipelineColorBlendAttachmentState) {
+            attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
                 .blendEnable = VK_FALSE,
                 .srcColorBlendFactor = 0, // Ignored
                 .dstColorBlendFactor = 0, // Ignored
@@ -491,7 +482,7 @@ GR_RESULT grCreateGraphicsPipeline(
             };
         }
 
-        attachmentIdx++;
+        attachmentCount++;
     }
 
     const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
@@ -500,7 +491,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .flags = 0,
         .logicOpEnable = VK_TRUE,
         .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
-        .attachmentCount = attachmentIdx,
+        .attachmentCount = attachmentCount,
         .pAttachments = attachments,
         .blendConstants = { 0.f }, // Dynamic state
     };
