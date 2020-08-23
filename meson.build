@@ -1,4 +1,4 @@
-project('grvk', ['c', 'cpp'], version : 'v0.1', meson_version : '>= 0.46')
+project('grvk', ['c', 'cpp'], version : '0.1.0', meson_version : '>= 0.46')
 
 cpu_family = target_machine.cpu_family()
 

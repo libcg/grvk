@@ -1,6 +1,23 @@
+#include <stdio.h>
 #include "mantle_internal.h"
 
 #define NVIDIA_VENDOR_ID 0x10de
+
+static char* getGrvkEngineName(
+    const GR_CHAR* engineName)
+{
+    size_t engineNameLen = (engineName != NULL ? strlen(engineName) : 0);
+    size_t grvkEngineNameLen = engineNameLen + 64;
+    char* grvkEngineName = malloc(sizeof(char) * grvkEngineNameLen);
+
+    if (engineName == NULL) {
+        snprintf(grvkEngineName, grvkEngineNameLen, "[GRVK %s]", GRVK_VERSION);
+    } else {
+        snprintf(grvkEngineName, grvkEngineNameLen, "[GRVK %s] %s", GRVK_VERSION, engineName);
+    }
+
+    return grvkEngineName;
+}
 
 // Initialization and Device Functions
 
@@ -14,7 +31,7 @@ GR_RESULT grInitAndEnumerateGpus(
     VkResult vkRes;
 
     logInit();
-    logPrintRaw("=== GRVK ===\n");
+    logPrintRaw("=== GRVK %s ===\n", GRVK_VERSION);
 
     vulkanLoaderLibraryInit();
 
@@ -27,12 +44,14 @@ GR_RESULT grInitAndEnumerateGpus(
         LOGW("unhandled alloc callbacks\n");
     }
 
+    char* grvkEngineName = getGrvkEngineName(pAppInfo->pEngineName);
+
     const VkApplicationInfo appInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = NULL,
         .pApplicationName = pAppInfo->pAppName,
         .applicationVersion = pAppInfo->appVersion,
-        .pEngineName = pAppInfo->pEngineName,
+        .pEngineName = grvkEngineName,
         .engineVersion = pAppInfo->engineVersion,
         .apiVersion = VK_API_VERSION_1_2,
     };
@@ -64,6 +83,7 @@ GR_RESULT grInitAndEnumerateGpus(
         return GR_ERROR_INITIALIZATION_FAILED;
     }
 
+    free(grvkEngineName);
     vulkanLoaderInstanceInit(vkInstance);
 
     uint32_t physicalDeviceCount = 0;
