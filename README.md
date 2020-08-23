@@ -12,7 +12,9 @@ This project is an attempt to revive Mantle and make it run everywhere.
 
 - [mingw-w64](http://mingw-w64.org/) compiler
 - [Meson](http://mesonbuild.com/) build system
-- Vulkan 1.2 compatible GPU and drivers
+- Vulkan 1.2 compatible GPU and drivers that support `VK_EXT_extended_dynamic_state`
+
+NOTE: `binutils` 2.34 has [known issues](https://github.com/doitsujin/dxvk/issues/1625) and should be avoided.
 
 ### Compiling
 
@@ -27,6 +29,17 @@ meson --cross-file build-win64.txt --prefix $(pwd) build.w64
 cd build.w64
 ninja
 ```
+
+`mantle32.dll`/`mantle64.dll` will be generated.
+
+## Usage
+
+After dropping the DLLs in the game directory, GRVK will get loaded by the game at launch. By default, GRVK will create a log file named `grvk.log` in the same directory.
+
+### Environment variables
+
+- `GRVK_LOG_LEVEL` controls the log level. Acceptable values are `verbose`, `debug`, `info`, `warning`, `error` or `none`.
+- `GRVK_LOG_PATH` controls the log file path. An empty string will disable logging to the file entirely.
 
 ## Credits
 
