@@ -383,9 +383,9 @@ GR_RESULT grCreateGraphicsPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .viewportCount = 1, // Dynamic state
+        .viewportCount = 0, // Dynamic state
         .pViewports = NULL, // Dynamic state
-        .scissorCount = 1, // Dynamic state
+        .scissorCount = 0, // Dynamic state
         .pScissors = NULL, // Dynamic state
     };
 
@@ -497,8 +497,6 @@ GR_RESULT grCreateGraphicsPipeline(
     };
 
     const VkDynamicState dynamicStates[] = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR,
         VK_DYNAMIC_STATE_DEPTH_BIAS,
         VK_DYNAMIC_STATE_BLEND_CONSTANTS,
         VK_DYNAMIC_STATE_DEPTH_BOUNDS,

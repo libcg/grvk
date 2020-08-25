@@ -27,25 +27,13 @@ GR_RESULT grCreateViewportState(
 
         if (pCreateInfo->scissorEnable) {
             vkScissors[i] = (VkRect2D) {
-                .offset = {
-                    .x = scissor->offset.x,
-                    .y = scissor->offset.y,
-                },
-                .extent = {
-                    .width = scissor->extent.width,
-                    .height = scissor->extent.height,
-                },
+                .offset = { scissor->offset.x, scissor->offset.y },
+                .extent = { scissor->extent.width, scissor->extent.height },
             };
         } else {
             vkScissors[i] = (VkRect2D) {
-                .offset = {
-                    .x = INT32_MIN,
-                    .y = INT32_MIN,
-                },
-                .extent = {
-                    .width = UINT32_MAX,
-                    .height = UINT32_MAX,
-                },
+                .offset = { 0, 0 },
+                .extent = { INT32_MAX, INT32_MAX },
             };
         }
     }
