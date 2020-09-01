@@ -274,8 +274,16 @@ static void dumpInstruction(
     case IL_OP_END:
         logPrintRaw("end");
         break;
+    case IL_OP_MAD:
+        logPrintRaw("mad%s",
+                    GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
     case IL_OP_MOV:
         logPrintRaw("mov");
+        break;
+    case IL_OP_MUL:
+        logPrintRaw("mul%s",
+                    GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_RET_DYN:
         logPrintRaw("ret_dyn");

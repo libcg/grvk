@@ -11,7 +11,9 @@ typedef struct {
 OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_ADD] = { IL_OP_ADD, 1, 2, 0, false },
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
+    [IL_OP_MAD] = { IL_OP_MAD, 1, 3, 0, false },
     [IL_OP_MOV] = { IL_OP_MOV, 1, 1, 0, false },
+    [IL_OP_MUL] = { IL_OP_MUL, 1, 2, 0, false },
     [IL_OP_RET_DYN] = { IL_OP_RET_DYN, 0, 0, 0, false },
     [IL_DCL_LITERAL] = { IL_DCL_LITERAL, 0, 1, 4, false },
     [IL_DCL_OUTPUT] = { IL_DCL_OUTPUT, 1, 0, 0, false },
