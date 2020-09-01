@@ -236,25 +236,31 @@ static void dumpSource(
                 mIlDivCompNames[src->divComp],
                 src->abs ? "_abs" : "");
 
-    if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
-        logPrintRaw("_neg(%s%s%s%s)",
-                    src->negate[0] ? "x" : "",
-                    src->negate[1] ? "y" : "",
-                    src->negate[2] ? "z" : "",
-                    src->negate[3] ? "w" : "");
-    }
-
     logPrintRaw("%s", src->clamp ? "_sat" : "");
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
         src->swizzle[1] != IL_COMPSEL_Y_G ||
         src->swizzle[2] != IL_COMPSEL_Z_B ||
         src->swizzle[3] != IL_COMPSEL_W_A) {
-        logPrintRaw(".%s%s%s%s",
-                    mIlComponentSelectNames[src->swizzle[0]],
-                    mIlComponentSelectNames[src->swizzle[1]],
-                    mIlComponentSelectNames[src->swizzle[2]],
-                    mIlComponentSelectNames[src->swizzle[3]]);
+        if (src->swizzle[0] == src->swizzle[1] &&
+            src->swizzle[1] == src->swizzle[2] &&
+            src->swizzle[2] == src->swizzle[3]) {
+            logPrintRaw(".%s", mIlComponentSelectNames[src->swizzle[0]]);
+        } else {
+            logPrintRaw(".%s%s%s%s",
+                        mIlComponentSelectNames[src->swizzle[0]],
+                        mIlComponentSelectNames[src->swizzle[1]],
+                        mIlComponentSelectNames[src->swizzle[2]],
+                        mIlComponentSelectNames[src->swizzle[3]]);
+        }
+    }
+
+    if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
+        logPrintRaw("_neg(%s%s%s%s)",
+                    src->negate[0] ? "x" : "",
+                    src->negate[1] ? "y" : "",
+                    src->negate[2] ? "z" : "",
+                    src->negate[3] ? "w" : "");
     }
 }
 
