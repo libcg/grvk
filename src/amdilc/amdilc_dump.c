@@ -333,6 +333,10 @@ static void dumpInstruction(
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
+        if (i > 0 || (i == 0 && instr->dstCount > 0)) {
+            logPrintRaw(",");
+        }
+
         dumpSource(&instr->srcs[i]);
     }
 
