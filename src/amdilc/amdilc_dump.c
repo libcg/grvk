@@ -60,7 +60,7 @@ const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "?",
     "?",
     "?",
-    "?",
+    "l",
     "v",
     "o",
     "?",
@@ -271,6 +271,9 @@ static void dumpInstruction(
     case IL_OP_RET_DYN:
         logPrintRaw("ret_dyn");
         break;
+    case IL_DCL_LITERAL:
+        logPrintRaw("dcl_literal");
+        break;
     case IL_DCL_OUTPUT:
         logPrintRaw("dcl_output_%s",
                     mIlImportUsageNames[instr->control]);
@@ -314,6 +317,12 @@ static void dumpInstruction(
 
     for (int i = 0; i < instr->srcCount; i++) {
         dumpSource(&instr->srcs[i]);
+    }
+
+    if (instr->opcode == IL_DCL_LITERAL) {
+        for (int i = 0; i < instr->extraCount; i++) {
+            logPrintRaw(", 0x%08X", instr->extras[i]);
+        }
     }
 
     logPrintRaw("\n");

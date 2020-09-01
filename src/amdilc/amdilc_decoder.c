@@ -12,9 +12,10 @@ OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
     [IL_OP_MOV] = { IL_OP_MOV, 1, 1, 0, false },
     [IL_OP_RET_DYN] = { IL_OP_RET_DYN, 0, 0, 0, false },
+    [IL_DCL_LITERAL] = { IL_DCL_LITERAL, 0, 1, 4, false },
     [IL_DCL_OUTPUT] = { IL_DCL_OUTPUT, 1, 0, 0, false },
     [IL_DCL_INPUT] = { IL_DCL_INPUT, 1, 0, 0, false },
-    [IL_OP_LOAD] = {IL_OP_LOAD, 1, 1, 0, true },
+    [IL_OP_LOAD] = { IL_OP_LOAD, 1, 1, 0, true },
     [IL_DCL_RESOURCE] = { IL_DCL_RESOURCE, 0, 0, 1, false },
     [IL_DCL_GLOBAL_FLAGS] = { IL_DCL_GLOBAL_FLAGS, 0, 0, 0, false },
 };
