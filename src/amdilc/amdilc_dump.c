@@ -1,6 +1,6 @@
 #include "amdilc_internal.h"
 
-const char* mIlShaderTypeNames[IL_SHADER_LAST] = {
+static const char* mIlShaderTypeNames[IL_SHADER_LAST] = {
     "vs",
     "ps",
     "gs",
@@ -9,7 +9,7 @@ const char* mIlShaderTypeNames[IL_SHADER_LAST] = {
     "ds",
 };
 
-const char* mIlLanguageTypeNames[IL_LANG_LAST] = {
+static const char* mIlLanguageTypeNames[IL_LANG_LAST] = {
     "generic",
     "opengl",
     "dx8_ps",
@@ -27,7 +27,7 @@ const char* mIlLanguageTypeNames[IL_LANG_LAST] = {
     "dx11_ds",
 };
 
-const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
+static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "?",
     "?",
     "?",
@@ -93,7 +93,7 @@ const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "?",
 };
 
-const char* mIlDivCompNames[IL_DIVCOMP_LAST] = {
+static const char* mIlDivCompNames[IL_DIVCOMP_LAST] = {
     "",
     "_divComp(y)",
     "_divComp(z)",
@@ -101,14 +101,14 @@ const char* mIlDivCompNames[IL_DIVCOMP_LAST] = {
     "_divComp(unknown)",
 };
 
-const char* mIlModDstComponentNames[IL_MODCOMP_LAST] = {
+static const char* mIlModDstComponentNames[IL_MODCOMP_LAST] = {
     "_",
     "?", // Replaced with x, y, z or w
     "0",
     "1",
 };
 
-const char* mIlComponentSelectNames[IL_COMPSEL_LAST] = {
+static const char* mIlComponentSelectNames[IL_COMPSEL_LAST] = {
     "x",
     "y",
     "z",
@@ -117,7 +117,7 @@ const char* mIlComponentSelectNames[IL_COMPSEL_LAST] = {
     "1",
 };
 
-const char* mIlShiftScaleNames[IL_SHIFT_LAST] = {
+static const char* mIlShiftScaleNames[IL_SHIFT_LAST] = {
     "",
     "_x2"
     "_x4"
@@ -127,7 +127,7 @@ const char* mIlShiftScaleNames[IL_SHIFT_LAST] = {
     "_d8"
 };
 
-const char* mIlImportUsageNames[IL_IMPORTUSAGE_LAST] = {
+static const char* mIlImportUsageNames[IL_IMPORTUSAGE_LAST] = {
     "position",
     "pointsize",
     "color",
@@ -155,7 +155,7 @@ const char* mIlImportUsageNames[IL_IMPORTUSAGE_LAST] = {
     "densityTessfactor",
 };
 
-const char* mIlPixTexUsageNames[IL_USAGE_PIXTEX_LAST] = {
+static const char* mIlPixTexUsageNames[IL_USAGE_PIXTEX_LAST] = {
     "unknown",
     "1d",
     "2d",
@@ -172,7 +172,7 @@ const char* mIlPixTexUsageNames[IL_USAGE_PIXTEX_LAST] = {
     "cubemapArray",
 };
 
-const char* mIlElementFormatNames[IL_ELEMENTFORMAT_LAST] = {
+static const char* mIlElementFormatNames[IL_ELEMENTFORMAT_LAST] = {
     "unknown",
     "snorm",
     "unorm",
@@ -183,7 +183,7 @@ const char* mIlElementFormatNames[IL_ELEMENTFORMAT_LAST] = {
     "mixed",
 };
 
-const char* mIlInterpModeNames[IL_INTERPMODE_LAST] = {
+static const char* mIlInterpModeNames[IL_INTERPMODE_LAST] = {
     "",
     "_interp(constant)",
     "_interp(linear)",
@@ -199,6 +199,28 @@ static const char* getComponentName(
     uint8_t mask)
 {
     return mask == 1 ? name : mIlModDstComponentNames[mask];
+}
+
+static void dumpGlobalFlags(
+    const uint16_t flags)
+{
+    const char* flagNames[] = {
+        "refactoringAllowed",
+        "forceEarlyDepthStencil",
+        "enableRawStructuredBuffers",
+        "enableDoublePrecisionFloatOps",
+    };
+
+    bool first = true;
+    for (int i = 0; i < sizeof(flagNames) / sizeof(flagNames[0]); i++) {
+        if (GET_BIT(flags, i)) {
+            logPrintRaw("%s%s",
+                        first ? " " : "|",
+                        flagNames[i]);
+
+            first = false;
+        }
+    }
 }
 
 static void dumpDestination(
@@ -316,11 +338,7 @@ static void dumpInstruction(
                     GET_BITS(instr->control, 0, 7));
         break;
     case IL_DCL_GLOBAL_FLAGS:
-        logPrintRaw("dcl_global_flags %s%s%s%s0",
-                    GET_BIT(instr->control, 0) ? "refactoringAllowed|" : "",
-                    GET_BIT(instr->control, 1) ? "forceEarlyDepthStencil|" : "",
-                    GET_BIT(instr->control, 2) ? "enableRawStructuredBuffers|" : "",
-                    GET_BIT(instr->control, 3) ? "enableDoublePrecisionFloatOps|" : "");
+        logPrintRaw("dcl_global_flags");
         break;
     default:
         logPrintRaw("%d?", instr->opcode);
@@ -344,6 +362,8 @@ static void dumpInstruction(
         for (int i = 0; i < instr->extraCount; i++) {
             logPrintRaw(", 0x%08X", instr->extras[i]);
         }
+    } else if (instr->opcode == IL_DCL_GLOBAL_FLAGS) {
+        dumpGlobalFlags(instr->control);
     }
 
     logPrintRaw("\n");
