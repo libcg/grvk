@@ -9,6 +9,7 @@ typedef struct {
 } OpcodeInfo;
 
 OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
+    [IL_OP_ADD] = { IL_OP_ADD, 1, 2, 0, false },
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
     [IL_OP_MOV] = { IL_OP_MOV, 1, 1, 0, false },
     [IL_OP_RET_DYN] = { IL_OP_RET_DYN, 0, 0, 0, false },

@@ -262,6 +262,9 @@ static void dumpInstruction(
     const Instruction* instr)
 {
     switch (instr->opcode) {
+    case IL_OP_ADD:
+        logPrintRaw("add");
+        break;
     case IL_OP_END:
         logPrintRaw("end");
         break;
