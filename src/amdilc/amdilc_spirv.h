@@ -54,7 +54,7 @@ void ilcSpvPutEntryPoint(
     IlcSpvId id,
     const char* name,
     unsigned interfaceCount,
-    IlcSpvWord* interfaces);
+    const IlcSpvWord* interfaces);
 
 void ilcSpvPutExecMode(
     IlcSpvModule* module,
@@ -99,7 +99,7 @@ IlcSpvId ilcSpvPutFunctionType(
     IlcSpvModule* module,
     IlcSpvId returnTypeId,
     unsigned argTypeIdCount,
-    IlcSpvId* argTypeIds);
+    const IlcSpvId* argTypeIds);
 
 IlcSpvId ilcSpvPutConstant(
     IlcSpvModule* module,
@@ -142,7 +142,7 @@ void ilcSpvPutDecoration(
     IlcSpvId target,
     IlcSpvWord decoration,
     unsigned argCount,
-    IlcSpvWord* args);
+    const IlcSpvWord* args);
 
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,

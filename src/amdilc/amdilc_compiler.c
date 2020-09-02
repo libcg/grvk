@@ -21,9 +21,9 @@ typedef struct {
     const Kernel* kernel;
     IlcSpvId entryPointId;
     unsigned regCount;
-    IlcRegister *regs;
+    IlcRegister* regs;
     unsigned resourceCount;
-    IlcResource *resources;
+    IlcResource* resources;
 } IlcCompiler;
 
 static const IlcRegister* addRegister(
@@ -137,7 +137,7 @@ static void storeDestination(
 
 static void emitGlobalFlags(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
     bool refactoringAllowed = GET_BIT(instr->control, 0);
     bool forceEarlyDepthStencil = GET_BIT(instr->control, 1);
@@ -160,9 +160,9 @@ static void emitGlobalFlags(
 
 static void emitLiteral(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
-    Source* src = &instr->srcs[0];
+    const Source* src = &instr->srcs[0];
 
     assert(src->registerType == IL_REGTYPE_LITERAL);
 
@@ -193,7 +193,7 @@ static void emitLiteral(
 
 static void emitOutput(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
     uint8_t importUsage = GET_BITS(instr->control, 0, 4);
 
@@ -201,7 +201,7 @@ static void emitOutput(
            instr->srcCount == 0 &&
            instr->extraCount == 0);
 
-    Destination* dst = &instr->dsts[0];
+    const Destination* dst = &instr->dsts[0];
 
     assert(dst->registerType == IL_REGTYPE_OUTPUT &&
            !dst->clamp &&
@@ -240,7 +240,7 @@ static void emitOutput(
 
 static void emitInput(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
     uint8_t importUsage = GET_BITS(instr->control, 0, 4);
     uint8_t interpMode = GET_BITS(instr->control, 5, 7);
@@ -251,7 +251,7 @@ static void emitInput(
            instr->srcCount == 0 &&
            instr->extraCount == 0);
 
-    Destination* dst = &instr->dsts[0];
+    const Destination* dst = &instr->dsts[0];
 
     assert(dst->registerType == IL_REGTYPE_INPUT &&
            !dst->clamp &&
@@ -313,7 +313,7 @@ static void emitInput(
 
 static void emitResource(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
     assert(instr->dstCount == 0 &&
            instr->srcCount == 0 &&
@@ -375,7 +375,7 @@ static void emitFunc(
 
 static void emitAlu(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
     IlcSpvId srcIds[8] = { 0 };
     IlcSpvId resId = 0;
@@ -418,7 +418,7 @@ static void emitAlu(
 
 static void emitLoad(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     const IlcResource* resource = findResource(compiler, ilResourceId);
@@ -434,7 +434,7 @@ static void emitLoad(
 
 static void emitInstr(
     IlcCompiler* compiler,
-    Instruction* instr)
+    const Instruction* instr)
 {
     switch (instr->opcode) {
     case IL_OP_ADD:
@@ -502,12 +502,12 @@ static void emitEntryPoint(
     unsigned interfaceCount = compiler->regCount + compiler->resourceCount;
     IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
     for (int i = 0; i < compiler->regCount; i++) {
-        IlcRegister* reg = &compiler->regs[i];
+        const IlcRegister* reg = &compiler->regs[i];
 
         interfaces[i] = reg->id;
     }
     for (int i = 0; i < compiler->resourceCount; i++) {
-        IlcResource* resource = &compiler->resources[i];
+        const IlcResource* resource = &compiler->resources[i];
 
         interfaces[compiler->regCount + i] = resource->id;
     }
