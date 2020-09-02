@@ -150,10 +150,24 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvId imageId,
     IlcSpvId coordinateId);
 
+IlcSpvId ilcSpvPutAlu(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    unsigned idCount,
+    const IlcSpvId* ids);
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module);
 
 void ilcSpvPutReturn(
     IlcSpvModule* module);
+
+IlcSpvId ilcSpvPutFma(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId aId,
+    IlcSpvId bId,
+    IlcSpvId cId);
 
 #endif // AMDILC_SPIRV_H_

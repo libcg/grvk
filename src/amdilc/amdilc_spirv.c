@@ -1,3 +1,4 @@
+#include "spirv/GLSL.std.450.h"
 #include "spirv/spirv.h"
 #include "amdilc_internal.h"
 #include "amdilc_spirv.h"
@@ -485,6 +486,25 @@ IlcSpvId ilcSpvPutImageFetch(
     return id;
 }
 
+IlcSpvId ilcSpvPutAlu(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    unsigned idCount,
+    const IlcSpvId* ids)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, op, 3 + idCount);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    for (int i = 0; i < idCount; i++) {
+        putWord(buffer, ids[i]);
+    }
+    return id;
+}
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module)
 {
@@ -502,4 +522,25 @@ void ilcSpvPutReturn(
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     putInstr(buffer, SpvOpReturn, 1);
+}
+
+IlcSpvId ilcSpvPutFma(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId aId,
+    IlcSpvId bId,
+    IlcSpvId cId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpExtInst, 8);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, module->glsl450ImportId);
+    putWord(buffer, GLSLstd450Fma);
+    putWord(buffer, aId);
+    putWord(buffer, bId);
+    putWord(buffer, cId);
+    return id;
 }

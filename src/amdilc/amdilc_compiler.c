@@ -373,12 +373,47 @@ static void emitFunc(
     ilcSpvPutLabel(compiler->module);
 }
 
-static void emitMov(
+static void emitAlu(
     IlcCompiler* compiler,
     Instruction* instr)
 {
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0]);
-    storeDestination(compiler, &instr->dsts[0], srcId);
+    IlcSpvId srcIds[8] = { 0 };
+    IlcSpvId resId = 0;
+
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId float4Id = ilcSpvPutVectorType(compiler->module, floatId, 4);
+
+    for (int i = 0; i < instr->srcCount; i++) {
+        srcIds[i] = loadSource(compiler, &instr->srcs[i]);
+    }
+
+    switch (instr->opcode) {
+    case IL_OP_ADD:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, float4Id, instr->srcCount, srcIds);
+        break;
+    case IL_OP_MAD: {
+        bool ieee = GET_BIT(instr->control, 0);
+        if (!ieee) {
+            LOGW("unhandled non-IEEE mad");
+        }
+        resId = ilcSpvPutFma(compiler->module, float4Id, srcIds[0], srcIds[1], srcIds[2]);
+    }   break;
+    case IL_OP_MOV:
+        resId = srcIds[0];
+        break;
+    case IL_OP_MUL: {
+        bool ieee = GET_BIT(instr->control, 0);
+        if (!ieee) {
+            LOGW("unhandled non-IEEE mul");
+        }
+        resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, float4Id, instr->srcCount, srcIds);
+    }   break;
+    default:
+        assert(false);
+        break;
+    }
+
+    storeDestination(compiler, &instr->dsts[0], resId);
 }
 
 static void emitLoad(
@@ -402,11 +437,14 @@ static void emitInstr(
     Instruction* instr)
 {
     switch (instr->opcode) {
+    case IL_OP_ADD:
+    case IL_OP_MAD:
+    case IL_OP_MOV:
+    case IL_OP_MUL:
+        emitAlu(compiler, instr);
+        break;
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
-        break;
-    case IL_OP_MOV:
-        emitMov(compiler, instr);
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
