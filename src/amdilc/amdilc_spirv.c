@@ -117,6 +117,56 @@ static IlcSpvId putType(
     return id;
 }
 
+static IlcSpvId putConstant(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    unsigned argCount,
+    const IlcSpvWord* args)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CONSTANTS];
+
+    // Check if the constant is already present
+    for (int i = 0; i < buffer->wordCount;) {
+        SpvOp constantOp = buffer->words[i] & SpvOpCodeMask;
+        unsigned constantWordCount = buffer->words[i] >> SpvWordCountShift;
+        unsigned constantArgCount = constantWordCount - 3;
+        IlcSpvId constantResultTypeId = buffer->words[i + 1];
+
+        // Got a potential match
+        if (op == constantOp &&
+            resultTypeId == constantResultTypeId &&
+            argCount == constantArgCount) {
+            bool match = true;
+            IlcSpvId constantId = buffer->words[i + 2];
+
+            // Check that the args also match
+            for (int j = 0; j < constantArgCount; j++) {
+                if (args[j] != buffer->words[i + 3 + j]) {
+                    match = false;
+                    break;
+                }
+            }
+
+            if (match) {
+                return constantId;
+            }
+        }
+
+        i += constantWordCount;
+    }
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, op, 3 + argCount);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    for (int i = 0; i < argCount; i++) {
+        putWord(buffer, args[i]);
+    }
+
+    return id;
+}
+
 static void putExtInstImport(
     IlcSpvModule* module,
     IlcSpvId id,
@@ -315,6 +365,24 @@ IlcSpvId ilcSpvPutFunctionType(
     free(args);
 
     return id;
+}
+
+IlcSpvId ilcSpvPutConstant(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord literal)
+{
+    return putConstant(module, SpvOpConstant, resultTypeId, 1, &literal);
+}
+
+IlcSpvId ilcSpvPutConstantComposite(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    unsigned consistuentCount,
+    const IlcSpvId* consistuents)
+{
+    return putConstant(module, SpvOpConstantComposite, resultTypeId,
+                       consistuentCount, consistuents);
 }
 
 void ilcSpvPutFunction(

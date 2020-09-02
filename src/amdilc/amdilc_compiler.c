@@ -89,6 +89,18 @@ static const IlcResource* findResource(
     return NULL;
 }
 
+static IlcSpvId emitFloat4Variable(
+    IlcCompiler* compiler,
+    IlcSpvId* typeId,
+    IlcSpvWord storageClass)
+{
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    *typeId = ilcSpvPutVectorType(compiler->module, floatId, 4);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, storageClass, *typeId);
+
+    return ilcSpvPutVariable(compiler->module, pointerId, storageClass);
+}
+
 static IlcSpvId loadSource(
     IlcCompiler* compiler,
     const Source* src)
@@ -107,15 +119,12 @@ static void storeDestination(
 
     if (dstReg == NULL && dst->registerType == IL_REGTYPE_TEMP) {
         // Create temporary register
-        IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
-        IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
-        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
-                                                  vectorId);
-        IlcSpvId tempId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassPrivate);
+        IlcSpvId tempTypeId;
+        IlcSpvId tempId = emitFloat4Variable(compiler, &tempTypeId, SpvStorageClassPrivate);
 
         const IlcRegister reg = {
             .id = tempId,
-            .typeId = vectorId,
+            .typeId = tempTypeId,
             .ilType = IL_REGTYPE_TEMP,
             .ilNum = dst->registerNum,
         };
@@ -149,6 +158,39 @@ static void emitGlobalFlags(
     }
 }
 
+static void emitLiteral(
+    IlcCompiler* compiler,
+    Instruction* instr)
+{
+    Source* src = &instr->srcs[0];
+
+    assert(src->registerType == IL_REGTYPE_LITERAL);
+
+    IlcSpvId literalTypeId;
+    IlcSpvId literalId = emitFloat4Variable(compiler, &literalTypeId, SpvStorageClassPrivate);
+
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId consistuentIds[] = {
+        ilcSpvPutConstant(compiler->module, floatId, instr->extras[0]),
+        ilcSpvPutConstant(compiler->module, floatId, instr->extras[1]),
+        ilcSpvPutConstant(compiler->module, floatId, instr->extras[2]),
+        ilcSpvPutConstant(compiler->module, floatId, instr->extras[3]),
+    };
+    IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, literalTypeId,
+                                                      4, consistuentIds);
+
+    ilcSpvPutStore(compiler->module, literalId, compositeId);
+
+    const IlcRegister reg = {
+        .id = literalId,
+        .typeId = literalTypeId,
+        .ilType = src->registerType,
+        .ilNum = src->registerNum,
+    };
+
+    addRegister(compiler, &reg, 'l');
+}
+
 static void emitOutput(
     IlcCompiler* compiler,
     Instruction* instr)
@@ -173,10 +215,8 @@ static void emitOutput(
              dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
     }
 
-    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
-    IlcSpvId vectorId = ilcSpvPutVectorType(compiler->module, floatId, 4);
-    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, vectorId);
-    IlcSpvId outputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassOutput);
+    IlcSpvId outputTypeId;
+    IlcSpvId outputId = emitFloat4Variable(compiler, &outputTypeId, SpvStorageClassOutput);
 
     if (importUsage == IL_IMPORTUSAGE_POS) {
         IlcSpvWord builtInType = SpvBuiltInPosition;
@@ -190,7 +230,7 @@ static void emitOutput(
 
     const IlcRegister reg = {
         .id = outputId,
-        .typeId = vectorId,
+        .typeId = outputTypeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
     };
@@ -205,7 +245,7 @@ static void emitInput(
     uint8_t importUsage = GET_BITS(instr->control, 0, 4);
     uint8_t interpMode = GET_BITS(instr->control, 5, 7);
     IlcSpvId inputId = 0;
-    IlcSpvId typeId = 0;
+    IlcSpvId inputTypeId = 0;
 
     assert(instr->dstCount == 1 &&
            instr->srcCount == 0 &&
@@ -226,11 +266,7 @@ static void emitInput(
                  dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
         }
 
-        IlcSpvId f32Id = ilcSpvPutFloatType(compiler->module);
-        IlcSpvId v4f32Id = ilcSpvPutVectorType(compiler->module, f32Id, 4);
-        IlcSpvId pv4f32Id = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, v4f32Id);
-        inputId = ilcSpvPutVariable(compiler->module, pv4f32Id, SpvStorageClassInput);
-        typeId = v4f32Id;
+        inputId = emitFloat4Variable(compiler, &inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
@@ -238,7 +274,7 @@ static void emitInput(
         IlcSpvId u32Id = ilcSpvPutIntType(compiler->module, false);
         IlcSpvId pu32Id = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, u32Id);
         inputId = ilcSpvPutVariable(compiler->module, pu32Id, SpvStorageClassInput);
-        typeId = u32Id;
+        inputTypeId = u32Id;
 
         IlcSpvWord builtInType = SpvBuiltInVertexIndex;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
@@ -267,7 +303,7 @@ static void emitInput(
 
     const IlcRegister reg = {
         .id = inputId,
-        .typeId = typeId,
+        .typeId = inputTypeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
     };
@@ -374,6 +410,9 @@ static void emitInstr(
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
+        break;
+    case IL_DCL_LITERAL:
+        emitLiteral(compiler, instr);
         break;
     case IL_DCL_OUTPUT:
         emitOutput(compiler, instr);

@@ -14,6 +14,7 @@ typedef enum {
     ID_NAMES,
     ID_DECORATIONS,
     ID_TYPES,
+    ID_CONSTANTS,
     ID_VARIABLES,
     ID_CODE,
     ID_MAX,
@@ -99,6 +100,17 @@ IlcSpvId ilcSpvPutFunctionType(
     IlcSpvId returnTypeId,
     unsigned argTypeIdCount,
     IlcSpvId* argTypeIds);
+
+IlcSpvId ilcSpvPutConstant(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord literal);
+
+IlcSpvId ilcSpvPutConstantComposite(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    unsigned consistuentCount,
+    const IlcSpvId* consistuents);
 
 void ilcSpvPutFunction(
     IlcSpvModule* module,
