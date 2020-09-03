@@ -544,6 +544,13 @@ static void emitAlu(
     case IL_OP_ADD:
         resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, float4Id, instr->srcCount, srcIds);
         break;
+    case IL_OP_DIV:
+        if (instr->control != IL_ZEROOP_INFINITY) {
+            LOGW("unhandled div zero op %d\n", instr->control);
+        }
+        // FIXME SPIR-V has undefined division by zero
+        resId = ilcSpvPutAlu(compiler->module, SpvOpFDiv, float4Id, instr->srcCount, srcIds);
+        break;
     case IL_OP_DP2:
     case IL_OP_DP3: {
         bool ieee = GET_BIT(instr->control, 0);
@@ -556,12 +563,24 @@ static void emitAlu(
         const IlcSpvWord constituents[] = { dotId, dotId, dotId, dotId };
         resId = ilcSpvPutCompositeConstruct(compiler->module, float4Id, 4, constituents);
     }   break;
+    case IL_OP_FRC:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fract, float4Id,
+                                instr->srcCount, srcIds);
+        break;
     case IL_OP_MAD: {
         bool ieee = GET_BIT(instr->control, 0);
         if (!ieee) {
             LOGW("unhandled non-IEEE mad\n");
         }
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fma, float4Id, instr->srcCount, srcIds);
+    }   break;
+    case IL_OP_MAX: {
+        bool ieee = GET_BIT(instr->control, 0);
+        if (!ieee) {
+            LOGW("unhandled non-IEEE max\n");
+        }
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450NMax, float4Id,
+                                instr->srcCount, srcIds);
     }   break;
     case IL_OP_MOV:
         resId = srcIds[0];
@@ -573,6 +592,10 @@ static void emitAlu(
         }
         resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, float4Id, instr->srcCount, srcIds);
     }   break;
+    case IL_OP_SQRT_VEC:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sqrt, float4Id,
+                                instr->srcCount, srcIds);
+        break;
     default:
         assert(false);
         break;
@@ -603,10 +626,14 @@ static void emitInstr(
 {
     switch (instr->opcode) {
     case IL_OP_ADD:
+    case IL_OP_DIV:
     case IL_OP_DP3:
+    case IL_OP_FRC:
     case IL_OP_MAD:
+    case IL_OP_MAX:
     case IL_OP_MOV:
     case IL_OP_MUL:
+    case IL_OP_SQRT_VEC:
     case IL_OP_DP2:
         emitAlu(compiler, instr);
         break;

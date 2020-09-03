@@ -572,7 +572,7 @@ IlcSpvId ilcSpvPutGLSLOp(
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, SpvOpExtInst, 8);
+    putInstr(buffer, SpvOpExtInst, 5 + idCount);
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, module->glsl450ImportId);
