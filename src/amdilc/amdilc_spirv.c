@@ -489,6 +489,24 @@ IlcSpvId ilcSpvPutVectorShuffle(
     return id;
 }
 
+IlcSpvId ilcSpvPutCompositeConstruct(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    unsigned consistuentCount,
+    const IlcSpvId* consistuents)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpCompositeConstruct, 3 + consistuentCount);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    for (int i = 0; i < consistuentCount; i++) {
+        putWord(buffer, consistuents[i]);
+    }
+    return id;
+}
+
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,

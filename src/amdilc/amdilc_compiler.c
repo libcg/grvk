@@ -2,6 +2,7 @@
 #include "amdilc_spirv.h"
 #include "amdilc_internal.h"
 
+#define MAX_SRC_COUNT       (8)
 #define FLOAT_ZERO_LITERAL  (0x00000000)
 #define FLOAT_ONE_LITERAL   (0x3F800000)
 
@@ -107,7 +108,8 @@ static IlcSpvId emitVectorVariable(
 
 static IlcSpvId loadSource(
     IlcCompiler* compiler,
-    const Source* src)
+    const Source* src,
+    uint8_t componentMask)
 {
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
 
@@ -118,9 +120,16 @@ static IlcSpvId loadSource(
 
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
 
+    const uint8_t swizzle[] = {
+        componentMask & 1 ? src->swizzle[0] : IL_COMPSEL_0,
+        componentMask & 2 ? src->swizzle[1] : IL_COMPSEL_0,
+        componentMask & 4 ? src->swizzle[2] : IL_COMPSEL_0,
+        componentMask & 8 ? src->swizzle[3] : IL_COMPSEL_0,
+    };
+
     if (!reg->isScalar &&
-        (src->swizzle[0] != IL_COMPSEL_X_R || src->swizzle[1] != IL_COMPSEL_Y_G ||
-         src->swizzle[2] != IL_COMPSEL_Z_B || src->swizzle[3] != IL_COMPSEL_W_A)) {
+        (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
+         swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
         IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
         IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, floatId, 2);
@@ -131,9 +140,7 @@ static IlcSpvId loadSource(
         IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, float2Id,
                                                           2, consistuentIds);
 
-        const IlcSpvWord components[] = {
-            src->swizzle[0], src->swizzle[1], src->swizzle[2], src->swizzle[3],
-        };
+        const IlcSpvWord components[] = { swizzle[0], swizzle[1], swizzle[2], swizzle[3] };
         varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, compositeId,
                                        4, components);
     }
@@ -510,20 +517,45 @@ static void emitAlu(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    IlcSpvId srcIds[8] = { 0 };
+    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
     IlcSpvId resId = 0;
+    uint8_t componentMask;
+
+    switch (instr->opcode) {
+    case IL_OP_DP2:
+        componentMask = 0x3;
+        break;
+    case IL_OP_DP3:
+        componentMask = 0x7;
+        break;
+    default:
+        componentMask = 0xF;
+        break;
+    }
 
     IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
     IlcSpvId float4Id = ilcSpvPutVectorType(compiler->module, floatId, 4);
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i]);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], componentMask);
     }
 
     switch (instr->opcode) {
     case IL_OP_ADD:
         resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, float4Id, instr->srcCount, srcIds);
         break;
+    case IL_OP_DP2:
+    case IL_OP_DP3: {
+        bool ieee = GET_BIT(instr->control, 0);
+        if (!ieee) {
+            LOGW("unhandled non-IEEE dot product\n");
+        }
+        IlcSpvId dotId = ilcSpvPutAlu(compiler->module, SpvOpDot, floatId,
+                                      instr->srcCount, srcIds);
+        // Replicate dot product on all components
+        const IlcSpvWord constituents[] = { dotId, dotId, dotId, dotId };
+        resId = ilcSpvPutCompositeConstruct(compiler->module, float4Id, 4, constituents);
+    }   break;
     case IL_OP_MAD: {
         bool ieee = GET_BIT(instr->control, 0);
         if (!ieee) {
@@ -559,7 +591,7 @@ static void emitLoad(
     const Destination* dst = &instr->dsts[0];
     const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0]);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], 0x1);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, srcId);
     storeDestination(compiler, dst, fetchId);
@@ -571,9 +603,11 @@ static void emitInstr(
 {
     switch (instr->opcode) {
     case IL_OP_ADD:
+    case IL_OP_DP3:
     case IL_OP_MAD:
     case IL_OP_MOV:
     case IL_OP_MUL:
+    case IL_OP_DP2:
         emitAlu(compiler, instr);
         break;
     case IL_OP_END:

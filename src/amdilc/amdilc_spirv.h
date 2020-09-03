@@ -154,6 +154,12 @@ IlcSpvId ilcSpvPutVectorShuffle(
     unsigned componentCount,
     const IlcSpvWord* components);
 
+IlcSpvId ilcSpvPutCompositeConstruct(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    unsigned consistuentCount,
+    const IlcSpvId* consistuents);
+
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
