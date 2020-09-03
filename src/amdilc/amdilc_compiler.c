@@ -10,6 +10,7 @@ typedef struct {
     IlcSpvId typeId;
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
+    bool isScalar;
 } IlcRegister;
 
 typedef struct {
@@ -111,8 +112,9 @@ static IlcSpvId loadSource(
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
 
-    if (src->swizzle[0] != IL_COMPSEL_X_R || src->swizzle[1] != IL_COMPSEL_Y_G ||
-        src->swizzle[2] != IL_COMPSEL_Z_B || src->swizzle[3] != IL_COMPSEL_W_A) {
+    if (!reg->isScalar &&
+        (src->swizzle[0] != IL_COMPSEL_X_R || src->swizzle[1] != IL_COMPSEL_Y_G ||
+         src->swizzle[2] != IL_COMPSEL_Z_B || src->swizzle[3] != IL_COMPSEL_W_A)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
         IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
         IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, floatId, 2);
@@ -193,6 +195,7 @@ static void storeDestination(
             .typeId = tempTypeId,
             .ilType = IL_REGTYPE_TEMP,
             .ilNum = dst->registerNum,
+            .isScalar = false,
         };
 
         dstReg = addRegister(compiler, &reg, 'r');
@@ -312,6 +315,7 @@ static void emitLiteral(
         .typeId = literalTypeId,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
+        .isScalar = false,
     };
 
     addRegister(compiler, &reg, 'l');
@@ -353,6 +357,7 @@ static void emitOutput(
         .typeId = outputTypeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
+        .isScalar = false,
     };
 
     addRegister(compiler, &reg, 'o');
@@ -366,6 +371,7 @@ static void emitInput(
     uint8_t interpMode = GET_BITS(instr->control, 5, 7);
     IlcSpvId inputId = 0;
     IlcSpvId inputTypeId = 0;
+    bool isScalar = false;
 
     assert(instr->dstCount == 1 &&
            instr->srcCount == 0 &&
@@ -380,6 +386,7 @@ static void emitInput(
     if (importUsage == IL_IMPORTUSAGE_GENERIC) {
         IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
         inputId = emitVectorVariable(compiler, &inputTypeId, 4, floatId, SpvStorageClassInput);
+        isScalar = false;
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
@@ -388,6 +395,7 @@ static void emitInput(
         IlcSpvId pu32Id = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, u32Id);
         inputId = ilcSpvPutVariable(compiler->module, pu32Id, SpvStorageClassInput);
         inputTypeId = u32Id;
+        isScalar = true;
 
         IlcSpvWord builtInType = SpvBuiltInVertexIndex;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
@@ -419,6 +427,7 @@ static void emitInput(
         .typeId = inputTypeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
+        .isScalar = isScalar,
     };
 
     addRegister(compiler, &reg, 'v');
