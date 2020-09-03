@@ -254,18 +254,7 @@ static void dumpDestination(
 static void dumpSource(
     const Source* src)
 {
-    logPrintRaw(" %s%u%s%s%s%s%s%s%s",
-                mIlRegTypeNames[src->registerType],
-                src->registerNum,
-                src->invert ? "_invert" : "",
-                src->bias && !src->x2 ? "_bias" : "",
-                !src->bias && src->x2 ? "_x2" : "",
-                src->bias && src->x2 ? "_bx2" : "",
-                src->sign ? "_sign" : "",
-                mIlDivCompNames[src->divComp],
-                src->abs ? "_abs" : "");
-
-    logPrintRaw("%s", src->clamp ? "_sat" : "");
+    logPrintRaw(" %s%u", mIlRegTypeNames[src->registerType], src->registerNum);
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
         src->swizzle[1] != IL_COMPSEL_Y_G ||
@@ -284,6 +273,15 @@ static void dumpSource(
         }
     }
 
+    logPrintRaw("%s%s%s%s%s%s%s",
+                src->invert ? "_invert" : "",
+                src->bias && !src->x2 ? "_bias" : "",
+                !src->bias && src->x2 ? "_x2" : "",
+                src->bias && src->x2 ? "_bx2" : "",
+                src->sign ? "_sign" : "",
+                mIlDivCompNames[src->divComp],
+                src->abs ? "_abs" : "");
+
     if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
         logPrintRaw("_neg(%s%s%s%s)",
                     src->negate[0] ? "x" : "",
@@ -291,6 +289,8 @@ static void dumpSource(
                     src->negate[2] ? "z" : "",
                     src->negate[3] ? "w" : "");
     }
+
+    logPrintRaw("%s", src->clamp ? "_sat" : "");
 }
 
 static void dumpInstruction(
