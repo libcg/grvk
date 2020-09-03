@@ -1,7 +1,9 @@
 #include <stdio.h>
-#include "spirv/spirv.h"
 #include "amdilc_spirv.h"
 #include "amdilc_internal.h"
+
+#define FLOAT_ZERO_LITERAL  (0x00000000)
+#define FLOAT_ONE_LITERAL   (0x3F800000)
 
 typedef struct {
     IlcSpvId id;
@@ -106,8 +108,69 @@ static IlcSpvId loadSource(
     const Source* src)
 {
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
+    IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
 
-    return ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
+    if (src->swizzle[0] != IL_COMPSEL_X_R || src->swizzle[1] != IL_COMPSEL_Y_G ||
+        src->swizzle[2] != IL_COMPSEL_Z_B || src->swizzle[3] != IL_COMPSEL_W_A) {
+        // Select components from {x, y, z, w, 0.f, 1.f}
+        IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+        IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, floatId, 2);
+        const IlcSpvId consistuentIds[] = {
+            ilcSpvPutConstant(compiler->module, floatId, FLOAT_ZERO_LITERAL),
+            ilcSpvPutConstant(compiler->module, floatId, FLOAT_ONE_LITERAL),
+        };
+        IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, float2Id,
+                                                          2, consistuentIds);
+
+        const IlcSpvWord components[] = {
+            src->swizzle[0], src->swizzle[1], src->swizzle[2], src->swizzle[3],
+        };
+        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, compositeId,
+                                       4, components);
+    }
+
+    if (src->invert) {
+        LOGW("unhandled invert flag\n");
+    }
+
+    if (src->bias) {
+        LOGW("unhandled bias flag\n");
+    }
+
+    if (src->x2) {
+        LOGW("unhandled x2 flag\n");
+    }
+
+    if (src->sign) {
+        LOGW("unhandled sign flag\n");
+    }
+
+    if (src->divComp != IL_DIVCOMP_NONE) {
+        LOGW("unhandled divcomp %d\n", src->divComp);
+    }
+
+    if (src->abs) {
+        LOGW("unhandled abs flag\n");
+    }
+
+    if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
+        // Select components from {x, y, z, w, -x, -y, -z, -w}
+        IlcSpvId negId = ilcSpvPutAlu(compiler->module, SpvOpFNegate, reg->typeId, 1, &varId);
+
+        const IlcSpvWord components[] = {
+            src->negate[0] ? 0 : 4,
+            src->negate[1] ? 1 : 5,
+            src->negate[2] ? 2 : 6,
+            src->negate[3] ? 3 : 7,
+        };
+        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, negId, varId, 4, components);
+    }
+
+    if (src->clamp) {
+        LOGW("unhandled clamp flag\n");
+    }
+
+    return varId;
 }
 
 static void storeDestination(
@@ -130,6 +193,65 @@ static void storeDestination(
         };
 
         dstReg = addRegister(compiler, &reg, 'r');
+    }
+
+    if (dst->shiftScale != IL_SHIFT_NONE) {
+        LOGW("unhandled shift scale %d\n", dst->shiftScale);
+    }
+
+    if (dst->clamp) {
+        // Clamp to [0.f, 1.f]
+        IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+        IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, floatId, FLOAT_ZERO_LITERAL);
+        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, floatId, FLOAT_ONE_LITERAL);
+        const IlcSpvId zeroConsistuentIds[] = { zeroId, zeroId, zeroId, zeroId };
+        const IlcSpvId oneConsistuentIds[] = { oneId, oneId, oneId, oneId };
+        IlcSpvId zeroCompositeId = ilcSpvPutConstantComposite(compiler->module, dstReg->typeId,
+                                                              4, zeroConsistuentIds);
+        IlcSpvId oneCompositeId = ilcSpvPutConstantComposite(compiler->module, dstReg->typeId,
+                                                             4, oneConsistuentIds);
+
+        const IlcSpvId paramIds[] = { varId, zeroCompositeId, oneCompositeId };
+        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FClamp, dstReg->typeId, 3, paramIds);
+    }
+
+    if (dst->component[0] == IL_MODCOMP_NOWRITE || dst->component[1] == IL_MODCOMP_NOWRITE ||
+        dst->component[2] == IL_MODCOMP_NOWRITE || dst->component[3] == IL_MODCOMP_NOWRITE) {
+        // Select components from {dst.x, dst.y, dst.z, dst.w, x, y, z, w}
+        IlcSpvId origId = ilcSpvPutLoad(compiler->module, dstReg->typeId, dstReg->id);
+
+        const IlcSpvWord components[] = {
+            dst->component[0] == IL_MODCOMP_NOWRITE ? 0 : 4,
+            dst->component[1] == IL_MODCOMP_NOWRITE ? 1 : 5,
+            dst->component[2] == IL_MODCOMP_NOWRITE ? 2 : 6,
+            dst->component[3] == IL_MODCOMP_NOWRITE ? 3 : 7,
+        };
+        varId = ilcSpvPutVectorShuffle(compiler->module, dstReg->typeId, origId, varId,
+                                       4, components);
+    }
+
+    if ((dst->component[0] == IL_MODCOMP_0 || dst->component[0] == IL_MODCOMP_1) ||
+        (dst->component[1] == IL_MODCOMP_0 || dst->component[1] == IL_MODCOMP_1) ||
+        (dst->component[2] == IL_MODCOMP_0 || dst->component[2] == IL_MODCOMP_1) ||
+        (dst->component[3] == IL_MODCOMP_0 || dst->component[3] == IL_MODCOMP_1)) {
+        // Select components from {x, y, z, w, 0.f, 1.f}
+        IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+        IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, floatId, 2);
+        const IlcSpvId consistuentIds[] = {
+            ilcSpvPutConstant(compiler->module, floatId, FLOAT_ZERO_LITERAL),
+            ilcSpvPutConstant(compiler->module, floatId, FLOAT_ONE_LITERAL),
+        };
+        IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, float2Id,
+                                                          2, consistuentIds);
+
+        const IlcSpvWord components[] = {
+            dst->component[0] == IL_MODCOMP_0 ? 4 : (dst->component[0] == IL_MODCOMP_1 ? 5 : 0),
+            dst->component[1] == IL_MODCOMP_0 ? 4 : (dst->component[1] == IL_MODCOMP_1 ? 5 : 1),
+            dst->component[2] == IL_MODCOMP_0 ? 4 : (dst->component[2] == IL_MODCOMP_1 ? 5 : 2),
+            dst->component[3] == IL_MODCOMP_0 ? 4 : (dst->component[3] == IL_MODCOMP_1 ? 5 : 3),
+        };
+        varId = ilcSpvPutVectorShuffle(compiler->module, dstReg->typeId, varId, compositeId,
+                                       4, components);
     }
 
     ilcSpvPutStore(compiler->module, dstReg->id, varId);
@@ -207,14 +329,6 @@ static void emitOutput(
            !dst->clamp &&
            dst->shiftScale == IL_SHIFT_NONE);
 
-    if (dst->component[0] != IL_MODCOMP_WRITE ||
-        dst->component[1] != IL_MODCOMP_WRITE ||
-        dst->component[2] != IL_MODCOMP_WRITE ||
-        dst->component[3] != IL_MODCOMP_WRITE) {
-        LOGW("unhandled component mod %d %d %d %d\n",
-             dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
-    }
-
     IlcSpvId outputTypeId;
     IlcSpvId outputId = emitFloat4Variable(compiler, &outputTypeId, SpvStorageClassOutput);
 
@@ -258,14 +372,6 @@ static void emitInput(
            dst->shiftScale == IL_SHIFT_NONE);
 
     if (importUsage == IL_IMPORTUSAGE_GENERIC) {
-        if (dst->component[0] != IL_MODCOMP_WRITE ||
-            dst->component[1] != IL_MODCOMP_WRITE ||
-            dst->component[2] != IL_MODCOMP_WRITE ||
-            dst->component[3] != IL_MODCOMP_WRITE) {
-            LOGW("unhandled component mod %d %d %d %d\n",
-                 dst->component[0], dst->component[1], dst->component[2], dst->component[3]);
-        }
-
         inputId = emitFloat4Variable(compiler, &inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord locationIdx = dst->registerNum;
@@ -394,9 +500,9 @@ static void emitAlu(
     case IL_OP_MAD: {
         bool ieee = GET_BIT(instr->control, 0);
         if (!ieee) {
-            LOGW("unhandled non-IEEE mad");
+            LOGW("unhandled non-IEEE mad\n");
         }
-        resId = ilcSpvPutFma(compiler->module, float4Id, srcIds[0], srcIds[1], srcIds[2]);
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fma, float4Id, instr->srcCount, srcIds);
     }   break;
     case IL_OP_MOV:
         resId = srcIds[0];
@@ -404,7 +510,7 @@ static void emitAlu(
     case IL_OP_MUL: {
         bool ieee = GET_BIT(instr->control, 0);
         if (!ieee) {
-            LOGW("unhandled non-IEEE mul");
+            LOGW("unhandled non-IEEE mul\n");
         }
         resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, float4Id, instr->srcCount, srcIds);
     }   break;

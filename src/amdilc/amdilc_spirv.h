@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "spirv/GLSL.std.450.h"
+#include "spirv/spirv.h"
 
 typedef enum {
     ID_MAIN,
@@ -144,6 +146,14 @@ void ilcSpvPutDecoration(
     unsigned argCount,
     const IlcSpvWord* args);
 
+IlcSpvId ilcSpvPutVectorShuffle(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId vec1Id,
+    IlcSpvId vec2Id,
+    unsigned componentCount,
+    const IlcSpvWord* components);
+
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
@@ -163,11 +173,11 @@ IlcSpvId ilcSpvPutLabel(
 void ilcSpvPutReturn(
     IlcSpvModule* module);
 
-IlcSpvId ilcSpvPutFma(
+IlcSpvId ilcSpvPutGLSLOp(
     IlcSpvModule* module,
+    enum GLSLstd450 glslOp,
     IlcSpvId resultTypeId,
-    IlcSpvId aId,
-    IlcSpvId bId,
-    IlcSpvId cId);
+    unsigned idCount,
+    const IlcSpvId* ids);
 
 #endif // AMDILC_SPIRV_H_
