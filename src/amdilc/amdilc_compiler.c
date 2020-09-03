@@ -110,6 +110,12 @@ static IlcSpvId loadSource(
     const Source* src)
 {
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
+
+    if (reg == NULL) {
+        LOGE("register %d %d not found\n", src->registerType, src->registerNum);
+        return 0;
+    }
+
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
 
     if (!reg->isScalar &&
@@ -199,6 +205,11 @@ static void storeDestination(
         };
 
         dstReg = addRegister(compiler, &reg, 'r');
+    }
+
+    if (dstReg == NULL) {
+        LOGE("register %d %d not found\n", dst->registerType, dst->registerNum);
+        return;
     }
 
     if (dst->shiftScale != IL_SHIFT_NONE) {

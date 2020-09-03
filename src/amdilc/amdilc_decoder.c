@@ -188,7 +188,7 @@ static uint32_t decodeInstruction(
     idx++;
 
     if (instr->opcode >= IL_OP_LAST) {
-        LOGE("invalid opcode\n");
+        LOGE("invalid opcode %d\n", instr->opcode);
         return idx;
     }
 
