@@ -10,16 +10,30 @@ typedef struct {
 
 OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_ADD] = { IL_OP_ADD, 1, 2, 0, false },
+    [IL_OP_DIV] = { IL_OP_DIV, 1, 2, 0, false },
+    [IL_OP_DP3] = { IL_OP_DP3, 1, 2, 0, false },
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
+    [IL_OP_ENDLOOP] = { IL_OP_ENDLOOP, 0, 0, 0, false },
+    [IL_OP_FRC] = { IL_OP_FRC, 1, 1, 0, false },
     [IL_OP_MAD] = { IL_OP_MAD, 1, 3, 0, false },
+    [IL_OP_MAX] = { IL_OP_MAX, 1, 2, 0, false },
     [IL_OP_MOV] = { IL_OP_MOV, 1, 1, 0, false },
     [IL_OP_MUL] = { IL_OP_MUL, 1, 2, 0, false },
+    [IL_OP_BREAK_LOGICALNZ] = { IL_OP_BREAK_LOGICALNZ, 0, 1, 0, false },
+    [IL_OP_WHILE] = { IL_OP_WHILE, 0, 0, 0, false },
     [IL_OP_RET_DYN] = { IL_OP_RET_DYN, 0, 0, 0, false },
     [IL_DCL_LITERAL] = { IL_DCL_LITERAL, 0, 1, 4, false },
     [IL_DCL_OUTPUT] = { IL_DCL_OUTPUT, 1, 0, 0, false },
     [IL_DCL_INPUT] = { IL_DCL_INPUT, 1, 0, 0, false },
-    [IL_OP_LOAD] = { IL_OP_LOAD, 1, 1, 0, true },
     [IL_DCL_RESOURCE] = { IL_DCL_RESOURCE, 0, 0, 1, false },
+    [IL_OP_LOAD] = { IL_OP_LOAD, 1, 1, 0, true },
+    [IL_OP_I_ADD] = { IL_OP_I_ADD, 1, 2, 0, false },
+    [IL_OP_I_GE] = { IL_OP_I_GE, 1, 2, 0, false },
+    [IL_OP_I_LT] = { IL_OP_I_LT, 1, 2, 0, false },
+    [IL_OP_CMOV_LOGICAL] = { IL_OP_CMOV_LOGICAL, 1, 3, 0, false },
+    [IL_OP_GE] = { IL_OP_GE, 1, 2, 0, false },
+    [IL_OP_SQRT_VEC] = { IL_OP_SQRT_VEC, 1, 1, 0, false },
+    [IL_OP_DP2] = { IL_OP_DP2, 1, 2, 0, false },
     [IL_DCL_GLOBAL_FLAGS] = { IL_DCL_GLOBAL_FLAGS, 0, 0, 0, false },
 };
 
@@ -194,11 +208,10 @@ static uint32_t decodeInstruction(
 
     OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
 
-    if (info->opcode == IL_OP_UNKNOWN) {
+    if (info->opcode != instr->opcode) {
         LOGW("unhandled opcode %d\n", instr->opcode);
         return idx;
     }
-    assert(instr->opcode == info->opcode);
 
     instr->dstCount = info->dstCount;
     instr->dsts = malloc(sizeof(Destination) * instr->dstCount);

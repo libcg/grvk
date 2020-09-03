@@ -101,6 +101,13 @@ static const char* mIlDivCompNames[IL_DIVCOMP_LAST] = {
     "_divComp(unknown)",
 };
 
+static const char* mIlZeroOpNames[IL_ZEROOP_LAST] = {
+    "fltmax",
+    "zero",
+    "infinity",
+    "inf_else_max",
+};
+
 static const char* mIlModDstComponentNames[IL_MODCOMP_LAST] = {
     "_",
     "?", // Replaced with x, y, z or w
@@ -289,23 +296,55 @@ static void dumpSource(
 static void dumpInstruction(
     const Instruction* instr)
 {
+    static int indentLevel = 0; // TODO move to context
+
+    switch (instr->opcode) {
+    case IL_OP_ENDLOOP:
+        indentLevel--;
+        break;
+    }
+
+    for (int i = 0; i < indentLevel; i++) {
+        logPrintRaw("    ");
+    }
+
     switch (instr->opcode) {
     case IL_OP_ADD:
         logPrintRaw("add");
         break;
+    case IL_OP_DIV:
+        logPrintRaw("div_zeroop(%s)", mIlZeroOpNames[instr->control]);
+        break;
+    case IL_OP_DP3:
+        logPrintRaw("dp3%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
     case IL_OP_END:
         logPrintRaw("end");
         break;
+    case IL_OP_ENDLOOP:
+        logPrintRaw("endloop");
+        break;
+    case IL_OP_FRC:
+        logPrintRaw("frc");
+        break;
     case IL_OP_MAD:
-        logPrintRaw("mad%s",
-                    GET_BIT(instr->control, 0) ? "_ieee" : "");
+        logPrintRaw("mad%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_MAX:
+        logPrintRaw("max%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_MOV:
         logPrintRaw("mov");
         break;
     case IL_OP_MUL:
-        logPrintRaw("mul%s",
-                    GET_BIT(instr->control, 0) ? "_ieee" : "");
+        logPrintRaw("mul%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_BREAK_LOGICALNZ:
+        logPrintRaw("break_logicalnz");
+        break;
+    case IL_OP_WHILE:
+        logPrintRaw("whileloop");
+        indentLevel++;
         break;
     case IL_OP_RET_DYN:
         logPrintRaw("ret_dyn");
@@ -314,8 +353,7 @@ static void dumpInstruction(
         logPrintRaw("dcl_literal");
         break;
     case IL_DCL_OUTPUT:
-        logPrintRaw("dcl_output_%s",
-                    mIlImportUsageNames[instr->control]);
+        logPrintRaw("dcl_output_%s", mIlImportUsageNames[instr->control]);
         break;
     case IL_DCL_INPUT:
         logPrintRaw("dcl_input_%s%s",
@@ -334,8 +372,28 @@ static void dumpInstruction(
         break;
     case IL_OP_LOAD:
         // Sampler ID is ignored
-        logPrintRaw("load_resource(%d)",
-                    GET_BITS(instr->control, 0, 7));
+        logPrintRaw("load_resource(%d)", GET_BITS(instr->control, 0, 7));
+        break;
+    case IL_OP_I_ADD:
+        logPrintRaw("iadd");
+        break;
+    case IL_OP_I_GE:
+        logPrintRaw("ige");
+        break;
+    case IL_OP_I_LT:
+        logPrintRaw("ilt");
+        break;
+    case IL_OP_CMOV_LOGICAL:
+        logPrintRaw("cmov_logical");
+        break;
+    case IL_OP_GE:
+        logPrintRaw("ge");
+        break;
+    case IL_OP_SQRT_VEC:
+        logPrintRaw("sqrt_vec");
+        break;
+    case IL_OP_DP2:
+        logPrintRaw("dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_DCL_GLOBAL_FLAGS:
         logPrintRaw("dcl_global_flags");
