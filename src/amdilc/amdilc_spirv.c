@@ -288,6 +288,12 @@ IlcSpvId ilcSpvPutVoidType(
     return putType(module, SpvOpTypeVoid, 0, NULL);
 }
 
+IlcSpvId ilcSpvPutBoolType(
+    IlcSpvModule* module)
+{
+    return putType(module, SpvOpTypeBool, 0, NULL);
+}
+
 IlcSpvId ilcSpvPutIntType(
     IlcSpvModule* module,
     bool isSigned)
@@ -555,6 +561,25 @@ IlcSpvId ilcSpvPutBitcast(
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, operandId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutSelect(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId conditionId,
+    IlcSpvId obj1Id,
+    IlcSpvId obj2Id)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpSelect, 6);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, conditionId);
+    putWord(buffer, obj1Id);
+    putWord(buffer, obj2Id);
     return id;
 }
 

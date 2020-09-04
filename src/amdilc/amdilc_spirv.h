@@ -70,6 +70,9 @@ void ilcSpvPutCapability(
 IlcSpvId ilcSpvPutVoidType(
     IlcSpvModule* module);
 
+IlcSpvId ilcSpvPutBoolType(
+    IlcSpvModule* module);
+
 IlcSpvId ilcSpvPutIntType(
     IlcSpvModule* module,
     bool isSigned);
@@ -177,6 +180,13 @@ IlcSpvId ilcSpvPutBitcast(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId operandId);
+
+IlcSpvId ilcSpvPutSelect(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId conditionId,
+    IlcSpvId obj1Id,
+    IlcSpvId obj2Id);
 
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module);

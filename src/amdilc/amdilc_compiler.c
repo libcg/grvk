@@ -5,6 +5,8 @@
 #define MAX_SRC_COUNT       (8)
 #define FLOAT_ZERO_LITERAL  (0x00000000)
 #define FLOAT_ONE_LITERAL   (0x3F800000)
+#define FALSE_LITERAL       (0x00000000)
+#define TRUE_LITERAL        (0xFFFFFFFF)
 
 typedef struct {
     IlcSpvId id;
@@ -604,6 +606,46 @@ static void emitFloatOp(
     storeDestination(compiler, &instr->dsts[0], resId);
 }
 
+static void emitFloatComparisonOp(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
+    IlcSpvId condId = 0;
+
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId float4Id = ilcSpvPutVectorType(compiler->module, floatId, 4);
+    IlcSpvId boolId = ilcSpvPutBoolType(compiler->module);
+    IlcSpvId bool4Id = ilcSpvPutVectorType(compiler->module, boolId, 4);
+
+    for (int i = 0; i < instr->srcCount; i++) {
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
+    }
+
+    switch (instr->opcode) {
+    case IL_OP_GE:
+        condId = ilcSpvPutAlu(compiler->module, SpvOpFOrdGreaterThanEqual, bool4Id,
+                              instr->srcCount, srcIds);
+        break;
+    default:
+        assert(false);
+        break;
+    }
+
+    IlcSpvId trueId = ilcSpvPutConstant(compiler->module, floatId, TRUE_LITERAL);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, floatId, FALSE_LITERAL);
+    IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
+    IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
+    IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, float4Id,
+                                                          4, trueConsistuentIds);
+    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, float4Id,
+                                                           4, falseConsistuentIds);
+    IlcSpvId resId = ilcSpvPutSelect(compiler->module, float4Id, condId,
+                                     trueCompositeId, falseCompositeId);
+
+    storeDestination(compiler, &instr->dsts[0], resId);
+}
+
 static void emitIntegerOp(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -667,6 +709,12 @@ static void emitInstr(
     case IL_OP_DP2:
         emitFloatOp(compiler, instr);
         break;
+    case IL_OP_GE:
+        emitFloatComparisonOp(compiler, instr);
+        break;
+    case IL_OP_I_ADD:
+        emitIntegerOp(compiler, instr);
+        break;
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
         break;
@@ -687,9 +735,6 @@ static void emitInstr(
         break;
     case IL_OP_LOAD:
         emitLoad(compiler, instr);
-        break;
-    case IL_OP_I_ADD:
-        emitIntegerOp(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
