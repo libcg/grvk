@@ -617,7 +617,7 @@ static void emitFloatComparisonOp(
     const Instruction* instr)
 {
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
-    IlcSpvId condId = 0;
+    SpvOp compOp = 0;
 
     IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
     IlcSpvId float4Id = ilcSpvPutVectorType(compiler->module, floatId, 4);
@@ -630,14 +630,14 @@ static void emitFloatComparisonOp(
 
     switch (instr->opcode) {
     case IL_OP_GE:
-        condId = ilcSpvPutAlu(compiler->module, SpvOpFOrdGreaterThanEqual, bool4Id,
-                              instr->srcCount, srcIds);
+        compOp = SpvOpFOrdGreaterThanEqual;
         break;
     default:
         assert(false);
         break;
     }
 
+    IlcSpvId condId = ilcSpvPutAlu(compiler->module, compOp, bool4Id, instr->srcCount, srcIds);
     IlcSpvId trueId = ilcSpvPutConstant(compiler->module, floatId, TRUE_LITERAL);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, floatId, FALSE_LITERAL);
     IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
@@ -682,6 +682,52 @@ static void emitIntegerOp(
                      ilcSpvPutBitcast(compiler->module, float4Id, resId));
 }
 
+static void emitIntegerComparisonOp(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
+    SpvOp compOp = 0;
+
+    IlcSpvId intId = ilcSpvPutIntType(compiler->module, true);
+    IlcSpvId int4Id = ilcSpvPutVectorType(compiler->module, intId, 4);
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId float4Id = ilcSpvPutVectorType(compiler->module, floatId, 4);
+    IlcSpvId boolId = ilcSpvPutBoolType(compiler->module);
+    IlcSpvId bool4Id = ilcSpvPutVectorType(compiler->module, boolId, 4);
+
+    for (int i = 0; i < instr->srcCount; i++) {
+        srcIds[i] = ilcSpvPutBitcast(compiler->module, int4Id,
+                                     loadSource(compiler, &instr->srcs[i], 0xF));
+    }
+
+    switch (instr->opcode) {
+    case IL_OP_I_GE:
+        compOp = SpvOpSGreaterThanEqual;
+        break;
+    case IL_OP_I_LT:
+        compOp = SpvOpSLessThan;
+        break;
+    default:
+        assert(false);
+        break;
+    }
+
+    IlcSpvId condId = ilcSpvPutAlu(compiler->module, compOp, bool4Id, instr->srcCount, srcIds);
+    IlcSpvId trueId = ilcSpvPutConstant(compiler->module, floatId, TRUE_LITERAL);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, floatId, FALSE_LITERAL);
+    IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
+    IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
+    IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, float4Id,
+                                                          4, trueConsistuentIds);
+    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, float4Id,
+                                                           4, falseConsistuentIds);
+    IlcSpvId resId = ilcSpvPutSelect(compiler->module, float4Id, condId,
+                                     trueCompositeId, falseCompositeId);
+
+    storeDestination(compiler, &instr->dsts[0], resId);
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -720,6 +766,10 @@ static void emitInstr(
         break;
     case IL_OP_I_ADD:
         emitIntegerOp(compiler, instr);
+        break;
+    case IL_OP_I_GE:
+    case IL_OP_I_LT:
+        emitIntegerComparisonOp(compiler, instr);
         break;
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
