@@ -173,6 +173,11 @@ IlcSpvId ilcSpvPutAlu(
     unsigned idCount,
     const IlcSpvId* ids);
 
+IlcSpvId ilcSpvPutBitcast(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId);
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module);
 

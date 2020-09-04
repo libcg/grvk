@@ -409,10 +409,10 @@ static void emitInput(
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
     } else if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
-        IlcSpvId u32Id = ilcSpvPutIntType(compiler->module, false);
-        IlcSpvId pu32Id = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, u32Id);
-        inputId = ilcSpvPutVariable(compiler->module, pu32Id, SpvStorageClassInput);
-        inputTypeId = u32Id;
+        IlcSpvId uintId = ilcSpvPutIntType(compiler->module, false);
+        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput, uintId);
+        inputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassInput);
+        inputTypeId = uintId;
         isScalar = true;
 
         IlcSpvWord builtInType = SpvBuiltInVertexIndex;
@@ -477,8 +477,8 @@ static void emitResource(
         assert(false);
     }
 
-    IlcSpvId f32Id = ilcSpvPutFloatType(compiler->module);
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, f32Id, SpvDimBuffer, 0, 0, 0, 1,
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, floatId, SpvDimBuffer, 0, 0, 0, 1,
                                           SpvImageFormatRgba32f);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
@@ -513,7 +513,7 @@ static void emitFunc(
     ilcSpvPutLabel(compiler->module);
 }
 
-static void emitAlu(
+static void emitFloatOp(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
@@ -604,6 +604,36 @@ static void emitAlu(
     storeDestination(compiler, &instr->dsts[0], resId);
 }
 
+static void emitIntegerOp(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
+    IlcSpvId resId = 0;
+
+    IlcSpvId intId = ilcSpvPutIntType(compiler->module, true);
+    IlcSpvId int4Id = ilcSpvPutVectorType(compiler->module, intId, 4);
+    IlcSpvId floatId = ilcSpvPutFloatType(compiler->module);
+    IlcSpvId float4Id = ilcSpvPutVectorType(compiler->module, floatId, 4);
+
+    for (int i = 0; i < instr->srcCount; i++) {
+        srcIds[i] = ilcSpvPutBitcast(compiler->module, int4Id,
+                                     loadSource(compiler, &instr->srcs[i], 0xF));
+    }
+
+    switch (instr->opcode) {
+    case IL_OP_I_ADD:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, int4Id, instr->srcCount, srcIds);
+        break;
+    default:
+        assert(false);
+        break;
+    }
+
+    storeDestination(compiler, &instr->dsts[0],
+                     ilcSpvPutBitcast(compiler->module, float4Id, resId));
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -635,7 +665,7 @@ static void emitInstr(
     case IL_OP_MUL:
     case IL_OP_SQRT_VEC:
     case IL_OP_DP2:
-        emitAlu(compiler, instr);
+        emitFloatOp(compiler, instr);
         break;
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
@@ -657,6 +687,9 @@ static void emitInstr(
         break;
     case IL_OP_LOAD:
         emitLoad(compiler, instr);
+        break;
+    case IL_OP_I_ADD:
+        emitIntegerOp(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);

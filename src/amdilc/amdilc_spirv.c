@@ -543,6 +543,21 @@ IlcSpvId ilcSpvPutAlu(
     return id;
 }
 
+IlcSpvId ilcSpvPutBitcast(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpBitcast, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, operandId);
+    return id;
+}
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module)
 {
