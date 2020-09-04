@@ -172,16 +172,22 @@ static IlcSpvId loadSource(
     }
 
     if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
-        // Select components from {x, y, z, w, -x, -y, -z, -w}
         IlcSpvId negId = ilcSpvPutAlu(compiler->module, SpvOpFNegate, reg->typeId, 1, &varId);
 
-        const IlcSpvWord components[] = {
-            src->negate[0] ? 0 : 4,
-            src->negate[1] ? 1 : 5,
-            src->negate[2] ? 2 : 6,
-            src->negate[3] ? 3 : 7,
-        };
-        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, negId, varId, 4, components);
+        if (src->negate[0] && src->negate[1] && src->negate[2] && src->negate[3]) {
+            varId = negId;
+        } else {
+            // Select components from {x, y, z, w, -x, -y, -z, -w}
+            const IlcSpvWord components[] = {
+                src->negate[0] ? 0 : 4,
+                src->negate[1] ? 1 : 5,
+                src->negate[2] ? 2 : 6,
+                src->negate[3] ? 3 : 7,
+            };
+
+            varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, negId, varId,
+                                           4, components);
+        }
     }
 
     if (src->clamp) {
