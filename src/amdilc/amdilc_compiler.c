@@ -166,7 +166,7 @@ static IlcSpvId loadSource(
     }
 
     if (src->abs) {
-        LOGW("unhandled abs flag\n");
+        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, reg->typeId, 1, &varId);
     }
 
     if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
