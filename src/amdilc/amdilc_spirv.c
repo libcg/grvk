@@ -513,6 +513,26 @@ IlcSpvId ilcSpvPutCompositeConstruct(
     return id;
 }
 
+IlcSpvId ilcSpvPutCompositeExtract(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId compositeId,
+    unsigned indexCount,
+    const IlcSpvId* indexes)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpCompositeExtract, 4 + indexCount);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, compositeId);
+    for (int i = 0; i < indexCount; i++) {
+        putWord(buffer, indexes[i]);
+    }
+    return id;
+}
+
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
@@ -616,6 +636,20 @@ void ilcSpvPutBranch(
 
     putInstr(buffer, SpvOpBranch, 2);
     putWord(buffer, labelId);
+}
+
+void ilcSpvPutBranchConditional(
+    IlcSpvModule* module,
+    IlcSpvId conditionId,
+    IlcSpvId falseLabelId,
+    IlcSpvId trueLabelId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpBranchConditional, 4);
+    putWord(buffer, conditionId);
+    putWord(buffer, falseLabelId);
+    putWord(buffer, trueLabelId);
 }
 
 void ilcSpvPutReturn(

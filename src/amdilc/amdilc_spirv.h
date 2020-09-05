@@ -163,6 +163,13 @@ IlcSpvId ilcSpvPutCompositeConstruct(
     unsigned consistuentCount,
     const IlcSpvId* consistuents);
 
+IlcSpvId ilcSpvPutCompositeExtract(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId compositeId,
+    unsigned indexCount,
+    const IlcSpvId* indexes);
+
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
@@ -200,6 +207,12 @@ IlcSpvId ilcSpvPutLabel(
 void ilcSpvPutBranch(
     IlcSpvModule* module,
     IlcSpvId labelId);
+
+void ilcSpvPutBranchConditional(
+    IlcSpvModule* module,
+    IlcSpvId conditionId,
+    IlcSpvId falseLabelId,
+    IlcSpvId trueLabelId);
 
 void ilcSpvPutReturn(
     IlcSpvModule* module);

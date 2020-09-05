@@ -47,6 +47,7 @@ typedef struct {
     IlcSpvId int4Id;
     IlcSpvId floatId;
     IlcSpvId float4Id;
+    IlcSpvId boolId;
     IlcSpvId bool4Id;
     unsigned regCount;
     IlcRegister* regs;
@@ -138,6 +139,21 @@ static IlcControlFlowBlock popControlFlowBlock(
     compiler->controlFlowBlocks = realloc(compiler->controlFlowBlocks, size);
 
     return block;
+}
+
+static const IlcControlFlowBlock* findControlFlowBlock(
+    IlcCompiler* compiler,
+    IlcControlFlowBlockType type)
+{
+    for (int i = compiler->controlFlowBlockCount - 1; i >= 0; i--) {
+        const IlcControlFlowBlock* block = &compiler->controlFlowBlocks[i];
+
+        if (block->type == type) {
+            return block;
+        }
+    }
+
+    return NULL;
 }
 
 static IlcSpvId emitVectorVariable(
@@ -821,6 +837,35 @@ static void emitEndLoop(
     ilcSpvPutLabel(compiler->module, block.loop.labelBreakId);
 }
 
+static void emitBreakLogical(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const IlcControlFlowBlock* block = findControlFlowBlock(compiler, BLOCK_LOOP);
+    if (block == NULL) {
+        LOGE("no matching loop was found\n");
+        assert(false);
+    }
+
+    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
+
+    for (int i = 0; i < instr->srcCount; i++) {
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
+    }
+
+    IlcSpvWord xIndex = 0;
+    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->floatId, srcIds[0],
+                                             1, &xIndex);
+    IlcSpvId xIntId = ilcSpvPutBitcast(compiler->module, compiler->intId, xId);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
+    const IlcSpvId compIds[] = { xIntId, falseId };
+    IlcSpvId condId = ilcSpvPutAlu(compiler->module, SpvOpINotEqual, compiler->boolId, 2, compIds);
+
+    IlcSpvId labelId = ilcSpvAllocId(compiler->module);
+    ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
+    ilcSpvPutLabel(compiler->module, labelId);
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -869,6 +914,9 @@ static void emitInstr(
         break;
     case IL_OP_ENDLOOP:
         emitEndLoop(compiler, instr);
+        break;
+    case IL_OP_BREAK_LOGICALNZ:
+        emitBreakLogical(compiler, instr);
         break;
     case IL_OP_WHILE:
         emitWhile(compiler, instr);
@@ -976,6 +1024,7 @@ uint32_t* ilcCompileKernel(
         .int4Id = ilcSpvPutVectorType(&module, intId, 4),
         .floatId = floatId,
         .float4Id = ilcSpvPutVectorType(&module, floatId, 4),
+        .boolId = boolId,
         .bool4Id = ilcSpvPutVectorType(&module, boolId, 4),
         .regCount = 0,
         .regs = NULL,
