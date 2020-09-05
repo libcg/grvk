@@ -113,6 +113,18 @@ static IlcSpvId emitVectorVariable(
     return ilcSpvPutVariable(compiler->module, pointerId, storageClass);
 }
 
+static IlcSpvId emitZeroOneVector(
+    IlcCompiler* compiler)
+{
+    IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
+
+    const IlcSpvId consistuentIds[] = {
+        ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL),
+        ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL),
+    };
+    return ilcSpvPutConstantComposite(compiler->module, float2Id, 2, consistuentIds);
+}
+
 static IlcSpvId loadSource(
     IlcCompiler* compiler,
     const Source* src,
@@ -138,16 +150,11 @@ static IlcSpvId loadSource(
         (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
          swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
-        const IlcSpvId consistuentIds[] = {
-            ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL),
-            ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL),
-        };
-        IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, float2Id,
-                                                          2, consistuentIds);
+
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler);
 
         const IlcSpvWord components[] = { swizzle[0], swizzle[1], swizzle[2], swizzle[3] };
-        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, compositeId,
+        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, zeroOneId,
                                        4, components);
     }
 
@@ -269,13 +276,7 @@ static void storeDestination(
         (dst->component[2] == IL_MODCOMP_0 || dst->component[2] == IL_MODCOMP_1) ||
         (dst->component[3] == IL_MODCOMP_0 || dst->component[3] == IL_MODCOMP_1)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
-        const IlcSpvId consistuentIds[] = {
-            ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL),
-            ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL),
-        };
-        IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, float2Id,
-                                                          2, consistuentIds);
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler);
 
         const IlcSpvWord components[] = {
             dst->component[0] == IL_MODCOMP_0 ? 4 : (dst->component[0] == IL_MODCOMP_1 ? 5 : 0),
@@ -283,7 +284,7 @@ static void storeDestination(
             dst->component[2] == IL_MODCOMP_0 ? 4 : (dst->component[2] == IL_MODCOMP_1 ? 5 : 2),
             dst->component[3] == IL_MODCOMP_0 ? 4 : (dst->component[3] == IL_MODCOMP_1 ? 5 : 3),
         };
-        varId = ilcSpvPutVectorShuffle(compiler->module, dstReg->typeId, varId, compositeId,
+        varId = ilcSpvPutVectorShuffle(compiler->module, dstReg->typeId, varId, zeroOneId,
                                        4, components);
     }
 
