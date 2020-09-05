@@ -22,6 +22,23 @@ typedef struct {
     uint32_t ilId;
 } IlcResource;
 
+typedef enum {
+    BLOCK_LOOP,
+} IlcControlFlowBlockType;
+
+typedef struct {
+    IlcSpvId labelHeaderId;
+    IlcSpvId labelContinueId;
+    IlcSpvId labelBreakId;
+} IlcLoopBlock;
+
+typedef struct {
+    IlcControlFlowBlockType type;
+    union {
+        IlcLoopBlock loop;
+    };
+} IlcControlFlowBlock;
+
 typedef struct {
     IlcSpvModule* module;
     const Kernel* kernel;
@@ -35,6 +52,8 @@ typedef struct {
     IlcRegister* regs;
     unsigned resourceCount;
     IlcResource* resources;
+    unsigned controlFlowBlockCount;
+    IlcControlFlowBlock* controlFlowBlocks;
 } IlcCompiler;
 
 static const IlcRegister* addRegister(
@@ -69,7 +88,7 @@ static const IlcRegister* findRegister(
     return NULL;
 }
 
-static const IlcResource* addResource(
+static void addResource(
     IlcCompiler* compiler,
     const IlcResource* resource)
 {
@@ -81,8 +100,6 @@ static const IlcResource* addResource(
     compiler->resources = realloc(compiler->resources,
                                   sizeof(IlcResource) * compiler->resourceCount);
     compiler->resources[compiler->resourceCount - 1] = *resource;
-
-    return &compiler->resources[compiler->resourceCount - 1];
 }
 
 static const IlcResource* findResource(
@@ -98,6 +115,29 @@ static const IlcResource* findResource(
     }
 
     return NULL;
+}
+
+static void pushControlFlowBlock(
+    IlcCompiler* compiler,
+    const IlcControlFlowBlock* block)
+{
+    compiler->controlFlowBlockCount++;
+    size_t size = sizeof(IlcControlFlowBlock) * compiler->controlFlowBlockCount;
+    compiler->controlFlowBlocks = realloc(compiler->controlFlowBlocks, size);
+    compiler->controlFlowBlocks[compiler->controlFlowBlockCount - 1] = *block;
+}
+
+static IlcControlFlowBlock popControlFlowBlock(
+    IlcCompiler* compiler)
+{
+    assert(compiler->controlFlowBlockCount > 0);
+    IlcControlFlowBlock block = compiler->controlFlowBlocks[compiler->controlFlowBlockCount - 1];
+
+    compiler->controlFlowBlockCount--;
+    size_t size = sizeof(IlcControlFlowBlock) * compiler->controlFlowBlockCount;
+    compiler->controlFlowBlocks = realloc(compiler->controlFlowBlocks, size);
+
+    return block;
 }
 
 static IlcSpvId emitVectorVariable(
@@ -517,7 +557,7 @@ static void emitFunc(
     IlcSpvId voidTypeId = ilcSpvPutVoidType(compiler->module);
     IlcSpvId funcTypeId = ilcSpvPutFunctionType(compiler->module, voidTypeId, 0, NULL);
     ilcSpvPutFunction(compiler->module, voidTypeId, id, SpvFunctionControlMaskNone, funcTypeId);
-    ilcSpvPutLabel(compiler->module);
+    ilcSpvPutLabel(compiler->module, 0);
 }
 
 static void emitFloatOp(
@@ -738,6 +778,49 @@ static void emitCmovLogical(
     storeDestination(compiler, &instr->dsts[0], resId);
 }
 
+static void emitWhile(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const IlcLoopBlock loopBlock = {
+        .labelHeaderId = ilcSpvAllocId(compiler->module),
+        .labelContinueId = ilcSpvAllocId(compiler->module),
+        .labelBreakId = ilcSpvAllocId(compiler->module),
+    };
+
+    ilcSpvPutBranch(compiler->module, loopBlock.labelHeaderId);
+    ilcSpvPutLabel(compiler->module, loopBlock.labelHeaderId);
+
+    ilcSpvPutLoopMerge(compiler->module, loopBlock.labelBreakId, loopBlock.labelContinueId);
+
+    IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
+    ilcSpvPutBranch(compiler->module, labelBeginId);
+    ilcSpvPutLabel(compiler->module, labelBeginId);
+
+    const IlcControlFlowBlock block = {
+        .type = BLOCK_LOOP,
+        .loop = loopBlock,
+    };
+    pushControlFlowBlock(compiler, &block);
+}
+
+static void emitEndLoop(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const IlcControlFlowBlock block = popControlFlowBlock(compiler);
+    if (block.type != BLOCK_LOOP) {
+        LOGE("no matching loop was found\n");
+        assert(false);
+    }
+
+    ilcSpvPutBranch(compiler->module, block.loop.labelContinueId);
+    ilcSpvPutLabel(compiler->module, block.loop.labelContinueId);
+
+    ilcSpvPutBranch(compiler->module, block.loop.labelHeaderId);
+    ilcSpvPutLabel(compiler->module, block.loop.labelBreakId);
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -783,6 +866,12 @@ static void emitInstr(
         break;
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
+        break;
+    case IL_OP_ENDLOOP:
+        emitEndLoop(compiler, instr);
+        break;
+    case IL_OP_WHILE:
+        emitWhile(compiler, instr);
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
@@ -890,6 +979,10 @@ uint32_t* ilcCompileKernel(
         .bool4Id = ilcSpvPutVectorType(&module, boolId, 4),
         .regCount = 0,
         .regs = NULL,
+        .resourceCount = 0,
+        .resources = NULL,
+        .controlFlowBlockCount = 0,
+        .controlFlowBlocks = NULL,
     };
 
     emitFunc(&compiler, compiler.entryPointId);

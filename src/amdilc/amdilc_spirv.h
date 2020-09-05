@@ -188,8 +188,18 @@ IlcSpvId ilcSpvPutSelect(
     IlcSpvId obj1Id,
     IlcSpvId obj2Id);
 
+void ilcSpvPutLoopMerge(
+    IlcSpvModule* module,
+    IlcSpvId mergeBlockId,
+    IlcSpvId continueTargetId);
+
 IlcSpvId ilcSpvPutLabel(
-    IlcSpvModule* module);
+    IlcSpvModule* module,
+    IlcSpvId labelId);
+
+void ilcSpvPutBranch(
+    IlcSpvModule* module,
+    IlcSpvId labelId);
 
 void ilcSpvPutReturn(
     IlcSpvModule* module);

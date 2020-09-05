@@ -583,15 +583,39 @@ IlcSpvId ilcSpvPutSelect(
     return id;
 }
 
-IlcSpvId ilcSpvPutLabel(
-    IlcSpvModule* module)
+void ilcSpvPutLoopMerge(
+    IlcSpvModule* module,
+    IlcSpvId mergeBlockId,
+    IlcSpvId continueTargetId)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
-    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpLoopMerge, 4);
+    putWord(buffer, mergeBlockId);
+    putWord(buffer, continueTargetId);
+    putWord(buffer, SpvLoopControlMaskNone);
+}
+
+IlcSpvId ilcSpvPutLabel(
+    IlcSpvModule* module,
+    IlcSpvId labelId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = labelId != 0 ? labelId : ilcSpvAllocId(module);
     putInstr(buffer, SpvOpLabel, 2);
     putWord(buffer, id);
     return id;
+}
+
+void ilcSpvPutBranch(
+    IlcSpvModule* module,
+    IlcSpvId labelId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpBranch, 2);
+    putWord(buffer, labelId);
 }
 
 void ilcSpvPutReturn(
