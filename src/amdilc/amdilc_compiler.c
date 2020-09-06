@@ -7,6 +7,15 @@
 #define ONE_LITERAL         (0x3F800000)
 #define FALSE_LITERAL       (0x00000000)
 #define TRUE_LITERAL        (0xFFFFFFFF)
+#define COMP_INDEX_X        (0)
+#define COMP_INDEX_Y        (1)
+#define COMP_INDEX_Z        (2)
+#define COMP_INDEX_W        (3)
+#define COMP_MASK_X         (1 << COMP_INDEX_X)
+#define COMP_MASK_Y         (1 << COMP_INDEX_Y)
+#define COMP_MASK_Z         (1 << COMP_INDEX_Z)
+#define COMP_MASK_W         (1 << COMP_INDEX_W)
+#define COMP_MASK_ALL       (COMP_MASK_X | COMP_MASK_Y | COMP_MASK_Z | COMP_MASK_W)
 
 typedef struct {
     IlcSpvId id;
@@ -586,13 +595,13 @@ static void emitFloatOp(
 
     switch (instr->opcode) {
     case IL_OP_DP2:
-        componentMask = 0x3;
+        componentMask = COMP_MASK_X | COMP_MASK_Y;
         break;
     case IL_OP_DP3:
-        componentMask = 0x7;
+        componentMask = COMP_MASK_X | COMP_MASK_Y | COMP_MASK_Z;
         break;
     default:
-        componentMask = 0xF;
+        componentMask = COMP_MASK_ALL;
         break;
     }
 
@@ -609,6 +618,14 @@ static void emitFloatOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, compiler->float4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_ATAN: {
+        IlcSpvId atanId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Atan, compiler->float4Id,
+                                          instr->srcCount, srcIds);
+        // Replicate .w on all components
+        const IlcSpvWord components[] = { COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W };
+        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, atanId, atanId,
+                                       4, components);
+    }   break;
     case IL_OP_DIV:
         if (instr->control != IL_ZEROOP_INFINITY) {
             LOGW("unhandled div zero op %d\n", instr->control);
@@ -692,7 +709,7 @@ static void emitFloatComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL);
     }
 
     switch (instr->opcode) {
@@ -729,7 +746,7 @@ static void emitIntegerOp(
 
     for (int i = 0; i < instr->srcCount; i++) {
         srcIds[i] = ilcSpvPutBitcast(compiler->module, compiler->int4Id,
-                                     loadSource(compiler, &instr->srcs[i], 0xF));
+                                     loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL));
     }
 
     switch (instr->opcode) {
@@ -755,7 +772,7 @@ static void emitIntegerComparisonOp(
 
     for (int i = 0; i < instr->srcCount; i++) {
         srcIds[i] = ilcSpvPutBitcast(compiler->module, compiler->int4Id,
-                                     loadSource(compiler, &instr->srcs[i], 0xF));
+                                     loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL));
     }
 
     switch (instr->opcode) {
@@ -793,7 +810,7 @@ static void emitCmovLogical(
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL);
     }
 
     // For each component, select src1 if src0 has any bit set, otherwise select src2
@@ -869,7 +886,7 @@ static void emitBreakLogical(
         srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
     }
 
-    IlcSpvWord xIndex = 0;
+    IlcSpvWord xIndex = COMP_INDEX_X;
     IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->floatId, srcIds[0],
                                              1, &xIndex);
     IlcSpvId xIntId = ilcSpvPutBitcast(compiler->module, compiler->intId, xId);

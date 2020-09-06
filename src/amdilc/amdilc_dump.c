@@ -315,6 +315,9 @@ static void dumpInstruction(
     case IL_OP_ADD:
         logPrintRaw("add");
         break;
+    case IL_OP_ATAN:
+        logPrintRaw("atan");
+        break;
     case IL_OP_DIV:
         logPrintRaw("div_zeroop(%s)", mIlZeroOpNames[instr->control]);
         break;
