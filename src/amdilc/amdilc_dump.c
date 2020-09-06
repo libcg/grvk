@@ -389,6 +389,9 @@ static void dumpInstruction(
     case IL_OP_GE:
         logPrintRaw("ge");
         break;
+    case IL_OP_ROUND_NEG_INF:
+        logPrintRaw("round_neginf");
+        break;
     case IL_OP_SIN_VEC:
         logPrintRaw("sin_vec");
         break;

@@ -656,6 +656,10 @@ static void emitFloatOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, compiler->float4Id,
                              instr->srcCount, srcIds);
     }   break;
+    case IL_OP_ROUND_NEG_INF:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Floor, compiler->float4Id,
+                                instr->srcCount, srcIds);
+        break;
     case IL_OP_SIN_VEC:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sin, compiler->float4Id,
                                 instr->srcCount, srcIds);
@@ -899,6 +903,7 @@ static void emitInstr(
     case IL_OP_MAX:
     case IL_OP_MOV:
     case IL_OP_MUL:
+    case IL_OP_ROUND_NEG_INF:
     case IL_OP_SIN_VEC:
     case IL_OP_SQRT_VEC:
     case IL_OP_DP2:
