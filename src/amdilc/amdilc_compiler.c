@@ -601,6 +601,10 @@ static void emitFloatOp(
     }
 
     switch (instr->opcode) {
+    case IL_OP_ABS:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, compiler->float4Id,
+                                instr->srcCount, srcIds);
+        break;
     case IL_OP_ADD:
         resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, compiler->float4Id,
                              instr->srcCount, srcIds);
@@ -899,6 +903,7 @@ static void emitInstr(
     const Instruction* instr)
 {
     switch (instr->opcode) {
+    case IL_OP_ABS:
     case IL_OP_ADD:
     case IL_OP_DIV:
     case IL_OP_DP3:

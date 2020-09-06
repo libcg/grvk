@@ -309,6 +309,9 @@ static void dumpInstruction(
     }
 
     switch (instr->opcode) {
+    case IL_OP_ABS:
+        logPrintRaw("abs");
+        break;
     case IL_OP_ADD:
         logPrintRaw("add");
         break;
