@@ -33,6 +33,7 @@ OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_CMOV_LOGICAL] = { IL_OP_CMOV_LOGICAL, 1, 3, 0, false },
     [IL_OP_GE] = { IL_OP_GE, 1, 2, 0, false },
     [IL_OP_ROUND_NEG_INF] = { IL_OP_ROUND_NEG_INF, 1, 1, 0, false },
+    [IL_OP_RSQ_VEC] = { IL_OP_RSQ_VEC, 1, 1, 0, false },
     [IL_OP_SIN_VEC] = { IL_OP_SIN_VEC, 1, 1, 0, false },
     [IL_OP_SQRT_VEC] = { IL_OP_SQRT_VEC, 1, 1, 0, false },
     [IL_OP_DP2] = { IL_OP_DP2, 1, 2, 0, false },
