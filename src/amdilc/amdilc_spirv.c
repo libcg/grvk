@@ -616,6 +616,17 @@ void ilcSpvPutLoopMerge(
     putWord(buffer, SpvLoopControlMaskNone);
 }
 
+void ilcSpvPutSelectionMerge(
+    IlcSpvModule* module,
+    IlcSpvId mergeBlockId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpSelectionMerge, 3);
+    putWord(buffer, mergeBlockId);
+    putWord(buffer, SpvSelectionControlMaskNone);
+}
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module,
     IlcSpvId labelId)
@@ -641,15 +652,15 @@ void ilcSpvPutBranch(
 void ilcSpvPutBranchConditional(
     IlcSpvModule* module,
     IlcSpvId conditionId,
-    IlcSpvId falseLabelId,
-    IlcSpvId trueLabelId)
+    IlcSpvId trueLabelId,
+    IlcSpvId falseLabelId)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     putInstr(buffer, SpvOpBranchConditional, 4);
     putWord(buffer, conditionId);
-    putWord(buffer, falseLabelId);
     putWord(buffer, trueLabelId);
+    putWord(buffer, falseLabelId);
 }
 
 void ilcSpvPutReturn(

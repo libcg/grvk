@@ -32,8 +32,14 @@ typedef struct {
 } IlcResource;
 
 typedef enum {
+    BLOCK_IF_ELSE,
     BLOCK_LOOP,
 } IlcControlFlowBlockType;
+
+typedef struct {
+    IlcSpvId labelElseId;
+    IlcSpvId labelEndId;
+} IlcIfElseBlock;
 
 typedef struct {
     IlcSpvId labelHeaderId;
@@ -44,6 +50,7 @@ typedef struct {
 typedef struct {
     IlcControlFlowBlockType type;
     union {
+        IlcIfElseBlock ifElse;
         IlcLoopBlock loop;
     };
 } IlcControlFlowBlock;
@@ -866,6 +873,47 @@ static void emitCmovLogical(
     storeDestination(compiler, &instr->dsts[0], resId);
 }
 
+static IlcSpvId emitConditionCheck(
+    IlcCompiler* compiler,
+    IlcSpvId srcId)
+{
+    IlcSpvWord xIndex = COMP_INDEX_X;
+    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->floatId, srcId,
+                                             1, &xIndex);
+    IlcSpvId xIntId = ilcSpvPutBitcast(compiler->module, compiler->intId, xId);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
+    const IlcSpvId compIds[] = { xIntId, falseId };
+    return ilcSpvPutAlu(compiler->module, SpvOpINotEqual, compiler->boolId, 2, compIds);
+}
+
+static void emitIf(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const IlcIfElseBlock ifElseBlock = {
+        .labelElseId = ilcSpvAllocId(compiler->module),
+        .labelEndId = ilcSpvAllocId(compiler->module),
+    };
+
+    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
+
+    for (int i = 0; i < instr->srcCount; i++) {
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
+    }
+
+    IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
+    IlcSpvId condId = emitConditionCheck(compiler, srcIds[0]);
+    ilcSpvPutSelectionMerge(compiler->module, ifElseBlock.labelEndId);
+    ilcSpvPutBranchConditional(compiler->module, condId, labelBeginId, ifElseBlock.labelElseId);
+    ilcSpvPutLabel(compiler->module, labelBeginId);
+
+    const IlcControlFlowBlock block = {
+        .type = BLOCK_IF_ELSE,
+        .ifElse = ifElseBlock,
+    };
+    pushControlFlowBlock(compiler, &block);
+}
+
 static void emitWhile(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -892,13 +940,31 @@ static void emitWhile(
     pushControlFlowBlock(compiler, &block);
 }
 
+static void emitEndIf(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const IlcControlFlowBlock block = popControlFlowBlock(compiler);
+    if (block.type != BLOCK_IF_ELSE) {
+        LOGE("no matching if/else block was found\n");
+        assert(false);
+    }
+
+    // TODO implement else
+    ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
+    ilcSpvPutLabel(compiler->module, block.ifElse.labelElseId);
+
+    ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
+    ilcSpvPutLabel(compiler->module, block.ifElse.labelEndId);
+}
+
 static void emitEndLoop(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
     const IlcControlFlowBlock block = popControlFlowBlock(compiler);
     if (block.type != BLOCK_LOOP) {
-        LOGE("no matching loop was found\n");
+        LOGE("no matching loop block was found\n");
         assert(false);
     }
 
@@ -915,7 +981,7 @@ static void emitBreakLogical(
 {
     const IlcControlFlowBlock* block = findControlFlowBlock(compiler, BLOCK_LOOP);
     if (block == NULL) {
-        LOGE("no matching loop was found\n");
+        LOGE("no matching loop block was found\n");
         assert(false);
     }
 
@@ -925,14 +991,7 @@ static void emitBreakLogical(
         srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
     }
 
-    IlcSpvWord xIndex = COMP_INDEX_X;
-    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->floatId, srcIds[0],
-                                             1, &xIndex);
-    IlcSpvId xIntId = ilcSpvPutBitcast(compiler->module, compiler->intId, xId);
-    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
-    const IlcSpvId compIds[] = { xIntId, falseId };
-    IlcSpvId condId = ilcSpvPutAlu(compiler->module, SpvOpINotEqual, compiler->boolId, 2, compIds);
-
+    IlcSpvId condId = emitConditionCheck(compiler, srcIds[0]);
     IlcSpvId labelId = ilcSpvAllocId(compiler->module);
     ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
     ilcSpvPutLabel(compiler->module, labelId);
@@ -996,11 +1055,17 @@ static void emitInstr(
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
         break;
+    case IL_OP_ENDIF:
+        emitEndIf(compiler, instr);
+        break;
     case IL_OP_ENDLOOP:
         emitEndLoop(compiler, instr);
         break;
     case IL_OP_BREAK_LOGICALNZ:
         emitBreakLogical(compiler, instr);
+        break;
+    case IL_OP_IF_LOGICALNZ:
+        emitIf(compiler, instr);
         break;
     case IL_OP_WHILE:
         emitWhile(compiler, instr);

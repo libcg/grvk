@@ -200,6 +200,10 @@ void ilcSpvPutLoopMerge(
     IlcSpvId mergeBlockId,
     IlcSpvId continueTargetId);
 
+void ilcSpvPutSelectionMerge(
+    IlcSpvModule* module,
+    IlcSpvId mergeBlockId);
+
 IlcSpvId ilcSpvPutLabel(
     IlcSpvModule* module,
     IlcSpvId labelId);
@@ -211,8 +215,8 @@ void ilcSpvPutBranch(
 void ilcSpvPutBranchConditional(
     IlcSpvModule* module,
     IlcSpvId conditionId,
-    IlcSpvId falseLabelId,
-    IlcSpvId trueLabelId);
+    IlcSpvId trueLabelId,
+    IlcSpvId falseLabelId);
 
 void ilcSpvPutReturn(
     IlcSpvModule* module);
