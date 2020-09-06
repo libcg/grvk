@@ -312,8 +312,14 @@ static void dumpInstruction(
     case IL_OP_ABS:
         logPrintRaw("abs");
         break;
+    case IL_OP_ACOS:
+        logPrintRaw("acos");
+        break;
     case IL_OP_ADD:
         logPrintRaw("add");
+        break;
+    case IL_OP_ASIN:
+        logPrintRaw("asin");
         break;
     case IL_OP_ATAN:
         logPrintRaw("atan");
@@ -338,6 +344,9 @@ static void dumpInstruction(
         break;
     case IL_OP_MAX:
         logPrintRaw("max%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_MIN:
+        logPrintRaw("min%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_MOV:
         logPrintRaw("mov");
@@ -380,6 +389,9 @@ static void dumpInstruction(
         // Sampler ID is ignored
         logPrintRaw("load_resource(%d)", GET_BITS(instr->control, 0, 7));
         break;
+    case IL_OP_I_OR:
+        logPrintRaw("ior");
+        break;
     case IL_OP_I_ADD:
         logPrintRaw("iadd");
         break;
@@ -395,6 +407,9 @@ static void dumpInstruction(
     case IL_OP_GE:
         logPrintRaw("ge");
         break;
+    case IL_OP_LT:
+        logPrintRaw("lt");
+        break;
     case IL_OP_ROUND_NEG_INF:
         logPrintRaw("round_neginf");
         break;
@@ -403,6 +418,9 @@ static void dumpInstruction(
         break;
     case IL_OP_SIN_VEC:
         logPrintRaw("sin_vec");
+        break;
+    case IL_OP_COS_VEC:
+        logPrintRaw("cos_vec");
         break;
     case IL_OP_SQRT_VEC:
         logPrintRaw("sqrt_vec");

@@ -614,10 +614,26 @@ static void emitFloatOp(
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, compiler->float4Id,
                                 instr->srcCount, srcIds);
         break;
+    case IL_OP_ACOS: {
+        IlcSpvId acosId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Acos, compiler->float4Id,
+                                          instr->srcCount, srcIds);
+        // Replicate .w on all components
+        const IlcSpvWord components[] = { COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W };
+        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, acosId, acosId,
+                                       4, components);
+    }   break;
     case IL_OP_ADD:
         resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, compiler->float4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_ASIN: {
+        IlcSpvId asinId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Asin, compiler->float4Id,
+                                          instr->srcCount, srcIds);
+        // Replicate .w on all components
+        const IlcSpvWord components[] = { COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W };
+        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, asinId, asinId,
+                                       4, components);
+    }   break;
     case IL_OP_ATAN: {
         IlcSpvId atanId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Atan, compiler->float4Id,
                                           instr->srcCount, srcIds);
@@ -666,6 +682,14 @@ static void emitFloatOp(
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450NMax, compiler->float4Id,
                                 instr->srcCount, srcIds);
     }   break;
+    case IL_OP_MIN: {
+        bool ieee = GET_BIT(instr->control, 0);
+        if (!ieee) {
+            LOGW("unhandled non-IEEE min\n");
+        }
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450NMin, compiler->float4Id,
+                                instr->srcCount, srcIds);
+    }   break;
     case IL_OP_MOV:
         resId = srcIds[0];
         break;
@@ -687,6 +711,10 @@ static void emitFloatOp(
         break;
     case IL_OP_SIN_VEC:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sin, compiler->float4Id,
+                                instr->srcCount, srcIds);
+        break;
+    case IL_OP_COS_VEC:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Cos, compiler->float4Id,
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_SQRT_VEC:
@@ -715,6 +743,9 @@ static void emitFloatComparisonOp(
     switch (instr->opcode) {
     case IL_OP_GE:
         compOp = SpvOpFOrdGreaterThanEqual;
+        break;
+    case IL_OP_LT:
+        compOp = SpvOpFOrdLessThan;
         break;
     default:
         assert(false);
@@ -750,6 +781,10 @@ static void emitIntegerOp(
     }
 
     switch (instr->opcode) {
+    case IL_OP_I_OR:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseOr, compiler->int4Id,
+                             instr->srcCount, srcIds);
+        break;
     case IL_OP_I_ADD:
         resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id,
                              instr->srcCount, srcIds);
@@ -921,24 +956,31 @@ static void emitInstr(
 {
     switch (instr->opcode) {
     case IL_OP_ABS:
+    case IL_OP_ACOS:
     case IL_OP_ADD:
+    case IL_OP_ASIN:
+    case IL_OP_ATAN:
     case IL_OP_DIV:
     case IL_OP_DP3:
     case IL_OP_FRC:
     case IL_OP_MAD:
     case IL_OP_MAX:
+    case IL_OP_MIN:
     case IL_OP_MOV:
     case IL_OP_MUL:
     case IL_OP_ROUND_NEG_INF:
     case IL_OP_RSQ_VEC:
     case IL_OP_SIN_VEC:
+    case IL_OP_COS_VEC:
     case IL_OP_SQRT_VEC:
     case IL_OP_DP2:
         emitFloatOp(compiler, instr);
         break;
     case IL_OP_GE:
+    case IL_OP_LT:
         emitFloatComparisonOp(compiler, instr);
         break;
+    case IL_OP_I_OR:
     case IL_OP_I_ADD:
         emitIntegerOp(compiler, instr);
         break;
