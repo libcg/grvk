@@ -299,6 +299,7 @@ static void dumpInstruction(
     static int indentLevel = 0; // TODO move to context
 
     switch (instr->opcode) {
+    case IL_OP_ENDIF:
     case IL_OP_ENDLOOP:
         indentLevel--;
         break;
@@ -333,6 +334,9 @@ static void dumpInstruction(
     case IL_OP_END:
         logPrintRaw("end");
         break;
+    case IL_OP_ENDIF:
+        logPrintRaw("endif");
+        break;
     case IL_OP_ENDLOOP:
         logPrintRaw("endloop");
         break;
@@ -356,6 +360,10 @@ static void dumpInstruction(
         break;
     case IL_OP_BREAK_LOGICALNZ:
         logPrintRaw("break_logicalnz");
+        break;
+    case IL_OP_IF_LOGICALNZ:
+        logPrintRaw("if_logicalnz");
+        indentLevel++;
         break;
     case IL_OP_WHILE:
         logPrintRaw("whileloop");
@@ -400,6 +408,9 @@ static void dumpInstruction(
         break;
     case IL_OP_I_LT:
         logPrintRaw("ilt");
+        break;
+    case IL_OP_ITOF:
+        logPrintRaw("itof");
         break;
     case IL_OP_CMOV_LOGICAL:
         logPrintRaw("cmov_logical");
