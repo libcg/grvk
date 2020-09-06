@@ -701,6 +701,10 @@ static void emitFloatOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, compiler->float4Id,
                              instr->srcCount, srcIds);
     }   break;
+    case IL_OP_ITOF: {
+        IlcSpvId iSrcId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
+        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertSToF, compiler->float4Id, 1, &iSrcId);
+    }   break;
     case IL_OP_ROUND_NEG_INF:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Floor, compiler->float4Id,
                                 instr->srcCount, srcIds);
@@ -968,6 +972,7 @@ static void emitInstr(
     case IL_OP_MIN:
     case IL_OP_MOV:
     case IL_OP_MUL:
+    case IL_OP_ITOF:
     case IL_OP_ROUND_NEG_INF:
     case IL_OP_RSQ_VEC:
     case IL_OP_SIN_VEC:
