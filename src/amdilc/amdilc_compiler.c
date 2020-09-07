@@ -777,8 +777,8 @@ static void emitFloatComparisonOp(
                                    instr->srcCount, srcIds);
     IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatId, TRUE_LITERAL);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatId, FALSE_LITERAL);
-    IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
-    IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
+    const IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
+    const IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
     IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
                                                           4, trueConsistuentIds);
     IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
@@ -814,6 +814,22 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_U_BIT_EXTRACT: {
+        // FIXME: not sure if the settings are per-component
+        // TODO: 0x1F mask
+        LOGW("IL_OP_U_BIT_EXTRACT is partially implemented\n");
+
+        IlcSpvWord widthIndex = COMP_INDEX_X;
+        IlcSpvId widthId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcIds[0],
+                                                     1, &widthIndex);
+        IlcSpvWord offsetIndex = COMP_INDEX_X;
+        IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcIds[1],
+                                                      1, &offsetIndex);
+
+        const IlcSpvId argIds[] = { srcIds[2], offsetId, widthId };
+        resId = ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->int4Id, 3, argIds);
+        break;
+    }
     default:
         assert(false);
         break;
@@ -851,8 +867,8 @@ static void emitIntegerComparisonOp(
                                    instr->srcCount, srcIds);
     IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatId, TRUE_LITERAL);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatId, FALSE_LITERAL);
-    IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
-    IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
+    const IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
+    const IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
     IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
                                                           4, trueConsistuentIds);
     IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
@@ -875,7 +891,7 @@ static void emitCmovLogical(
 
     // For each component, select src1 if src0 has any bit set, otherwise select src2
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
-    IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
+    const IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
     IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->int4Id,
                                                            4, falseConsistuentIds);
     IlcSpvId castId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
@@ -1099,6 +1115,7 @@ static void emitInstr(
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
     case IL_OP_AND:
+    case IL_OP_U_BIT_EXTRACT:
         emitIntegerOp(compiler, instr);
         break;
     case IL_OP_I_GE:
