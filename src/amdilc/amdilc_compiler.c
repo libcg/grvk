@@ -988,7 +988,7 @@ static void emitEndLoop(
     ilcSpvPutLabel(compiler->module, block.loop.labelBreakId);
 }
 
-static void emitBreakLogical(
+static void emitBreak(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
@@ -1004,9 +1004,25 @@ static void emitBreakLogical(
         srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
     }
 
-    IlcSpvId condId = emitConditionCheck(compiler, srcIds[0]);
     IlcSpvId labelId = ilcSpvAllocId(compiler->module);
-    ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
+
+    if (instr->opcode == IL_OP_BREAK) {
+        ilcSpvPutBranch(compiler->module, block->loop.labelBreakId);
+    } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
+               instr->opcode == IL_OP_BREAK_LOGICALNZ) {
+        IlcSpvId condId = emitConditionCheck(compiler, srcIds[0]);
+
+        if (instr->opcode == IL_OP_BREAK_LOGICALNZ) {
+            ilcSpvPutBranchConditional(compiler->module, condId,
+                                       block->loop.labelBreakId, labelId);
+        } else {
+            ilcSpvPutBranchConditional(compiler->module, condId,
+                                       labelId, block->loop.labelBreakId);
+        }
+    } else {
+        assert(false);
+    }
+
     ilcSpvPutLabel(compiler->module, labelId);
 }
 
@@ -1077,8 +1093,10 @@ static void emitInstr(
     case IL_OP_ENDLOOP:
         emitEndLoop(compiler, instr);
         break;
+    case IL_OP_BREAK:
+    case IL_OP_BREAK_LOGICALZ:
     case IL_OP_BREAK_LOGICALNZ:
-        emitBreakLogical(compiler, instr);
+        emitBreak(compiler, instr);
         break;
     case IL_OP_IF_LOGICALNZ:
         emitIf(compiler, instr);
