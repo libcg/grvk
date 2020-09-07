@@ -39,6 +39,7 @@ typedef enum {
 typedef struct {
     IlcSpvId labelElseId;
     IlcSpvId labelEndId;
+    bool hasElseBlock;
 } IlcIfElseBlock;
 
 typedef struct {
@@ -906,6 +907,7 @@ static void emitIf(
     const IlcIfElseBlock ifElseBlock = {
         .labelElseId = ilcSpvAllocId(compiler->module),
         .labelEndId = ilcSpvAllocId(compiler->module),
+        .hasElseBlock = false,
     };
 
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
@@ -924,6 +926,23 @@ static void emitIf(
         .type = BLOCK_IF_ELSE,
         .ifElse = ifElseBlock,
     };
+    pushControlFlowBlock(compiler, &block);
+}
+
+static void emitElse(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcControlFlowBlock block = popControlFlowBlock(compiler);
+    if (block.type != BLOCK_IF_ELSE) {
+        LOGE("no matching if/else block was found\n");
+        assert(false);
+    }
+
+    ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
+    ilcSpvPutLabel(compiler->module, block.ifElse.labelElseId);
+    block.ifElse.hasElseBlock = true;
+
     pushControlFlowBlock(compiler, &block);
 }
 
@@ -963,9 +982,11 @@ static void emitEndIf(
         assert(false);
     }
 
-    // TODO implement else
-    ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
-    ilcSpvPutLabel(compiler->module, block.ifElse.labelElseId);
+    if (!block.ifElse.hasElseBlock) {
+        // If no else block was declared, insert a dummy one
+        ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
+        ilcSpvPutLabel(compiler->module, block.ifElse.labelElseId);
+    }
 
     ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
     ilcSpvPutLabel(compiler->module, block.ifElse.labelEndId);
@@ -1083,6 +1104,9 @@ static void emitInstr(
     case IL_OP_I_GE:
     case IL_OP_I_LT:
         emitIntegerComparisonOp(compiler, instr);
+        break;
+    case IL_OP_ELSE:
+        emitElse(compiler, instr);
         break;
     case IL_OP_END:
         ilcSpvPutFunctionEnd(compiler->module);
