@@ -809,6 +809,10 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_AND:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
+                             instr->srcCount, srcIds);
+        break;
     default:
         assert(false);
         break;
@@ -1057,6 +1061,7 @@ static void emitInstr(
         break;
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
+    case IL_OP_AND:
         emitIntegerOp(compiler, instr);
         break;
     case IL_OP_I_GE:
