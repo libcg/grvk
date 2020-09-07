@@ -415,8 +415,14 @@ static void dumpInstruction(
     case IL_OP_CMOV_LOGICAL:
         logPrintRaw("cmov_logical");
         break;
+    case IL_OP_EXP_VEC:
+        logPrintRaw("exp_vec");
+        break;
     case IL_OP_GE:
         logPrintRaw("ge");
+        break;
+    case IL_OP_LOG_VEC:
+        logPrintRaw("log_vec");
         break;
     case IL_OP_LT:
         logPrintRaw("lt");

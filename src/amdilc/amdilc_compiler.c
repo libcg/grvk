@@ -716,6 +716,15 @@ static void emitFloatOp(
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Floor, compiler->float4Id,
                                 instr->srcCount, srcIds);
         break;
+    case IL_OP_EXP_VEC:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Exp, compiler->float4Id,
+                                instr->srcCount, srcIds);
+        break;
+    case IL_OP_LOG_VEC:
+        // FIXME handle log(0)
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Log, compiler->float4Id,
+                                instr->srcCount, srcIds);
+        break;
     case IL_OP_RSQ_VEC:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450InverseSqrt, compiler->float4Id,
                                 instr->srcCount, srcIds);
@@ -1033,6 +1042,8 @@ static void emitInstr(
     case IL_OP_MUL:
     case IL_OP_ITOF:
     case IL_OP_ROUND_NEG_INF:
+    case IL_OP_EXP_VEC:
+    case IL_OP_LOG_VEC:
     case IL_OP_RSQ_VEC:
     case IL_OP_SIN_VEC:
     case IL_OP_COS_VEC:
