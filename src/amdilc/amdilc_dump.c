@@ -299,6 +299,7 @@ static void dumpInstruction(
     static int indentLevel = 0; // TODO move to context
 
     switch (instr->opcode) {
+    case IL_OP_ELSE:
     case IL_OP_ENDIF:
     case IL_OP_ENDLOOP:
         indentLevel--;
@@ -325,11 +326,18 @@ static void dumpInstruction(
     case IL_OP_ATAN:
         logPrintRaw("atan");
         break;
+    case IL_OP_BREAK:
+        logPrintRaw("break");
+        break;
     case IL_OP_DIV:
         logPrintRaw("div_zeroop(%s)", mIlZeroOpNames[instr->control]);
         break;
     case IL_OP_DP3:
         logPrintRaw("dp3%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_ELSE:
+        logPrintRaw("else");
+        indentLevel++;
         break;
     case IL_OP_END:
         logPrintRaw("end");
@@ -357,6 +365,9 @@ static void dumpInstruction(
         break;
     case IL_OP_MUL:
         logPrintRaw("mul%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_BREAK_LOGICALZ:
+        logPrintRaw("break_logicalz");
         break;
     case IL_OP_BREAK_LOGICALNZ:
         logPrintRaw("break_logicalnz");
@@ -412,6 +423,9 @@ static void dumpInstruction(
     case IL_OP_ITOF:
         logPrintRaw("itof");
         break;
+    case IL_OP_AND:
+        logPrintRaw("iand"); // IL_OP_I_AND doesn't exist
+        break;
     case IL_OP_CMOV_LOGICAL:
         logPrintRaw("cmov_logical");
         break;
@@ -444,6 +458,9 @@ static void dumpInstruction(
         break;
     case IL_OP_DP2:
         logPrintRaw("dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_U_BIT_EXTRACT:
+        logPrintRaw("ubit_extract");
         break;
     case IL_DCL_GLOBAL_FLAGS:
         logPrintRaw("dcl_global_flags");
