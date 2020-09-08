@@ -201,7 +201,8 @@ static IlcSpvId emitZeroOneVector(
 static IlcSpvId loadSource(
     IlcCompiler* compiler,
     const Source* src,
-    uint8_t componentMask)
+    uint8_t componentMask,
+    IlcSpvId typeId)
 {
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
 
@@ -276,6 +277,10 @@ static IlcSpvId loadSource(
 
     if (src->clamp) {
         LOGW("unhandled clamp flag\n");
+    }
+
+    if (typeId != reg->typeId) {
+        varId = ilcSpvPutBitcast(compiler->module, typeId, varId);
     }
 
     return varId;
@@ -614,7 +619,7 @@ static void emitFloatOp(
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], componentMask);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], componentMask, compiler->float4Id);
     }
 
     switch (instr->opcode) {
@@ -758,7 +763,7 @@ static void emitFloatComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->float4Id);
     }
 
     switch (instr->opcode) {
@@ -797,8 +802,7 @@ static void emitIntegerOp(
     IlcSpvId resId = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = ilcSpvPutBitcast(compiler->module, compiler->int4Id,
-                                     loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL));
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->int4Id);
     }
 
     switch (instr->opcode) {
@@ -847,8 +851,7 @@ static void emitIntegerComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = ilcSpvPutBitcast(compiler->module, compiler->int4Id,
-                                     loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL));
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->int4Id);
     }
 
     switch (instr->opcode) {
@@ -886,7 +889,7 @@ static void emitCmovLogical(
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->float4Id);
     }
 
     // For each component, select src1 if src0 has any bit set, otherwise select src2
@@ -908,11 +911,9 @@ static IlcSpvId emitConditionCheck(
     IlcSpvId srcId)
 {
     IlcSpvWord xIndex = COMP_INDEX_X;
-    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->floatId, srcId,
-                                             1, &xIndex);
-    IlcSpvId xIntId = ilcSpvPutBitcast(compiler->module, compiler->intId, xId);
+    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId, 1, &xIndex);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
-    const IlcSpvId compIds[] = { xIntId, falseId };
+    const IlcSpvId compIds[] = { xId, falseId };
     return ilcSpvPutAlu(compiler->module, SpvOpINotEqual, compiler->boolId, 2, compIds);
 }
 
@@ -926,14 +927,9 @@ static void emitIf(
         .hasElseBlock = false,
     };
 
-    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
-
-    for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
-    }
-
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_ALL, compiler->int4Id);
     IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
-    IlcSpvId condId = emitConditionCheck(compiler, srcIds[0]);
+    IlcSpvId condId = emitConditionCheck(compiler, srcId);
     ilcSpvPutSelectionMerge(compiler->module, ifElseBlock.labelEndId);
     ilcSpvPutBranchConditional(compiler->module, condId, labelBeginId, ifElseBlock.labelElseId);
     ilcSpvPutLabel(compiler->module, labelBeginId);
@@ -1035,19 +1031,14 @@ static void emitBreak(
         assert(false);
     }
 
-    IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
-
-    for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], 0xF);
-    }
-
     IlcSpvId labelId = ilcSpvAllocId(compiler->module);
 
     if (instr->opcode == IL_OP_BREAK) {
         ilcSpvPutBranch(compiler->module, block->loop.labelBreakId);
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
-        IlcSpvId condId = emitConditionCheck(compiler, srcIds[0]);
+        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_ALL, compiler->int4Id);
+        IlcSpvId condId = emitConditionCheck(compiler, srcId);
 
         if (instr->opcode == IL_OP_BREAK_LOGICALNZ) {
             ilcSpvPutBranchConditional(compiler->module, condId,
@@ -1073,7 +1064,7 @@ static void emitLoad(
     const Destination* dst = &instr->dsts[0];
     const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], 0x1);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_X, compiler->intId);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, srcId);
     storeDestination(compiler, dst, fetchId);
