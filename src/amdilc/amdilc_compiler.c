@@ -224,13 +224,19 @@ static IlcSpvId loadSource(
         (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
          swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-
         IlcSpvId zeroOneId = emitZeroOneVector(compiler);
 
         const IlcSpvWord components[] = { swizzle[0], swizzle[1], swizzle[2], swizzle[3] };
         varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, zeroOneId,
                                        4, components);
     }
+
+    if (typeId != reg->typeId) {
+        // Need to cast to the expected type
+        varId = ilcSpvPutBitcast(compiler->module, typeId, varId);
+    }
+
+    // All following operations but `neg` are float only (AMDIL spec, table 2.10)
 
     if (src->invert) {
         LOGW("unhandled invert flag\n");
@@ -253,11 +259,19 @@ static IlcSpvId loadSource(
     }
 
     if (src->abs) {
-        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, reg->typeId, 1, &varId);
+        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, compiler->float4Id, 1, &varId);
     }
 
     if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
-        IlcSpvId negId = ilcSpvPutAlu(compiler->module, SpvOpFNegate, reg->typeId, 1, &varId);
+        IlcSpvId negId = 0;
+
+        if (typeId == compiler->float4Id) {
+            negId = ilcSpvPutAlu(compiler->module, SpvOpFNegate, compiler->float4Id, 1, &varId);
+        } else if (typeId == compiler->int4Id) {
+            negId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id, 1, &varId);
+        } else {
+            assert(false);
+        }
 
         if (src->negate[0] && src->negate[1] && src->negate[2] && src->negate[3]) {
             varId = negId;
@@ -270,17 +284,12 @@ static IlcSpvId loadSource(
                 src->negate[3] ? 3 : 7,
             };
 
-            varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, negId, varId,
-                                           4, components);
+            varId = ilcSpvPutVectorShuffle(compiler->module, typeId, negId, varId, 4, components);
         }
     }
 
     if (src->clamp) {
         LOGW("unhandled clamp flag\n");
-    }
-
-    if (typeId != reg->typeId) {
-        varId = ilcSpvPutBitcast(compiler->module, typeId, varId);
     }
 
     return varId;
