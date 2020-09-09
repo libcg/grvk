@@ -95,20 +95,22 @@ uint32_t* ilcCompileShader(
     const void* code,
     unsigned size)
 {
-    uint32_t* compiledCode;
     Kernel* kernel = ilcDecodeStream((Token*)code, size / sizeof(Token));
+    bool dump = isShaderDumpEnabled();
+    char name[NAME_LEN];
 
-    compiledCode = ilcCompileKernel(compiledSize, kernel);
-
-    if (isShaderDumpEnabled()) {
-        char name[NAME_LEN];
-
+    if (dump) {
         getShaderName(name, NAME_LEN, code, size, kernel->shaderType);
         dumpBuffer(code, size, name, "il");
-        dumpBuffer((uint8_t*)compiledCode, *compiledSize, name, "spv");
 
         // TODO dump to file
         ilcDumpKernel(kernel);
+    }
+
+    uint32_t* compiledCode = ilcCompileKernel(compiledSize, kernel);
+
+    if (dump) {
+        dumpBuffer((uint8_t*)compiledCode, *compiledSize, name, "spv");
     }
 
     freeKernel(kernel);
