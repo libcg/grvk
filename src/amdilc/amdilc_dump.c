@@ -329,6 +329,9 @@ static void dumpInstruction(
     case IL_OP_BREAK:
         logPrintRaw("break");
         break;
+    case IL_OP_CONTINUE:
+        logPrintRaw("continue");
+        break;
     case IL_OP_DIV:
         logPrintRaw("div_zeroop(%s)", mIlZeroOpNames[instr->control]);
         break;
@@ -372,6 +375,10 @@ static void dumpInstruction(
     case IL_OP_BREAK_LOGICALNZ:
         logPrintRaw("break_logicalnz");
         break;
+    case IL_OP_IF_LOGICALZ:
+        logPrintRaw("if_logicalz");
+        indentLevel++;
+        break;
     case IL_OP_IF_LOGICALNZ:
         logPrintRaw("if_logicalnz");
         indentLevel++;
@@ -408,17 +415,26 @@ static void dumpInstruction(
         // Sampler ID is ignored
         logPrintRaw("load_resource(%d)", GET_BITS(instr->control, 0, 7));
         break;
+    case IL_OP_I_NOT:
+        logPrintRaw("inot");
+        break;
     case IL_OP_I_OR:
         logPrintRaw("ior");
         break;
     case IL_OP_I_ADD:
         logPrintRaw("iadd");
         break;
+    case IL_OP_I_EQ:
+        logPrintRaw("ieq");
+        break;
     case IL_OP_I_GE:
         logPrintRaw("ige");
         break;
     case IL_OP_I_LT:
         logPrintRaw("ilt");
+        break;
+    case IL_OP_FTOI:
+        logPrintRaw("ftoi");
         break;
     case IL_OP_ITOF:
         logPrintRaw("itof");
@@ -428,6 +444,9 @@ static void dumpInstruction(
         break;
     case IL_OP_CMOV_LOGICAL:
         logPrintRaw("cmov_logical");
+        break;
+    case IL_OP_EQ:
+        logPrintRaw("eq");
         break;
     case IL_OP_EXP_VEC:
         logPrintRaw("exp_vec");
@@ -440,6 +459,9 @@ static void dumpInstruction(
         break;
     case IL_OP_LT:
         logPrintRaw("lt");
+        break;
+    case IL_OP_NE:
+        logPrintRaw("ne");
         break;
     case IL_OP_ROUND_NEG_INF:
         logPrintRaw("round_neginf");
