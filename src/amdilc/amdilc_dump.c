@@ -1,6 +1,6 @@
 #include "amdilc_internal.h"
 
-static const char* mIlShaderTypeNames[IL_SHADER_LAST] = {
+const char* mIlShaderTypeNames[IL_SHADER_LAST] = {
     "vs",
     "ps",
     "gs",

@@ -61,6 +61,8 @@ typedef struct {
     Instruction* instrs;
 } Kernel;
 
+extern const char* mIlShaderTypeNames[IL_SHADER_LAST];
+
 Kernel* ilcDecodeStream(
     const Token* tokens,
     uint32_t count);

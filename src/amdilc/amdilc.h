@@ -7,7 +7,6 @@
 uint32_t* ilcCompileShader(
     uint32_t* compiledSize,
     const void* code,
-    uint32_t size,
-    bool dump);
+    unsigned size);
 
 #endif // AMDILC_H_

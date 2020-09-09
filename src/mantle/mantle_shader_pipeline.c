@@ -265,8 +265,7 @@ GR_RESULT grCreateShader(
     }
 
     if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
-        spirvCode = ilcCompileShader(&spirvCodeSize,
-                                     pCreateInfo->pCode, pCreateInfo->codeSize, true);
+        spirvCode = ilcCompileShader(&spirvCodeSize, pCreateInfo->pCode, pCreateInfo->codeSize);
     } else {
         spirvCodeSize = pCreateInfo->codeSize;
         spirvCode = (uint32_t*)pCreateInfo->pCode;
