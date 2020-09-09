@@ -491,8 +491,8 @@ static void dumpInstruction(
         logPrintRaw("dcl_global_flags");
         break;
     default:
-        logPrintRaw("%d?", instr->opcode);
-        break;
+        logPrintRaw("%d?\n", instr->opcode);
+        return;
     }
 
     assert(instr->dstCount <= 1);
