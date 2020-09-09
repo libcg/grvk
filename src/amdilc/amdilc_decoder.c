@@ -18,6 +18,7 @@ OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_CONTINUE] = { IL_OP_CONTINUE, 0, 0, 0, false },
     [IL_OP_DIV] = { IL_OP_DIV, 1, 2, 0, false },
     [IL_OP_DP3] = { IL_OP_DP3, 1, 2, 0, false },
+    [IL_OP_DP4] = { IL_OP_DP4, 1, 2, 0, false },
     [IL_OP_ELSE] = { IL_OP_ELSE, 0, 0, 0, false },
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
     [IL_OP_ENDIF] = { IL_OP_ENDIF, 0, 0, 0, false },

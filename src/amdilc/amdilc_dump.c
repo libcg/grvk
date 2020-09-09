@@ -338,6 +338,9 @@ static void dumpInstruction(
     case IL_OP_DP3:
         logPrintRaw("dp3%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
+    case IL_OP_DP4:
+        logPrintRaw("dp4%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
     case IL_OP_ELSE:
         logPrintRaw("else");
         indentLevel++;

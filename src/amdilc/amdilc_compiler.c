@@ -667,7 +667,8 @@ static void emitFloatOp(
                              instr->srcCount, srcIds);
         break;
     case IL_OP_DP2:
-    case IL_OP_DP3: {
+    case IL_OP_DP3:
+    case IL_OP_DP4: {
         bool ieee = GET_BIT(instr->control, 0);
         if (!ieee) {
             LOGW("unhandled non-IEEE dot product\n");
@@ -1114,6 +1115,7 @@ static void emitInstr(
     case IL_OP_ATAN:
     case IL_OP_DIV:
     case IL_OP_DP3:
+    case IL_OP_DP4:
     case IL_OP_FRC:
     case IL_OP_MAD:
     case IL_OP_MAX:
