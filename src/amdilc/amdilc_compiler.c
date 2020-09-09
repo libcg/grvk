@@ -924,13 +924,15 @@ static void emitCmovLogical(
 
 static IlcSpvId emitConditionCheck(
     IlcCompiler* compiler,
-    IlcSpvId srcId)
+    IlcSpvId srcId,
+    bool notZero)
 {
     IlcSpvWord xIndex = COMP_INDEX_X;
     IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId, 1, &xIndex);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
     const IlcSpvId compIds[] = { xId, falseId };
-    return ilcSpvPutAlu(compiler->module, SpvOpINotEqual, compiler->boolId, 2, compIds);
+    return ilcSpvPutAlu(compiler->module, notZero ? SpvOpINotEqual : SpvOpIEqual, compiler->boolId,
+                        2, compIds);
 }
 
 static void emitIf(
@@ -945,7 +947,7 @@ static void emitIf(
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_ALL, compiler->int4Id);
     IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
-    IlcSpvId condId = emitConditionCheck(compiler, srcId);
+    IlcSpvId condId = emitConditionCheck(compiler, srcId, instr->opcode == IL_OP_IF_LOGICALNZ);
     ilcSpvPutSelectionMerge(compiler->module, ifElseBlock.labelEndId);
     ilcSpvPutBranchConditional(compiler->module, condId, labelBeginId, ifElseBlock.labelElseId);
     ilcSpvPutLabel(compiler->module, labelBeginId);
@@ -1054,15 +1056,9 @@ static void emitBreak(
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
         IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_ALL, compiler->int4Id);
-        IlcSpvId condId = emitConditionCheck(compiler, srcId);
-
-        if (instr->opcode == IL_OP_BREAK_LOGICALNZ) {
-            ilcSpvPutBranchConditional(compiler->module, condId,
-                                       block->loop.labelBreakId, labelId);
-        } else {
-            ilcSpvPutBranchConditional(compiler->module, condId,
-                                       labelId, block->loop.labelBreakId);
-        }
+        IlcSpvId condId = emitConditionCheck(compiler, srcId,
+                                             instr->opcode == IL_OP_BREAK_LOGICALNZ);
+        ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
     } else {
         assert(false);
     }
@@ -1150,6 +1146,7 @@ static void emitInstr(
     case IL_OP_BREAK_LOGICALNZ:
         emitBreak(compiler, instr);
         break;
+    case IL_OP_IF_LOGICALZ:
     case IL_OP_IF_LOGICALNZ:
         emitIf(compiler, instr);
         break;
