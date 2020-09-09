@@ -1278,6 +1278,7 @@ uint32_t* ilcCompileKernel(
 
     free(compiler.regs);
     free(compiler.resources);
+    free(compiler.controlFlowBlocks);
     ilcSpvFinish(&module);
 
     *size = sizeof(IlcSpvWord) * module.buffer[ID_MAIN].wordCount;
