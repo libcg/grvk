@@ -1066,6 +1066,21 @@ static void emitBreak(
     ilcSpvPutLabel(compiler->module, labelId);
 }
 
+static void emitContinue(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const IlcControlFlowBlock* block = findControlFlowBlock(compiler, BLOCK_LOOP);
+    if (block == NULL) {
+        LOGE("no matching loop block was found\n");
+        assert(false);
+    }
+
+    IlcSpvId labelId = ilcSpvAllocId(compiler->module);
+    ilcSpvPutBranch(compiler->module, block->loop.labelContinueId);
+    ilcSpvPutLabel(compiler->module, labelId);
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1128,6 +1143,9 @@ static void emitInstr(
     case IL_OP_I_GE:
     case IL_OP_I_LT:
         emitIntegerComparisonOp(compiler, instr);
+        break;
+    case IL_OP_CONTINUE:
+        emitContinue(compiler, instr);
         break;
     case IL_OP_ELSE:
         emitElse(compiler, instr);
