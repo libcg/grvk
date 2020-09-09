@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "amdilc_spirv.h"
 #include "amdilc_internal.h"
 

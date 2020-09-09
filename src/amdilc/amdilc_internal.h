@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "amdil/amdil.h"
@@ -68,6 +69,7 @@ Kernel* ilcDecodeStream(
     uint32_t count);
 
 void ilcDumpKernel(
+    FILE* file,
     const Kernel* kernel);
 
 uint32_t* ilcCompileKernel(

@@ -209,6 +209,7 @@ static const char* getComponentName(
 }
 
 static void dumpGlobalFlags(
+    FILE* file,
     const uint16_t flags)
 {
     const char* flagNames[] = {
@@ -221,40 +222,39 @@ static void dumpGlobalFlags(
     bool first = true;
     for (int i = 0; i < sizeof(flagNames) / sizeof(flagNames[0]); i++) {
         if (GET_BIT(flags, i)) {
-            logPrintRaw("%s%s",
-                        first ? " " : "|",
-                        flagNames[i]);
-
+            fprintf(file, "%s%s", first ? " " : "|", flagNames[i]);
             first = false;
         }
     }
 }
 
 static void dumpDestination(
+    FILE* file,
     const Destination* dst)
 {
-    logPrintRaw("%s%s %s%u",
-                mIlShiftScaleNames[dst->shiftScale],
-                dst->clamp ? "_sat" : "",
-                mIlRegTypeNames[dst->registerType],
-                dst->registerNum);
+    fprintf(file, "%s%s %s%u",
+            mIlShiftScaleNames[dst->shiftScale],
+            dst->clamp ? "_sat" : "",
+            mIlRegTypeNames[dst->registerType],
+            dst->registerNum);
 
     if (dst->component[0] != IL_MODCOMP_WRITE ||
         dst->component[1] != IL_MODCOMP_WRITE ||
         dst->component[2] != IL_MODCOMP_WRITE ||
         dst->component[3] != IL_MODCOMP_WRITE) {
-        logPrintRaw(".%s%s%s%s",
-                    getComponentName("x", dst->component[0]),
-                    getComponentName("y", dst->component[1]),
-                    getComponentName("z", dst->component[2]),
-                    getComponentName("w", dst->component[3]));
+        fprintf(file, ".%s%s%s%s",
+                getComponentName("x", dst->component[0]),
+                getComponentName("y", dst->component[1]),
+                getComponentName("z", dst->component[2]),
+                getComponentName("w", dst->component[3]));
     }
 }
 
 static void dumpSource(
+    FILE* file,
     const Source* src)
 {
-    logPrintRaw(" %s%u", mIlRegTypeNames[src->registerType], src->registerNum);
+    fprintf(file, " %s%u", mIlRegTypeNames[src->registerType], src->registerNum);
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
         src->swizzle[1] != IL_COMPSEL_Y_G ||
@@ -263,37 +263,38 @@ static void dumpSource(
         if (src->swizzle[0] == src->swizzle[1] &&
             src->swizzle[1] == src->swizzle[2] &&
             src->swizzle[2] == src->swizzle[3]) {
-            logPrintRaw(".%s", mIlComponentSelectNames[src->swizzle[0]]);
+            fprintf(file, ".%s", mIlComponentSelectNames[src->swizzle[0]]);
         } else {
-            logPrintRaw(".%s%s%s%s",
-                        mIlComponentSelectNames[src->swizzle[0]],
-                        mIlComponentSelectNames[src->swizzle[1]],
-                        mIlComponentSelectNames[src->swizzle[2]],
-                        mIlComponentSelectNames[src->swizzle[3]]);
+            fprintf(file, ".%s%s%s%s",
+                    mIlComponentSelectNames[src->swizzle[0]],
+                    mIlComponentSelectNames[src->swizzle[1]],
+                    mIlComponentSelectNames[src->swizzle[2]],
+                    mIlComponentSelectNames[src->swizzle[3]]);
         }
     }
 
     if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
-        logPrintRaw("_neg(%s%s%s%s)",
-                    src->negate[0] ? "x" : "",
-                    src->negate[1] ? "y" : "",
-                    src->negate[2] ? "z" : "",
-                    src->negate[3] ? "w" : "");
+        fprintf(file, "_neg(%s%s%s%s)",
+                src->negate[0] ? "x" : "",
+                src->negate[1] ? "y" : "",
+                src->negate[2] ? "z" : "",
+                src->negate[3] ? "w" : "");
     }
 
-    logPrintRaw("%s%s%s%s%s%s%s",
-                src->invert ? "_invert" : "",
-                src->bias && !src->x2 ? "_bias" : "",
-                !src->bias && src->x2 ? "_x2" : "",
-                src->bias && src->x2 ? "_bx2" : "",
-                src->sign ? "_sign" : "",
-                mIlDivCompNames[src->divComp],
-                src->abs ? "_abs" : "");
+    fprintf(file, "%s%s%s%s%s%s%s",
+            src->invert ? "_invert" : "",
+            src->bias && !src->x2 ? "_bias" : "",
+            !src->bias && src->x2 ? "_x2" : "",
+            src->bias && src->x2 ? "_bx2" : "",
+            src->sign ? "_sign" : "",
+            mIlDivCompNames[src->divComp],
+            src->abs ? "_abs" : "");
 
-    logPrintRaw("%s", src->clamp ? "_sat" : "");
+    fprintf(file, "%s", src->clamp ? "_sat" : "");
 }
 
 static void dumpInstruction(
+    FILE* file,
     const Instruction* instr)
 {
     static int indentLevel = 0; // TODO move to context
@@ -307,228 +308,229 @@ static void dumpInstruction(
     }
 
     for (int i = 0; i < indentLevel; i++) {
-        logPrintRaw("    ");
+        fprintf(file, "    ");
     }
 
     switch (instr->opcode) {
     case IL_OP_ABS:
-        logPrintRaw("abs");
+        fprintf(file, "abs");
         break;
     case IL_OP_ACOS:
-        logPrintRaw("acos");
+        fprintf(file, "acos");
         break;
     case IL_OP_ADD:
-        logPrintRaw("add");
+        fprintf(file, "add");
         break;
     case IL_OP_ASIN:
-        logPrintRaw("asin");
+        fprintf(file, "asin");
         break;
     case IL_OP_ATAN:
-        logPrintRaw("atan");
+        fprintf(file, "atan");
         break;
     case IL_OP_BREAK:
-        logPrintRaw("break");
+        fprintf(file, "break");
         break;
     case IL_OP_CONTINUE:
-        logPrintRaw("continue");
+        fprintf(file, "continue");
         break;
     case IL_OP_DIV:
-        logPrintRaw("div_zeroop(%s)", mIlZeroOpNames[instr->control]);
+        fprintf(file, "div_zeroop(%s)", mIlZeroOpNames[instr->control]);
         break;
     case IL_OP_DP3:
-        logPrintRaw("dp3%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        fprintf(file, "dp3%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_DP4:
-        logPrintRaw("dp4%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        fprintf(file, "dp4%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_ELSE:
-        logPrintRaw("else");
+        fprintf(file, "else");
         indentLevel++;
         break;
     case IL_OP_END:
-        logPrintRaw("end");
+        fprintf(file, "end");
         break;
     case IL_OP_ENDIF:
-        logPrintRaw("endif");
+        fprintf(file, "endif");
         break;
     case IL_OP_ENDLOOP:
-        logPrintRaw("endloop");
+        fprintf(file, "endloop");
         break;
     case IL_OP_FRC:
-        logPrintRaw("frc");
+        fprintf(file, "frc");
         break;
     case IL_OP_MAD:
-        logPrintRaw("mad%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        fprintf(file, "mad%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_MAX:
-        logPrintRaw("max%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        fprintf(file, "max%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_MIN:
-        logPrintRaw("min%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        fprintf(file, "min%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_MOV:
-        logPrintRaw("mov");
+        fprintf(file, "mov");
         break;
     case IL_OP_MUL:
-        logPrintRaw("mul%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        fprintf(file, "mul%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_BREAK_LOGICALZ:
-        logPrintRaw("break_logicalz");
+        fprintf(file, "break_logicalz");
         break;
     case IL_OP_BREAK_LOGICALNZ:
-        logPrintRaw("break_logicalnz");
+        fprintf(file, "break_logicalnz");
         break;
     case IL_OP_IF_LOGICALZ:
-        logPrintRaw("if_logicalz");
+        fprintf(file, "if_logicalz");
         indentLevel++;
         break;
     case IL_OP_IF_LOGICALNZ:
-        logPrintRaw("if_logicalnz");
+        fprintf(file, "if_logicalnz");
         indentLevel++;
         break;
     case IL_OP_WHILE:
-        logPrintRaw("whileloop");
+        fprintf(file, "whileloop");
         indentLevel++;
         break;
     case IL_OP_RET_DYN:
-        logPrintRaw("ret_dyn");
+        fprintf(file, "ret_dyn");
         break;
     case IL_DCL_LITERAL:
-        logPrintRaw("dcl_literal");
+        fprintf(file, "dcl_literal");
         break;
     case IL_DCL_OUTPUT:
-        logPrintRaw("dcl_output_%s", mIlImportUsageNames[instr->control]);
+        fprintf(file, "dcl_output_%s", mIlImportUsageNames[instr->control]);
         break;
     case IL_DCL_INPUT:
-        logPrintRaw("dcl_input_%s%s",
-                    mIlImportUsageNames[GET_BITS(instr->control, 0, 4)],
-                    mIlInterpModeNames[GET_BITS(instr->control, 5, 7)]);
+        fprintf(file, "dcl_input_%s%s",
+                mIlImportUsageNames[GET_BITS(instr->control, 0, 4)],
+                mIlInterpModeNames[GET_BITS(instr->control, 5, 7)]);
         break;
     case IL_DCL_RESOURCE:
-        logPrintRaw("dcl_resource_id(%d)_type(%s%s)_fmtx(%s)_fmty(%s)_fmtz(%s)_fmtw(%s)",
-                    GET_BITS(instr->control, 0, 7),
-                    mIlPixTexUsageNames[GET_BITS(instr->control, 8, 11)],
-                    GET_BIT(instr->control, 31) ? ",unnorm" : "",
-                    mIlElementFormatNames[GET_BITS(instr->extras[0], 20, 22)],
-                    mIlElementFormatNames[GET_BITS(instr->extras[0], 23, 25)],
-                    mIlElementFormatNames[GET_BITS(instr->extras[0], 26, 28)],
-                    mIlElementFormatNames[GET_BITS(instr->extras[0], 29, 31)]);
+        fprintf(file, "dcl_resource_id(%d)_type(%s%s)_fmtx(%s)_fmty(%s)_fmtz(%s)_fmtw(%s)",
+                GET_BITS(instr->control, 0, 7),
+                mIlPixTexUsageNames[GET_BITS(instr->control, 8, 11)],
+                GET_BIT(instr->control, 31) ? ",unnorm" : "",
+                mIlElementFormatNames[GET_BITS(instr->extras[0], 20, 22)],
+                mIlElementFormatNames[GET_BITS(instr->extras[0], 23, 25)],
+                mIlElementFormatNames[GET_BITS(instr->extras[0], 26, 28)],
+                mIlElementFormatNames[GET_BITS(instr->extras[0], 29, 31)]);
         break;
     case IL_OP_LOAD:
         // Sampler ID is ignored
-        logPrintRaw("load_resource(%d)", GET_BITS(instr->control, 0, 7));
+        fprintf(file, "load_resource(%d)", GET_BITS(instr->control, 0, 7));
         break;
     case IL_OP_I_NOT:
-        logPrintRaw("inot");
+        fprintf(file, "inot");
         break;
     case IL_OP_I_OR:
-        logPrintRaw("ior");
+        fprintf(file, "ior");
         break;
     case IL_OP_I_ADD:
-        logPrintRaw("iadd");
+        fprintf(file, "iadd");
         break;
     case IL_OP_I_EQ:
-        logPrintRaw("ieq");
+        fprintf(file, "ieq");
         break;
     case IL_OP_I_GE:
-        logPrintRaw("ige");
+        fprintf(file, "ige");
         break;
     case IL_OP_I_LT:
-        logPrintRaw("ilt");
+        fprintf(file, "ilt");
         break;
     case IL_OP_FTOI:
-        logPrintRaw("ftoi");
+        fprintf(file, "ftoi");
         break;
     case IL_OP_ITOF:
-        logPrintRaw("itof");
+        fprintf(file, "itof");
         break;
     case IL_OP_AND:
-        logPrintRaw("iand"); // IL_OP_I_AND doesn't exist
+        fprintf(file, "iand"); // IL_OP_I_AND doesn't exist
         break;
     case IL_OP_CMOV_LOGICAL:
-        logPrintRaw("cmov_logical");
+        fprintf(file, "cmov_logical");
         break;
     case IL_OP_EQ:
-        logPrintRaw("eq");
+        fprintf(file, "eq");
         break;
     case IL_OP_EXP_VEC:
-        logPrintRaw("exp_vec");
+        fprintf(file, "exp_vec");
         break;
     case IL_OP_GE:
-        logPrintRaw("ge");
+        fprintf(file, "ge");
         break;
     case IL_OP_LOG_VEC:
-        logPrintRaw("log_vec");
+        fprintf(file, "log_vec");
         break;
     case IL_OP_LT:
-        logPrintRaw("lt");
+        fprintf(file, "lt");
         break;
     case IL_OP_NE:
-        logPrintRaw("ne");
+        fprintf(file, "ne");
         break;
     case IL_OP_ROUND_NEG_INF:
-        logPrintRaw("round_neginf");
+        fprintf(file, "round_neginf");
         break;
     case IL_OP_RSQ_VEC:
-        logPrintRaw("rsq_vec");
+        fprintf(file, "rsq_vec");
         break;
     case IL_OP_SIN_VEC:
-        logPrintRaw("sin_vec");
+        fprintf(file, "sin_vec");
         break;
     case IL_OP_COS_VEC:
-        logPrintRaw("cos_vec");
+        fprintf(file, "cos_vec");
         break;
     case IL_OP_SQRT_VEC:
-        logPrintRaw("sqrt_vec");
+        fprintf(file, "sqrt_vec");
         break;
     case IL_OP_DP2:
-        logPrintRaw("dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        fprintf(file, "dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_U_BIT_EXTRACT:
-        logPrintRaw("ubit_extract");
+        fprintf(file, "ubit_extract");
         break;
     case IL_DCL_GLOBAL_FLAGS:
-        logPrintRaw("dcl_global_flags");
+        fprintf(file, "dcl_global_flags");
         break;
     default:
-        logPrintRaw("%d?\n", instr->opcode);
+        fprintf(file, "%d?\n", instr->opcode);
         return;
     }
 
     assert(instr->dstCount <= 1);
     for (int i = 0; i < instr->dstCount; i++) {
-        dumpDestination(&instr->dsts[i]);
+        dumpDestination(file, &instr->dsts[i]);
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
         if (i > 0 || (i == 0 && instr->dstCount > 0)) {
-            logPrintRaw(",");
+            fprintf(file, ",");
         }
 
-        dumpSource(&instr->srcs[i]);
+        dumpSource(file, &instr->srcs[i]);
     }
 
     if (instr->opcode == IL_DCL_LITERAL) {
         for (int i = 0; i < instr->extraCount; i++) {
-            logPrintRaw(", 0x%08X", instr->extras[i]);
+            fprintf(file, ", 0x%08X", instr->extras[i]);
         }
     } else if (instr->opcode == IL_DCL_GLOBAL_FLAGS) {
-        dumpGlobalFlags(instr->control);
+        dumpGlobalFlags(file, instr->control);
     }
 
-    logPrintRaw("\n");
+    fprintf(file, "\n");
 }
 
 void ilcDumpKernel(
+    FILE* file,
     const Kernel* kernel)
 {
-    logPrintRaw("%s\nil_%s_%d_%d%s%s\n",
-                mIlLanguageTypeNames[kernel->clientType],
-                mIlShaderTypeNames[kernel->shaderType],
-                kernel->majorVersion, kernel->minorVersion,
-                kernel->multipass ? "_mp" : "", kernel->realtime ? "_rt" : "");
+    fprintf(file, "%s\nil_%s_%d_%d%s%s\n",
+            mIlLanguageTypeNames[kernel->clientType],
+            mIlShaderTypeNames[kernel->shaderType],
+            kernel->majorVersion, kernel->minorVersion,
+            kernel->multipass ? "_mp" : "", kernel->realtime ? "_rt" : "");
 
     for (int i = 0; i < kernel->instrCount; i++) {
-        dumpInstruction(&kernel->instrs[i]);
+        dumpInstruction(file, &kernel->instrs[i]);
     }
 }

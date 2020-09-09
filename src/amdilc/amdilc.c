@@ -69,16 +69,6 @@ static void getShaderName(
              hash[15], hash[16], hash[17], hash[18], hash[19]);
 }
 
-static void dump(
-    const uint8_t* buf,
-    unsigned size,
-    const char* fileName)
-{
-    FILE* f = fopen(fileName, "wb");
-    fwrite(buf, 1, size, f);
-    fclose(f);
-}
-
 static void dumpBuffer(
     const uint8_t* code,
     unsigned size,
@@ -87,7 +77,22 @@ static void dumpBuffer(
 {
     char fileName[NAME_LEN];
     snprintf(fileName, NAME_LEN, "%s_%s.bin", name, format);
-    dump(code, size, fileName);
+
+    FILE* file = fopen(fileName, "wb");
+    fwrite(code, 1, size, file);
+    fclose(file);
+}
+
+static void dumpKernel(
+    const Kernel* kernel,
+    const char* name)
+{
+    char fileName[NAME_LEN];
+    snprintf(fileName, NAME_LEN, "%s_il.txt", name);
+
+    FILE* file = fopen(fileName, "w");
+    ilcDumpKernel(file, kernel);
+    fclose(file);
 }
 
 uint32_t* ilcCompileShader(
@@ -102,9 +107,7 @@ uint32_t* ilcCompileShader(
     if (dump) {
         getShaderName(name, NAME_LEN, code, size, kernel->shaderType);
         dumpBuffer(code, size, name, "il");
-
-        // TODO dump to file
-        ilcDumpKernel(kernel);
+        dumpKernel(kernel, name);
     }
 
     uint32_t* compiledCode = ilcCompileKernel(compiledSize, kernel);
