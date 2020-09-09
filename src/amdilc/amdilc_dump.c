@@ -273,6 +273,14 @@ static void dumpSource(
         }
     }
 
+    if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
+        logPrintRaw("_neg(%s%s%s%s)",
+                    src->negate[0] ? "x" : "",
+                    src->negate[1] ? "y" : "",
+                    src->negate[2] ? "z" : "",
+                    src->negate[3] ? "w" : "");
+    }
+
     logPrintRaw("%s%s%s%s%s%s%s",
                 src->invert ? "_invert" : "",
                 src->bias && !src->x2 ? "_bias" : "",
@@ -281,14 +289,6 @@ static void dumpSource(
                 src->sign ? "_sign" : "",
                 mIlDivCompNames[src->divComp],
                 src->abs ? "_abs" : "");
-
-    if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
-        logPrintRaw("_neg(%s%s%s%s)",
-                    src->negate[0] ? "x" : "",
-                    src->negate[1] ? "y" : "",
-                    src->negate[2] ? "z" : "",
-                    src->negate[3] ? "w" : "");
-    }
 
     logPrintRaw("%s", src->clamp ? "_sat" : "");
 }
