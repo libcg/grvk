@@ -470,6 +470,9 @@ static void dumpInstruction(
     case IL_OP_ROUND_NEG_INF:
         fprintf(file, "round_neginf");
         break;
+    case IL_OP_ROUND_PLUS_INF:
+        fprintf(file, "round_plusinf");
+        break;
     case IL_OP_RSQ_VEC:
         fprintf(file, "rsq_vec");
         break;
