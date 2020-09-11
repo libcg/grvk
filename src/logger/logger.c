@@ -10,11 +10,11 @@ static FILE* mLogFile = NULL;
 
 static void pickLogLevel()
 {
-    const char* levelNames[] = { "verbose", "debug", "info", "warning", "error", "none" };
+    const char* levelNames[] = { "trace", "verbose", "debug", "info", "warning", "error", "none" };
     char* envValue = getenv("GRVK_LOG_LEVEL");
 
     if (envValue != NULL) {
-        for (int i = LOG_LEVEL_VERBOSE; i <= LOG_LEVEL_NONE; i++) {
+        for (int i = LOG_LEVEL_TRACE; i <= LOG_LEVEL_NONE; i++) {
             if (strcmp(envValue, levelNames[i]) == 0) {
                 mLogLevel = i;
                 break;
@@ -56,7 +56,7 @@ void logPrint(
         return;
     }
 
-    const char* prefixes[] = { "V", "D", "I", "W", "E", "" };
+    const char* prefixes[] = { "T", "V", "D", "I", "W", "E", "" };
     fprintf(stdout, "%s/%s: ", prefixes[level], name);
     if (mLogFile != NULL) {
         fprintf(mLogFile, "%s/%s: ", prefixes[level], name);

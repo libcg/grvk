@@ -2,6 +2,7 @@
 #define LOGGER_H_
 
 typedef enum {
+    LOG_LEVEL_TRACE,
     LOG_LEVEL_VERBOSE,
     LOG_LEVEL_DEBUG,
     LOG_LEVEL_INFO,
@@ -10,6 +11,7 @@ typedef enum {
     LOG_LEVEL_NONE,
 } LogLevel;
 
+#define LOGT(...) logPrint(LOG_LEVEL_TRACE, __func__, __VA_ARGS__)
 #define LOGV(...) logPrint(LOG_LEVEL_VERBOSE, __func__, __VA_ARGS__)
 #define LOGD(...) logPrint(LOG_LEVEL_DEBUG, __func__, __VA_ARGS__)
 #define LOGI(...) logPrint(LOG_LEVEL_INFO, __func__, __VA_ARGS__)

@@ -38,7 +38,7 @@ After dropping the DLLs in the game directory, GRVK will get loaded by the game 
 
 ### Environment variables
 
-- `GRVK_LOG_LEVEL` controls the log level. Acceptable values are `verbose`, `debug`, `info`, `warning`, `error` or `none`.
+- `GRVK_LOG_LEVEL` controls the log level. Acceptable values are `trace`, `verbose`, `debug`, `info`, `warning`, `error` or `none`.
 - `GRVK_LOG_PATH` controls the log file path. An empty string will disable logging to the file entirely.
 - `GRVK_DUMP_SHADERS` controls whether to dump shaders (IL input, IL disassembly, and SPIR-V output). Pass `1` to enable.
 
