@@ -85,6 +85,7 @@ GR_RESULT grAllocMemory(
     GR_GPU_MEMORY* pMem)
 {
     GrDevice* grDevice = (GrDevice*)device;
+    VkResult vkRes;
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -92,27 +93,37 @@ GR_RESULT grAllocMemory(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pAllocInfo == NULL || pMem == NULL) {
         return GR_ERROR_INVALID_POINTER;
+    } else if ((pAllocInfo->heapCount != 0 && (pAllocInfo->flags & GR_MEMORY_ALLOC_VIRTUAL)) ||
+               (pAllocInfo->heapCount == 0 && !(pAllocInfo->flags & GR_MEMORY_ALLOC_VIRTUAL))) {
+        return GR_ERROR_INVALID_VALUE;
     }
 
     if (pAllocInfo->flags != 0) { // TODO
         LOGW("allocation flags %d are not supported\n", pAllocInfo->flags);
         return GR_ERROR_INVALID_FLAGS;
     }
-    if (pAllocInfo->heapCount > 1) { // TODO
-        LOGW("multi-heap allocation is not implemented\n");
-        return GR_ERROR_INVALID_VALUE;
-    }
-
-    const VkMemoryAllocateInfo allocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = NULL,
-        .allocationSize = pAllocInfo->size,
-        .memoryTypeIndex = pAllocInfo->heaps[0],
-    };
+    // TODO consider pAllocInfo->memPriority
 
     VkDeviceMemory vkMemory = VK_NULL_HANDLE;
-    if (vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory) != VK_SUCCESS) {
-        LOGE("vkAllocateMemory failed\n");
+    for (int i = 0; i < pAllocInfo->heapCount; i++) {
+        const VkMemoryAllocateInfo allocateInfo = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .pNext = NULL,
+            .allocationSize = pAllocInfo->size,
+            .memoryTypeIndex = pAllocInfo->heaps[i],
+        };
+
+        vkRes = vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
+        if (vkRes == VK_SUCCESS) {
+            break;
+        } else if (vkRes != VK_ERROR_OUT_OF_DEVICE_MEMORY) {
+            LOGE("vkAllocateMemory failed %d\n", vkRes);
+            return GR_ERROR_OUT_OF_GPU_MEMORY;
+        }
+    }
+
+    if (vkRes != VK_SUCCESS) {
+        LOGE("no suitable heap was found %d\n", vkRes);
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
@@ -171,7 +182,7 @@ GR_RESULT grMapMemory(
     }
 
     if (vki.vkMapMemory(grGpuMemory->device, grGpuMemory->deviceMemory,
-                    0, VK_WHOLE_SIZE, 0, ppData) != VK_SUCCESS) {
+                        0, VK_WHOLE_SIZE, 0, ppData) != VK_SUCCESS) {
         LOGE("vkMapMemory failed\n");
         return GR_ERROR_MEMORY_MAP_FAILED;
     }
