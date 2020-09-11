@@ -31,7 +31,7 @@ GR_RESULT grGetObjectInfo(
             // No memory requirements
             *memReqs = (GR_MEMORY_REQUIREMENTS) {
                 .size = 0,
-                .alignment = 0,
+                .alignment = 1,
                 .heapCount = 0,
             };
         } else {
