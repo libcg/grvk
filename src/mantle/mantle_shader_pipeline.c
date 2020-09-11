@@ -255,6 +255,7 @@ GR_RESULT grCreateShader(
     const GR_SHADER_CREATE_INFO* pCreateInfo,
     GR_SHADER* pShader)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pShader);
     GrDevice* grDevice = (GrDevice*)device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
     uint32_t spirvCodeSize;
@@ -303,6 +304,7 @@ GR_RESULT grCreateGraphicsPipeline(
     const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pPipeline);
     GrDevice* grDevice = (GrDevice*)device;
 
     // Ignored parameters:

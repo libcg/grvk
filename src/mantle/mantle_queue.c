@@ -23,6 +23,7 @@ GR_RESULT grGetDeviceQueue(
     GR_UINT queueId,
     GR_QUEUE* pQueue)
 {
+    LOGT("%p 0x%X %u %p\n", device, queueType, queueId, pQueue);
     GrDevice* grDevice = (GrDevice*)device;
     VkQueue vkQueue = VK_NULL_HANDLE;
 
@@ -53,6 +54,7 @@ GR_RESULT grQueueSubmit(
     const GR_MEMORY_REF* pMemRefs,
     GR_FENCE fence)
 {
+    LOGT("%p %u %p %u %p %p\n", queue, cmdBufferCount, pCmdBuffers, memRefCount, pMemRefs, fence);
     GrQueue* grQueue = (GrQueue*)queue;
     GrFence* grFence = (GrFence*)fence;
     VkResult res;

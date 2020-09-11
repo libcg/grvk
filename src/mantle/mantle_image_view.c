@@ -7,6 +7,7 @@ GR_RESULT grCreateColorTargetView(
     const GR_COLOR_TARGET_VIEW_CREATE_INFO* pCreateInfo,
     GR_COLOR_TARGET_VIEW* pView)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pView);
     GrDevice* grDevice = (GrDevice*)device;
     GrImage* grImage = (GrImage*)pCreateInfo->image;
     VkImageView vkImageView = VK_NULL_HANDLE;

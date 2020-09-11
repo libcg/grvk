@@ -8,6 +8,7 @@ GR_RESULT grGetObjectInfo(
     GR_SIZE* pDataSize,
     GR_VOID* pData)
 {
+    LOGT("%p 0x%X %p %p\n", object, infoType, pDataSize, pData);
     GrObject* grObject = (GrObject*)object;
 
     if (pDataSize == NULL) {
@@ -52,6 +53,7 @@ GR_RESULT grBindObjectMemory(
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset)
 {
+    LOGT("%p %p %llu\n", object, mem, offset);
     GrObject* grObject = (GrObject*)object;
 
     if (grObject == NULL) {

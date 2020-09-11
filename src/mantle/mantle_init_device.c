@@ -27,11 +27,12 @@ GR_RESULT grInitAndEnumerateGpus(
     GR_UINT* pGpuCount,
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
 {
-    VkInstance vkInstance = VK_NULL_HANDLE;
-    VkResult vkRes;
-
     logInit();
     logPrintRaw("=== GRVK %s ===\n", GRVK_VERSION);
+
+    LOGT("%p %p %p\n", pAppInfo, pAllocCb, pGpuCount);
+    VkInstance vkInstance = VK_NULL_HANDLE;
+    VkResult vkRes;
 
     vulkanLoaderLibraryInit();
 
@@ -115,6 +116,7 @@ GR_RESULT grGetGpuInfo(
     GR_SIZE* pDataSize,
     GR_VOID* pData)
 {
+    LOGT("%p 0x%X %p %p\n", gpu, infoType, pDataSize, pData);
     GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
 
     if (grPhysicalGpu == NULL) {
@@ -175,6 +177,7 @@ GR_RESULT grCreateDevice(
     const GR_DEVICE_CREATE_INFO* pCreateInfo,
     GR_DEVICE* pDevice)
 {
+    LOGT("%p %p %p\n", gpu, pCreateInfo, pDevice);
     GR_RESULT res = GR_SUCCESS;
     VkResult vkRes;
     GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;

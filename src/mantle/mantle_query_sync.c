@@ -7,6 +7,7 @@ GR_RESULT grCreateFence(
     const GR_FENCE_CREATE_INFO* pCreateInfo,
     GR_FENCE* pFence)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pFence);
     GrDevice* grDevice = (GrDevice*)device;
 
     VkFence vkFence = VK_NULL_HANDLE;
@@ -40,6 +41,7 @@ GR_RESULT grWaitForFences(
     GR_BOOL waitAll,
     GR_FLOAT timeout)
 {
+    LOGT("%p %u %p %d %g\n", device, fenceCount, pFences, waitAll, timeout);
     GrDevice* grDevice = (GrDevice*)device;
     uint64_t vkTimeout = (uint64_t)(timeout * 1000000000.0f); // Convert to nanoseconds
     VkResult res;

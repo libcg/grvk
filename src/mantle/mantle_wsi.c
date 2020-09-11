@@ -242,6 +242,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     GR_IMAGE* pImage,
     GR_GPU_MEMORY* pMem)
 {
+    LOGT("%p %p %p %p\n", device, pCreateInfo, pImage, pMem);
     GrDevice* grDevice = (GrDevice*)device;
     VkImage vkImage = VK_NULL_HANDLE;
     VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
@@ -329,6 +330,7 @@ GR_RESULT grWsiWinQueuePresent(
     GR_QUEUE queue,
     const GR_WSI_WIN_PRESENT_INFO* pPresentInfo)
 {
+    LOGT("%p %p\n", queue, pPresentInfo);
     GrQueue* grQueue = (GrQueue*)queue;
     GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
     VkResult vkRes;

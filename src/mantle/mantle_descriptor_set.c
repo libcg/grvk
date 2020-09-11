@@ -43,6 +43,7 @@ GR_RESULT grCreateDescriptorSet(
     const GR_DESCRIPTOR_SET_CREATE_INFO* pCreateInfo,
     GR_DESCRIPTOR_SET* pDescriptorSet)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pDescriptorSet);
     GrDevice* grDevice = (GrDevice*)device;
 
     if (grDevice == NULL) {
@@ -100,12 +101,14 @@ GR_RESULT grCreateDescriptorSet(
 GR_VOID grBeginDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet)
 {
+    LOGT("%p\n", descriptorSet);
     // TODO keep track of diff?
 }
 
 GR_VOID grEndDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet)
 {
+    LOGT("%p\n", descriptorSet);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     // TODO free old descriptor sets and layouts if applicable
@@ -238,6 +241,7 @@ GR_VOID grAttachSamplerDescriptors(
     GR_UINT slotCount,
     const GR_SAMPLER* pSamplers)
 {
+    LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pSamplers);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
@@ -253,6 +257,7 @@ GR_VOID grAttachImageViewDescriptors(
     GR_UINT slotCount,
     const GR_IMAGE_VIEW_ATTACH_INFO* pImageViews)
 {
+    LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pImageViews);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
@@ -269,6 +274,7 @@ GR_VOID grAttachMemoryViewDescriptors(
     GR_UINT slotCount,
     const GR_MEMORY_VIEW_ATTACH_INFO* pMemViews)
 {
+    LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pMemViews);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
@@ -285,6 +291,7 @@ GR_VOID grAttachNestedDescriptors(
     GR_UINT slotCount,
     const GR_DESCRIPTOR_SET_ATTACH_INFO* pNestedDescriptorSets)
 {
+    LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pNestedDescriptorSets);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {
@@ -300,6 +307,7 @@ GR_VOID grClearDescriptorSetSlots(
     GR_UINT startSlot,
     GR_UINT slotCount)
 {
+    LOGT("%p %u %u\n", descriptorSet, startSlot, slotCount);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     for (int i = 0; i < slotCount; i++) {

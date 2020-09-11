@@ -7,6 +7,7 @@ GR_RESULT grCreateCommandBuffer(
     const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
     GR_CMD_BUFFER* pCmdBuffer)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pCmdBuffer);
     GrDevice* grDevice = (GrDevice*)device;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
@@ -57,6 +58,7 @@ GR_RESULT grBeginCommandBuffer(
     GR_CMD_BUFFER cmdBuffer,
     GR_FLAGS flags)
 {
+    LOGT("%p 0x%X\n", cmdBuffer, flags);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     VkCommandBufferUsageFlags vkUsageFlags = 0;
 
@@ -82,6 +84,7 @@ GR_RESULT grBeginCommandBuffer(
 GR_RESULT grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
+    LOGT("%p\n", cmdBuffer);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     if (grCmdBuffer->hasActiveRenderPass) {

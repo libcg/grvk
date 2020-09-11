@@ -135,6 +135,7 @@ GR_VOID grCmdBindPipeline(
     GR_ENUM pipelineBindPoint,
     GR_PIPELINE pipeline)
 {
+    LOGT("%p 0x%X %p\n", cmdBuffer, pipelineBindPoint, pipeline);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
 
@@ -151,6 +152,7 @@ GR_VOID grCmdBindStateObject(
     GR_ENUM stateBindPoint,
     GR_STATE_OBJECT state)
 {
+    LOGT("%p 0x%X %p\n", cmdBuffer, stateBindPoint, state);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrViewportStateObject* viewportState = (GrViewportStateObject*)state;
     GrRasterStateObject* rasterState = (GrRasterStateObject*)state;
@@ -222,6 +224,7 @@ GR_VOID grCmdBindDescriptorSet(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT slotOffset)
 {
+    LOGT("%p 0x%X %u %p %u\n", cmdBuffer, pipelineBindPoint, index,  descriptorSet, slotOffset);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
@@ -242,6 +245,7 @@ GR_VOID grCmdPrepareMemoryRegions(
     GR_UINT transitionCount,
     const GR_MEMORY_STATE_TRANSITION* pStateTransitions)
 {
+    LOGT("%p %u %p\n", cmdBuffer, transitionCount, pStateTransitions);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     for (int i = 0; i < transitionCount; i++) {
@@ -269,6 +273,7 @@ GR_VOID grCmdBindTargets(
     const GR_COLOR_TARGET_BIND_INFO* pColorTargets,
     const GR_DEPTH_STENCIL_BIND_INFO* pDepthTarget)
 {
+    LOGT("%p %u %p %p\n", cmdBuffer, colorTargetCount, pColorTargets, pDepthTarget);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     memcpy(grCmdBuffer->colorTargets, pColorTargets,
@@ -288,6 +293,7 @@ GR_VOID grCmdPrepareImages(
     GR_UINT transitionCount,
     const GR_IMAGE_STATE_TRANSITION* pStateTransitions)
 {
+    LOGT("%p %u %p\n", cmdBuffer, transitionCount, pStateTransitions);
     const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     for (int i = 0; i < transitionCount; i++) {
@@ -323,6 +329,7 @@ GR_VOID grCmdDraw(
     GR_UINT firstInstance,
     GR_UINT instanceCount)
 {
+    LOGT("%p %u %u %u %u\n", cmdBuffer, firstVertex, vertexCount, firstInstance, instanceCount);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     if (grCmdBuffer->isDirty) {
@@ -341,6 +348,8 @@ GR_VOID grCmdDrawIndexed(
     GR_UINT firstInstance,
     GR_UINT instanceCount)
 {
+    LOGT("%p %u %u %d %u %u\n",
+         cmdBuffer, firstIndex, indexCount, vertexOffset, firstInstance, instanceCount);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
     if (grCmdBuffer->isDirty) {
@@ -358,6 +367,8 @@ GR_VOID grCmdClearColorImage(
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
 {
+    LOGT("%p %p %g %g %g %g %u %p\n",
+         cmdBuffer, image, color[0], color[1], color[2], color[3], rangeCount, pRanges);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrImage* grImage = (GrImage*)image;
 
@@ -384,6 +395,8 @@ GR_VOID grCmdClearColorImageRaw(
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
 {
+    LOGT("%p %p %u %u %u %u %u %p\n",
+         cmdBuffer, image, color[0], color[1], color[2], color[3], rangeCount, pRanges);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrImage* grImage = (GrImage*)image;
 

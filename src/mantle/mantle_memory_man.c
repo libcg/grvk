@@ -6,6 +6,7 @@ GR_RESULT grGetMemoryHeapCount(
     GR_DEVICE device,
     GR_UINT* pCount)
 {
+    LOGT("%p %p\n", device, pCount);
     GrDevice* grDevice = (GrDevice*)device;
 
     if (grDevice == NULL) {
@@ -30,6 +31,7 @@ GR_RESULT grGetMemoryHeapInfo(
     GR_SIZE* pDataSize,
     GR_VOID* pData)
 {
+    LOGT("%p %u 0x%X %p %p\n", device, heapId, infoType, pDataSize, pData);
     GrDevice* grDevice = (GrDevice*)device;
 
     if (grDevice == NULL) {
@@ -84,6 +86,7 @@ GR_RESULT grAllocMemory(
     const GR_MEMORY_ALLOC_INFO* pAllocInfo,
     GR_GPU_MEMORY* pMem)
 {
+    LOGT("%p %p %p\n", device, pAllocInfo, pMem);
     GrDevice* grDevice = (GrDevice*)device;
     VkResult vkRes;
 
@@ -169,6 +172,7 @@ GR_RESULT grMapMemory(
     GR_FLAGS flags,
     GR_VOID** ppData)
 {
+    LOGT("%p 0x%X %p\n", mem, flags, ppData);
     GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
     if (grGpuMemory == NULL) {
@@ -193,6 +197,7 @@ GR_RESULT grMapMemory(
 GR_RESULT grUnmapMemory(
     GR_GPU_MEMORY mem)
 {
+    LOGT("%p\n", mem);
     GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
     if (grGpuMemory == NULL) {

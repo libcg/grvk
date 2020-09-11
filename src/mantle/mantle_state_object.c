@@ -7,6 +7,8 @@ GR_RESULT grCreateViewportState(
     const GR_VIEWPORT_STATE_CREATE_INFO* pCreateInfo,
     GR_VIEWPORT_STATE_OBJECT* pState)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pState);
+
     VkViewport *vkViewports = malloc(sizeof(VkViewport) * pCreateInfo->viewportCount);
     for (int i = 0; i < pCreateInfo->viewportCount; i++) {
         const GR_VIEWPORT* viewport = &pCreateInfo->viewports[i];
@@ -57,6 +59,8 @@ GR_RESULT grCreateRasterState(
     const GR_RASTER_STATE_CREATE_INFO* pCreateInfo,
     GR_RASTER_STATE_OBJECT* pState)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pState);
+
     if (pCreateInfo->fillMode != GR_FILL_SOLID) {
         LOGW("fill mode 0x%x is not supported\n", pCreateInfo->fillMode);
     }
@@ -81,6 +85,8 @@ GR_RESULT grCreateColorBlendState(
     const GR_COLOR_BLEND_STATE_CREATE_INFO* pCreateInfo,
     GR_COLOR_BLEND_STATE_OBJECT* pState)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pState);
+
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_COLOR_TARGET_BLEND_STATE* target = &pCreateInfo->target[i];
 
@@ -117,6 +123,8 @@ GR_RESULT grCreateDepthStencilState(
     const GR_DEPTH_STENCIL_STATE_CREATE_INFO* pCreateInfo,
     GR_DEPTH_STENCIL_STATE_OBJECT* pState)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pState);
+
     GrDepthStencilStateObject* grDepthStencilStateObject =
         malloc(sizeof(GrDepthStencilStateObject));
 
@@ -158,6 +166,8 @@ GR_RESULT grCreateMsaaState(
     const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState)
 {
+    LOGT("%p %p %p\n", device, pCreateInfo, pState);
+
     if (pCreateInfo->samples != 1) {
         // TODO implement (don't forget samplingMask)
         LOGW("unsupported MSAA level %d\n", pCreateInfo->samples);
