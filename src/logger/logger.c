@@ -4,7 +4,7 @@
 #include <string.h>
 #include "logger.h"
 
-static LogLevel mLogLevel = LOG_LEVEL_INFO;
+LogLevel gLogLevel = LOG_LEVEL_INFO;
 static char* mLogFilePath = "grvk.log";
 static FILE* mLogFile = NULL;
 
@@ -16,7 +16,7 @@ static void pickLogLevel()
     if (envValue != NULL) {
         for (int i = LOG_LEVEL_TRACE; i <= LOG_LEVEL_NONE; i++) {
             if (strcmp(envValue, levelNames[i]) == 0) {
-                mLogLevel = i;
+                gLogLevel = i;
                 break;
             }
         }
@@ -41,7 +41,7 @@ void logInit()
     pickLogLevel();
     pickLogFile();
 
-    if (mLogLevel != LOG_LEVEL_NONE && mLogFilePath != NULL) {
+    if (gLogLevel != LOG_LEVEL_NONE && mLogFilePath != NULL) {
         mLogFile = fopen(mLogFilePath, "w");
     }
 }
@@ -52,10 +52,6 @@ void logPrint(
     const char* format,
     ...)
 {
-    if (level < mLogLevel) {
-        return;
-    }
-
     const char* prefixes[] = { "T", "V", "D", "I", "W", "E", "" };
     fprintf(stdout, "%s/%s: ", prefixes[level], name);
     if (mLogFile != NULL) {
@@ -76,7 +72,7 @@ void logPrintRaw(
     const char* format,
     ...)
 {
-    if (mLogLevel == LOG_LEVEL_NONE) {
+    if (gLogLevel == LOG_LEVEL_NONE) {
         return;
     }
 
