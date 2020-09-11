@@ -109,6 +109,67 @@ GR_RESULT grInitAndEnumerateGpus(
     return GR_SUCCESS;
 }
 
+GR_RESULT grGetGpuInfo(
+    GR_PHYSICAL_GPU gpu,
+    GR_ENUM infoType,
+    GR_SIZE* pDataSize,
+    GR_VOID* pData)
+{
+    GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
+
+    if (grPhysicalGpu == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grPhysicalGpu->sType != GR_STRUCT_TYPE_PHYSICAL_GPU) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pDataSize == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PROPERTIES) {
+        if (pData == NULL) {
+            return sizeof(GR_PHYSICAL_GPU_PROPERTIES);
+        }
+
+        VkPhysicalDeviceProperties physicalDeviceProps;
+        vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
+
+        GR_PHYSICAL_GPU_PROPERTIES* gpuProps = (GR_PHYSICAL_GPU_PROPERTIES*)pData;
+        *gpuProps = (GR_PHYSICAL_GPU_PROPERTIES) {
+            .apiVersion = 0,
+            .driverVersion = physicalDeviceProps.driverVersion,
+            .vendorId = physicalDeviceProps.vendorID,
+            .deviceId = physicalDeviceProps.deviceID,
+            .gpuType = getGrPhysicalGpuType(physicalDeviceProps.deviceType),
+            .gpuName = "", // Filled out below
+            .maxMemRefsPerSubmission = 1024, // FIXME guess
+            .reserved = 0,
+            .maxInlineMemoryUpdateSize = 1024, // FIXME guess
+            .maxBoundDescriptorSets = 32, // FIXME guess
+            .maxThreadGroupSize = physicalDeviceProps.limits.maxComputeWorkGroupSize[0],
+            .timestampFrequency = 1000000000.f / physicalDeviceProps.limits.timestampPeriod,
+            .multiColorTargetClears = false,
+        };
+        strncpy(gpuProps->gpuName, physicalDeviceProps.deviceName, GR_MAX_PHYSICAL_GPU_NAME);
+        return GR_SUCCESS;
+    } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PERFORMANCE) {
+        if (pData == NULL) {
+            return sizeof(GR_PHYSICAL_GPU_PERFORMANCE);
+        }
+
+        *(GR_PHYSICAL_GPU_PERFORMANCE*)pData = (GR_PHYSICAL_GPU_PERFORMANCE) {
+            .maxGpuClock = 1000.f,
+            .aluPerClock = 1.f,
+            .texPerClock = 1.f,
+            .primsPerClock = 1.f,
+            .pixelsPerClock = 1.f,
+        };
+        return GR_SUCCESS;
+    }
+
+    LOGE("unsupported info type 0x%X\n", infoType);
+    return GR_ERROR_INVALID_VALUE;
+}
+
 GR_RESULT grCreateDevice(
     GR_PHYSICAL_GPU gpu,
     const GR_DEVICE_CREATE_INFO* pCreateInfo,

@@ -15,6 +15,9 @@
 #define MIN(a, b) \
     ((a) < (b) ? (a) : (b))
 
+GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
+    VkPhysicalDeviceType type);
+
 VkFormat getVkFormat(
     GR_FORMAT format);
 

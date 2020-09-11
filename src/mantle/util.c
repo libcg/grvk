@@ -4,6 +4,25 @@
 #define PACK_FORMAT(channel, numeric) \
     ((channel) << 16 | (numeric))
 
+GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
+    VkPhysicalDeviceType type)
+{
+    switch (type) {
+    case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+        return GR_GPU_TYPE_OTHER;
+    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+        return GR_GPU_TYPE_INTEGRATED;
+    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+        return GR_GPU_TYPE_DISCRETE;
+    case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+        return GR_GPU_TYPE_VIRTUAL;
+    default:
+        break;
+    }
+
+    return GR_GPU_TYPE_OTHER;
+}
+
 VkFormat getVkFormat(
     GR_FORMAT format)
 {

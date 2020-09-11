@@ -6,16 +6,6 @@
 
 // Initialization and Device Functions
 
-GR_RESULT grGetGpuInfo(
-    GR_PHYSICAL_GPU gpu,
-    GR_ENUM infoType,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grDestroyDevice(
     GR_DEVICE device)
 {
