@@ -243,6 +243,18 @@ static uint32_t decodeInstruction(
         return idx;
     }
 
+    bool secModifierPresent = GET_BIT(token[idx], 30);
+    bool priModifierPresent = GET_BIT(token[idx], 31) && instr->opcode != IL_DCL_RESOURCE;
+    if (priModifierPresent) {
+        LOGW("unhandled primary modifier\n", instr->opcode);
+        idx++;
+
+        if (secModifierPresent) {
+            LOGW("unhandled secondary modifier\n");
+            idx++;
+        }
+    }
+
     instr->dstCount = info->dstCount;
     instr->dsts = malloc(sizeof(Destination) * instr->dstCount);
     for (int i = 0; i < info->dstCount; i++) {
