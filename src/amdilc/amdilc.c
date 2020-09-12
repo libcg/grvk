@@ -54,9 +54,10 @@ static void getShaderName(
     char* name,
     unsigned nameLen,
     const uint8_t* code,
-    unsigned size,
-    uint8_t shaderType)
+    unsigned size)
 {
+    assert(size >= 2 * sizeof(Token));
+    uint8_t shaderType = GET_BITS(((Token*)code)[1], 16, 23);
     uint8_t hash[SHA1_SIZE];
 
     calcSha1(hash, code, size);
@@ -100,12 +101,12 @@ uint32_t* ilcCompileShader(
     const void* code,
     unsigned size)
 {
+    char name[NAME_LEN];
+    getShaderName(name, NAME_LEN, code, size);
+    LOGV("compiling %s...\n", name);
+
     Kernel* kernel = ilcDecodeStream((Token*)code, size / sizeof(Token));
     bool dump = isShaderDumpEnabled();
-    char name[NAME_LEN];
-
-    getShaderName(name, NAME_LEN, code, size, kernel->shaderType);
-    LOGV("compiling %s...\n", name);
 
     if (dump) {
         dumpBuffer(code, size, name, "il");
