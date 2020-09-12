@@ -203,14 +203,14 @@ static IlcSpvId loadSource(
     IlcSpvId typeId)
 {
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
-    bool isScalar = reg->typeId != compiler->float4Id &&
-                    reg->typeId != compiler->int4Id;
 
     if (reg == NULL) {
-        LOGE("register %d %d not found\n", src->registerType, src->registerNum);
+        LOGE("source register %d %d not found\n", src->registerType, src->registerNum);
         return 0;
     }
 
+    bool isScalar = reg->typeId != compiler->float4Id &&
+                    reg->typeId != compiler->int4Id;
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
 
     const uint8_t swizzle[] = {
@@ -319,7 +319,7 @@ static void storeDestination(
     }
 
     if (dstReg == NULL) {
-        LOGE("register %d %d not found\n", dst->registerType, dst->registerNum);
+        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
     }
 
@@ -1099,6 +1099,11 @@ static void emitLoad(
 
     const Destination* dst = &instr->dsts[0];
     const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
+
+    if (dstReg == NULL) {
+        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
+        return;
+    }
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_X, compiler->intId);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
