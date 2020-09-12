@@ -43,6 +43,10 @@ typedef struct {
 typedef struct {
     uint16_t opcode;
     uint16_t control;
+    Token primModifier;
+    Token secModifier;
+    Token resourceFormat;
+    Token addressOffset;
     uint32_t dstCount;
     Destination* dsts;
     uint32_t srcCount;

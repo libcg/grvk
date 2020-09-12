@@ -422,6 +422,15 @@ static void dumpInstruction(
         // Sampler ID is ignored
         fprintf(file, "load_resource(%u)", GET_BITS(instr->control, 0, 7));
         break;
+    case IL_OP_SAMPLE:
+        if (GET_BIT(instr->control, 12)) {
+            LOGW("unhandled sample indexed_args\n");
+        } else if (GET_BIT(instr->control, 13)) {
+            LOGW("unhandled sample aoffimmi\n");
+        }
+        fprintf(file, "sample_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        break;
     case IL_OP_I_NOT:
         fprintf(file, "inot");
         break;

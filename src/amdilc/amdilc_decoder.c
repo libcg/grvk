@@ -41,6 +41,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_DCL_INPUT] = { IL_DCL_INPUT, 1, 0, 0, false },
     [IL_DCL_RESOURCE] = { IL_DCL_RESOURCE, 0, 0, 1, false },
     [IL_OP_LOAD] = { IL_OP_LOAD, 1, 1, 0, true },
+    [IL_OP_SAMPLE] = { IL_OP_SAMPLE, 1, 1, 0, true },
     [IL_OP_I_NOT] = { IL_OP_I_NOT, 1, 1, 0, false },
     [IL_OP_I_OR] = { IL_OP_I_OR, 1, 2, 0, false },
     [IL_OP_I_ADD] = { IL_OP_I_ADD, 1, 2, 0, false },
@@ -75,16 +76,20 @@ static unsigned getSourceCount(
     const Instruction* instr)
 {
     const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
+    bool indexedArgs = GET_BIT(instr->control, 12);
 
-    switch (instr->opcode) {
-    case IL_OP_SRV_STRUCT_LOAD:
-        if (GET_BIT(instr->control, 12)) {
+    if (info->hasIndexedResourceSampler) {
+        if (indexedArgs) {
+            // AMDIL spec, section 7.2.3: If the indexed_args bit is set to 1, there are two
+            // additional source arguments, corresponding to resource index and sampler index.
+            return info->srcCount + 2;
+        }
+    }
+    else if (instr->opcode == IL_OP_SRV_STRUCT_LOAD) {
+        if (indexedArgs) {
             // Extra indexed input
             return info->srcCount + 1;
         }
-        break;
-    default:
-        break;
     }
 
     return info->srcCount;
@@ -252,8 +257,6 @@ static uint32_t decodeInstruction(
 
     instr->opcode = GET_BITS(token[idx], 0, 15);
     instr->control = GET_BITS(token[idx], 16, 31);
-    bool secModifierPresent = GET_BIT(token[idx], 30);
-    bool priModifierPresent = GET_BIT(token[idx], 31);
     idx++;
 
     if (instr->opcode >= IL_OP_LAST) {
@@ -268,12 +271,26 @@ static uint32_t decodeInstruction(
         return idx;
     }
 
-    if (priModifierPresent && instr->opcode != IL_DCL_RESOURCE) {
-        LOGW("unhandled primary modifier %d\n", instr->opcode);
-        idx++;
+    if (instr->opcode != IL_DCL_RESOURCE) {
+        if (GET_BIT(instr->control, 15)) {
+            instr->primModifier = token[idx];
+            idx++;
+        }
+    }
 
-        if (secModifierPresent) {
-            LOGW("unhandled secondary modifier\n");
+    if (GET_BIT(instr->control, 14)) {
+        instr->secModifier = token[idx];
+        idx++;
+    }
+
+    if (info->hasIndexedResourceSampler) {
+        if (GET_BIT(instr->control, 12)) {
+            instr->resourceFormat = token[idx];
+            idx++;
+        }
+
+        if (GET_BIT(instr->control, 13)) {
+            instr->addressOffset = token[idx];
             idx++;
         }
     }
@@ -288,15 +305,6 @@ static uint32_t decodeInstruction(
     instr->srcs = malloc(sizeof(Source) * instr->srcCount);
     for (int i = 0; i < info->srcCount; i++) {
         idx += decodeSource(&instr->srcs[i], &token[idx]);
-    }
-
-    if (info->hasIndexedResourceSampler) {
-        if (GET_BIT(instr->control, 12)) {
-            LOGW("unhandled indexed args\n");
-        }
-        if (GET_BIT(instr->control, 13)) {
-            LOGW("unhandled immediate address offset\n");
-        }
     }
 
     instr->extraCount = info->extraCount;
