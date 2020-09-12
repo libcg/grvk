@@ -8,7 +8,7 @@ typedef struct {
     bool hasIndexedResourceSampler;
 } OpcodeInfo;
 
-OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
+static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_ABS] = { IL_OP_ABS, 1, 1, 0, false },
     [IL_OP_ACOS] = { IL_OP_ACOS, 1, 1, 0, false },
     [IL_OP_ADD] = { IL_OP_ADD, 1, 2, 0, false },
@@ -23,6 +23,7 @@ OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
     [IL_OP_ENDIF] = { IL_OP_ENDIF, 0, 0, 0, false },
     [IL_OP_ENDLOOP] = { IL_OP_ENDLOOP, 0, 0, 0, false },
+    [IL_OP_ENDMAIN] = { IL_OP_ENDMAIN, 0, 0, 0, false },
     [IL_OP_FRC] = { IL_OP_FRC, 1, 1, 0, false },
     [IL_OP_MAD] = { IL_OP_MAD, 1, 3, 0, false },
     [IL_OP_MAX] = { IL_OP_MAX, 1, 2, 0, false },
@@ -63,9 +64,31 @@ OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_COS_VEC] = { IL_OP_COS_VEC, 1, 1, 0, false },
     [IL_OP_SQRT_VEC] = { IL_OP_SQRT_VEC, 1, 1, 0, false },
     [IL_OP_DP2] = { IL_OP_DP2, 1, 2, 0, false },
+    [IL_OP_DCL_STRUCT_SRV] = { IL_OP_DCL_STRUCT_SRV, 0, 0, 1, false },
+    [IL_OP_SRV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, false },
     [IL_OP_U_BIT_EXTRACT] = { IL_OP_U_BIT_EXTRACT, 1, 3, 0, false },
     [IL_DCL_GLOBAL_FLAGS] = { IL_DCL_GLOBAL_FLAGS, 0, 0, 0, false },
+    [IL_UNK_660] = { IL_UNK_660, 1, 0, 0, false }, // FIXME
 };
+
+static unsigned getSourceCount(
+    const Instruction* instr)
+{
+    const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
+
+    switch (instr->opcode) {
+    case IL_OP_SRV_STRUCT_LOAD:
+        if (GET_BIT(instr->control, 12)) {
+            // Extra indexed input
+            return info->srcCount + 1;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return info->srcCount;
+}
 
 static uint32_t decodeIlLang(
     Kernel* kernel,
@@ -229,6 +252,8 @@ static uint32_t decodeInstruction(
 
     instr->opcode = GET_BITS(token[idx], 0, 15);
     instr->control = GET_BITS(token[idx], 16, 31);
+    bool secModifierPresent = GET_BIT(token[idx], 30);
+    bool priModifierPresent = GET_BIT(token[idx], 31);
     idx++;
 
     if (instr->opcode >= IL_OP_LAST) {
@@ -236,17 +261,15 @@ static uint32_t decodeInstruction(
         return idx;
     }
 
-    OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
+    const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
 
     if (info->opcode != instr->opcode) {
         LOGW("unhandled opcode %d\n", instr->opcode);
         return idx;
     }
 
-    bool secModifierPresent = GET_BIT(token[idx], 30);
-    bool priModifierPresent = GET_BIT(token[idx], 31) && instr->opcode != IL_DCL_RESOURCE;
-    if (priModifierPresent) {
-        LOGW("unhandled primary modifier\n", instr->opcode);
+    if (priModifierPresent && instr->opcode != IL_DCL_RESOURCE) {
+        LOGW("unhandled primary modifier %d\n", instr->opcode);
         idx++;
 
         if (secModifierPresent) {
@@ -261,7 +284,7 @@ static uint32_t decodeInstruction(
         idx += decodeDestination(&instr->dsts[i], &token[idx]);
     }
 
-    instr->srcCount = info->srcCount;
+    instr->srcCount = getSourceCount(instr);
     instr->srcs = malloc(sizeof(Source) * instr->srcCount);
     for (int i = 0; i < info->srcCount; i++) {
         idx += decodeSource(&instr->srcs[i], &token[idx]);

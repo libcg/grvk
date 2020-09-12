@@ -355,6 +355,9 @@ static void dumpInstruction(
     case IL_OP_ENDLOOP:
         fprintf(file, "endloop");
         break;
+    case IL_OP_ENDMAIN:
+        fprintf(file, "endmain");
+        break;
     case IL_OP_FRC:
         fprintf(file, "frc");
         break;
@@ -406,7 +409,7 @@ static void dumpInstruction(
                 mIlInterpModeNames[GET_BITS(instr->control, 5, 7)]);
         break;
     case IL_DCL_RESOURCE:
-        fprintf(file, "dcl_resource_id(%d)_type(%s%s)_fmtx(%s)_fmty(%s)_fmtz(%s)_fmtw(%s)",
+        fprintf(file, "dcl_resource_id(%u)_type(%s%s)_fmtx(%s)_fmty(%s)_fmtz(%s)_fmtw(%s)",
                 GET_BITS(instr->control, 0, 7),
                 mIlPixTexUsageNames[GET_BITS(instr->control, 8, 11)],
                 GET_BIT(instr->control, 31) ? ",unnorm" : "",
@@ -417,7 +420,7 @@ static void dumpInstruction(
         break;
     case IL_OP_LOAD:
         // Sampler ID is ignored
-        fprintf(file, "load_resource(%d)", GET_BITS(instr->control, 0, 7));
+        fprintf(file, "load_resource(%u)", GET_BITS(instr->control, 0, 7));
         break;
     case IL_OP_I_NOT:
         fprintf(file, "inot");
@@ -488,14 +491,25 @@ static void dumpInstruction(
     case IL_OP_DP2:
         fprintf(file, "dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
+    case IL_OP_DCL_STRUCT_SRV:
+        fprintf(file, "dcl_struct_srv_id(%u) %u",
+                GET_BITS(instr->control, 0, 13), instr->extras[0]);
+        break;
+    case IL_OP_SRV_STRUCT_LOAD:
+        fprintf(file, "srv_struct_load%s_id(%u)",
+                GET_BIT(instr->control, 12) ? "_ext" : "", GET_BITS(instr->control, 0, 7));
+        break;
     case IL_OP_U_BIT_EXTRACT:
         fprintf(file, "ubit_extract");
         break;
     case IL_DCL_GLOBAL_FLAGS:
         fprintf(file, "dcl_global_flags");
         break;
+    case IL_UNK_660:
+        fprintf(file, "unk_%u", instr->opcode);
+        break;
     default:
-        fprintf(file, "%d?\n", instr->opcode);
+        fprintf(file, "%u?\n", instr->opcode);
         return;
     }
 

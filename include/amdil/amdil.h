@@ -532,6 +532,7 @@ enum ILOpCode
   IL_OP_MSAD_U8,
   IL_OP_QSAD_U8,
   IL_OP_MQSAD_U8,
+  IL_UNK_660 = 660, // FIXME
   IL_OP_LAST  /* dimension the enumeration */
 };
 
