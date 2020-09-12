@@ -104,8 +104,10 @@ uint32_t* ilcCompileShader(
     bool dump = isShaderDumpEnabled();
     char name[NAME_LEN];
 
+    getShaderName(name, NAME_LEN, code, size, kernel->shaderType);
+    LOGV("compiling %s...\n", name);
+
     if (dump) {
-        getShaderName(name, NAME_LEN, code, size, kernel->shaderType);
         dumpBuffer(code, size, name, "il");
         dumpKernel(kernel, name);
     }
