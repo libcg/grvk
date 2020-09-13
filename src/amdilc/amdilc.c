@@ -6,24 +6,28 @@
 #define SHA1_SIZE   (20)
 #define NAME_LEN    (128)
 
+static HCRYPTPROV mCryptProvider = 0;
+
 static void calcSha1(
     uint8_t* digest,
     const uint8_t* data,
     unsigned size)
 {
-    HCRYPTPROV provider;
     HCRYPTHASH hash;
     DWORD digestSize = 0;
     DWORD dwordSize = sizeof(DWORD);
 
-    CryptAcquireContext(&provider, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
-    CryptCreateHash(provider, CALG_SHA1, 0, 0, &hash);
+    if (mCryptProvider == 0) {
+        // This function is very slow (~250ms), acquire once
+        CryptAcquireContext(&mCryptProvider, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT);
+    }
+
+    CryptCreateHash(mCryptProvider, CALG_SHA1, 0, 0, &hash);
     CryptHashData(hash, data, size, 0);
     CryptGetHashParam(hash, HP_HASHSIZE, (BYTE*)&digestSize, &dwordSize, 0);
     assert(digestSize == SHA1_SIZE);
     CryptGetHashParam(hash, HP_HASHVAL, digest, &digestSize, 0);
     CryptDestroyHash(hash);
-    CryptReleaseContext(provider, 0);
 }
 
 static void freeInstruction(
