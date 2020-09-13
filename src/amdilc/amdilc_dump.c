@@ -342,6 +342,12 @@ static void dumpInstruction(
     case IL_OP_DP4:
         fprintf(file, "dp4%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
+    case IL_OP_DSX:
+        fprintf(file, "dsx%s", GET_BIT(instr->control, 7) ? "_fine" : "");
+        break;
+    case IL_OP_DSY:
+        fprintf(file, "dsy%s", GET_BIT(instr->control, 7) ? "_fine" : "");
+        break;
     case IL_OP_ELSE:
         fprintf(file, "else");
         indentLevel++;
@@ -418,17 +424,40 @@ static void dumpInstruction(
                 mIlElementFormatNames[GET_BITS(instr->extras[0], 26, 28)],
                 mIlElementFormatNames[GET_BITS(instr->extras[0], 29, 31)]);
         break;
+    case IL_OP_DISCARD_LOGICALNZ:
+        fprintf(file, "discard_logicalnz");
+        break;
     case IL_OP_LOAD:
         // Sampler ID is ignored
         fprintf(file, "load_resource(%u)", GET_BITS(instr->control, 0, 7));
         break;
+    case IL_OP_RESINFO:
+        if (GET_BITS(instr->control, 9, 15)) {
+            LOGW("unhandled resinfo flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "resinfo_resource(%u)%s",
+                GET_BITS(instr->control, 0, 7),
+                GET_BIT(instr->control, 8) ? "_uint" : "");
+        break;
     case IL_OP_SAMPLE:
-        if (GET_BIT(instr->control, 12)) {
-            LOGW("unhandled sample indexed_args\n");
-        } else if (GET_BIT(instr->control, 13)) {
-            LOGW("unhandled sample aoffimmi\n");
+        if (GET_BITS(instr->control, 12, 15)) {
+            LOGW("unhandled sample flags 0x%X\n", instr->control);
         }
         fprintf(file, "sample_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        break;
+    case IL_OP_SAMPLE_G:
+        if (GET_BITS(instr->control, 12, 15)) {
+            LOGW("unhandled sample_g flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "sample_g_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        break;
+    case IL_OP_SAMPLE_L:
+        if (GET_BITS(instr->control, 12, 15)) {
+            LOGW("unhandled sample_l flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "sample_l_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
     case IL_OP_I_NOT:
@@ -440,6 +469,12 @@ static void dumpInstruction(
     case IL_OP_I_ADD:
         fprintf(file, "iadd");
         break;
+    case IL_OP_I_MAD:
+        fprintf(file, "imad");
+        break;
+    case IL_OP_I_MUL:
+        fprintf(file, "imul");
+        break;
     case IL_OP_I_EQ:
         fprintf(file, "ieq");
         break;
@@ -449,11 +484,35 @@ static void dumpInstruction(
     case IL_OP_I_LT:
         fprintf(file, "ilt");
         break;
+    case IL_OP_I_NEGATE:
+        fprintf(file, "inegate");
+        break;
+    case IL_OP_I_SHL:
+        fprintf(file, "ishl");
+        break;
+    case IL_OP_U_SHR:
+        fprintf(file, "ushr");
+        break;
+    case IL_OP_U_DIV:
+        fprintf(file, "udiv");
+        break;
+    case IL_OP_U_MOD:
+        fprintf(file, "umod");
+        break;
+    case IL_OP_U_LT:
+        fprintf(file, "ult");
+        break;
     case IL_OP_FTOI:
         fprintf(file, "ftoi");
         break;
+    case IL_OP_FTOU:
+        fprintf(file, "ftou");
+        break;
     case IL_OP_ITOF:
         fprintf(file, "itof");
+        break;
+    case IL_OP_UTOF:
+        fprintf(file, "utof");
         break;
     case IL_OP_AND:
         fprintf(file, "iand"); // IL_OP_I_AND doesn't exist
@@ -500,6 +559,15 @@ static void dumpInstruction(
     case IL_OP_DP2:
         fprintf(file, "dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
+    case IL_OP_UAV_STORE:
+        fprintf(file, "uav_store_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
+    case IL_OP_UAV_ADD:
+        fprintf(file, "uav_add_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
+    case IL_OP_UAV_READ_ADD:
+        fprintf(file, "uav_read_add_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
     case IL_OP_DCL_STRUCT_SRV:
         fprintf(file, "dcl_struct_srv_id(%u) %u",
                 GET_BITS(instr->control, 0, 13), instr->extras[0]);
@@ -513,6 +581,13 @@ static void dumpInstruction(
         break;
     case IL_DCL_GLOBAL_FLAGS:
         fprintf(file, "dcl_global_flags");
+        break;
+    case IL_OP_DCL_TYPED_UAV:
+        // FIXME guessed from IL_OP_DCL_UAV
+        fprintf(file, "dcl_typed_uav_id(%u)_type(%s)_fmtx(%s)",
+                GET_BITS(instr->control, 0, 13),
+                mIlPixTexUsageNames[GET_BITS(instr->extras[0], 0, 3)],
+                mIlElementFormatNames[GET_BITS(instr->extras[0], 4, 9)]);
         break;
     case IL_UNK_660:
         fprintf(file, "unk_%u", instr->opcode);
