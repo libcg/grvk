@@ -58,7 +58,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "?",
     "?",
     "?",
-    "?",
+    "x",
     "?",
     "l",
     "v",
@@ -403,6 +403,9 @@ static void dumpInstruction(
     case IL_OP_RET_DYN:
         fprintf(file, "ret_dyn");
         break;
+    case IL_DCL_INDEXED_TEMP_ARRAY:
+        fprintf(file, "dcl_indexed_temp_array");
+        break;
     case IL_DCL_LITERAL:
         fprintf(file, "dcl_literal");
         break;
@@ -446,6 +449,13 @@ static void dumpInstruction(
         fprintf(file, "sample_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
+    case IL_OP_SAMPLE_B:
+        if (GET_BITS(instr->control, 12, 15)) {
+            LOGW("unhandled sample_b flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "sample_b_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        break;
     case IL_OP_SAMPLE_G:
         if (GET_BITS(instr->control, 12, 15)) {
             LOGW("unhandled sample_g flags 0x%X\n", instr->control);
@@ -486,6 +496,9 @@ static void dumpInstruction(
         break;
     case IL_OP_I_NEGATE:
         fprintf(file, "inegate");
+        break;
+    case IL_OP_I_NE:
+        fprintf(file, "ine");
         break;
     case IL_OP_I_SHL:
         fprintf(file, "ishl");
@@ -543,6 +556,9 @@ static void dumpInstruction(
         break;
     case IL_OP_ROUND_PLUS_INF:
         fprintf(file, "round_plusinf");
+        break;
+    case IL_OP_ROUND_ZERO:
+        fprintf(file, "round_z");
         break;
     case IL_OP_RSQ_VEC:
         fprintf(file, "rsq_vec");
