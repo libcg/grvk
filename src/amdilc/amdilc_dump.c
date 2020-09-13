@@ -256,6 +256,14 @@ static void dumpSource(
 {
     fprintf(file, " %s%u", mIlRegTypeNames[src->registerType], src->registerNum);
 
+    if (src->hasImmediate) {
+        if (src->registerType == IL_REGTYPE_ITEMP) {
+            fprintf(file, "[%u]", src->immediate);
+        } else {
+            LOGW("unhandled immediate value\n");
+        }
+    }
+
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
         src->swizzle[1] != IL_COMPSEL_Y_G ||
         src->swizzle[2] != IL_COMPSEL_Z_B ||

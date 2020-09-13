@@ -38,6 +38,8 @@ typedef struct {
     bool abs;
     uint8_t divComp;
     bool clamp;
+    bool hasImmediate;
+    Token immediate;
 } Source;
 
 typedef struct {
