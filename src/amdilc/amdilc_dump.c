@@ -59,7 +59,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "?",
     "?",
     "x",
-    "?",
+    "cb",
     "l",
     "v",
     "o",
@@ -194,11 +194,11 @@ static const char* mIlInterpModeNames[IL_INTERPMODE_LAST] = {
     "",
     "_interp(constant)",
     "_interp(linear)",
-    "_interp(linearCentroid)",
-    "_interp(linearNoperspective)",
-    "_interp(linearNoperspectiveCentroid)",
-    "_interp(linearSample)",
-    "_interp(linearNoperspectiveSample)",
+    "_interp(linear_centroid)",
+    "_interp(linear_noperspective)",
+    "_interp(linear_noperspective_centroid)",
+    "_interp(linear_sample)",
+    "_interp(linear_noperspective_sample)",
 };
 
 static const char* getComponentName(
@@ -257,7 +257,8 @@ static void dumpSource(
     fprintf(file, " %s%u", mIlRegTypeNames[src->registerType], src->registerNum);
 
     if (src->hasImmediate) {
-        if (src->registerType == IL_REGTYPE_ITEMP) {
+        if (src->registerType == IL_REGTYPE_ITEMP ||
+            src->registerType == IL_REGTYPE_CONST_BUFF) {
             fprintf(file, "[%u]", src->immediate);
         } else {
             LOGW("unhandled immediate value\n");
@@ -410,6 +411,12 @@ static void dumpInstruction(
         break;
     case IL_OP_RET_DYN:
         fprintf(file, "ret_dyn");
+        break;
+    case IL_DCL_CONST_BUFFER:
+        if (GET_BIT(instr->control, 15)) {
+            LOGW("unhandled immediate constant buffer\n");
+        }
+        fprintf(file, "dcl_cb");
         break;
     case IL_DCL_INDEXED_TEMP_ARRAY:
         fprintf(file, "dcl_indexed_temp_array");
@@ -582,6 +589,15 @@ static void dumpInstruction(
         break;
     case IL_OP_DP2:
         fprintf(file, "dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_DCL_UAV:
+        fprintf(file, "dcl_uav_id(%u)_type(%s)_fmtx(%s)",
+                GET_BITS(instr->control, 0, 3),
+                mIlPixTexUsageNames[GET_BITS(instr->control, 8, 11)],
+                mIlElementFormatNames[GET_BITS(instr->control, 4, 7)]);
+        break;
+    case IL_OP_UAV_LOAD:
+        fprintf(file, "uav_load_id(%u)", GET_BITS(instr->control, 0, 13));
         break;
     case IL_OP_UAV_STORE:
         fprintf(file, "uav_store_id(%u)", GET_BITS(instr->control, 0, 13));

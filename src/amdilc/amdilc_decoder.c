@@ -38,6 +38,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_IF_LOGICALNZ] = { IL_OP_IF_LOGICALNZ, 0, 1, 0, false },
     [IL_OP_WHILE] = { IL_OP_WHILE, 0, 0, 0, false },
     [IL_OP_RET_DYN] = { IL_OP_RET_DYN, 0, 0, 0, false },
+    [IL_DCL_CONST_BUFFER] = { IL_DCL_CONST_BUFFER, 0, 0, 0, false },
     [IL_DCL_INDEXED_TEMP_ARRAY] = { IL_DCL_INDEXED_TEMP_ARRAY, 0, 1, 0, false },
     [IL_DCL_LITERAL] = { IL_DCL_LITERAL, 0, 1, 4, false },
     [IL_DCL_OUTPUT] = { IL_DCL_OUTPUT, 1, 0, 0, false },
@@ -85,6 +86,8 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_COS_VEC] = { IL_OP_COS_VEC, 1, 1, 0, false },
     [IL_OP_SQRT_VEC] = { IL_OP_SQRT_VEC, 1, 1, 0, false },
     [IL_OP_DP2] = { IL_OP_DP2, 1, 2, 0, false },
+    [IL_OP_DCL_UAV] = { IL_OP_DCL_UAV, 0, 0, 0, false },
+    [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0, false },
     [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0, false },
     [IL_OP_UAV_ADD] = { IL_OP_UAV_ADD, 0, 2, 0, false },
     [IL_OP_UAV_READ_ADD] = { IL_OP_UAV_READ_ADD, 1, 2, 0, false },
@@ -101,22 +104,35 @@ static unsigned getSourceCount(
 {
     const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
     bool indexedArgs = GET_BIT(instr->control, 12);
+    bool priModifierPresent = GET_BIT(instr->control, 15);
 
-    if (info->hasIndexedResourceSampler) {
-        if (indexedArgs) {
-            // AMDIL spec, section 7.2.3: If the indexed_args bit is set to 1, there are two
-            // additional source arguments, corresponding to resource index and sampler index.
-            return info->srcCount + 2;
-        }
-    }
-    else if (instr->opcode == IL_OP_SRV_STRUCT_LOAD) {
-        if (indexedArgs) {
-            // Extra indexed input
-            return info->srcCount + 1;
-        }
+    if (info->hasIndexedResourceSampler && indexedArgs) {
+        // AMDIL spec, section 7.2.3: If the indexed_args bit is set to 1, there are two
+        // additional source arguments, corresponding to resource index and sampler index.
+        return info->srcCount + 2;
+    } else if (instr->opcode == IL_OP_SRV_STRUCT_LOAD && indexedArgs) {
+        // Extra indexed input
+        return info->srcCount + 1;
+    } else if (instr->opcode == IL_DCL_CONST_BUFFER && !priModifierPresent) {
+        // Non-immediate constant buffer
+        return info->srcCount + 1;
     }
 
     return info->srcCount;
+}
+
+static unsigned getExtraCount(
+    const Instruction* instr)
+{
+    const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
+    bool priModifierPresent = GET_BIT(instr->control, 15);
+
+    if (instr->opcode == IL_DCL_CONST_BUFFER && priModifierPresent) {
+        // Immediate constant buffer
+        return info->extraCount + instr->primModifier;
+    }
+
+    return info->extraCount;
 }
 
 static uint32_t decodeIlLang(
@@ -321,20 +337,20 @@ static uint32_t decodeInstruction(
 
     instr->dstCount = info->dstCount;
     instr->dsts = malloc(sizeof(Destination) * instr->dstCount);
-    for (int i = 0; i < info->dstCount; i++) {
+    for (int i = 0; i < instr->dstCount; i++) {
         idx += decodeDestination(&instr->dsts[i], &token[idx]);
     }
 
     instr->srcCount = getSourceCount(instr);
     instr->srcs = malloc(sizeof(Source) * instr->srcCount);
-    for (int i = 0; i < info->srcCount; i++) {
+    for (int i = 0; i < instr->srcCount; i++) {
         idx += decodeSource(&instr->srcs[i], &token[idx]);
     }
 
-    instr->extraCount = info->extraCount;
+    instr->extraCount = getExtraCount(instr);
     instr->extras = malloc(sizeof(Token) * instr->extraCount);
     memcpy(instr->extras, &token[idx], sizeof(Token) * instr->extraCount);
-    idx += info->extraCount;
+    idx += instr->extraCount;
 
     return idx;
 }
