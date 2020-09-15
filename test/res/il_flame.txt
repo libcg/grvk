@@ -1,0 +1,192 @@
+dx11_ps
+il_ps_2_0
+dcl_global_flags refactoringAllowed
+dcl_input_generic_interp(linear) v1.xy__
+dcl_output_generic o0
+dcl_literal l0, 0x3B4CCCCD, 0x3B000000, 0x00000000, 0x00000000
+dcl_literal l1, 0xBFCCCCCD, 0xBF800000, 0x00000000, 0x00000000
+mad_ieee r0.xy__, v1.xyxx, l0, l1
+dcl_literal l2, 0xBFC00000, 0xBFC00000, 0xBFC00000, 0xBFC00000
+mov r0.__z_, l2
+dp3_ieee r0.___w, r0.xyzx, r0.xyzx
+rsq_vec r0.___w, r0.w
+mul_ieee r0.xyz_, r0.w, r0.xyzx
+dcl_literal l3, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+mov r0.___w, l3
+dcl_literal l4, 0x00000000, 0xC0000000, 0x40800000, 0x00000000
+mov r1, l4
+dcl_literal l5, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+mov r2.x___, l5
+whileloop
+    dcl_literal l6, 0x00000040, 0x00000040, 0x00000040, 0x00000040
+    ige r2._y__, r2.x, l6
+    break_logicalnz r2.y
+    dp3_ieee r2._y__, r1.xyzx, r1.xyzx
+    sqrt_vec r2._y__, r2.y
+    dcl_literal l7, 0x42C80000, 0x42C80000, 0x42C80000, 0x42C80000
+    add r2._y__, r2.y_neg(xyzw), l7
+    dcl_literal l8, 0x3F800000, 0x3F000000, 0x3F800000, 0x00000000
+    dcl_literal l9, 0x00000000, 0xBF800000, 0x00000000, 0x00000000
+    mad_ieee r3.xyz_, r1.xyzx_neg(xyzw), l8, l9
+    dp3_ieee r2.__z_, r3.xyzx, r3.xyzx
+    sqrt_vec r2.__z_, r2.z
+    dcl_literal l10, 0xBF800000, 0xBF800000, 0xBF800000, 0xBF800000
+    add r2.__z_, r2.z, l10
+    round_neginf r3.xyz_, r1.xyzx
+    dcl_literal l11, 0x3F800000, 0x42640000, 0x41A80000, 0x00000000
+    dp3_ieee r2.___w, r3.xyzx, l11
+    dcl_literal l12, 0x00000000, 0x42640000, 0x41A80000, 0x429C0000
+    add r4, r2.w, l12
+    add r3.xyz_, r1.xyzx, r3.xyzx_neg(xyzw)
+    dcl_literal l13, 0x40490FDB, 0x40490FDB, 0x40490FDB, 0x00000000
+    mul_ieee r3.xyz_, r3.xyzx, l13
+    cos_vec r3.xyz_, r3.xyzx
+    dcl_literal l14, 0xBF000000, 0xBF000000, 0xBF000000, 0x00000000
+    dcl_literal l15, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+    mad_ieee r3.xyz_, r3.xyzx, l14, l15
+    cos_vec r5, r4
+    mul_ieee r4, r4, r5
+    sin_vec r4, r4
+    dcl_literal l16, 0x3F800000, 0x42680000, 0x41B00000, 0x429E0000
+    add r5, r2.w, l16
+    cos_vec r6, r5
+    mul_ieee r5, r5, r6
+    sin_vec r5, r5
+    add r5, r4_neg(xyzw), r5
+    mad_ieee r4, r3.x, r5, r4
+    add r3.x__w, r4.xxxz_neg(xyzw), r4.yyyw
+    mad_ieee r3.xy__, r3.y, r3.xwxx, r4.xzxx
+    add r2.___w, r3.x_neg(xyzw), r3.y
+    mad_ieee r2.___w, r3.z, r2.w, r3.x
+    dcl_literal l17, 0x40400000, 0x40400000, 0x40400000, 0x00000000
+    mul_ieee r3.xyz_, r1.xyzx, l17
+    round_neginf r3.xyz_, r3.xyzx
+    dcl_literal l18, 0x3F800000, 0x42640000, 0x41A80000, 0x00000000
+    dp3_ieee r3.___w, r3.xyzx, l18
+    dcl_literal l19, 0x00000000, 0x42640000, 0x41A80000, 0x429C0000
+    add r4, r3.w, l19
+    dcl_literal l20, 0x40400000, 0x40400000, 0x40400000, 0x00000000
+    mad_ieee r3.xyz_, r1.xyzx, l20, r3.xyzx_neg(xyzw)
+    dcl_literal l21, 0x40490FDB, 0x40490FDB, 0x40490FDB, 0x00000000
+    mul_ieee r3.xyz_, r3.xyzx, l21
+    cos_vec r3.xyz_, r3.xyzx
+    dcl_literal l22, 0xBF000000, 0xBF000000, 0xBF000000, 0x00000000
+    dcl_literal l23, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+    mad_ieee r3.xyz_, r3.xyzx, l22, l23
+    cos_vec r5, r4
+    mul_ieee r4, r4, r5
+    sin_vec r4, r4
+    dcl_literal l24, 0x3F800000, 0x42680000, 0x41B00000, 0x429E0000
+    add r5, r3.w, l24
+    cos_vec r6, r5
+    mul_ieee r5, r5, r6
+    sin_vec r5, r5
+    add r5, r4_neg(xyzw), r5
+    mad_ieee r4, r3.x, r5, r4
+    add r3.x__w, r4.xxxz_neg(xyzw), r4.yyyw
+    mad_ieee r3.xy__, r3.y, r3.xwxx, r4.xzxx
+    add r3._y__, r3.x_neg(xyzw), r3.y
+    mad_ieee r3.x___, r3.z, r3.y, r3.x
+    dcl_literal l25, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+    mad_ieee r2.___w, r3.x, l25, r2.w
+    mul_ieee r2.___w, r1.y, r2.w
+    dcl_literal l26, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+    mad_ieee r2.__z_, r2.w, l26, r2.z
+    min_ieee r2._y__, r2.z_abs, r2.y
+    dcl_literal l27, 0x3CA3D70A, 0x3CA3D70A, 0x3CA3D70A, 0x3CA3D70A
+    add r2._y__, r2.y, l27
+    mad_ieee r1.xyz_, r2.y, r0.xyzx, r1.xyzx
+    dcl_literal l28, 0x3CA3D70A, 0x3CA3D70A, 0x3CA3D70A, 0x3CA3D70A
+    lt r2._y__, l28, r2.y
+    if_logicalnz r2.y
+        dcl_literal l29, 0x00000000, 0x3F800000, 0x3F000000, 0x3F800000
+        dcl_literal l30, 0x00000000, 0x00000000, 0xBF800000, 0x00000000
+        mad_ieee r2._yzw, r1.xxyz_neg(xyzw), l29, l30
+        dp3_ieee r2._y__, r2.yzwy, r2.yzwy
+        sqrt_vec r2._y__, r2.y
+        dcl_literal l31, 0xBF800000, 0xBF800000, 0xBF800000, 0xBF800000
+        add r2._y__, r2.y, l31
+        round_neginf r3.xyz_, r1.xyzx
+        dcl_literal l32, 0x3F800000, 0x42640000, 0x41A80000, 0x00000000
+        dp3_ieee r2.__z_, r3.xyzx, l32
+        dcl_literal l33, 0x00000000, 0x42640000, 0x41A80000, 0x429C0000
+        add r4, r2.z, l33
+        add r3.xyz_, r1.xyzx, r3.xyzx_neg(xyzw)
+        dcl_literal l34, 0x40490FDB, 0x40490FDB, 0x40490FDB, 0x00000000
+        mul_ieee r3.xyz_, r3.xyzx, l34
+        cos_vec r3.xyz_, r3.xyzx
+        dcl_literal l35, 0xBF000000, 0xBF000000, 0xBF000000, 0x00000000
+        dcl_literal l36, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+        mad_ieee r3.xyz_, r3.xyzx, l35, l36
+        cos_vec r5, r4
+        mul_ieee r4, r4, r5
+        sin_vec r4, r4
+        dcl_literal l37, 0x3F800000, 0x42680000, 0x41B00000, 0x429E0000
+        add r5, r2.z, l37
+        cos_vec r6, r5
+        mul_ieee r5, r5, r6
+        sin_vec r5, r5
+        add r5, r4_neg(xyzw), r5
+        mad_ieee r4, r3.x, r5, r4
+        add r2.__zw, r4.xxxz_neg(xyzw), r4.yyyw
+        mad_ieee r2.__zw, r3.y, r2.zzzw, r4.xxxz
+        add r2.___w, r2.z_neg(xyzw), r2.w
+        mad_ieee r2.__z_, r3.z, r2.w, r2.z
+        dcl_literal l38, 0x40400000, 0x40400000, 0x40400000, 0x00000000
+        mul_ieee r3.xyz_, r1.xyzx, l38
+        round_neginf r3.xyz_, r3.xyzx
+        dcl_literal l39, 0x3F800000, 0x42640000, 0x41A80000, 0x00000000
+        dp3_ieee r2.___w, r3.xyzx, l39
+        dcl_literal l40, 0x00000000, 0x42640000, 0x41A80000, 0x429C0000
+        add r4, r2.w, l40
+        dcl_literal l41, 0x40400000, 0x40400000, 0x40400000, 0x00000000
+        mad_ieee r3.xyz_, r1.xyzx, l41, r3.xyzx_neg(xyzw)
+        dcl_literal l42, 0x40490FDB, 0x40490FDB, 0x40490FDB, 0x00000000
+        mul_ieee r3.xyz_, r3.xyzx, l42
+        cos_vec r3.xyz_, r3.xyzx
+        dcl_literal l43, 0xBF000000, 0xBF000000, 0xBF000000, 0x00000000
+        dcl_literal l44, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+        mad_ieee r3.xyz_, r3.xyzx, l43, l44
+        cos_vec r5, r4
+        mul_ieee r4, r4, r5
+        sin_vec r4, r4
+        dcl_literal l45, 0x3F800000, 0x42680000, 0x41B00000, 0x429E0000
+        add r5, r2.w, l45
+        cos_vec r6, r5
+        mul_ieee r5, r5, r6
+        sin_vec r5, r5
+        add r5, r4_neg(xyzw), r5
+        mad_ieee r4, r3.x, r5, r4
+        add r3.x__w, r4.xxxz_neg(xyzw), r4.yyyw
+        mad_ieee r3.xy__, r3.y, r3.xwxx, r4.xzxx
+        add r2.___w, r3.x_neg(xyzw), r3.y
+        mad_ieee r2.___w, r3.z, r2.w, r3.x
+        dcl_literal l46, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+        mad_ieee r2.__z_, r2.w, l46, r2.z
+        mul_ieee r2.__z_, r1.y, r2.z
+        dcl_literal l47, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+        mad_ieee r2._y__, r2.z, l47, r2.y
+        dcl_literal l48, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+        lt r2._y__, r2.y, l48
+        ior r1.___w, r1.w, r2.y
+        itof r2._y__, r2.x
+        dcl_literal l49, 0x3C800000, 0x3C800000, 0x3C800000, 0x3C800000
+        mul_ieee r2._y__, r2.y, l49
+        cmov_logical r0.___w, r1.w, r2.y, r0.w
+    endif
+    dcl_literal l50, 0x00000001, 0x00000001, 0x00000001, 0x00000001
+    iadd r2.x___, r2.x, l50
+endloop
+dcl_literal l51, 0x3CA3D70A, 0x3CA3D70A, 0x3CA3D70A, 0x3CA3D70A
+dcl_literal l52, 0x3ECCCCCD, 0x3ECCCCCD, 0x3ECCCCCD, 0x3ECCCCCD
+mad_ieee r0.x___, r1.y, l51, l52
+dcl_literal l53, 0xBF666666, 0x00000000, 0x3F666666, 0x00000000
+dcl_literal l54, 0x3F800000, 0x3F000000, 0x3DCCCCCD, 0x3F800000
+mad_ieee r1, r0.x, l53, l54
+add r0.x___, r0.w, r0.w
+mul_ieee r0.x___, r0.x, r0.x
+mul_ieee r0.x___, r0.x, r0.x
+mul_ieee r4096, r1, r0.x
+mov o0, r4096
+ret_dyn
+end

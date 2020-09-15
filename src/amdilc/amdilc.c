@@ -127,3 +127,15 @@ uint32_t* ilcCompileShader(
     free(kernel);
     return compiledCode;
 }
+
+void ilcDisassembleShader(
+    FILE* file,
+    const void* code,
+    unsigned size)
+{
+    Kernel* kernel = ilcDecodeStream((Token*)code, size / sizeof(Token));
+
+    ilcDumpKernel(file, kernel);
+    freeKernel(kernel);
+    free(kernel);
+}

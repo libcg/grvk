@@ -1,0 +1,396 @@
+dx11_ps
+il_ps_2_0
+dcl_global_flags refactoringAllowed
+dcl_input_generic_interp(linear) v1.xy__
+dcl_output_generic o0
+dcl_literal l0, 0x3F800000, 0xBF800000, 0x3F800000, 0xBF800000
+dcl_literal l1, 0x00000000, 0x44800000, 0xC4000000, 0x44000000
+mad_ieee r0, v1.xyxy, l0, l1
+dcl_literal l2, 0x3A800000, 0xB7CDC9E3, 0x3A765DA1, 0xB98A8B1D
+mul_ieee r1, r0.ywww, l2
+dcl_literal l3, 0x00000000, 0xBA7EE767, 0x00000000, 0x38BD504D
+mad_ieee r1._yzw, r0.z, l3, r1.yyzw
+dcl_literal l4, 0x00000000, 0x3DB63067, 0x3E8B239F, 0x3F754F97
+add r1._yzw, r1.yyzw, l4
+dp3_ieee r0.__z_, r1.yzwy, r1.yzwy
+rsq_vec r0.__z_, r0.z
+mul_ieee r1._yzw, r0.z, r1.yyzw
+dcl_literal l5, 0x3F218AE3, 0xBF469858, 0x00000000, 0x00000000
+dp2_ieee r2.x___, l5, r1.yzyy
+dcl_literal l6, 0x3F469858, 0x3F218AE3, 0x00000000, 0x00000000
+dp2_ieee r2._y__, l6, r1.yzyy
+mov r2.__zw, r1.w
+dcl_literal l7, 0x3DA3D70A, 0x3DA3D70A, 0x3DA3D70A, 0x3DA3D70A
+mov r3.___w, l7
+dcl_literal l8, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+mov r4, l8
+dcl_literal l9, 0x00000000, 0x00000000, 0x3FC00000, 0x00000000
+mov r0.__zw, l9
+dcl_literal l10, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+mov r1._y__, l10
+whileloop
+    dcl_literal l11, 0x00000082, 0x00000082, 0x00000082, 0x00000082
+    ige r1.__z_, r1.y, l11
+    break_logicalnz r1.z
+    dcl_literal l12, 0x3F7D70A4, 0x3F7D70A4, 0x3F7D70A4, 0x3F7D70A4
+    lt r1.__z_, l12, r4.w
+    if_logicalnz r1.z
+        break
+    endif
+    dcl_literal l13, 0x4014B834, 0xBF66A584, 0x426E8F5C, 0x429F0A3D
+    mad_ieee r5, r0.z, r2.xyww, l13
+    dcl_literal l14, 0x00000000, 0x00000000, 0x3E6147AE, 0x3E333333
+    mul_ieee r1.__zw, r5.z, l14
+    sin_vec r6.x___, r1.z
+    cos_vec r6._y__, r1.w
+    dcl_literal l15, 0x00000000, 0x00000000, 0x40000000, 0x40000000
+    mad_ieee r1.__zw, r6.xxxy_neg(xyzw), l15, r5.xxxy
+    sin_vec r5.___w, r5.w
+    dcl_literal l16, 0x3DD01C65, 0x3DD01C65, 0x3DD01C65, 0x3DD01C65
+    dcl_literal l17, 0x3FE50481, 0x3FE50481, 0x3FE50481, 0x3FE50481
+    mad_ieee r5.___w, r5.w, l16, l17
+    sin_vec r4105, r5.w
+    cos_vec r7.x___, r5.w
+    mov r6.x___, r4105
+    mov r8.x___, r6.x_neg(xyzw)
+    mov r8._y__, r7.x
+    mov r8.__z_, r6.x
+    dp2_ieee r6.x___, r8.yzyy, r5.xyxx
+    dp2_ieee r6._y__, r8.xyxx, r5.xyxx
+    dp2_ieee r1.__z_, r1.zwzz, r1.zwzz
+    mov r6.__z_, r5.z
+    dcl_literal l18, 0x3F1C28F6, 0x3F1C28F6, 0x3F1C28F6, 0x00000000
+    mul_ieee r5.xyz_, r6.xyzx, l18
+    mov r6.xy_w, r5.xyxz
+    dcl_literal l19, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+    mov r1.___w, l19
+    dcl_literal l20, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mov r5.___w, l20
+    dcl_literal l21, 0x3F800000, 0x00000000, 0x00000000, 0x00000000
+    mov r7.x_z_, l21
+    whileloop
+        dcl_literal l22, 0x00000005, 0x00000005, 0x00000005, 0x00000005
+        ige r7.___w, r7.z, l22
+        break_logicalnz r7.w
+        mul_ieee r8.xyz_, r6.wxyw, r7.x
+        dcl_literal l23, 0x3FB33333, 0x417E76C8, 0x00000000, 0x00000000
+        mul_ieee r7.xy__, r7.x, l23
+        dcl_literal l24, 0x3F400000, 0x3F400000, 0x3F400000, 0x00000000
+        mad_ieee r8.xyz_, r8.xyzx, l24, r7.y
+        sin_vec r8.xyz_, r8.xyzx
+        dcl_literal l25, 0x3DDA0B2E, 0x3DDA0B2E, 0x3DDA0B2E, 0x00000000
+        mad_ieee r8.xyz_, r8.xyzx, l25, r6.xywx
+        cos_vec r9.xyz_, r8.xyzx
+        sin_vec r10.xyz_, r8.yzxy
+        dp3_ieee r7._y__, r9.xyzx, r10.xyzx
+        mul_ieee r7._y__, r5.w, r7.y
+        add r1.___w, r1.w, r7.y_neg(xyzw)_abs
+        dcl_literal l26, 0x3F11EB85, 0x3F11EB85, 0x3F11EB85, 0x3F11EB85
+        mul_ieee r5.___w, r5.w, l26
+        dcl_literal l27, 0x3F24B765, 0xBFD91DB5, 0x3E95D327, 0x00000000
+        dp3_ieee r6.x___, r8.xyzx, l27
+        dcl_literal l28, 0x3F8A6D28, 0x3F215273, 0x3FABEE12, 0x00000000
+        dp3_ieee r6._y__, r8.xyzx, l28
+        dcl_literal l29, 0xBFB16AAE, 0xBE976A6F, 0x3F978828, 0x00000000
+        dp3_ieee r6.___w, r8.xyzx, l29
+        dcl_literal l30, 0x00000001, 0x00000001, 0x00000001, 0x00000001
+        iadd r7.__z_, r7.z, l30
+    endloop
+    dcl_literal l31, 0x3DC6A7B2, 0x3DC6A7B2, 0x3DC6A7B2, 0x3DC6A7B2
+    add r5.x___, r1.w, l31
+    dcl_literal l32, 0xC03F6113, 0xC03F6113, 0xC03F6113, 0xC03F6113
+    add r5.x___, r5.x_abs, l32
+    dcl_literal l33, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD
+    mad_ieee r5.x___, r1.z, l33, r5.x
+    dcl_literal l34, 0x00000000, 0x3E800000, 0x40100000, 0x00000000
+    add r5._yz_, r5.x, l34
+    dcl_literal l35, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+    max_ieee r5.__z_, r5.z, l35
+    dcl_literal l36, 0x40400000, 0x40400000, 0x40400000, 0x40400000
+    min_ieee r5.__z_, r5.z, l36
+    dcl_literal l37, 0x3F19999A, 0x3F19999A, 0x3F19999A, 0x3F19999A
+    lt r5._y__, l37, r5.y
+    if_logicalnz r5.y
+        dcl_literal l38, 0xBD4CCCD0, 0xC0700000, 0x00000000, 0x00000000
+        add r5.xy__, r5.x, l38
+        mov_sat r5.x___, r5.x
+        dcl_literal l39, 0x3F8F5C29, 0x3F8F5C29, 0x3F8F5C29, 0x3F8F5C29
+        mul_ieee r5.___w, r5.x, l39
+        dcl_literal l40, 0x3DCCCCCD, 0x3DCCCCCD, 0x00000000, 0x3DCCCCCD
+        dcl_literal l41, 0x40A00000, 0x3ECCCCCD, 0x00000000, 0x3E4CCCCD
+        mad_ieee r6.xy_w, r1.z, l40, l41
+        dcl_literal l42, 0x3ECCCCCD, 0x3ECCCCCD, 0x3ECCCCCD, 0x3ECCCCCD
+        mul_ieee r1.__z_, r6.z, l42
+        sin_vec r1.__z_, r1.z
+        dcl_literal l43, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+        mad_ieee r6.xyz_, r1.z, l43, r6.xywx
+        dcl_literal l44, 0x3FE66666, 0x3FE66666, 0x3FE66666, 0x00000000
+        add r6.xyz_, r6.xyzx, l44
+        sin_vec r6.xyz_, r6.xyzx
+        dcl_literal l45, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+        dcl_literal l46, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+        mad_ieee r3.xyz_, r6.xyzx, l45, l46
+        mul_ieee r1.__z_, r5.w, r5.w
+        mul_ieee r1.__z_, r5.w, r1.z
+        mul_ieee r6, r1.z, r3
+        dcl_literal l47, 0xBE1D89D9, 0xBE1D89D9, 0xBE1D89D9, 0xBE1D89D9
+        mul_ieee_sat r1.__z_, r5.y, l47
+        dcl_literal l48, 0x40133333, 0x40133333, 0x40133333, 0x40133333
+        mul_ieee r1.__z_, r1.z, l48
+        mul_ieee r3.xyz_, r1.z, r6.xyzx
+        dcl_literal l49, 0x4047EB67, 0xBDCEC5B8, 0x4271C28F, 0x42A0A3D7
+        mad_ieee r7, r0.z, r2.xyww, l49
+        dcl_literal l50, 0x3E6147AE, 0x3E333333, 0x00000000, 0x00000000
+        mul_ieee r8.xy__, r7.z, l50
+        sin_vec r9.x___, r8.x
+        cos_vec r9._y__, r8.y
+        dcl_literal l51, 0x40000000, 0x40000000, 0x00000000, 0x00000000
+        mad_ieee r8.xy__, r9.xyxx_neg(xyzw), l51, r7.xyxx
+        sin_vec r1.__z_, r7.w
+        dcl_literal l52, 0x3DD01C65, 0x3DD01C65, 0x3DD01C65, 0x3DD01C65
+        dcl_literal l53, 0x3FE50481, 0x3FE50481, 0x3FE50481, 0x3FE50481
+        mad_ieee r1.__z_, r1.z, l52, l53
+        sin_vec r4106, r1.z
+        cos_vec r10.x___, r1.z
+        mov r9.x___, r4106
+        mov r11.x___, r9.x_neg(xyzw)
+        mov r11._y__, r10.x
+        mov r11.__z_, r9.x
+        dp2_ieee r9.x___, r11.yzyy, r7.xyxx
+        dp2_ieee r9._y__, r11.xyxx, r7.xyxx
+        dp2_ieee r1.__z_, r8.xyxx, r8.xyxx
+        mov r9.__z_, r7.z
+        dcl_literal l54, 0x3F1C28F6, 0x3F1C28F6, 0x3F1C28F6, 0x00000000
+        mul_ieee r7.xyz_, r9.xyzx, l54
+        mov r8.xyz_, r7.xyzx
+        dcl_literal l55, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+        mov r5._y__, l55
+        dcl_literal l56, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+        mov r7.___w, l56
+        dcl_literal l57, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+        mov r9.x___, l57
+        dcl_literal l58, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+        mov r8.___w, l58
+        whileloop
+            dcl_literal l59, 0x00000005, 0x00000005, 0x00000005, 0x00000005
+            ige r9.__z_, r8.w, l59
+            break_logicalnz r9.z
+            mul_ieee r10.xyz_, r8.zxyz, r9.x
+            dcl_literal l60, 0x3FB33333, 0x417E76C8, 0x00000000, 0x00000000
+            mul_ieee r9.xy__, r9.x, l60
+            dcl_literal l61, 0x00000000, 0x3F400000, 0x3F400000, 0x3F400000
+            mad_ieee r9._yzw, r10.xxyz, l61, r9.y
+            sin_vec r9._yzw, r9.yyzw
+            dcl_literal l62, 0x00000000, 0x3DDA0B2E, 0x3DDA0B2E, 0x3DDA0B2E
+            mad_ieee r9._yzw, r9.yyzw, l62, r8.xxyz
+            cos_vec r10.xyz_, r9.yzwy
+            sin_vec r11.xyz_, r9.zwyz
+            dp3_ieee r10.x___, r10.xyzx, r11.xyzx
+            mul_ieee r10.x___, r7.w, r10.x
+            add r5._y__, r5.y, r10.x_neg(xyzw)_abs
+            dcl_literal l63, 0x3F11EB85, 0x3F11EB85, 0x3F11EB85, 0x3F11EB85
+            mul_ieee r7.___w, r7.w, l63
+            dcl_literal l64, 0x3F24B765, 0xBFD91DB5, 0x3E95D327, 0x00000000
+            dp3_ieee r8.x___, r9.yzwy, l64
+            dcl_literal l65, 0x3F8A6D28, 0x3F215273, 0x3FABEE12, 0x00000000
+            dp3_ieee r8._y__, r9.yzwy, l65
+            dcl_literal l66, 0xBFB16AAE, 0xBE976A6F, 0x3F978828, 0x00000000
+            dp3_ieee r8.__z_, r9.yzwy, l66
+            dcl_literal l67, 0x00000001, 0x00000001, 0x00000001, 0x00000001
+            iadd r8.___w, r8.w, l67
+        endloop
+        dcl_literal l68, 0x3DC6A7B2, 0x3DC6A7B2, 0x3DC6A7B2, 0x3DC6A7B2
+        add r7.x___, r5.y, l68
+        dcl_literal l69, 0xC03F6113, 0xC03F6113, 0xC03F6113, 0xC03F6113
+        add r7.x___, r7.x_abs, l69
+        dcl_literal l70, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD
+        mad_ieee r1.__z_, r1.z, l70, r7.x
+        dcl_literal l71, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+        add r1.__z_, r1.z, l71
+        dcl_literal l72, 0x3F8F5C29, 0x3F8F5C29, 0x3F8F5C29, 0x3F8F5C29
+        mad_ieee r1.__z_, r5.x, l72, r1.z_neg(xyzw)
+        dcl_literal l73, 0x3DE38E39, 0x3DE38E39, 0x3DE38E39, 0x3DE38E39
+        mul_ieee r1.__z_, r1.z, l73
+        dcl_literal l74, 0x3A83126F, 0x3A83126F, 0x3A83126F, 0x3A83126F
+        max_ieee r1.__z_, r1.z, l74
+        dcl_literal l75, 0x402B1E9A, 0xBF0D0BEA, 0x426FF5C2, 0x429FBD70
+        mad_ieee r7, r0.z, r2, l75
+        dcl_literal l76, 0x3E6147AE, 0x3E333333, 0x00000000, 0x00000000
+        mul_ieee r8.xy__, r7.z, l76
+        sin_vec r9.x___, r8.x
+        cos_vec r9._y__, r8.y
+        dcl_literal l77, 0x40000000, 0x40000000, 0x00000000, 0x00000000
+        mad_ieee r8.xy__, r9.xyxx_neg(xyzw), l77, r7.xyxx
+        sin_vec r7.___w, r7.w
+        dcl_literal l78, 0x3DD01C65, 0x3DD01C65, 0x3DD01C65, 0x3DD01C65
+        dcl_literal l79, 0x3FE50481, 0x3FE50481, 0x3FE50481, 0x3FE50481
+        mad_ieee r7.___w, r7.w, l78, l79
+        sin_vec r4107, r7.w
+        cos_vec r10.x___, r7.w
+        mov r9.x___, r4107
+        mov r11.x___, r9.x_neg(xyzw)
+        mov r11._y__, r10.x
+        mov r11.__z_, r9.x
+        dp2_ieee r9.x___, r11.yzyy, r7.xyxx
+        dp2_ieee r9._y__, r11.xyxx, r7.xyxx
+        dp2_ieee r7.x___, r8.xyxx, r8.xyxx
+        mov r9.__z_, r7.z
+        dcl_literal l80, 0x00000000, 0x3F1C28F6, 0x3F1C28F6, 0x3F1C28F6
+        mul_ieee r7._yzw, r9.xxyz, l80
+        mov r8.xyz_, r7.yzwy
+        dcl_literal l81, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+        mov r8.___w, l81
+        dcl_literal l82, 0x3F800000, 0x3F800000, 0x00000000, 0x00000000
+        mov r9.xy_w, l82
+        whileloop
+            dcl_literal l83, 0x00000005, 0x00000005, 0x00000005, 0x00000005
+            ige r10.x___, r9.w, l83
+            break_logicalnz r10.x
+            mul_ieee r10.xyz_, r8.zxyz, r9.y
+            dcl_literal l84, 0x00000000, 0x3FB33333, 0x417E76C8, 0x00000000
+            mul_ieee r9._yz_, r9.y, l84
+            dcl_literal l85, 0x3F400000, 0x3F400000, 0x3F400000, 0x00000000
+            mad_ieee r10.xyz_, r10.xyzx, l85, r9.z
+            sin_vec r10.xyz_, r10.xyzx
+            dcl_literal l86, 0x3DDA0B2E, 0x3DDA0B2E, 0x3DDA0B2E, 0x00000000
+            mad_ieee r10.xyz_, r10.xyzx, l86, r8.xyzx
+            cos_vec r11.xyz_, r10.xyzx
+            sin_vec r12.xyz_, r10.yzxy
+            dp3_ieee r9.__z_, r11.xyzx, r12.xyzx
+            mul_ieee r9.__z_, r9.x, r9.z
+            add r8.___w, r8.w, r9.z_neg(xyzw)_abs
+            dcl_literal l87, 0x3F11EB85, 0x3F11EB85, 0x3F11EB85, 0x3F11EB85
+            mul_ieee r9.x___, r9.x, l87
+            dcl_literal l88, 0x3F24B765, 0xBFD91DB5, 0x3E95D327, 0x00000000
+            dp3_ieee r8.x___, r10.xyzx, l88
+            dcl_literal l89, 0x3F8A6D28, 0x3F215273, 0x3FABEE12, 0x00000000
+            dp3_ieee r8._y__, r10.xyzx, l89
+            dcl_literal l90, 0xBFB16AAE, 0xBE976A6F, 0x3F978828, 0x00000000
+            dp3_ieee r8.__z_, r10.xyzx, l90
+            dcl_literal l91, 0x00000001, 0x00000001, 0x00000001, 0x00000001
+            iadd r9.___w, r9.w, l91
+        endloop
+        dcl_literal l92, 0x3DC6A7B2, 0x3DC6A7B2, 0x3DC6A7B2, 0x3DC6A7B2
+        add r7._y__, r8.w, l92
+        dcl_literal l93, 0xC03F6113, 0xC03F6113, 0xC03F6113, 0xC03F6113
+        add r7._y__, r7.y_abs, l93
+        dcl_literal l94, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD
+        mad_ieee r7.x___, r7.x, l94, r7.y
+        dcl_literal l95, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+        add r7.x___, r7.x, l95
+        dcl_literal l96, 0x3F8F5C29, 0x3F8F5C29, 0x3F8F5C29, 0x3F8F5C29
+        mad_ieee r5.x___, r5.x, l96, r7.x_neg(xyzw)
+        dcl_literal l97, 0x3ECCCCCD, 0x3ECCCCCD, 0x3ECCCCCD, 0x3ECCCCCD
+        mul_ieee r5.x___, r5.x, l97
+        dcl_literal l98, 0x3A83126F, 0x3A83126F, 0x3A83126F, 0x3A83126F
+        max_ieee r5.x___, r5.x, l98
+        dcl_literal l99, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+        min_ieee r5.x___, r5.x, l99
+        add r1.__z_, r1.z, r5.x
+        dcl_literal l100, 0x3D4AC083, 0x3DD70A3D, 0x3D3851EC, 0x00000000
+        dcl_literal l101, 0x3BA3D70A, 0x3D3851EC, 0x3D99999A, 0x00000000
+        mad_ieee r7.xyz_, r1.z, l100, l101
+        mul_ieee r7.xyz_, r5.w, r7.xyzx
+        mul_ieee r6.xyz_, r3.xyzx, r7.xyzx
+    else
+        dcl_literal l102, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+        mov r6, l102
+    endif
+    dcl_literal l103, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD
+    dcl_literal l104, 0xC00CCCCD, 0xC00CCCCD, 0xC00CCCCD, 0xC00CCCCD
+    mad_ieee r1.__z_, r0.z, l103, l104
+    dcl_literal l105, 0x3FB8AA3B, 0x3FB8AA3B, 0x3FB8AA3B, 0x3FB8AA3B
+    mul_ieee r1.__z_, r1.z, l105
+    exp_vec r1.__z_, r1.z
+    add_sat r3.x___, r0.w_neg(xyzw), r1.z
+    dcl_literal l106, 0x3D75C28F, 0x3DE147AE, 0x3DE147AE, 0x3DCCCCCD
+    mad_ieee r6, r3.x, l106, r6
+    dcl_literal l107, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    add r3.x___, r4.w_neg(xyzw), l107
+    mad_ieee r4, r6, r3.x, r4
+    mul_ieee r3.x___, r5.z, r5.z
+    dcl_literal l108, 0x3D4CCCCD, 0x3D4CCCCD, 0x3D4CCCCD, 0x3D4CCCCD
+    dcl_literal l109, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+    mad_ieee r3.x___, r3.x_neg(xyzw), l108, l109
+    dcl_literal l110, 0x3DB851EC, 0x3DB851EC, 0x3DB851EC, 0x3DB851EC
+    max_ieee r3.x___, r3.x, l110
+    dcl_literal l111, 0x3E99999A, 0x3E99999A, 0x3E99999A, 0x3E99999A
+    min_ieee r3.x___, r3.x, l111
+    add r0.__z_, r0.z, r3.x
+    mov r0.___w, r1.z
+    dcl_literal l112, 0x00000001, 0x00000001, 0x00000001, 0x00000001
+    iadd r1._y__, r1.y, l112
+endloop
+mov_sat r4.xyz_, r4.xyzx
+add r0.__zw, r4.zzzx_neg(xyzw), r4.xxxz
+dcl_literal l113, 0x3F77B903, 0x00000000, 0x3F77B903, 0x00000000
+mul_ieee r2.x_z_, r0.zzwz, l113
+dcl_literal l114, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+mov r2._y__, l114
+add r1._yzw, r2.xxyz, r4.zzyx
+dcl_literal l115, 0x00000000, 0x358637BD, 0x00000000, 0x00000000
+add r1._yzw, r1.yyzw, l115
+min_ieee r0.__z_, r1.z, r1.y
+min_ieee r0.__z_, r1.w, r0.z
+max_ieee r0.___w, r1.z, r1.y
+max_ieee r0.___w, r1.w, r0.w
+add r0.__z_, r0.z_neg(xyzw), r0.w
+dcl_literal l116, 0x33D6BF95, 0x33D6BF95, 0x33D6BF95, 0x33D6BF95
+add r0.___w, r0.w, l116
+div_zeroop(infinity) r0.__z_, r0.z, r0.w
+min_ieee r2.xy__, r4.y, r4.zxzz
+min_ieee r2.xy__, r4.xzxx, r2.xyxx
+max_ieee r2.__zw, r4.y, r4.zzzx
+max_ieee r2.__zw, r4.xxxz, r2.zzzw
+add r2.xy__, r2.xyxx_neg(xyzw), r2.zwzz
+dcl_literal l117, 0x00000000, 0x00000000, 0x33D6BF95, 0x33D6BF95
+add r2.__zw, r2.zzzw, l117
+div_zeroop(infinity) r2.xy__, r2.xyxx, r2.zwzz
+add r0.___w, r2.x_neg(xyzw), r2.y
+dcl_literal l118, 0x3F77B903, 0x3F77B903, 0x3F77B903, 0x3F77B903
+mad_ieee r0.___w, r0.w, l118, r2.x
+add r0.__z_, r0.w_neg(xyzw), r0.z
+dcl_literal l119, 0x40000000, 0x40000000, 0x40000000, 0x00000000
+mad_ieee r2.xyz_, r1.yzwy, l119, r1.zyzz_neg(xyzw)
+add r2.xyz_, r1.wwyw_neg(xyzw), r2.xyzx
+dp3_ieee r0.___w, r2.xyzx, r2.xyzx
+rsq_vec r0.___w, r0.w
+mul_ieee r2.xyz_, r0.w, r2.xyzx
+dcl_literal l120, 0x3F800000, 0x3F800000, 0x3F800000, 0x00000000
+dp3_ieee r0.___w, l120, r1.yzwy
+dp3_ieee r2.___w, r1.yzwy, r1.yzwy
+rsq_vec r2.___w, r2.w
+mul_ieee r3.xyz_, r1.yzwy, r2.w
+dp3_ieee r2.___w, r2.xyzx, r3.xyzx
+mul_ieee r2.xyz_, r0.z_abs, r2.xyzx
+mul_ieee r2.xyz_, r2.w, r2.xyzx
+mul_ieee r2.xyz_, r0.w, r2.xyzx
+dcl_literal l121, 0x00000000, 0x3FC00000, 0x3FC00000, 0x3FC00000
+mad_ieee_sat r1._yzw, r2.xxyz, l121, r1.yyzw
+log_vec r1._yzw, r1.yyzw
+dcl_literal l122, 0x00000000, 0x3F0CCCCD, 0x3F266666, 0x3F19999A
+mul_ieee r1._yzw, r1.yyzw, l122
+exp_vec r1._yzw, r1.yyzw
+dcl_literal l123, 0x00000000, 0x3F800000, 0x3F7851EC, 0x3F666666
+mul_ieee r1._yzw, r1.yyzw, l123
+mul_ieee r0.__z_, r1.x, v1.x
+dcl_literal l124, 0x3C800000, 0x3C800000, 0x3C800000, 0x3C800000
+mul_ieee r0.__z_, r0.z, l124
+dcl_literal l125, 0x3A800000, 0x3A800000, 0x00000000, 0x00000000
+dcl_literal l126, 0x3F800000, 0x3F800000, 0x00000000, 0x00000000
+mad_ieee r0.xy__, r0.xyxx_neg(xyzw), l125, l126
+mul_ieee r0.x___, r0.x, r0.z
+mul_ieee r0.x___, r0.y, r0.x
+log_vec r0.x___, r0.x
+dcl_literal l127, 0x3DF5C28F, 0x3DF5C28F, 0x3DF5C28F, 0x3DF5C28F
+mul_ieee r0.x___, r0.x, l127
+exp_vec r0.x___, r0.x
+dcl_literal l128, 0x3F333333, 0x3F333333, 0x3F333333, 0x3F333333
+dcl_literal l129, 0x3E99999A, 0x3E99999A, 0x3E99999A, 0x3E99999A
+mad_ieee r0.x___, r0.x, l128, l129
+mul_ieee r4096.xyz_, r0.x, r1.yzwy
+dcl_literal l130, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+mov r4096.___w, l130
+mov o0, r4096
+ret_dyn
+end

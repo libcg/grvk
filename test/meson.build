@@ -1,0 +1,16 @@
+amdil_dis_exe = executable('amdil-dis', 'amdil-dis.c',
+                           dependencies: amdilc_dep)
+amdil_cmp_py = find_program('amdil-cmp.py', required: true)
+
+test('amdil_boredcircuit_dis', amdil_cmp_py, args : ['boredcircuit'])
+test('amdil_creation_dis', amdil_cmp_py, args : ['creation'])
+test('amdil_e1m1_dis', amdil_cmp_py, args : ['e1m1'])
+test('amdil_flame_dis', amdil_cmp_py, args : ['flame'])
+test('amdil_frog_dis', amdil_cmp_py, args : ['frog'])
+test('amdil_happyjumping_dis', amdil_cmp_py, args : ['happyjumping'])
+test('amdil_microwaves_dis', amdil_cmp_py, args : ['microwaves'])
+test('amdil_primitives_dis', amdil_cmp_py, args : ['primitives'])
+test('amdil_protean_dis', amdil_cmp_py, args : ['protean'])
+test('amdil_seascape_dis', amdil_cmp_py, args : ['seascape'])
+test('amdil_starnest_dis', amdil_cmp_py, args : ['starnest'])
+test('amdil_wold3d_dis', amdil_cmp_py, args : ['wolf3d'])

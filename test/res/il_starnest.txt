@@ -1,0 +1,101 @@
+dx11_ps
+il_ps_2_0
+dcl_global_flags refactoringAllowed
+dcl_input_generic_interp(linear) v1.xy__
+dcl_output_generic o0
+dcl_literal l0, 0x3A4CCCCD, 0x00000000, 0x00000000, 0x3A4CCCCD
+dcl_literal l1, 0xBECCCCCD, 0x00000000, 0x00000000, 0xBECCCCCD
+mad_ieee r0.x__w, v1.xxxy, l0, l1
+dcl_literal l2, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+mov r0._y__, l2
+dcl_literal l3, 0x3F0A5140, 0x3F576AA4, 0x00000000, 0x00000000
+dp2_ieee r0.__z_, l3, r0.xyxx
+dcl_literal l4, 0xBF576AA4, 0x3F0A5140, 0x00000000, 0x00000000
+dp2_ieee r1.__z_, l4, r0.xyxx
+dcl_literal l5, 0x3F0A5140, 0x3F576AA4, 0x00000000, 0x00000000
+dp2_ieee r1.x___, l5, r0.zwzz
+dcl_literal l6, 0xBF576AA4, 0x3F0A5140, 0x00000000, 0x00000000
+dp2_ieee r1._y__, l6, r0.zwzz
+dcl_literal l7, 0x3DCCCCCD, 0x3DCCCCCD, 0x3DCCCCCD, 0x3DCCCCCD
+mov r2.x___, l7
+dcl_literal l8, 0x00000000, 0x00000000, 0x00000000, 0x3F800000
+mov r0, l8
+dcl_literal l9, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+mov r1.___w, l9
+whileloop
+    dcl_literal l10, 0x00000014, 0x00000014, 0x00000014, 0x00000014
+    ige r2.___w, r1.w, l10
+    break_logicalnz r2.w
+    mul_ieee r3.xyz_, r1.xyzx, r2.x
+    dcl_literal l11, 0x3F000000, 0x3F000000, 0x3F000000, 0x00000000
+    dcl_literal l12, 0x3FBA5EA3, 0x3F0234C1, 0xC0556E73, 0x00000000
+    mad_ieee r3.xyz_, r3.xyzx, l11, l12
+    dcl_literal l13, 0x3F169696, 0x3F169696, 0x3F169696, 0x00000000
+    mul_ieee r4.xyz_, r3.xyzx, l13
+    round_neginf r4.xyz_, r4.xyzx
+    dcl_literal l14, 0x3FD9999A, 0x3FD9999A, 0x3FD9999A, 0x00000000
+    mad_ieee r3.xyz_, r4.xyzx_neg(xyzw), l14, r3.xyzx
+    dcl_literal l15, 0x3F59999A, 0x3F59999A, 0x3F59999A, 0x00000000
+    add r3.xyz_, r3.xyzx_neg(xyzw), l15
+    mov r4.xyz_, r3.xyzx_abs
+    dcl_literal l16, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+    mov r2.___w, l16
+    dcl_literal l17, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+    mov r3.___w, l17
+    dcl_literal l18, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+    mov r4.___w, l18
+    whileloop
+        dcl_literal l19, 0x00000010, 0x00000010, 0x00000010, 0x00000010
+        ige r5.x___, r4.w, l19
+        break_logicalnz r5.x
+        dp3_ieee r5.x___, r4.xyzx, r4.xyzx
+        div_zeroop(infinity) r5.xyz_, r4.xyzx_abs, r5.x
+        dcl_literal l20, 0xBF07AE14, 0xBF07AE14, 0xBF07AE14, 0x00000000
+        add r4.xyz_, r5.xyzx, l20
+        dp3_ieee r5.x___, r4.xyzx, r4.xyzx
+        sqrt_vec r5.x___, r5.x
+        add r5._y__, r2.w_neg(xyzw), r5.x
+        add r3.___w, r3.w, r5.y_abs
+        dcl_literal l21, 0x00000001, 0x00000001, 0x00000001, 0x00000001
+        iadd r4.___w, r4.w, l21
+        mov r2.___w, r5.x
+    endloop
+    mul_ieee r2.___w, r3.w, r3.w
+    dcl_literal l22, 0x3A83126F, 0x3A83126F, 0x3A83126F, 0x3A83126F
+    dcl_literal l23, 0x3E99999A, 0x3E99999A, 0x3E99999A, 0x3E99999A
+    mad_ieee r3.x___, r2.w_neg(xyzw), l22, l23
+    dcl_literal l24, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+    max_ieee r3.x___, r3.x, l24
+    mul_ieee r2.___w, r2.w, r3.w
+    dcl_literal l25, 0x00000006, 0x00000006, 0x00000006, 0x00000006
+    ilt r3._y__, l25, r1.w
+    dcl_literal l26, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    add r3.x___, r3.x_neg(xyzw), l26
+    mul_ieee r3.x___, r0.w, r3.x
+    cmov_logical r3.x___, r3.y, r3.x, r0.w
+    add r4.xyz_, r0.xyzx, r3.x
+    mul_ieee r2._y__, r2.x, r2.x
+    mul_ieee r2.__z_, r2.y, r2.y
+    mul_ieee r2._yzw, r2.w, r2.xxyz
+    mul_ieee r2._yzw, r3.x, r2.yyzw
+    dcl_literal l27, 0x3AC49BA6, 0x3AC49BA6, 0x3AC49BA6, 0x00000000
+    mad_ieee r0.xyz_, r2.yzwy, l27, r4.xyzx
+    dcl_literal l28, 0x3F3AE148, 0x3F3AE148, 0x3F3AE148, 0x3F3AE148
+    mul_ieee r0.___w, r3.x, l28
+    dcl_literal l29, 0x3DCCCCCD, 0x3DCCCCCD, 0x3DCCCCCD, 0x3DCCCCCD
+    add r2.x___, r2.x, l29
+    dcl_literal l30, 0x00000001, 0x00000001, 0x00000001, 0x00000001
+    iadd r1.___w, r1.w, l30
+endloop
+dp3_ieee r0.___w, r0.xyzx, r0.xyzx
+sqrt_vec r0.___w, r0.w
+add r0.xyz_, r0.w_neg(xyzw), r0.xyzx
+dcl_literal l31, 0x3F59999A, 0x3F59999A, 0x3F59999A, 0x00000000
+mad_ieee r0.xyz_, r0.xyzx, l31, r0.w
+dcl_literal l32, 0x3C23D70A, 0x3C23D70A, 0x3C23D70A, 0x00000000
+mul_ieee r4096.xyz_, r0.xyzx, l32
+dcl_literal l33, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+mov r4096.___w, l33
+mov o0, r4096
+ret_dyn
+end

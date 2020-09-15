@@ -1,0 +1,85 @@
+dx11_ps
+il_ps_2_0
+dcl_global_flags refactoringAllowed
+dcl_input_generic_interp(linear) v1.xy__
+dcl_output_generic o0
+dcl_literal l0, 0xC3800000, 0xC3B68000, 0xC3600000, 0xC3700000
+add r0, v1.yyxy, l0
+dcl_literal l1, 0x3FAAAAAB, 0x3FAAAAAB, 0x00000000, 0x00000000
+mul_ieee r0.xy__, r0.xyxx, l1
+mul_ieee r0, r0, r0
+dcl_literal l2, 0xC3400000, 0xC3250000, 0xC3A00000, 0xC3800000
+add r1, v1.xyxx, l2
+mad_ieee r0.x___, r1.w, r1.w, r0.x
+dcl_literal l3, 0xC6800000, 0xC6800000, 0xC6800000, 0xC6800000
+add_sat r0.x___, r0.x, l3
+dcl_literal l4, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r0.x___, r0.x_neg(xyzw), l4
+dcl_literal l5, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r2.x___, r0.x_neg(xyzw), l5
+mul_ieee r1.xyz_, r1.xyzx, r1.xyzx
+dcl_literal l6, 0x3F4CCCCD, 0x3F4CCCCD, 0x3F4CCCCD, 0x3F4CCCCD
+mul_ieee r1.___w, r1.w, l6
+mad_ieee r0._y__, r1.w, r1.w, r0.y
+dcl_literal l7, 0xC6800000, 0xC6800000, 0xC6800000, 0xC6800000
+add_sat r0._y__, r0.y, l7
+dcl_literal l8, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r0._y__, r0.y_neg(xyzw), l8
+add r1.xy__, r1.y, r1.xzxx
+dcl_literal l9, 0xC4A00000, 0xC4A00000, 0xC4000000, 0xC4000000
+add_sat r3, r1.xyxy, l9
+dcl_literal l10, 0xC3000000, 0xC3000000, 0x00000000, 0x00000000
+add_sat r1.xy__, r1.xyxx, l10
+dcl_literal l11, 0x3F800000, 0x3F800000, 0x00000000, 0x00000000
+add r1.xy__, r1.xyxx_neg(xyzw), l11
+dcl_literal l12, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r3, r3_neg(xyzw), l12
+dcl_literal l13, 0x3EEB851F, 0x3F30A3D7, 0x3EA8F5C3, 0x3F800000
+mul_ieee r4, r3.x, l13
+dcl_literal l14, 0x00000000, 0x3F800000, 0x3F800000, 0x3F800000
+add r2._yzw, r3.yyzw_neg(xyzw), l14
+mul_ieee r4, r2.y, r4
+dcl_literal l15, 0x3EEB851F, 0x3F30A3D7, 0x3EA8F5C3, 0x3F800000
+mad_ieee r4, r3.y, l15, r4
+mul_ieee r4, r2.x, r4
+dcl_literal l16, 0x3EEB851F, 0x3F30A3D7, 0x3EA8F5C3, 0x3F800000
+mad_ieee r4, r0.x, l16, r4
+dcl_literal l17, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r0.x___, r0.y_neg(xyzw), l17
+mul_ieee r5, r0.x, r4
+dcl_literal l18, 0x3F451EB8, 0x3F63D70A, 0x3F333333, 0x3F800000
+mad_ieee r5, r0.y, l18, r5
+mul_ieee r4, r4.w, r5
+mad_ieee r4, r4, r2.z, r3.z
+mad_ieee r2, r4, r2.w, r3.w
+dcl_literal l19, 0x00000000, 0x3F800000, 0x00000000, 0x3F800000
+mul_ieee r3, r1.xxyy, l19
+dcl_literal l20, 0x3F800000, 0x3F800000, 0x00000000, 0x00000000
+add r0.xy__, r1.xyxx_neg(xyzw), l20
+mad_ieee r1, r2, r0.x, r3.xxxy
+mad_ieee r1, r1, r0.y, r3.zzzw
+add r0.x___, r0.w, r0.z
+dcl_literal l21, 0xC2800000, 0xC2800000, 0xC2800000, 0xC2800000
+add_sat r0.x___, r0.x, l21
+dcl_literal l22, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r0.x___, r0.x_neg(xyzw), l22
+dcl_literal l23, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r0._y__, r0.x_neg(xyzw), l23
+mul_ieee r1, r0.y, r1
+dcl_literal l24, 0x3EB851EC, 0x3F0F5C29, 0x3E6B851F, 0x3F800000
+mad_ieee r1, r0.x, l24, r1
+dcl_literal l25, 0xC3900000, 0xC3900000, 0xC3900000, 0xC3900000
+add r0.x___, v1.x, l25
+mad_ieee r0.x___, r0.x, r0.x, r0.w
+dcl_literal l26, 0xC2800000, 0xC2800000, 0xC2800000, 0xC2800000
+add_sat r0.x___, r0.x, l26
+dcl_literal l27, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r0.x___, r0.x_neg(xyzw), l27
+dcl_literal l28, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r0._y__, r0.x_neg(xyzw), l28
+mul_ieee r1, r0.y, r1
+dcl_literal l29, 0x3EB851EC, 0x3F0F5C29, 0x3E6B851F, 0x3F800000
+mad_ieee r4096, r0.x, l29, r1
+mov o0, r4096
+ret_dyn
+end

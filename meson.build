@@ -19,3 +19,4 @@ endif
 lib_vulkan = grvk_compiler.find_library('vulkan-1', dirs : grvk_library_path)
 
 subdir('src')
+subdir('test')
