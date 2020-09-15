@@ -485,6 +485,13 @@ static void dumpInstruction(
         fprintf(file, "sample_l_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
+    case IL_OP_SAMPLE_C_LZ:
+        if (GET_BITS(instr->control, 12, 15)) {
+            LOGW("unhandled sample_c_lz flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "sample_c_lz_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        break;
     case IL_OP_I_NOT:
         fprintf(file, "inot");
         break;
