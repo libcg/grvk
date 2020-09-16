@@ -254,14 +254,33 @@ static void dumpSource(
     FILE* file,
     const Source* src)
 {
-    fprintf(file, " %s%u", mIlRegTypeNames[src->registerType], src->registerNum);
+    fprintf(file, "%s%u", mIlRegTypeNames[src->registerType], src->registerNum);
 
-    if (src->hasImmediate) {
-        if (src->registerType == IL_REGTYPE_ITEMP ||
-            src->registerType == IL_REGTYPE_CONST_BUFF) {
-            fprintf(file, "[%u]", src->immediate);
-        } else {
+    if (src->registerType == IL_REGTYPE_ITEMP ||
+        src->registerType == IL_REGTYPE_CONST_BUFF) {
+        bool indexed = src->hasImmediate || src->hasRelativeSrc;
+
+        if (indexed) {
+            fprintf(file, "[");
+        }
+        if (src->hasRelativeSrc) {
+            dumpSource(file, src->relativeSrc);
+        }
+        if (src->hasImmediate && src->hasRelativeSrc) {
+            fprintf(file, "+");
+        }
+        if (src->hasImmediate) {
+            fprintf(file, "%u", src->immediate);
+        }
+        if (indexed) {
+            fprintf(file, "]");
+        }
+    } else {
+        if (src->hasImmediate) {
             LOGW("unhandled immediate value\n");
+        }
+        if (src->hasRelativeSrc) {
+            LOGW("unhandled relative source\n");
         }
     }
 
@@ -654,6 +673,7 @@ static void dumpInstruction(
             fprintf(file, ",");
         }
 
+        fprintf(file, " ");
         dumpSource(file, &instr->srcs[i]);
     }
 

@@ -202,6 +202,13 @@ static IlcSpvId loadSource(
     uint8_t componentMask,
     IlcSpvId typeId)
 {
+    if (src->hasImmediate) {
+        LOGW("unhandled immediate\n");
+    }
+    if (src->hasRelativeSrc) {
+        LOGW("unhandled relative source\n");
+    }
+
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
 
     if (reg == NULL) {

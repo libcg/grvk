@@ -30,9 +30,21 @@ static void calcSha1(
     CryptDestroyHash(hash);
 }
 
+static void freeSource(
+    Source* src)
+{
+    if (src->hasRelativeSrc) {
+        freeSource(src->relativeSrc);
+    }
+    free(src->relativeSrc);
+}
+
 static void freeInstruction(
     Instruction* instr)
 {
+    for (int i = 0; i < instr->srcCount; i++) {
+        freeSource(&instr->srcs[i]);
+    }
     free(instr->dsts);
     free(instr->srcs);
     free(instr->extras);

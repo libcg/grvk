@@ -223,6 +223,8 @@ static uint32_t decodeSource(
     uint8_t dimension;
     bool extended;
 
+    memset(src, 0, sizeof(*src));
+
     src->registerNum = GET_BITS(token[idx], 0, 15);
     src->registerType = GET_BITS(token[idx], 16, 21);
     modifierPresent = GET_BIT(token[idx], 22);
@@ -254,17 +256,21 @@ static uint32_t decodeSource(
         src->swizzle[1] = IL_COMPSEL_Y_G;
         src->swizzle[2] = IL_COMPSEL_Z_B;
         src->swizzle[3] = IL_COMPSEL_W_A;
-        src->negate[0] = false;
-        src->negate[1] = false;
-        src->negate[2] = false;
-        src->negate[3] = false;
-        src->invert = false;
-        src->bias = false;
-        src->x2 = false;
-        src->sign = false;
-        src->abs = false;
-        src->divComp = IL_DIVCOMP_NONE;
-        src->clamp = false;
+    }
+
+    if (relativeAddress == IL_ADDR_ABSOLUTE) {
+        // Nothing to do
+    } else if (relativeAddress == IL_ADDR_RELATIVE) {
+        // TODO
+        LOGW("unhandled relative addressing\n");
+    } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
+        if (dimension == 0) {
+            src->hasRelativeSrc = true;
+            src->relativeSrc = malloc(sizeof(Source));
+            idx += decodeSource(src->relativeSrc, &token[idx]);
+        }
+    } else {
+        assert(false);
     }
 
     if (src->hasImmediate) {
@@ -272,10 +278,6 @@ static uint32_t decodeSource(
         idx++;
     }
 
-    if (relativeAddress != IL_ADDR_ABSOLUTE) {
-        // TODO
-        LOGW("unhandled addressing %d\n", relativeAddress);
-    }
     if (dimension != 0) {
         // TODO
         LOGW("unhandled dimension %d\n", dimension);

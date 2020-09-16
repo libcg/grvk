@@ -17,6 +17,7 @@
     (GET_BITS(dword, bit, bit))
 
 typedef uint32_t Token;
+typedef struct _Source Source;
 
 typedef struct {
     uint32_t registerNum;
@@ -26,7 +27,7 @@ typedef struct {
     uint8_t shiftScale;
 } Destination;
 
-typedef struct {
+typedef struct _Source {
     uint32_t registerNum;
     uint8_t registerType;
     uint8_t swizzle[4];
@@ -38,6 +39,8 @@ typedef struct {
     bool abs;
     uint8_t divComp;
     bool clamp;
+    bool hasRelativeSrc;
+    Source* relativeSrc;
     bool hasImmediate;
     Token immediate;
 } Source;
