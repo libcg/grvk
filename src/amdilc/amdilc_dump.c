@@ -238,6 +238,16 @@ static void dumpDestination(
             mIlRegTypeNames[dst->registerType],
             dst->registerNum);
 
+    if (dst->registerType == IL_REGTYPE_ITEMP) {
+        if (dst->hasImmediate) {
+            fprintf(file, "[%u]", dst->immediate);
+        }
+    } else {
+        if (dst->hasImmediate) {
+            LOGW("unhandled immediate value\n");
+        }
+    }
+
     if (dst->component[0] != IL_MODCOMP_WRITE ||
         dst->component[1] != IL_MODCOMP_WRITE ||
         dst->component[2] != IL_MODCOMP_WRITE ||

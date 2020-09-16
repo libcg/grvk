@@ -25,6 +25,8 @@ typedef struct {
     uint8_t component[4];
     bool clamp;
     uint8_t shiftScale;
+    bool hasImmediate;
+    Token immediate;
 } Destination;
 
 typedef struct _Source {

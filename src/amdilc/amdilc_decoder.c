@@ -164,7 +164,6 @@ static uint32_t decodeDestination(
     bool modifierPresent;
     uint8_t relativeAddress;
     uint8_t dimension;
-    bool immediatePresent;
     bool extended;
 
     dst->registerNum = GET_BITS(token[idx], 0, 15);
@@ -172,7 +171,7 @@ static uint32_t decodeDestination(
     modifierPresent = GET_BIT(token[idx], 22);
     relativeAddress = GET_BITS(token[idx], 23, 24);
     dimension = GET_BIT(token[idx], 25);
-    immediatePresent = GET_BIT(token[idx], 26);
+    dst->hasImmediate = GET_BIT(token[idx], 26);
     extended = GET_BIT(token[idx], 31);
     idx++;
 
@@ -193,6 +192,11 @@ static uint32_t decodeDestination(
         dst->shiftScale = IL_SHIFT_NONE;
     }
 
+    if (dst->hasImmediate) {
+        dst->immediate = token[idx];
+        idx++;
+    }
+
     if (relativeAddress != IL_ADDR_ABSOLUTE) {
         // TODO
         LOGW("unhandled addressing %d\n", relativeAddress);
@@ -200,10 +204,6 @@ static uint32_t decodeDestination(
     if (dimension != 0) {
         // TODO
         LOGW("unhandled dimension %d\n", dimension);
-    }
-    if (immediatePresent) {
-        // TODO
-        LOGW("unhandled immediate value\n");
     }
     if (extended) {
         // TODO
