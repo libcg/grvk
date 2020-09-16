@@ -1,0 +1,369 @@
+dx11_ps
+il_ps_2_0
+dcl_global_flags refactoringAllowed
+dcl_cb cb0[60]
+dcl_cb cb1[4095]
+dcl_cb cb2[4096]
+dcl_resource_id(1)_type(2d)_fmtx(float)_fmty(float)_fmtz(float)_fmtw(float)
+dcl_resource_id(2)_type(2d)_fmtx(float)_fmty(float)_fmtz(float)_fmtw(float)
+dcl_resource_id(3)_type(2d)_fmtx(float)_fmty(float)_fmtz(float)_fmtw(float)
+dcl_resource_id(4)_type(2d)_fmtx(float)_fmty(float)_fmtz(float)_fmtw(float)
+dcl_resource_id(5)_type(2d)_fmtx(float)_fmty(float)_fmtz(float)_fmtw(float)
+dcl_resource_id(6)_type(2darray)_fmtx(float)_fmty(float)_fmtz(float)_fmtw(float)
+dcl_resource_id(7)_type(2darray)_fmtx(float)_fmty(float)_fmtz(float)_fmtw(float)
+dcl_input_generic_interp(constant) v0.x___
+dcl_input_generic_interp(linear) v1.xyz_
+dcl_input_generic_interp(linear) v2.xyz_
+dcl_input_generic_interp(linear) v3.xy__
+dcl_input_generic_interp(linear) v3.__z_
+dcl_input_generic_interp(linear) v4
+dcl_input_generic_interp(linear) v5
+dcl_input_generic_interp(linear) v6
+dcl_input_generic_interp(linear) v7
+dcl_input_generic_interp(linear) v8
+dcl_output_generic o0
+mov r0.x___, v0.x
+dcl_literal l0, 0x000001FF, 0x000001FF, 0x000001FF, 0x000001FF
+iand r0.x___, l0, cb2[r0.x].x
+dcl_literal l1, 0x0000000F, 0x0000000F, 0x0000000F, 0x0000000F
+imul r0.x___, r0.x, l1
+dcl_literal l2, 0x00000000, 0x00000010, 0x00000010, 0x00000000
+ushr r0._yz_, cb1[r0.x+13].zzyz, l2
+mad_ieee r1.xy__, v3.xyxx, cb1[r0.x+5].zwzz, cb1[r0.x+5].xyxx
+utof r1.__zw, r0.zzzy
+sample_resource(7)_sampler(7) r2, r1.xywx
+dp3_ieee r0._y__, v2.xyzx, v2.xyzx
+rsq_vec r0._y__, r0.y
+mul_ieee r0._yzw, r0.y, v2.xxyz
+ge r1.___w, cb0[41].x, v3.z
+if_logicalnz r1.w
+    div_zeroop(infinity) r3.xy__, v4.xyxx, v4.w
+    sample_c_lz_resource(1)_sampler(1) r1.___w, r3.xyxx, v4.z
+    dcl_literal l3, 0x3F800000, 0x00000000, 0x00000000, 0x00000000
+    mad_ieee r3.xy__, cb0[13].xyxx, l3, r3.xyxx
+    sample_c_lz_resource(1)_sampler(1) r3.__z_, r3.xyxx, v4.z
+    add r1.___w, r1.w, r3.z
+    dcl_literal l4, 0x00000000, 0x3F800000, 0x00000000, 0x00000000
+    mad_ieee r3.xy__, cb0[13].xyxx, l4, r3.xyxx
+    sample_c_lz_resource(1)_sampler(1) r3.x___, r3.xyxx, v4.z
+    dcl_literal l5, 0x40000000, 0x40000000, 0x40000000, 0x40000000
+    mad_ieee r1.___w, r3.x, l5, r1.w
+    dcl_literal l6, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+    mul_ieee r1.___w, r1.w, l6
+else
+    ge r3.x___, cb0[41].y, v3.z
+    if_logicalnz r3.x
+        div_zeroop(infinity) r3.xy__, v5.xyxx, v5.w
+        sample_c_lz_resource(2)_sampler(1) r3.__z_, r3.xyxx, v5.z
+        dcl_literal l7, 0x3F800000, 0x00000000, 0x00000000, 0x00000000
+        mad_ieee r3.xy__, cb0[19].xyxx, l7, r3.xyxx
+        sample_c_lz_resource(2)_sampler(1) r3.___w, r3.xyxx, v5.z
+        add r3.__z_, r3.w, r3.z
+        dcl_literal l8, 0x00000000, 0x3F800000, 0x00000000, 0x00000000
+        mad_ieee r3.xy__, cb0[19].xyxx, l8, r3.xyxx
+        sample_c_lz_resource(2)_sampler(1) r3.x___, r3.xyxx, v5.z
+        dcl_literal l9, 0x40000000, 0x40000000, 0x40000000, 0x40000000
+        mad_ieee r3.x___, r3.x, l9, r3.z
+        dcl_literal l10, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+        mul_ieee r1.___w, r3.x, l10
+    else
+        ge r3.x___, cb0[41].z, v3.z
+        if_logicalnz r3.x
+            div_zeroop(infinity) r3.xy__, v6.xyxx, v6.w
+            sample_c_lz_resource(3)_sampler(1) r3.__z_, r3.xyxx, v6.z
+            dcl_literal l11, 0x3F800000, 0x00000000, 0x00000000, 0x00000000
+            mad_ieee r3.xy__, cb0[25].xyxx, l11, r3.xyxx
+            sample_c_lz_resource(3)_sampler(1) r3.___w, r3.xyxx, v6.z
+            add r3.__z_, r3.w, r3.z
+            dcl_literal l12, 0x00000000, 0x3F800000, 0x00000000, 0x00000000
+            mad_ieee r3.xy__, cb0[25].xyxx, l12, r3.xyxx
+            sample_c_lz_resource(3)_sampler(1) r3.x___, r3.xyxx, v6.z
+            dcl_literal l13, 0x40000000, 0x40000000, 0x40000000, 0x40000000
+            mad_ieee r3.x___, r3.x, l13, r3.z
+            dcl_literal l14, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+            mul_ieee r1.___w, r3.x, l14
+        else
+            dcl_literal l15, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+            mov r1.___w, l15
+        endif
+    endif
+endif
+mov r1.xy__, v3.xyxx
+sample_resource(6)_sampler(6) r1.x___, r1.xyzx
+mul_ieee r1.x___, r1.x, cb1[r0.x+1].w
+dcl_literal l16, 0x3A83126F, 0x3A83126F, 0x3A83126F, 0x3A83126F
+max_ieee r1.x___, r1.x, l16
+mul_ieee r2.xyz_, r2.xyzx, r2.w
+mul_ieee r2.xyz_, r2.xyzx, cb1[r0.x].xyzx
+dp3_ieee r1._y__, v1.xyzx_neg(xyzw), v1.xyzx_neg(xyzw)
+rsq_vec r1._y__, r1.y
+mul_ieee r3.xyz_, r1.y, v1.xyzx_neg(xyzw)
+dp3_ieee_sat r1.__z_, r0.yzwy, r3.xyzx
+mad_ieee r4.xyz_, v1.xyzx_neg(xyzw), r1.y, cb0[42].xyzx
+dp3_ieee r1._y__, r4.xyzx, r4.xyzx
+rsq_vec r1._y__, r1.y
+mul_ieee r4.xyz_, r1.y, r4.xyzx
+dp3_ieee_sat r1._y__, r0.yzwy, cb0[42].xyzx
+dp3_ieee_sat r2.___w, r0.yzwy, r4.xyzx
+dp3_ieee_sat r3.___w, r3.xyzx, r4.xyzx
+mul_ieee r4.x___, r1.x, r1.x
+mul_ieee r4.x___, r1.x, r4.x
+dcl_literal l17, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD, 0x3E4CCCCD
+mul_ieee r4.x___, r4.x, l17
+mad_ieee r4._y__, r2.w, r4.x, r2.w_neg(xyzw)
+dcl_literal l18, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+mad_ieee r2.___w, r4.y, r2.w, l18
+dcl_literal l19, 0x358637BD, 0x358637BD, 0x358637BD, 0x358637BD
+mad_ieee r2.___w, r2.w, r2.w, l19
+div_zeroop(infinity) r2.___w, r4.x, r2.w
+mad_ieee r4._y__, r1.z_neg(xyzw), r4.x, r1.z
+mad_ieee r4._y__, r4.y, r1.z, r4.x
+mad_ieee r4.__z_, r1.y_neg(xyzw), r4.x, r1.y
+mad_ieee r4.__z_, r4.z, r1.y, r4.x
+sqrt_vec r4._yz_, r4.yyzy
+mul_ieee r4.__z_, r1.z, r4.z
+mad_ieee r4.__z_, r1.y, r4.y, r4.z
+dcl_literal l20, 0x358637BD, 0x358637BD, 0x358637BD, 0x358637BD
+add r4.__z_, r4.z, l20
+dcl_literal l21, 0x40490FDB, 0x40490FDB, 0x40490FDB, 0x40490FDB
+mul_ieee r4.__z_, r4.z, l21
+dcl_literal l22, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+div_zeroop(infinity) r4.__z_, l22, r4.z
+dcl_literal l23, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r4.___w, r3.w_neg(xyzw), l23
+mul_ieee r5.x___, r4.w, r4.w
+mul_ieee r5.x___, r5.x, r5.x
+mul_ieee r4.___w, r4.w, r5.x
+dcl_literal l24, 0x3F800000, 0x3F800000, 0x3F800000, 0x00000000
+add r5.xyz_, l24, cb1[r0.x+1].xyzx_neg(xyzw)
+mad_ieee r6.xyz_, r4.w, r5.xyzx, cb1[r0.x+1].xyzx
+mul_ieee r2.___w, r2.w, r4.z
+mul_ieee r7.xyz_, r2.w, r6.xyzx
+mul_ieee r2.___w, r3.w, r3.w
+dp2_ieee r2.___w, r2.w, r1.x
+dcl_literal l25, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+mad_ieee r2.___w, r1.x, l25, r2.w
+dcl_literal l26, 0xBF800000, 0xBF800000, 0xBF800000, 0xBF800000
+add r2.___w, r2.w, l26
+dcl_literal l27, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r3.___w, r1.y_neg(xyzw), l27
+mul_ieee r4.__z_, r3.w, r3.w
+mul_ieee r4.__z_, r4.z, r4.z
+mul_ieee r3.___w, r3.w, r4.z
+dcl_literal l28, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+mad_ieee r3.___w, r2.w, r3.w, l28
+dcl_literal l29, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+add r4.__z_, r1.z_neg(xyzw), l29
+mul_ieee r4.___w, r4.z, r4.z
+mul_ieee r4.___w, r4.w, r4.w
+mul_ieee r4.__z_, r4.w, r4.z
+dcl_literal l30, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+mad_ieee r2.___w, r2.w, r4.z, l30
+dcl_literal l31, 0x3F800000, 0x3F800000, 0x3F800000, 0x00000000
+add r6.xyz_, r6.xyzx_neg(xyzw), l31
+mul_ieee r2.___w, r2.w, r3.w
+mul_ieee r6.xyz_, r6.xyzx, r2.w
+mul_ieee r6.xyz_, r2.xyzx, r6.xyzx
+mul_ieee r6.xyz_, r6.xyzx, cb0[43].xyzx
+mad_ieee r6.xyz_, r7.xyzx, cb0[44].xyzx, r6.xyzx
+mul_ieee r6.xyz_, r1.y, r6.xyzx
+mul_ieee r6.xyz_, r1.w, r6.xyzx
+add r7.xyz_, v1.xyzx_neg(xyzw), cb0[48].xyzx
+dp3_ieee r1._y__, r7.xyzx, r7.xyzx
+sqrt_vec r1._y__, r1.y
+add r8.xyz_, v1.xyzx, cb0[48].xyzx_neg(xyzw)
+dp3_ieee r1.___w, r8.xyzx, r8.xyzx
+rsq_vec r1.___w, r1.w
+mul_ieee r8.xyz_, r1.w, r8.xyzx
+dp3_ieee r1.___w, r8.xyzx, cb0[52].xyzx
+ge r2.___w, cb0[51].x, r1.y
+ge r3.___w, r1.w, cb0[53].y
+iand r2.___w, r2.w, r3.w
+if_logicalnz r2.w
+    dcl_literal l32, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    div_zeroop(infinity) r2.___w, l32, r1.y
+    mul_ieee r8.xyz_, r2.w, r7.xyzx
+    add r1.___w, r1.w, cb0[53].y_neg(xyzw)
+    mul_ieee_sat r1.___w, r1.w, cb0[53].x
+    log_vec r1.___w, r1.w
+    mul_ieee r1.___w, r1.w, cb0[53].z
+    exp_vec r1.___w, r1.w
+    mad_ieee r7.xyz_, r7.xyzx, r2.w, r3.xyzx
+    dp3_ieee r2.___w, r7.xyzx, r7.xyzx
+    rsq_vec r2.___w, r2.w
+    mul_ieee r7.xyz_, r2.w, r7.xyzx
+    dp3_ieee_sat r2.___w, r0.yzwy, r8.xyzx
+    dp3_ieee_sat r3.___w, r0.yzwy, r7.xyzx
+    dp3_ieee_sat r4.___w, r3.xyzx, r7.xyzx
+    mad_ieee r5.___w, r3.w, r4.x, r3.w_neg(xyzw)
+    dcl_literal l33, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r3.___w, r5.w, r3.w, l33
+    dcl_literal l34, 0x358637BD, 0x358637BD, 0x358637BD, 0x358637BD
+    mad_ieee r3.___w, r3.w, r3.w, l34
+    div_zeroop(infinity) r3.___w, r4.x, r3.w
+    mad_ieee r5.___w, r2.w_neg(xyzw), r4.x, r2.w
+    mad_ieee r5.___w, r5.w, r2.w, r4.x
+    sqrt_vec r5.___w, r5.w
+    mul_ieee r5.___w, r1.z, r5.w
+    mad_ieee r5.___w, r2.w, r4.y, r5.w
+    dcl_literal l35, 0x358637BD, 0x358637BD, 0x358637BD, 0x358637BD
+    add r5.___w, r5.w, l35
+    dcl_literal l36, 0x40490FDB, 0x40490FDB, 0x40490FDB, 0x40490FDB
+    mul_ieee r5.___w, r5.w, l36
+    dcl_literal l37, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+    div_zeroop(infinity) r5.___w, l37, r5.w
+    dcl_literal l38, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    add r7.x___, r4.w_neg(xyzw), l38
+    mul_ieee r7._y__, r7.x, r7.x
+    mul_ieee r7._y__, r7.y, r7.y
+    mul_ieee r7.x___, r7.y, r7.x
+    mad_ieee r7.xyz_, r7.x, r5.xyzx, cb1[r0.x+1].xyzx
+    mul_ieee r3.___w, r3.w, r5.w
+    mul_ieee r8.xyz_, r3.w, r7.xyzx
+    mul_ieee r3.___w, r4.w, r4.w
+    dp2_ieee r3.___w, r3.w, r1.x
+    dcl_literal l39, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+    mad_ieee r3.___w, r1.x, l39, r3.w
+    dcl_literal l40, 0xBF800000, 0xBF800000, 0xBF800000, 0xBF800000
+    add r3.___w, r3.w, l40
+    dcl_literal l41, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    add r4.___w, r2.w_neg(xyzw), l41
+    mul_ieee r5.___w, r4.w, r4.w
+    mul_ieee r5.___w, r5.w, r5.w
+    mul_ieee r4.___w, r4.w, r5.w
+    dcl_literal l42, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r4.___w, r3.w, r4.w, l42
+    dcl_literal l43, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r3.___w, r3.w, r4.z, l43
+    dcl_literal l44, 0x3F800000, 0x3F800000, 0x3F800000, 0x00000000
+    add r7.xyz_, r7.xyzx_neg(xyzw), l44
+    mul_ieee r3.___w, r3.w, r4.w
+    mul_ieee r7.xyz_, r7.xyzx, r3.w
+    mul_ieee r7.xyz_, r2.xyzx, r7.xyzx
+    mul_ieee r7.xyz_, r7.xyzx, cb0[49].xyzx
+    mad_ieee r7.xyz_, r8.xyzx, cb0[50].xyzx, r7.xyzx
+    mul_ieee r7.xyz_, r2.w, r7.xyzx
+    div_zeroop(infinity) r8.xy__, v7.xyxx, v7.w
+    sample_c_lz_resource(4)_sampler(1) r2.___w, r8.xyxx, v7.z
+    dcl_literal l45, 0x3F800000, 0x00000000, 0x00000000, 0x00000000
+    mad_ieee r8.xy__, cb0[31].xyxx, l45, r8.xyxx
+    sample_c_lz_resource(4)_sampler(1) r3.___w, r8.xyxx, v7.z
+    add r2.___w, r2.w, r3.w
+    dcl_literal l46, 0x00000000, 0x3F800000, 0x00000000, 0x00000000
+    mad_ieee r8.xy__, cb0[31].xyxx, l46, r8.xyxx
+    sample_c_lz_resource(4)_sampler(1) r3.___w, r8.xyxx, v7.z
+    dcl_literal l47, 0x40000000, 0x40000000, 0x40000000, 0x40000000
+    mad_ieee r2.___w, r3.w, l47, r2.w
+    dcl_literal l48, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+    mul_ieee r2.___w, r2.w, l48
+    mul_ieee r7.xyz_, r2.w, r7.xyzx
+    mad_ieee r2.___w, cb0[51].z, r1.y, cb0[51].y
+    dcl_literal l49, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r1._y__, r2.w, r1.y, l49
+    dcl_literal l50, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    div_zeroop(infinity) r1._y__, l50, r1.y
+    mul_ieee r1._y__, r1.w, r1.y
+    mad_ieee r6.xyz_, r7.xyzx, r1.y, r6.xyzx
+endif
+add r7.xyz_, v1.xyzx_neg(xyzw), cb0[54].xyzx
+dp3_ieee r1._y__, r7.xyzx, r7.xyzx
+sqrt_vec r1._y__, r1.y
+add r8.xyz_, v1.xyzx, cb0[54].xyzx_neg(xyzw)
+dp3_ieee r1.___w, r8.xyzx, r8.xyzx
+rsq_vec r1.___w, r1.w
+mul_ieee r8.xyz_, r1.w, r8.xyzx
+dp3_ieee r1.___w, r8.xyzx, cb0[58].xyzx
+ge r2.___w, cb0[57].x, r1.y
+ge r3.___w, r1.w, cb0[59].y
+iand r2.___w, r2.w, r3.w
+if_logicalnz r2.w
+    dcl_literal l51, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    div_zeroop(infinity) r2.___w, l51, r1.y
+    mul_ieee r8.xyz_, r2.w, r7.xyzx
+    add r1.___w, r1.w, cb0[59].y_neg(xyzw)
+    mul_ieee_sat r1.___w, r1.w, cb0[59].x
+    log_vec r1.___w, r1.w
+    mul_ieee r1.___w, r1.w, cb0[59].z
+    exp_vec r1.___w, r1.w
+    mad_ieee r7.xyz_, r7.xyzx, r2.w, r3.xyzx
+    dp3_ieee r2.___w, r7.xyzx, r7.xyzx
+    rsq_vec r2.___w, r2.w
+    mul_ieee r7.xyz_, r2.w, r7.xyzx
+    dp3_ieee_sat r2.___w, r0.yzwy, r8.xyzx
+    dp3_ieee_sat r0._y__, r0.yzwy, r7.xyzx
+    dp3_ieee_sat r0.__z_, r3.xyzx, r7.xyzx
+    mad_ieee r0.___w, r0.y, r4.x, r0.y_neg(xyzw)
+    dcl_literal l52, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r0._y__, r0.w, r0.y, l52
+    dcl_literal l53, 0x358637BD, 0x358637BD, 0x358637BD, 0x358637BD
+    mad_ieee r0._y__, r0.y, r0.y, l53
+    div_zeroop(infinity) r0._y__, r4.x, r0.y
+    mad_ieee r0.___w, r2.w_neg(xyzw), r4.x, r2.w
+    mad_ieee r0.___w, r0.w, r2.w, r4.x
+    sqrt_vec r0.___w, r0.w
+    mul_ieee r0.___w, r0.w, r1.z
+    mad_ieee r0.___w, r2.w, r4.y, r0.w
+    dcl_literal l54, 0x358637BD, 0x358637BD, 0x358637BD, 0x358637BD
+    add r0.___w, r0.w, l54
+    dcl_literal l55, 0x40490FDB, 0x40490FDB, 0x40490FDB, 0x40490FDB
+    mul_ieee r0.___w, r0.w, l55
+    dcl_literal l56, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+    div_zeroop(infinity) r0.___w, l56, r0.w
+    dcl_literal l57, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    add r1.__z_, r0.z_neg(xyzw), l57
+    mul_ieee r3.x___, r1.z, r1.z
+    mul_ieee r3.x___, r3.x, r3.x
+    mul_ieee r1.__z_, r1.z, r3.x
+    mad_ieee r3.xyz_, r1.z, r5.xyzx, cb1[r0.x+1].xyzx
+    mul_ieee r0._y__, r0.w, r0.y
+    mul_ieee r4.xy_w, r0.y, r3.xyxz
+    mul_ieee r0._y__, r0.z, r0.z
+    dp2_ieee r0._y__, r0.y, r1.x
+    dcl_literal l58, 0x3F000000, 0x3F000000, 0x3F000000, 0x3F000000
+    mad_ieee r0._y__, r1.x, l58, r0.y
+    dcl_literal l59, 0xBF800000, 0xBF800000, 0xBF800000, 0xBF800000
+    add r0._y__, r0.y, l59
+    dcl_literal l60, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    add r0.__z_, r2.w_neg(xyzw), l60
+    mul_ieee r0.___w, r0.z, r0.z
+    mul_ieee r0.___w, r0.w, r0.w
+    mul_ieee r0.__z_, r0.w, r0.z
+    dcl_literal l61, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r0.__z_, r0.y, r0.z, l61
+    dcl_literal l62, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r0._y__, r0.y, r4.z, l62
+    dcl_literal l63, 0x3F800000, 0x3F800000, 0x3F800000, 0x00000000
+    add r3.xyz_, r3.xyzx_neg(xyzw), l63
+    mul_ieee r0._y__, r0.y, r0.z
+    mul_ieee r0._yzw, r3.xxyz, r0.y
+    mul_ieee r0._yzw, r2.xxyz, r0.yyzw
+    mul_ieee r0._yzw, r0.yyzw, cb0[55].xxyz
+    mad_ieee r0._yzw, r4.xxyw, cb0[56].xxyz, r0.yyzw
+    mul_ieee r0._yzw, r0.yyzw, r2.w
+    div_zeroop(infinity) r1.x_z_, v8.xxyx, v8.w
+    sample_c_lz_resource(5)_sampler(1) r2.x___, r1.xzxx, v8.z
+    dcl_literal l64, 0x3F800000, 0x00000000, 0x00000000, 0x00000000
+    mad_ieee r1.x_z_, cb0[37].xxyx, l64, r1.xxzx
+    sample_c_lz_resource(5)_sampler(1) r2._y__, r1.xzxx, v8.z
+    add r2.x___, r2.y, r2.x
+    dcl_literal l65, 0x00000000, 0x00000000, 0x3F800000, 0x00000000
+    mad_ieee r1.x_z_, cb0[37].xxyx, l65, r1.xxzx
+    sample_c_lz_resource(5)_sampler(1) r1.x___, r1.xzxx, v8.z
+    dcl_literal l66, 0x40000000, 0x40000000, 0x40000000, 0x40000000
+    mad_ieee r1.x___, r1.x, l66, r2.x
+    dcl_literal l67, 0x3E800000, 0x3E800000, 0x3E800000, 0x3E800000
+    mul_ieee r1.x___, r1.x, l67
+    mul_ieee r0._yzw, r0.yyzw, r1.x
+    mad_ieee r1.x___, cb0[57].z, r1.y, cb0[57].y
+    dcl_literal l68, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    mad_ieee r1.x___, r1.x, r1.y, l68
+    dcl_literal l69, 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000
+    div_zeroop(infinity) r1.x___, l69, r1.x
+    mul_ieee r1.x___, r1.w, r1.x
+    mad_ieee r6.xyz_, r0.yzwy, r1.x, r6.xyzx
+endif
+mov r6.___w, cb1[r0.x].w
+mov r4096, r6
+mov o0, r4096
+ret_dyn
+end
