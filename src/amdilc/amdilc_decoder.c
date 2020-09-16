@@ -67,6 +67,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_U_DIV] = { IL_OP_U_DIV, 1, 2, 0, false },
     [IL_OP_U_MOD] = { IL_OP_U_MOD, 1, 2, 0, false },
     [IL_OP_U_LT] = { IL_OP_U_LT, 1, 2, 0, false },
+    [IL_OP_U_GE] = { IL_OP_U_GE, 1, 2, 0, false },
     [IL_OP_FTOI] = { IL_OP_FTOI, 1, 1, 0, false },
     [IL_OP_FTOU] = { IL_OP_FTOU, 1, 1, 0, false },
     [IL_OP_ITOF] = { IL_OP_ITOF, 1, 1, 0, false },
@@ -79,6 +80,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_LOG_VEC] = { IL_OP_LOG_VEC, 1, 1, 0, false },
     [IL_OP_LT] = { IL_OP_LT, 1, 2, 0, false },
     [IL_OP_NE] = { IL_OP_NE, 1, 2, 0, false },
+    [IL_OP_ROUND_NEAR] = { IL_OP_ROUND_NEAR, 1, 1, 0, false },
     [IL_OP_ROUND_NEG_INF] = { IL_OP_ROUND_NEG_INF, 1, 1, 0, false },
     [IL_OP_ROUND_PLUS_INF] = { IL_OP_ROUND_PLUS_INF, 1, 1, 0, false },
     [IL_OP_ROUND_ZERO] = { IL_OP_ROUND_ZERO, 1, 1, 0, false },
@@ -87,6 +89,10 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_COS_VEC] = { IL_OP_COS_VEC, 1, 1, 0, false },
     [IL_OP_SQRT_VEC] = { IL_OP_SQRT_VEC, 1, 1, 0, false },
     [IL_OP_DP2] = { IL_OP_DP2, 1, 2, 0, false },
+    [IL_OP_DCL_NUM_THREAD_PER_GROUP] = { IL_OP_DCL_NUM_THREAD_PER_GROUP, 0, 0, 0, false },
+    [IL_OP_FENCE] = { IL_OP_FENCE, 0, 0, 0, false },
+    [IL_OP_LDS_LOAD_VEC] = { IL_OP_LDS_LOAD_VEC, 1, 2, 0, false },
+    [IL_OP_LDS_STORE_VEC] = { IL_OP_LDS_STORE_VEC, 1, 3, 0, false },
     [IL_OP_DCL_UAV] = { IL_OP_DCL_UAV, 0, 0, 0, false },
     [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0, false },
     [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0, false },
@@ -94,7 +100,9 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_UAV_READ_ADD] = { IL_OP_UAV_READ_ADD, 1, 2, 0, false },
     [IL_OP_DCL_STRUCT_SRV] = { IL_OP_DCL_STRUCT_SRV, 0, 0, 1, false },
     [IL_OP_SRV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, false },
+    [IL_DCL_STRUCT_LDS] = { IL_DCL_STRUCT_LDS, 0, 0, 2, false },
     [IL_OP_U_BIT_EXTRACT] = { IL_OP_U_BIT_EXTRACT, 1, 3, 0, false },
+    [IL_OP_U_BIT_INSERT] = { IL_OP_U_BIT_INSERT, 1, 4, 0, false },
     [IL_DCL_GLOBAL_FLAGS] = { IL_DCL_GLOBAL_FLAGS, 0, 0, 0, false },
     [IL_OP_DCL_TYPED_UAV] = { IL_OP_DCL_TYPED_UAV, 0, 0, 1, false }, // FIXME undocumented
     [IL_UNK_660] = { IL_UNK_660, 1, 0, 0, false }, // FIXME undocumented
@@ -131,6 +139,9 @@ static unsigned getExtraCount(
     if (instr->opcode == IL_DCL_CONST_BUFFER && priModifierPresent) {
         // Immediate constant buffer
         return info->extraCount + instr->primModifier;
+    } else if (instr->opcode == IL_OP_DCL_NUM_THREAD_PER_GROUP) {
+        // Variable dimensions
+        return info->extraCount + GET_BITS(instr->control, 0, 13);
     }
 
     return info->extraCount;

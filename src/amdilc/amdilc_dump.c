@@ -28,69 +28,69 @@ static const char* mIlLanguageTypeNames[IL_LANG_LAST] = {
 };
 
 static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
-    "?",
-    "?",
-    "?",
-    "?",
+    "0?",
+    "1?",
+    "2?",
+    "3?",
     "r",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
+    "5?",
+    "6?",
+    "7?",
+    "8?",
+    "9?",
+    "10?",
+    "11?",
+    "12?",
+    "13?",
+    "14?",
+    "15?",
+    "16?",
+    "17?",
+    "18?",
+    "19?",
+    "20?",
+    "21?",
+    "22?",
+    "23?",
+    "24?",
+    "25?",
+    "26?",
+    "27?",
+    "28?",
+    "29?",
     "x",
     "cb",
     "l",
     "v",
     "o",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
-    "?",
+    "35?",
+    "36?",
+    "37?",
+    "38?",
+    "39?",
+    "40?",
+    "vTidInGrp",
+    "42?",
+    "vAbsTid",
+    "44?",
+    "vThreadGrpID",
+    "46?",
+    "mem",
+    "48?",
+    "49?",
+    "50?",
+    "51?",
+    "52?",
+    "53?",
+    "54?",
+    "55?",
+    "56?",
+    "57?",
+    "58?",
+    "59?",
+    "60?",
+    "61?",
+    "62?",
 };
 
 static const char* mIlDivCompNames[IL_DIVCOMP_LAST] = {
@@ -201,6 +201,38 @@ static const char* mIlInterpModeNames[IL_INTERPMODE_LAST] = {
     "_interp(linear_noperspective_sample)",
 };
 
+static bool hasRegisterNumber(
+    uint8_t registerType)
+{
+    // AMDIL spec, table 5.8
+    switch (registerType) {
+    case IL_REGTYPE_CLIP:
+    case IL_REGTYPE_CONST_BOOL:
+    case IL_REGTYPE_CONST_BUFF:
+    case IL_REGTYPE_CONST_FLOAT:
+    case IL_REGTYPE_CONST_INT:
+    case IL_REGTYPE_INDEX:
+    case IL_REGTYPE_INPUT:
+    case IL_REGTYPE_INPUT_ARG:
+    case IL_REGTYPE_INTERP:
+    case IL_REGTYPE_ITEMP:
+    case IL_REGTYPE_LITERAL:
+    case IL_REGTYPE_OUTPUT:
+    case IL_REGTYPE_OUTPUT_ARG:
+    case IL_REGTYPE_PCOLOR:
+    case IL_REGTYPE_PINPUT:
+    case IL_REGTYPE_PRICOLOR:
+    case IL_REGTYPE_PS_OUT_FOG:
+    case IL_REGTYPE_SECCOLOR:
+    case IL_REGTYPE_TEMP:
+    case IL_REGTYPE_TEXCOORD:
+    case IL_REGTYPE_VERTEX:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static const char* getComponentName(
     const char* name,
     uint8_t mask)
@@ -232,11 +264,16 @@ static void dumpDestination(
     FILE* file,
     const Destination* dst)
 {
-    fprintf(file, "%s%s %s%u",
+    fprintf(file, "%s%s %s",
             mIlShiftScaleNames[dst->shiftScale],
             dst->clamp ? "_sat" : "",
-            mIlRegTypeNames[dst->registerType],
-            dst->registerNum);
+            mIlRegTypeNames[dst->registerType]);
+
+    if (hasRegisterNumber(dst->registerType)) {
+        fprintf(file, "%u", dst->registerNum);
+    } else {
+        assert(dst->registerNum == 0);
+    }
 
     if (dst->registerType == IL_REGTYPE_ITEMP) {
         if (dst->hasImmediate) {
@@ -264,7 +301,13 @@ static void dumpSource(
     FILE* file,
     const Source* src)
 {
-    fprintf(file, "%s%u", mIlRegTypeNames[src->registerType], src->registerNum);
+    fprintf(file, "%s", mIlRegTypeNames[src->registerType]);
+
+    if (hasRegisterNumber(src->registerType)) {
+        fprintf(file, "%u", src->registerNum);
+    } else {
+        assert(src->registerNum == 0);
+    }
 
     if (src->registerType == IL_REGTYPE_ITEMP ||
         src->registerType == IL_REGTYPE_CONST_BUFF) {
@@ -566,6 +609,9 @@ static void dumpInstruction(
     case IL_OP_U_LT:
         fprintf(file, "ult");
         break;
+    case IL_OP_U_GE:
+        fprintf(file, "uge");
+        break;
     case IL_OP_FTOI:
         fprintf(file, "ftoi");
         break;
@@ -602,6 +648,9 @@ static void dumpInstruction(
     case IL_OP_NE:
         fprintf(file, "ne");
         break;
+    case IL_OP_ROUND_NEAR:
+        fprintf(file, "round_nearest");
+        break;
     case IL_OP_ROUND_NEG_INF:
         fprintf(file, "round_neginf");
         break;
@@ -625,6 +674,28 @@ static void dumpInstruction(
         break;
     case IL_OP_DP2:
         fprintf(file, "dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
+        break;
+    case IL_OP_DCL_NUM_THREAD_PER_GROUP:
+        fprintf(file, "dcl_num_thread_per_group");
+        for (int i = 0; i < instr->extraCount; i++) {
+            fprintf(file, "%s %u", i != 0 ? "," : "", instr->extras[i]);
+        }
+        break;
+    case IL_OP_FENCE:
+        fprintf(file, "fence%s%s%s%s%s%s%s",
+                GET_BIT(instr->control, 0) ? "_threads" : "",
+                GET_BIT(instr->control, 1) ? "_lds" : "",
+                GET_BIT(instr->control, 2) ? "_memory" : "",
+                GET_BIT(instr->control, 3) ? "_sr" : "",
+                GET_BIT(instr->control, 4) ? "_mem_write_only" : "",
+                GET_BIT(instr->control, 5) ? "_mem_read_only" : "",
+                GET_BIT(instr->control, 6) ? "_gds" : "");
+        break;
+    case IL_OP_LDS_LOAD_VEC:
+        fprintf(file, "lds_load_vec_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
+    case IL_OP_LDS_STORE_VEC:
+        fprintf(file, "lds_store_vec_id(%u)", GET_BITS(instr->control, 0, 13));
         break;
     case IL_OP_DCL_UAV:
         fprintf(file, "dcl_uav_id(%u)_type(%s)_fmtx(%s)",
@@ -652,8 +723,15 @@ static void dumpInstruction(
         fprintf(file, "srv_struct_load%s_id(%u)",
                 GET_BIT(instr->control, 12) ? "_ext" : "", GET_BITS(instr->control, 0, 7));
         break;
+    case IL_DCL_STRUCT_LDS:
+        fprintf(file, "dcl_struct_lds_id(%u) %u, %u",
+                GET_BITS(instr->control, 0, 13), instr->extras[0], instr->extras[1]);
+        break;
     case IL_OP_U_BIT_EXTRACT:
         fprintf(file, "ubit_extract");
+        break;
+    case IL_OP_U_BIT_INSERT:
+        fprintf(file, "ubit_insert");
         break;
     case IL_DCL_GLOBAL_FLAGS:
         fprintf(file, "dcl_global_flags");
@@ -662,8 +740,8 @@ static void dumpInstruction(
         // FIXME guessed from IL_OP_DCL_UAV
         fprintf(file, "dcl_typed_uav_id(%u)_type(%s)_fmtx(%s)",
                 GET_BITS(instr->control, 0, 13),
-                mIlPixTexUsageNames[GET_BITS(instr->extras[0], 0, 3)],
-                mIlElementFormatNames[GET_BITS(instr->extras[0], 4, 9)]);
+                mIlPixTexUsageNames[GET_BITS(instr->extras[0], 4, 7)],
+                mIlElementFormatNames[GET_BITS(instr->extras[0], 0, 3)]);
         break;
     case IL_UNK_660:
         fprintf(file, "unk_%u", instr->opcode);
