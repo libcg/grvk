@@ -123,8 +123,7 @@ GR_VOID grEndDescriptorSetUpdate(
             const DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[j];
 
             if (slot->type == SLOT_TYPE_NESTED ||
-                slot->type == SLOT_TYPE_IMAGE_VIEW ||
-                slot->type == SLOT_TYPE_SAMPLER) {
+                slot->type == SLOT_TYPE_IMAGE_VIEW) {
                 // TODO support other types
                 LOGW("unsupported slot type %d\n", slot->type);
             }
@@ -138,6 +137,8 @@ GR_VOID grEndDescriptorSetUpdate(
                     .pImmutableSamplers = NULL,
                 };
             } else {
+                VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER; // FIXME
+
                 if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
                     const GR_MEMORY_VIEW_ATTACH_INFO* info =
                         (GR_MEMORY_VIEW_ATTACH_INFO*)slot->info;
@@ -146,11 +147,15 @@ GR_VOID grEndDescriptorSetUpdate(
                     if (info->state != GR_MEMORY_STATE_GRAPHICS_SHADER_READ_ONLY) {
                         LOGW("unsupported memory state 0x%x\n", info->state);
                     }
+
+                    descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+                } else if (slot->type == SLOT_TYPE_SAMPLER) {
+                    descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
                 }
 
                 bindings[j] = (VkDescriptorSetLayoutBinding) {
                     .binding = j, // Ignored
-                    .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+                    .descriptorType = descriptorType,
                     .descriptorCount = 1,
                     .stageFlags = getVkShaderStageFlags(i),
                     .pImmutableSamplers = NULL,
@@ -225,6 +230,31 @@ GR_VOID grEndDescriptorSetUpdate(
                     .pImageInfo = NULL,
                     .pBufferInfo = NULL,
                     .pTexelBufferView = &bufferView,
+                };
+
+                // TODO batch
+                vki.vkUpdateDescriptorSets(grDescriptorSet->device, 1, &writeDescriptorSet,
+                                           0, NULL);
+            } else if (slot->type == SLOT_TYPE_SAMPLER) {
+                GrSampler* grSampler = *(GrSampler**)slot->info;
+
+                const VkDescriptorImageInfo imageInfo = {
+                    .sampler = grSampler->sampler,
+                    .imageView = VK_NULL_HANDLE,
+                    .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                };
+
+                VkWriteDescriptorSet writeDescriptorSet = {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .pNext = NULL,
+                    .dstSet = grDescriptorSet->descriptorSets[i],
+                    .dstBinding = j,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                    .pImageInfo = &imageInfo,
+                    .pBufferInfo = NULL,
+                    .pTexelBufferView = NULL,
                 };
 
                 // TODO batch
