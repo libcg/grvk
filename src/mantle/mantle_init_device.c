@@ -291,6 +291,7 @@ GR_RESULT grCreateDevice(
         .logicOp = VK_TRUE,
         .depthClamp = VK_TRUE,
         .multiViewport = VK_TRUE,
+        .samplerAnisotropy = VK_TRUE,
     };
 
     const char *deviceExtensions[] = {

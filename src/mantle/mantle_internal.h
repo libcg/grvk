@@ -75,4 +75,16 @@ VkShaderStageFlags getVkShaderStageFlags(
 VkPipelineBindPoint getVkPipelineBindPoint(
     GR_PIPELINE_BIND_POINT bindPoint);
 
+VkFilter getVkFilterMag(
+    GR_TEX_FILTER filter);
+
+VkFilter getVkFilterMin(
+    GR_TEX_FILTER filter);
+
+VkSamplerAddressMode getVkSamplerAddressMode(
+    GR_TEX_ADDRESS texAddress);
+
+VkBorderColor getVkBorderColor(
+    GR_BORDER_COLOR_TYPE borderColorType);
+
 #endif // MANTLE_INTERNAL_H_

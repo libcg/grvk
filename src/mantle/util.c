@@ -602,3 +602,81 @@ VkPipelineBindPoint getVkPipelineBindPoint(
     LOGW("unsupported pipeline bind point 0x%x\n", bindPoint);
     return GR_PIPELINE_BIND_POINT_GRAPHICS;
 }
+
+VkFilter getVkFilterMag(
+    GR_TEX_FILTER filter)
+{
+    switch (filter) {
+    case GR_TEX_FILTER_MAG_POINT_MIN_POINT_MIP_POINT:
+    case GR_TEX_FILTER_MAG_POINT_MIN_LINEAR_MIP_POINT:
+    case GR_TEX_FILTER_MAG_POINT_MIN_POINT_MIP_LINEAR:
+    case GR_TEX_FILTER_MAG_POINT_MIN_LINEAR_MIP_LINEAR:
+        return VK_FILTER_NEAREST;
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_POINT_MIP_POINT:
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_LINEAR_MIP_POINT:
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_POINT_MIP_LINEAR:
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_LINEAR_MIP_LINEAR:
+    case GR_TEX_FILTER_ANISOTROPIC:
+        return VK_FILTER_LINEAR;
+    }
+
+    LOGW("unsupported mag filter 0x%X\n", filter);
+    return VK_FILTER_NEAREST;
+}
+
+VkFilter getVkFilterMin(
+    GR_TEX_FILTER filter)
+{
+    switch (filter) {
+    case GR_TEX_FILTER_MAG_POINT_MIN_POINT_MIP_POINT:
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_POINT_MIP_POINT:
+    case GR_TEX_FILTER_MAG_POINT_MIN_POINT_MIP_LINEAR:
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_POINT_MIP_LINEAR:
+        return VK_FILTER_NEAREST;
+    case GR_TEX_FILTER_MAG_POINT_MIN_LINEAR_MIP_POINT:
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_LINEAR_MIP_POINT:
+    case GR_TEX_FILTER_MAG_POINT_MIN_LINEAR_MIP_LINEAR:
+    case GR_TEX_FILTER_MAG_LINEAR_MIN_LINEAR_MIP_LINEAR:
+    case GR_TEX_FILTER_ANISOTROPIC:
+        return VK_FILTER_LINEAR;
+    }
+
+    LOGW("unsupported min filter 0x%X\n", filter);
+    return VK_FILTER_NEAREST;
+}
+
+VkSamplerAddressMode getVkSamplerAddressMode(
+    GR_TEX_ADDRESS texAddress)
+{
+    switch (texAddress) {
+    case GR_TEX_ADDRESS_WRAP:
+        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    case GR_TEX_ADDRESS_MIRROR:
+        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    case GR_TEX_ADDRESS_CLAMP:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    case GR_TEX_ADDRESS_MIRROR_ONCE:
+        return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+    case GR_TEX_ADDRESS_CLAMP_BORDER:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    }
+
+    LOGW("unsupported tex address 0x%X\n", texAddress);
+    return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+}
+
+VkBorderColor getVkBorderColor(
+    GR_BORDER_COLOR_TYPE borderColorType)
+{
+    switch (borderColorType) {
+    case GR_BORDER_COLOR_WHITE:
+        return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    case GR_BORDER_COLOR_TRANSPARENT_BLACK:
+        return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    case GR_BORDER_COLOR_OPAQUE_BLACK:
+        return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+    }
+
+    LOGW("unsupported border color type 0x%X\n", borderColorType);
+    return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+}

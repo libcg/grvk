@@ -135,15 +135,6 @@ GR_RESULT grGetImageSubresourceInfo(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreateSampler(
-    GR_DEVICE device,
-    const GR_SAMPLER_CREATE_INFO* pCreateInfo,
-    GR_SAMPLER* pSampler)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Image View Functions
 
 GR_RESULT grCreateImageView(

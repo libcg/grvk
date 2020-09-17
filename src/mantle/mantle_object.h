@@ -21,6 +21,7 @@ typedef enum _GrStructType {
     GR_STRUCT_TYPE_PHYSICAL_GPU,
     GR_STRUCT_TYPE_PIPELINE,
     GR_STRUCT_TYPE_RASTER_STATE_OBJECT,
+    GR_STRUCT_TYPE_SAMPLER,
     GR_STRUCT_TYPE_SHADER,
     GR_STRUCT_TYPE_QUEUE,
     GR_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
@@ -132,6 +133,11 @@ typedef struct _GrRasterStateObject {
     float depthBiasClamp;
     float depthBiasSlopeFactor;
 } GrRasterStateObject;
+
+typedef struct _GrSampler {
+    GrStructType sType;
+    VkSampler sampler;
+} GrSampler;
 
 typedef struct _GrShader {
     GrStructType sType;
