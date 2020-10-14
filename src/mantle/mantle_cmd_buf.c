@@ -415,3 +415,23 @@ GR_VOID grCmdClearColorImageRaw(
 
     free(vkRanges);
 }
+
+GR_VOID grCmdSetEvent(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_EVENT event)
+{
+    LOGT("%p %p\n", cmdBuffer, event);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrEvent* grEvent = (GrEvent*)event;
+    vki.vkCmdSetEvent(grCmdBuffer->commandBuffer, grEvent->event, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+}
+
+GR_VOID grCmdResetEvent(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_EVENT event)
+{
+    LOGT("%p %p\n", cmdBuffer, event);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrEvent* grEvent = (GrEvent*)event;
+    vki.vkCmdResetEvent(grCmdBuffer->commandBuffer, grEvent->event, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+}

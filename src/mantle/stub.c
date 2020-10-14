@@ -30,20 +30,6 @@ GR_RESULT grGetExtensionSupport(
 
 // Queue Functions
 
-GR_RESULT grQueueWaitIdle(
-    GR_QUEUE queue)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grDeviceWaitIdle(
-    GR_DEVICE device)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grQueueSetGlobalMemReferences(
     GR_QUEUE queue,
     GR_UINT memRefCount,
@@ -202,68 +188,6 @@ GR_RESULT grGetQueryPoolResults(
     GR_UINT queryCount,
     GR_SIZE* pDataSize,
     GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grGetFenceStatus(
-    GR_FENCE fence)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grCreateQueueSemaphore(
-    GR_DEVICE device,
-    const GR_QUEUE_SEMAPHORE_CREATE_INFO* pCreateInfo,
-    GR_QUEUE_SEMAPHORE* pSemaphore)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grSignalQueueSemaphore(
-    GR_QUEUE queue,
-    GR_QUEUE_SEMAPHORE semaphore)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grWaitQueueSemaphore(
-    GR_QUEUE queue,
-    GR_QUEUE_SEMAPHORE semaphore)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grCreateEvent(
-    GR_DEVICE device,
-    const GR_EVENT_CREATE_INFO* pCreateInfo,
-    GR_EVENT* pEvent)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grGetEventStatus(
-    GR_EVENT event)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grSetEvent(
-    GR_EVENT event)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grResetEvent(
-    GR_EVENT event)
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
@@ -465,20 +389,6 @@ GR_VOID grCmdClearDepthStencil(
     GR_UINT8 stencil,
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdSetEvent(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_EVENT event)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdResetEvent(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_EVENT event)
 {
     LOGW("STUB\n");
 }

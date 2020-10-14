@@ -15,6 +15,8 @@ typedef enum _GrStructType {
     GR_STRUCT_TYPE_DESCRIPTOR_SET,
     GR_STRUCT_TYPE_DEVICE,
     GR_STRUCT_TYPE_FENCE,
+    GR_STRUCT_TYPE_EVENT,
+    GR_STRUCT_TYPE_QUEUE_SEMAPHORE,
     GR_STRUCT_TYPE_GPU_MEMORY,
     GR_STRUCT_TYPE_IMAGE,
     GR_STRUCT_TYPE_MSAA_STATE_OBJECT,
@@ -93,8 +95,20 @@ typedef struct _GrDevice {
 
 typedef struct _GrFence {
     GrStructType sType;
+    VkDevice device;
     VkFence fence;
 } GrFence;
+
+typedef struct _GrEvent {
+    GrStructType sType;
+    VkDevice device;
+    VkEvent event;
+} GrEvent;
+
+typedef struct _GrSemaphore {
+    GrStructType sType;
+    VkSemaphore semaphore;
+} GrSemaphore;
 
 typedef struct _GrGpuMemory {
     GrStructType sType;
