@@ -57,7 +57,7 @@ GR_RESULT grQueueSubmit(
     LOGT("%p %u %p %u %p %p\n", queue, cmdBufferCount, pCmdBuffers, memRefCount, pMemRefs, fence);
     GrQueue* grQueue = (GrQueue*)queue;
     GrFence* grFence = (GrFence*)fence;
-    VkResult res;
+
     VkFence vkFence = VK_NULL_HANDLE;
 
     if (grFence != NULL) {
@@ -86,11 +86,51 @@ GR_RESULT grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
+    VkResult res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
     free(vkCommandBuffers);
 
     if (res != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed\n");
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    return GR_SUCCESS;
+}
+
+GR_RESULT grQueueWaitIdle(
+    GR_QUEUE queue)
+{
+    LOGT("%p\n", queue);
+    GrQueue* grQueue = (GrQueue*)queue;
+
+    if (grQueue == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grQueue->sType != GR_STRUCT_TYPE_QUEUE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    if (vki.vkQueueWaitIdle(grQueue->queue) != VK_SUCCESS) {
+        LOGE("vkQueueWaitIdle failed\n");
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    return GR_SUCCESS;
+}
+
+GR_RESULT grDeviceWaitIdle(
+    GR_DEVICE device)
+{
+    LOGT("%p\n", device);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    if (vki.vkDeviceWaitIdle(grDevice->device) != VK_SUCCESS) {
+        LOGE("vkDeviceWaitIdle failed\n");
         return GR_ERROR_OUT_OF_MEMORY;
     }
 
