@@ -167,6 +167,25 @@ GR_RESULT grAllocMemory(
     return GR_SUCCESS;
 }
 
+GR_RESULT grFreeMemory(
+    GR_GPU_MEMORY mem)
+{
+    LOGT("%p\n", mem);
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+
+    if (grGpuMemory == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grGpuMemory->sType != GR_STRUCT_TYPE_GPU_MEMORY) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    vki.vkDestroyBuffer(grGpuMemory->device, grGpuMemory->buffer, NULL);
+    vki.vkFreeMemory(grGpuMemory->device, grGpuMemory->deviceMemory, NULL);
+    free(grGpuMemory);
+
+    return GR_SUCCESS;
+}
+
 GR_RESULT grMapMemory(
     GR_GPU_MEMORY mem,
     GR_FLAGS flags,

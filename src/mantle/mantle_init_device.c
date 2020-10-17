@@ -395,3 +395,27 @@ bail:
 
     return res;
 }
+
+GR_RESULT grDestroyDevice(
+    GR_DEVICE device)
+{
+    LOGT("%p\n", device);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    if (grDevice->universalCommandPool != VK_NULL_HANDLE) {
+        vki.vkDestroyCommandPool(grDevice->device, grDevice->universalCommandPool, NULL);
+    }
+    if (grDevice->computeCommandPool != VK_NULL_HANDLE) {
+        vki.vkDestroyCommandPool(grDevice->device, grDevice->computeCommandPool, NULL);
+    }
+    vki.vkDestroyDevice(grDevice->device, NULL);
+    free(grDevice);
+
+    return GR_SUCCESS;
+}
