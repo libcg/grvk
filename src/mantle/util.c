@@ -54,6 +54,44 @@ GR_RESULT getGrResult(
     return GR_ERROR_UNKNOWN;
 }
 
+GR_FORMAT_FEATURE_FLAGS getGrFormatFeatureFlags(
+    VkFormatFeatureFlags vkFeatureFlags)
+{
+    // GR_FORMAT_MSAA_TARGET is determined separately using VkImageFormatProperties
+    GR_FORMAT_FEATURE_FLAGS featureFlags = 0;
+
+    if (vkFeatureFlags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
+        featureFlags |= GR_FORMAT_IMAGE_SHADER_READ;
+    }
+    if (vkFeatureFlags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
+        featureFlags |= GR_FORMAT_IMAGE_SHADER_WRITE;
+    }
+    if ((vkFeatureFlags & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) &&
+        (vkFeatureFlags & VK_FORMAT_FEATURE_TRANSFER_DST_BIT)) {
+        featureFlags |= GR_FORMAT_IMAGE_COPY;
+    }
+    if ((vkFeatureFlags & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT) &&
+        (vkFeatureFlags & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT)) {
+        featureFlags |= GR_FORMAT_MEMORY_SHADER_ACCESS;
+    }
+    if (vkFeatureFlags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
+        featureFlags |= GR_FORMAT_COLOR_TARGET_WRITE;
+    }
+    if (vkFeatureFlags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) {
+        featureFlags |= GR_FORMAT_COLOR_TARGET_BLEND;
+    }
+    if (vkFeatureFlags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+        // FIXME needs to be refined
+        featureFlags |= GR_FORMAT_DEPTH_TARGET | GR_FORMAT_STENCIL_TARGET;
+    }
+    if ((vkFeatureFlags & VK_FORMAT_FEATURE_BLIT_SRC_BIT) &&
+        (vkFeatureFlags & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+        featureFlags |= GR_FORMAT_CONVERSION;
+    }
+
+    return featureFlags;
+}
+
 VkFormat getVkFormat(
     GR_FORMAT format)
 {
