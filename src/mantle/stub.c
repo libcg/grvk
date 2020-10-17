@@ -4,15 +4,6 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "logger.h"
 
-// Initialization and Device Functions
-
-GR_RESULT grDestroyDevice(
-    GR_DEVICE device)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Extension Discovery Functions
 
 GR_RESULT grGetExtensionSupport(
@@ -41,14 +32,7 @@ GR_RESULT grQueueSetGlobalMemReferences(
 
 // Memory Management Functions
 
-GR_RESULT grFreeMemory(
-    GR_GPU_MEMORY mem)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grSetMemoryPriority(
+GR_RESULT grSetMemoryPriority(//this function isn't available in Vulkan, not it is needed on other systems than Windows
     GR_GPU_MEMORY mem,
     GR_ENUM priority)
 {
