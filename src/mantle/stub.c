@@ -74,16 +74,6 @@ GR_RESULT grDestroyObject(
 
 // Image and Sample Functions
 
-GR_RESULT grGetFormatInfo(
-    GR_DEVICE device,
-    GR_FORMAT format,
-    GR_ENUM infoType,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
 
 GR_RESULT grCreateImage(
     GR_DEVICE device,
