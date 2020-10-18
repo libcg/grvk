@@ -3,7 +3,7 @@
 #define LOAD_VULKAN_FN(obj, instance, name) \
     obj.name = (PFN_##name)vkGetInstanceProcAddr(instance, #name)
 
-PFN_vkVoidFunction vkGetInstanceProcAddr(
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(
     VkInstance instance,
     const char* pName);
 
