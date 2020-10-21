@@ -366,7 +366,9 @@ GR_RESULT grCreateDevice(
         .computeQueueIndex = computeQueueIndex,
         .computeCommandPool = computeCommandPool,
     };
-
+    vki.vkGetPhysicalDeviceMemoryProperties(
+        grPhysicalGpu->physicalDevice,
+        &grDevice->memoryProperties);
     *pDevice = (GR_DEVICE)grDevice;
 
 bail:
