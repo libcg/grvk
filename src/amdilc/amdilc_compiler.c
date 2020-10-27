@@ -156,20 +156,6 @@ static const IlcRegister* findOrCreateRegister(
     return reg;
 }
 
-static void addResource(
-    IlcCompiler* compiler,
-    const IlcResource* resource)
-{
-    char name[32];
-    snprintf(name, 32, "resource%u", resource->ilId);
-    ilcSpvPutName(compiler->module, resource->id, name);
-
-    compiler->resourceCount++;
-    compiler->resources = realloc(compiler->resources,
-                                  sizeof(IlcResource) * compiler->resourceCount);
-    compiler->resources[compiler->resourceCount - 1] = *resource;
-}
-
 static const IlcResource* findResource(
     IlcCompiler* compiler,
     uint32_t ilId)
@@ -183,6 +169,25 @@ static const IlcResource* findResource(
     }
 
     return NULL;
+}
+
+static void addResource(
+    IlcCompiler* compiler,
+    const IlcResource* resource)
+{
+    if (findResource(compiler, resource->ilId) != NULL) {
+        LOGE("resource %d already present\n", resource->ilId);
+        return;
+    }
+
+    char name[32];
+    snprintf(name, 32, "resource%u", resource->ilId);
+    ilcSpvPutName(compiler->module, resource->id, name);
+
+    compiler->resourceCount++;
+    compiler->resources = realloc(compiler->resources,
+                                  sizeof(IlcResource) * compiler->resourceCount);
+    compiler->resources[compiler->resourceCount - 1] = *resource;
 }
 
 static void pushControlFlowBlock(
@@ -586,7 +591,7 @@ static void emitResource(
     }
 
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, SpvDimBuffer,
-                                          0, 0, 0, 1, SpvImageFormatRgba32f);
+                                          SpvDim1D, 0, 0, 1, SpvImageFormatRgba32f);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -594,6 +599,38 @@ static void emitResource(
 
     ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
     ilcSpvPutName(compiler->module, imageId, "float4Buffer");
+
+    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    IlcSpvWord bindingIdx = id;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+
+    const IlcResource resource = {
+        .id = resourceId,
+        .typeId = imageId,
+        .ilId = id,
+    };
+
+    addResource(compiler, &resource);
+}
+
+static void emitStructuredSrv(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint16_t id = GET_BITS(instr->control, 0, 13);
+    // TODO handle stride in extra[0]
+
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->intId, SpvDimBuffer,
+                                          SpvDim1D, 0, 0, 1, SpvImageFormatR32i);
+    IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                             imageId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                            SpvStorageClassUniformConstant);
+
+    ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
+    ilcSpvPutName(compiler->module, imageId, "structSrv");
 
     IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
@@ -1232,6 +1269,9 @@ static void emitInstr(
         break;
     case IL_OP_CMOV_LOGICAL:
         emitCmovLogical(compiler, instr);
+        break;
+    case IL_OP_DCL_STRUCT_SRV:
+        emitStructuredSrv(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
