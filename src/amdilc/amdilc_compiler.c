@@ -505,13 +505,15 @@ static void emitInput(
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
-    } else if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
+    } else if (importUsage == IL_IMPORTUSAGE_VERTEXID ||
+               importUsage == IL_IMPORTUSAGE_INSTANCEID) {
         IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput,
                                                   compiler->intId);
         inputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassInput);
         inputTypeId = compiler->intId;
 
-        IlcSpvWord builtInType = SpvBuiltInVertexIndex;
+        IlcSpvWord builtInType = importUsage == IL_IMPORTUSAGE_VERTEXID ?
+                                 SpvBuiltInVertexIndex : SpvBuiltInInstanceIndex;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
     } else {
         LOGW("unhandled import usage %d\n", importUsage);
