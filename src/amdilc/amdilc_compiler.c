@@ -72,6 +72,31 @@ typedef struct {
     IlcControlFlowBlock* controlFlowBlocks;
 } IlcCompiler;
 
+static IlcSpvId emitVectorVariable(
+    IlcCompiler* compiler,
+    IlcSpvId* typeId,
+    unsigned componentCount,
+    IlcSpvId componentTypeId,
+    IlcSpvWord storageClass)
+{
+    *typeId = ilcSpvPutVectorType(compiler->module, componentTypeId, componentCount);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, storageClass, *typeId);
+
+    return ilcSpvPutVariable(compiler->module, pointerId, storageClass);
+}
+
+static IlcSpvId emitZeroOneVector(
+    IlcCompiler* compiler)
+{
+    IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
+
+    const IlcSpvId consistuentIds[] = {
+        ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL),
+        ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL),
+    };
+    return ilcSpvPutConstantComposite(compiler->module, float2Id, 2, consistuentIds);
+}
+
 static const IlcRegister* addRegister(
     IlcCompiler* compiler,
     const IlcRegister* reg,
@@ -102,6 +127,32 @@ static const IlcRegister* findRegister(
     }
 
     return NULL;
+}
+
+static const IlcRegister* findOrCreateRegister(
+    IlcCompiler* compiler,
+    uint32_t type,
+    uint32_t num)
+{
+    const IlcRegister* reg = findRegister(compiler, type, num);
+
+    if (reg == NULL && type == IL_REGTYPE_TEMP) {
+        // Create temporary register
+        IlcSpvId tempTypeId = 0;
+        IlcSpvId tempId = emitVectorVariable(compiler, &tempTypeId, 4, compiler->floatId,
+                                             SpvStorageClassPrivate);
+
+        const IlcRegister tempReg = {
+            .id = tempId,
+            .typeId = tempTypeId,
+            .ilType = type,
+            .ilNum = num,
+        };
+
+        reg = addRegister(compiler, &tempReg, 'r');
+    }
+
+    return reg;
 }
 
 static void addResource(
@@ -169,31 +220,6 @@ static const IlcControlFlowBlock* findControlFlowBlock(
     }
 
     return NULL;
-}
-
-static IlcSpvId emitVectorVariable(
-    IlcCompiler* compiler,
-    IlcSpvId* typeId,
-    unsigned componentCount,
-    IlcSpvId componentTypeId,
-    IlcSpvWord storageClass)
-{
-    *typeId = ilcSpvPutVectorType(compiler->module, componentTypeId, componentCount);
-    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, storageClass, *typeId);
-
-    return ilcSpvPutVariable(compiler->module, pointerId, storageClass);
-}
-
-static IlcSpvId emitZeroOneVector(
-    IlcCompiler* compiler)
-{
-    IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
-
-    const IlcSpvId consistuentIds[] = {
-        ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL),
-    };
-    return ilcSpvPutConstantComposite(compiler->module, float2Id, 2, consistuentIds);
 }
 
 static IlcSpvId loadSource(
@@ -307,23 +333,7 @@ static void storeDestination(
     const Destination* dst,
     IlcSpvId varId)
 {
-    const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
-
-    if (dstReg == NULL && dst->registerType == IL_REGTYPE_TEMP) {
-        // Create temporary register
-        IlcSpvId tempTypeId = 0;
-        IlcSpvId tempId = emitVectorVariable(compiler, &tempTypeId, 4, compiler->floatId,
-                                             SpvStorageClassPrivate);
-
-        const IlcRegister reg = {
-            .id = tempId,
-            .typeId = tempTypeId,
-            .ilType = IL_REGTYPE_TEMP,
-            .ilNum = dst->registerNum,
-        };
-
-        dstReg = addRegister(compiler, &reg, 'r');
-    }
+    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
     if (dstReg == NULL) {
         LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
@@ -1107,7 +1117,7 @@ static void emitLoad(
     const IlcResource* resource = findResource(compiler, ilResourceId);
 
     const Destination* dst = &instr->dsts[0];
-    const IlcRegister* dstReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
     if (dstReg == NULL) {
         LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
