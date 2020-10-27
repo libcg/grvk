@@ -70,6 +70,7 @@ typedef struct {
     IlcResource* resources;
     unsigned controlFlowBlockCount;
     IlcControlFlowBlock* controlFlowBlocks;
+    bool isInFunction;
 } IlcCompiler;
 
 static IlcSpvId emitVectorVariable(
@@ -1187,7 +1188,11 @@ static void emitInstr(
         emitElse(compiler, instr);
         break;
     case IL_OP_END:
-        ilcSpvPutFunctionEnd(compiler->module);
+    case IL_OP_ENDMAIN:
+        if (compiler->isInFunction) {
+            ilcSpvPutFunctionEnd(compiler->module);
+            compiler->isInFunction = false;
+        }
         break;
     case IL_OP_ENDIF:
         emitEndIf(compiler, instr);
@@ -1318,6 +1323,7 @@ uint32_t* ilcCompileKernel(
         .resources = NULL,
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
+        .isInFunction = true,
     };
 
     emitFunc(&compiler, compiler.entryPointId);
