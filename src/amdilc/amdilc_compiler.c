@@ -29,6 +29,7 @@ typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
     uint32_t ilId;
+    uint32_t strideId;
 } IlcResource;
 
 typedef enum {
@@ -619,6 +620,7 @@ static void emitResource(
         .id = resourceId,
         .typeId = imageId,
         .ilId = id,
+        .strideId = 0,
     };
 
     addResource(compiler, &resource);
@@ -629,7 +631,6 @@ static void emitStructuredSrv(
     const Instruction* instr)
 {
     uint16_t id = GET_BITS(instr->control, 0, 13);
-    // TODO handle stride in extra[0]
 
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->intId, SpvDimBuffer,
                                           SpvDim1D, 0, 0, 1, SpvImageFormatR32i);
@@ -651,6 +652,7 @@ static void emitStructuredSrv(
         .id = resourceId,
         .typeId = imageId,
         .ilId = id,
+        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
     };
 
     addResource(compiler, &resource);
@@ -1180,6 +1182,51 @@ static void emitLoad(
     storeDestination(compiler, dst, fetchId);
 }
 
+static void emitStructuredSrvLoad(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    bool indexedResourceId = GET_BIT(instr->control, 12);
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+
+    if (indexedResourceId) {
+        LOGW("unhandled indexed resource ID\n");
+    }
+
+    const Destination* dst = &instr->dsts[0];
+    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
+
+    if (dstReg == NULL) {
+        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
+        return;
+    }
+
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvWord indexIndex = COMP_INDEX_X;
+    IlcSpvId indexId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
+                                                 1, &indexIndex);
+    IlcSpvWord offsetIndex = COMP_INDEX_Y;
+    IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
+                                                  1, &offsetIndex);
+
+    // addr = (index * stride + offset) / 4
+    const IlcSpvId mulIds[] = { indexId, resource->strideId };
+    IlcSpvId baseId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->intId, 2, mulIds);
+    const IlcSpvId addIds[] = { baseId, offsetId };
+    IlcSpvId byteAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
+    const IlcSpvId divIds[] = {
+        byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4)
+    };
+    IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
+
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->int4Id, resourceId,
+                                           wordAddrId);
+    storeDestination(compiler, dst,
+                     ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
+}
+
 static void emitInstr(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1284,6 +1331,9 @@ static void emitInstr(
         break;
     case IL_OP_DCL_STRUCT_SRV:
         emitStructuredSrv(compiler, instr);
+        break;
+    case IL_OP_SRV_STRUCT_LOAD:
+        emitStructuredSrvLoad(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
