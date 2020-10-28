@@ -250,9 +250,17 @@ static IlcSpvId loadSource(
         return 0;
     }
 
-    bool isScalar = reg->typeId != compiler->float4Id &&
-                    reg->typeId != compiler->int4Id;
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
+
+    if (reg->typeId == compiler->floatId || reg->typeId == compiler->intId) {
+        // Convert scalar to float vector
+        if (reg->typeId != compiler->floatId) {
+            varId = ilcSpvPutBitcast(compiler->module, compiler->floatId, varId);
+        }
+
+        const IlcSpvWord constituents[] = { varId, varId, varId, varId };
+        varId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, constituents);
+    }
 
     const uint8_t swizzle[] = {
         componentMask & 1 ? src->swizzle[0] : IL_COMPSEL_0,
@@ -261,14 +269,13 @@ static IlcSpvId loadSource(
         componentMask & 8 ? src->swizzle[3] : IL_COMPSEL_0,
     };
 
-    if (!isScalar &&
-        (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
-         swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A)) {
+    if (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
+        swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A) {
         // Select components from {x, y, z, w, 0.f, 1.f}
         IlcSpvId zeroOneId = emitZeroOneVector(compiler);
 
         const IlcSpvWord components[] = { swizzle[0], swizzle[1], swizzle[2], swizzle[3] };
-        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, zeroOneId,
+        varId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, varId, zeroOneId,
                                        4, components);
     }
 
@@ -1164,9 +1171,12 @@ static void emitLoad(
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_X, compiler->intId);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvWord addressIndex = COMP_INDEX_X;
+    IlcSpvId addressId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
+                                                   1, &addressIndex);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, srcId);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, addressId);
     storeDestination(compiler, dst, fetchId);
 }
 
