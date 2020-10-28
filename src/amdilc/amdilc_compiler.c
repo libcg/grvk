@@ -14,7 +14,9 @@
 #define COMP_MASK_Y         (1 << COMP_INDEX_Y)
 #define COMP_MASK_Z         (1 << COMP_INDEX_Z)
 #define COMP_MASK_W         (1 << COMP_INDEX_W)
-#define COMP_MASK_ALL       (COMP_MASK_X | COMP_MASK_Y | COMP_MASK_Z | COMP_MASK_W)
+#define COMP_MASK_XY        (COMP_MASK_X | COMP_MASK_Y)
+#define COMP_MASK_XYZ       (COMP_MASK_XY | COMP_MASK_Z)
+#define COMP_MASK_XYZW      (COMP_MASK_XYZ | COMP_MASK_W)
 
 typedef struct {
     IlcSpvId id;
@@ -667,13 +669,13 @@ static void emitFloatOp(
 
     switch (instr->opcode) {
     case IL_OP_DP2:
-        componentMask = COMP_MASK_X | COMP_MASK_Y;
+        componentMask = COMP_MASK_XY;
         break;
     case IL_OP_DP3:
-        componentMask = COMP_MASK_X | COMP_MASK_Y | COMP_MASK_Z;
+        componentMask = COMP_MASK_XYZ;
         break;
     default:
-        componentMask = COMP_MASK_ALL;
+        componentMask = COMP_MASK_XYZW;
         break;
     }
 
@@ -832,7 +834,7 @@ static void emitFloatComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->float4Id);
     }
 
     switch (instr->opcode) {
@@ -877,7 +879,7 @@ static void emitIntegerOp(
     IlcSpvId resId = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->int4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->int4Id);
     }
 
     switch (instr->opcode) {
@@ -930,7 +932,7 @@ static void emitIntegerComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->int4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->int4Id);
     }
 
     switch (instr->opcode) {
@@ -971,7 +973,7 @@ static void emitCmovLogical(
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_ALL, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->float4Id);
     }
 
     // For each component, select src1 if src0 has any bit set, otherwise select src2
@@ -1011,7 +1013,7 @@ static void emitIf(
         .hasElseBlock = false,
     };
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_ALL, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
     IlcSpvId condId = emitConditionCheck(compiler, srcId, instr->opcode == IL_OP_IF_LOGICALNZ);
     ilcSpvPutSelectionMerge(compiler->module, ifElseBlock.labelEndId);
@@ -1121,7 +1123,7 @@ static void emitBreak(
         ilcSpvPutBranch(compiler->module, block->loop.labelBreakId);
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
-        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_ALL, compiler->int4Id);
+        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
         IlcSpvId condId = emitConditionCheck(compiler, srcId,
                                              instr->opcode == IL_OP_BREAK_LOGICALNZ);
         ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
