@@ -590,8 +590,28 @@ static void emitResource(
     uint8_t fmtz = GET_BITS(instr->extras[0], 26, 28);
     uint8_t fmtw = GET_BITS(instr->extras[0], 29, 31);
 
-    if (type != IL_USAGE_PIXTEX_BUFFER || unnorm) {
-        LOGE("unhandled resource type %d %d\n", type, unnorm);
+    SpvDim spvDim = 0;
+
+    switch (type) {
+    case IL_USAGE_PIXTEX_1D:
+        spvDim = SpvDim1D;
+        break;
+    case IL_USAGE_PIXTEX_2D:
+        spvDim = SpvDim2D;
+        break;
+    case IL_USAGE_PIXTEX_3D:
+        spvDim = SpvDim3D;
+        break;
+    case IL_USAGE_PIXTEX_BUFFER:
+        spvDim = SpvDimBuffer;
+        break;
+    default:
+        LOGE("unhandled resource type %d\n", type);
+        assert(false);
+    }
+
+    if (unnorm) {
+        LOGE("unhandled unnorm resource\n");
         assert(false);
     }
     if (fmtx != IL_ELEMENTFORMAT_FLOAT || fmty != IL_ELEMENTFORMAT_FLOAT ||
@@ -600,8 +620,8 @@ static void emitResource(
         assert(false);
     }
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, SpvDimBuffer,
-                                          SpvDim1D, 0, 0, 1, SpvImageFormatRgba32f);
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, spvDim,
+                                          0, 0, 0, 1, SpvImageFormatRgba32f);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -633,7 +653,7 @@ static void emitStructuredSrv(
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->intId, SpvDimBuffer,
-                                          SpvDim1D, 0, 0, 1, SpvImageFormatR32i);
+                                          0, 0, 0, 1, SpvImageFormatR32i);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
