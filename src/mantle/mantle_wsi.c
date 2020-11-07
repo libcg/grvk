@@ -361,6 +361,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     GrWsiImage* grImage = malloc(sizeof(GrWsiImage));
     *grImage = (GrWsiImage) {
         .sType = GR_STRUCT_TYPE_IMAGE,
+        .device = grDevice,
         .image = vkImage,
         .extent = { createInfo.extent.width, createInfo.extent.height },
         .imageMemory = vkDeviceMemory,

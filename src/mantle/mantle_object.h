@@ -117,6 +117,7 @@ typedef struct _GrGpuMemory {
 
 typedef struct _GrImage {
     GrStructType sType;
+    GrDevice* device;//TODO: add GrDevice pointer everywhere to support GrGetObjectInfo
     VkImage image;
     VkExtent2D extent;
 } GrImage;

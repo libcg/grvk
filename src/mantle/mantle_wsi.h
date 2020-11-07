@@ -6,6 +6,7 @@
 
 typedef struct _GrWsiImage {
     GrStructType sType;
+    GrDevice* device;
     VkImage image;
     VkExtent2D extent;
     VkDeviceMemory imageMemory;
