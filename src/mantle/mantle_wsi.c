@@ -153,7 +153,7 @@ static const DWORD WSI_WINDOWS_BITMASK_FORMATS_MASK[][4] = {
 };
 static const size_t FORMATS_SIZE = sizeof(WSI_WINDOWS_FORMATS) / sizeof(VkFormat);
 static const size_t FORMATS_MASKS_SIZE = sizeof(WSI_WINDOWS_BITMASK_FORMATS_MASK) / sizeof(DWORD) / 4;
-void wsiPresentBufferToHWND(HWND hwnd, void* img_buffer, VkExtent2D dstExtent, uint32_t rowPitchTexels, uint32_t bufferLength, VkFormat format)
+void wsiPresentBufferToHWND(HWND hwnd, void* img_buffer, VkExtent3D dstExtent, uint32_t rowPitchTexels, uint32_t bufferLength, VkFormat format)
 {
     BYTE bm_info_bytes[sizeof(BITMAPINFO) + 4];
     BITMAPINFO* bm_info = (BITMAPINFO*)bm_info_bytes;
@@ -363,7 +363,9 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .sType = GR_STRUCT_TYPE_IMAGE,
         .device = grDevice,
         .image = vkImage,
-        .extent = { createInfo.extent.width, createInfo.extent.height },
+        .extent = { createInfo.extent.width, createInfo.extent.height, 1 },
+        .layerCount = 1,
+        .format = format,
         .imageMemory = vkDeviceMemory,
         .fence = VK_NULL_HANDLE,
         .copyCmdBuf = cmdBuf,
@@ -372,7 +374,6 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .bufferMemoryPtr = bufferMemoryPtr,
         .bufferSize = bufferSize,
         .bufferRowPitch = rowPitchSize,
-        .format = format,
     };
 
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));

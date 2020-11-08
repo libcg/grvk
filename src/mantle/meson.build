@@ -3,6 +3,7 @@ mantle_src = [
   'mantle_cmd_buf_man.c',
   'mantle_descriptor_set.c',
   'mantle_init_device.c',
+  'mantle_image.c',
   'mantle_image_sample.c',
   'mantle_image_view.c',
   'mantle_query_sync.c',

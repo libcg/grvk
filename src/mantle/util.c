@@ -324,10 +324,56 @@ VkSampleCountFlagBits getVkSampleCountFlagBits(
         return VK_SAMPLE_COUNT_16_BIT;
     case 32:
         return VK_SAMPLE_COUNT_32_BIT;
+    case 64:
+        return VK_SAMPLE_COUNT_64_BIT;
     }
 
     LOGW("unsupported sample count %d\n", samples);
-    return VK_SAMPLE_COUNT_1_BIT;
+    return 0;//implementation should return error in this case, so return 0
+}
+
+VkImageUsageFlags getVkImageUsageFlags(GR_IMAGE_USAGE_FLAGS usage)
+{
+    VkImageUsageFlags flags = 0;
+    if (usage & GR_IMAGE_USAGE_SHADER_ACCESS_READ) {
+        flags |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+    if (usage & GR_IMAGE_USAGE_SHADER_ACCESS_WRITE) {
+        flags |= VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+    if (usage & GR_IMAGE_USAGE_COLOR_TARGET) {
+        flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    }
+    if (usage & GR_IMAGE_USAGE_DEPTH_STENCIL) {
+        flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    }
+    return flags;
+}
+
+VkImageTiling getVkImageTiling(GR_IMAGE_TILING tiling)
+{
+    switch (tiling) {
+    case GR_LINEAR_TILING:
+        return VK_IMAGE_TILING_LINEAR;
+    case GR_OPTIMAL_TILING:
+        return VK_IMAGE_TILING_OPTIMAL;
+    default:
+        return 0;
+    }
+}
+
+VkImageType getImageType(GR_IMAGE_TYPE type)
+{
+    switch (type) {
+    case GR_IMAGE_1D:
+        return VK_IMAGE_TYPE_1D;
+    case GR_IMAGE_2D:
+        return VK_IMAGE_TYPE_2D;
+    case GR_IMAGE_3D:
+        return VK_IMAGE_TYPE_3D;
+    default:
+        return 0xFFFFFFFF;
+    }
 }
 
 VkBlendFactor getVkBlendFactor(

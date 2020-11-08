@@ -8,7 +8,9 @@ typedef struct _GrWsiImage {
     GrStructType sType;
     GrDevice* device;
     VkImage image;
-    VkExtent2D extent;
+    VkExtent3D extent;
+    uint32_t layerCount;
+    VkFormat format;
     VkDeviceMemory imageMemory;
 
     VkFence fence;
@@ -18,7 +20,6 @@ typedef struct _GrWsiImage {
     void* bufferMemoryPtr;
     size_t bufferSize;
     size_t bufferRowPitch;
-    VkFormat format;
 } GrWsiImage;
 
 #endif
