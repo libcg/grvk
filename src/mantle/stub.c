@@ -231,15 +231,6 @@ GR_VOID grCmdMemoryAtomic(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdWriteTimestamp(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM timestampType,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdInitAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,

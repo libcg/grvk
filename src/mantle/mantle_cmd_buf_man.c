@@ -40,6 +40,7 @@ GR_RESULT grCreateCommandBuffer(
     *grCmdBuffer = (GrCmdBuffer) {
         .sType = GR_STRUCT_TYPE_COMMAND_BUFFER,
         .commandBuffer = vkCommandBuffer,
+        .timestampQueryPool = VK_NULL_HANDLE,
         .grPipeline = NULL,
         .grDescriptorSet = NULL,
         .attachmentCount = 0,

@@ -479,3 +479,37 @@ GR_VOID grCmdResetQueryPool(
     GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
     vki.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grQueryPool->pool, startQuery, queryCount);
 }
+
+GR_VOID grCmdWriteTimestamp(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM timestampType,
+    GR_GPU_MEMORY destMem,
+    GR_GPU_SIZE destOffset)
+{
+    LOGT("%p 0x%X %p %lu\n", cmdBuffer, timestampType, destMem, destOffset);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrGpuMemory* grMemory = (GrGpuMemory*)destMem;
+    if (grCmdBuffer->timestampQueryPool == VK_NULL_HANDLE) {
+        // create a new one lazily
+         VkQueryPoolCreateInfo createInfo = {
+             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+             .pNext = NULL,
+             .flags = 0,
+             .queryType = VK_QUERY_TYPE_TIMESTAMP,
+             .queryCount = 1,
+             .pipelineStatistics = 0,
+         };
+         VkResult res = vki.vkCreateQueryPool(grMemory->device, &createInfo, NULL, &grCmdBuffer->timestampQueryPool);
+         if (res != VK_SUCCESS) {
+             LOGE("Failed to create a VkQueryPool for command buffer %p\n", cmdBuffer);
+             grCmdBuffer->timestampQueryPool = VK_NULL_HANDLE;
+         }
+    }
+    if (grCmdBuffer->timestampQueryPool == VK_NULL_HANDLE) {
+        // do nothing for now (could have crash the program as well heh)
+        return;
+    }
+    VkPipelineStageFlags stageFlag = timestampType == GR_TIMESTAMP_TOP ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    vki.vkCmdWriteTimestamp( grCmdBuffer->commandBuffer, stageFlag, grCmdBuffer->timestampQueryPool, 0);
+    vki.vkCmdCopyQueryPoolResults( grCmdBuffer->commandBuffer, grCmdBuffer->timestampQueryPool, 0, 1, grMemory->buffer, destOffset, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+}

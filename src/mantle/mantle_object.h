@@ -44,6 +44,7 @@ typedef struct _GrObject {
 typedef struct _GrCmdBuffer {
     GrStructType sType;
     VkCommandBuffer commandBuffer;
+    VkQueryPool timestampQueryPool;
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
     unsigned attachmentCount;
