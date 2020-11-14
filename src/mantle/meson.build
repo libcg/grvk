@@ -1,6 +1,7 @@
 mantle_src = [
   'mantle_cmd_buf.c',
   'mantle_cmd_buf_man.c',
+  'mantle_cmd_buf_memory.c',
   'mantle_descriptor_set.c',
   'mantle_init_device.c',
   'mantle_image.c',

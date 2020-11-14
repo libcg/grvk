@@ -233,93 +233,12 @@ GR_VOID grCmdDispatchIndirect(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdCopyMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY srcMem,
-    GR_GPU_MEMORY destMem,
-    GR_UINT regionCount,
-    const GR_MEMORY_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdCopyImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE srcImage,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdCopyMemoryToImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY srcMem,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_MEMORY_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdCopyImageToMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE srcImage,
-    GR_GPU_MEMORY destMem,
-    GR_UINT regionCount,
-    const GR_MEMORY_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdResolveImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE srcImage,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_IMAGE_RESOLVE* pRegions)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdCloneImageData(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
     GR_ENUM srcImageState,
     GR_IMAGE destImage,
     GR_ENUM destImageState)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdUpdateMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset,
-    GR_GPU_SIZE dataSize,
-    const GR_UINT32* pData)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdFillMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset,
-    GR_GPU_SIZE fillSize,
-    GR_UINT32 data)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdClearDepthStencil(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE image,
-    GR_FLOAT depth,
-    GR_UINT8 stencil,
-    GR_UINT rangeCount,
-    const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
 {
     LOGW("STUB\n");
 }
