@@ -9,6 +9,7 @@ mantle_src = [
   'mantle_image_view.c',
   'mantle_query_sync.c',
   'mantle_queue.c',
+  'mantle_query_pool_man.c',
   'mantle_memory_man.c',
   'mantle_object_man.c',
   'mantle_shader_pipeline.c',

@@ -29,6 +29,7 @@ typedef enum _GrStructType {
     GR_STRUCT_TYPE_SHADER,
     GR_STRUCT_TYPE_QUEUE,
     GR_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
+    GR_STRUCT_TYPE_QUERY_POOL,
 } GrStructType;
 
 typedef struct _GrColorTargetView GrColorTargetView;
@@ -195,4 +196,11 @@ typedef struct _GrViewportStateObject {
     unsigned scissorCount;
 } GrViewportStateObject;
 
+typedef struct _GrQueryPool {
+    GrStructType sType;
+    GrDevice *grDevice;
+    VkQueryPool pool;
+    VkQueryType queryType;
+    uint32_t queryCount;
+} GrQueryPool;
 #endif // GR_OBJECT_H_

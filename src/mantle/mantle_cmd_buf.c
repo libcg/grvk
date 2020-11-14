@@ -444,3 +444,38 @@ GR_VOID grCmdResetEvent(
     vki.vkCmdResetEvent(grCmdBuffer->commandBuffer, grEvent->event,
                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 }
+
+GR_VOID grCmdBeginQuery(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_QUERY_POOL queryPool,
+    GR_UINT slot,
+    GR_FLAGS flags)
+{
+    LOGT("%p %p %u 0x%X\n", cmdBuffer, queryPool, slot, flags);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+    vki.vkCmdBeginQuery(grCmdBuffer->commandBuffer, grQueryPool->pool, slot, (GR_QUERY_IMPRECISE_DATA & flags) ? 0 : VK_QUERY_CONTROL_PRECISE_BIT); // basically inverse of vulkan
+}
+
+GR_VOID grCmdEndQuery(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_QUERY_POOL queryPool,
+    GR_UINT slot)
+{
+    LOGT("%p %p %u\n", cmdBuffer, queryPool, slot);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+    vki.vkCmdEndQuery(grCmdBuffer->commandBuffer, grQueryPool->pool, slot);
+}
+
+GR_VOID grCmdResetQueryPool(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_QUERY_POOL queryPool,
+    GR_UINT startQuery,
+    GR_UINT queryCount)
+{
+    LOGT("%p %p %u %u\n", cmdBuffer, queryPool, startQuery, queryCount);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+    vki.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grQueryPool->pool, startQuery, queryCount);
+}

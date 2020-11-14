@@ -102,28 +102,6 @@ GR_RESULT grLoadPipeline(
     return GR_UNSUPPORTED;
 }
 
-// Query and Synchronization Functions
-
-GR_RESULT grCreateQueryPool(
-    GR_DEVICE device,
-    const GR_QUERY_POOL_CREATE_INFO* pCreateInfo,
-    GR_QUERY_POOL* pQueryPool)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grGetQueryPoolResults(
-    GR_QUERY_POOL queryPool,
-    GR_UINT startQuery,
-    GR_UINT queryCount,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Multi-Device Management Functions
 
 GR_RESULT grGetMultiGpuCompatibility(
@@ -249,32 +227,6 @@ GR_VOID grCmdMemoryAtomic(
     GR_GPU_SIZE destOffset,
     GR_UINT64 srcData,
     GR_ENUM atomicOp)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdBeginQuery(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT slot,
-    GR_FLAGS flags)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdEndQuery(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT slot)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdResetQueryPool(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT startQuery,
-    GR_UINT queryCount)
 {
     LOGW("STUB\n");
 }
