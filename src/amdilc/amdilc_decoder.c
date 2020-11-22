@@ -51,6 +51,10 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_SAMPLE_B] = { IL_OP_SAMPLE_B, 1, 2, 0, true },
     [IL_OP_SAMPLE_G] = { IL_OP_SAMPLE_G, 1, 3, 0, true },
     [IL_OP_SAMPLE_L] = { IL_OP_SAMPLE_L, 1, 2, 0, true },
+    [IL_OP_SAMPLE_C] = { IL_OP_SAMPLE_C, 1, 2, 0, true },
+    [IL_OP_SAMPLE_C_B] = { IL_OP_SAMPLE_C_B, 1, 3, 0, true },
+    [IL_OP_SAMPLE_C_G] = { IL_OP_SAMPLE_C_G, 1, 4, 0, true },
+    [IL_OP_SAMPLE_C_L] = { IL_OP_SAMPLE_C_L, 1, 3, 0, true },
     [IL_OP_SAMPLE_C_LZ] = { IL_OP_SAMPLE_C_LZ, 1, 2, 0, true },
     [IL_OP_I_NOT] = { IL_OP_I_NOT, 1, 1, 0, false },
     [IL_OP_I_OR] = { IL_OP_I_OR, 1, 2, 0, false },
@@ -314,14 +318,14 @@ static unsigned decodeInstruction(
     idx++;
 
     if (instr->opcode >= IL_OP_LAST) {
-        LOGE("invalid opcode %d\n", instr->opcode);
+        LOGE("invalid opcode 0x%X\n", instr->opcode);
         return idx;
     }
 
     const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
 
     if (info->opcode != instr->opcode) {
-        LOGW("unhandled opcode %d\n", instr->opcode);
+        LOGW("unhandled opcode 0x%X\n", instr->opcode);
         return idx;
     }
 

@@ -23,6 +23,7 @@ typedef struct {
     IlcSpvId typeId;
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
+    uint32_t literalValues[4];
 } IlcRegister;
 
 typedef struct {
@@ -30,6 +31,7 @@ typedef struct {
     IlcSpvId typeId;
     uint32_t ilId;
     uint32_t strideId;
+    uint32_t ilType;
 } IlcResource;
 
 typedef enum {
@@ -61,16 +63,18 @@ typedef struct {
     IlcSpvModule* module;
     const Kernel* kernel;
     IlcSpvId entryPointId;
-    IlcSpvId intId;
-    IlcSpvId int4Id;
-    IlcSpvId floatId;
-    IlcSpvId float4Id;
+    IlcSpvId intIds[4];
+    IlcSpvId floatIds[4];
+    IlcSpvId uintIds[4];
+    IlcSpvId zeroUintId;
     IlcSpvId boolId;
     IlcSpvId bool4Id;
+    IlcSpvId samplerId;
     unsigned regCount;
     IlcRegister* regs;
     unsigned resourceCount;
     IlcResource* resources;
+    IlcSpvId samplerResources[16];
     unsigned controlFlowBlockCount;
     IlcControlFlowBlock* controlFlowBlocks;
     bool isInFunction;
@@ -78,27 +82,44 @@ typedef struct {
 
 static IlcSpvId emitVectorVariable(
     IlcCompiler* compiler,
-    IlcSpvId* typeId,
-    unsigned componentCount,
-    IlcSpvId componentTypeId,
+    IlcSpvId vectorTypeId,
     IlcSpvWord storageClass)
 {
-    *typeId = ilcSpvPutVectorType(compiler->module, componentTypeId, componentCount);
-    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, storageClass, *typeId);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, storageClass, vectorTypeId);
 
     return ilcSpvPutVariable(compiler->module, pointerId, storageClass);
 }
 
 static IlcSpvId emitZeroOneVector(
-    IlcCompiler* compiler)
+    IlcCompiler* compiler, IlcSpvId scalarTypeId, IlcSpvId vectorTypeId, uint32_t additionalElementCount)
 {
-    IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
+    assert(additionalElementCount <= 2);
 
-    const IlcSpvId consistuentIds[] = {
-        ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL),
-    };
-    return ilcSpvPutConstantComposite(compiler->module, float2Id, 2, consistuentIds);
+    IlcSpvId consistuentIds[4];
+    IlcSpvId zeroLiteralId = ilcSpvPutConstant(compiler->module, scalarTypeId, ZERO_LITERAL);
+    for (uint32_t i = 0; i <= additionalElementCount;++i) {
+        consistuentIds[i] = zeroLiteralId;
+    }
+    consistuentIds[additionalElementCount + 1] = ilcSpvPutConstant(compiler->module, scalarTypeId, ONE_LITERAL);
+    return ilcSpvPutConstantComposite(compiler->module, vectorTypeId, additionalElementCount + 2, consistuentIds);
+}
+
+static IlcSpvId findOrEmitVectorType(
+    IlcCompiler* compiler, IlcSpvId scalarTypeId, unsigned componentCount)
+{
+    assert(componentCount > 0 && componentCount <= 4);
+    if (scalarTypeId == compiler->floatIds[0]) {
+        return compiler->floatIds[componentCount - 1];
+    }
+    else if (scalarTypeId == compiler->intIds[0]) {
+        return compiler->intIds[componentCount - 1];
+    }
+    else if (scalarTypeId == compiler->uintIds[0]) {
+        return compiler->uintIds[componentCount - 1];
+    }
+    else {
+        return ilcSpvPutVectorType(compiler->module, scalarTypeId, componentCount);
+    }
 }
 
 static const IlcRegister* addRegister(
@@ -142,13 +163,12 @@ static const IlcRegister* findOrCreateRegister(
 
     if (reg == NULL && type == IL_REGTYPE_TEMP) {
         // Create temporary register
-        IlcSpvId tempTypeId = 0;
-        IlcSpvId tempId = emitVectorVariable(compiler, &tempTypeId, 4, compiler->floatId,
-                                             SpvStorageClassPrivate);
+        IlcSpvId typeId = compiler->floatIds[3];
+        IlcSpvId tempId = emitVectorVariable(compiler, typeId, SpvStorageClassPrivate);
 
         const IlcRegister tempReg = {
             .id = tempId,
-            .typeId = tempTypeId,
+            .typeId = typeId,
             .ilType = type,
             .ilNum = num,
         };
@@ -174,13 +194,14 @@ static const IlcResource* findResource(
     return NULL;
 }
 
-static void addResource(
+static const IlcResource* addResource(
     IlcCompiler* compiler,
     const IlcResource* resource)
 {
-    if (findResource(compiler, resource->ilId) != NULL) {
+    const IlcResource* existingResource = findResource(compiler, resource->ilId);
+    if (existingResource != NULL) {
         LOGE("resource %d already present\n", resource->ilId);
-        return;
+        return existingResource;
     }
 
     char name[32];
@@ -191,6 +212,7 @@ static void addResource(
     compiler->resources = realloc(compiler->resources,
                                   sizeof(IlcResource) * compiler->resourceCount);
     compiler->resources[compiler->resourceCount - 1] = *resource;
+    return compiler->resources + compiler->resourceCount - 1;
 }
 
 static void pushControlFlowBlock(
@@ -250,17 +272,28 @@ static IlcSpvId loadSource(
         LOGE("source register %d %d not found\n", src->registerType, src->registerNum);
         return 0;
     }
-
+    IlcSpvId sourceScalarTypeId, targetScalarTypeId;
+    unsigned sourceComponents = getSpvTypeComponentCount(compiler->module, reg->typeId, &sourceScalarTypeId);
+    unsigned targetComponents = getSpvTypeComponentCount(compiler->module, typeId, &targetScalarTypeId);
+    if (sourceComponents == 0 || targetComponents == 0) {
+        LOGE("Source or target type is/are have neither vector nor scalar type\n");
+        return 0;
+    }
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
 
-    if (reg->typeId == compiler->floatId || reg->typeId == compiler->intId) {
+    if (sourceScalarTypeId != targetScalarTypeId) {
         // Convert scalar to float vector
-        if (reg->typeId != compiler->floatId) {
-            varId = ilcSpvPutBitcast(compiler->module, compiler->floatId, varId);
+        if (sourceComponents == 1) {
+            varId = ilcSpvPutBitcast(compiler->module, targetScalarTypeId, varId);
+        }
+        else if (sourceComponents != targetComponents) {
+            IlcSpvId targetVecTypeId = findOrEmitVectorType(compiler, targetScalarTypeId, sourceComponents);
+            varId = ilcSpvPutBitcast(compiler->module, targetVecTypeId, varId);
+        }
+        else {
+            varId = ilcSpvPutBitcast(compiler->module, typeId, varId);
         }
 
-        const IlcSpvWord constituents[] = { varId, varId, varId, varId };
-        varId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, constituents);
     }
 
     const uint8_t swizzle[] = {
@@ -270,19 +303,36 @@ static IlcSpvId loadSource(
         componentMask & 8 ? src->swizzle[3] : IL_COMPSEL_0,
     };
 
-    if (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
-        swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A) {
+    if (sourceComponents > 1 && targetComponents > 1 &&
+        (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
+         swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId zeroOneId = emitZeroOneVector(compiler);
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler, targetScalarTypeId,
+                                               findOrEmitVectorType(compiler, targetScalarTypeId, 6 - sourceComponents), 4 - sourceComponents);
 
         const IlcSpvWord components[] = { swizzle[0], swizzle[1], swizzle[2], swizzle[3] };
-        varId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, varId, zeroOneId,
-                                       4, components);
+        varId = ilcSpvPutVectorShuffle(compiler->module, typeId, varId, zeroOneId,
+                                       targetComponents, components);
     }
-
-    if (typeId != reg->typeId) {
-        // Need to cast to the expected type
-        varId = ilcSpvPutBitcast(compiler->module, typeId, varId);
+    else if (targetComponents == 1 && sourceComponents > 1) {
+        //extract X
+        IlcSpvId elementId;
+        if (swizzle[0] == IL_COMPSEL_X_R) { // cache zero literal because faster
+            if (compiler->zeroUintId == 0) {
+                compiler->zeroUintId = ilcSpvPutConstant(compiler->module, compiler->uintIds[0], ZERO_LITERAL);
+            }
+            elementId = compiler->zeroUintId;
+        }
+        else {
+            elementId = ilcSpvPutConstant(compiler->module, compiler->uintIds[0], swizzle[0]);
+        }
+        varId = ilcSpvPutVectorExtractDynamic(compiler->module, typeId, varId, elementId);
+    }
+    else if (sourceComponents == 1 && targetComponents > 1) {
+        //load vector
+        IlcSpvId elementId = ilcSpvPutConstant(compiler->module, reg->typeId, 0);//since source type is scalar, just get type without searching
+        IlcSpvId consistuents[4] = {varId, elementId, elementId, elementId};
+        varId = ilcSpvPutCompositeConstruct(compiler->module, typeId, targetComponents, consistuents);
     }
 
     // All following operations but `neg` are float only (AMDIL spec, table 2.10)
@@ -308,16 +358,16 @@ static IlcSpvId loadSource(
     }
 
     if (src->abs) {
-        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, compiler->float4Id, 1, &varId);
+        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, compiler->floatIds[3], 1, &varId);
     }
 
     if (src->negate[0] || src->negate[1] || src->negate[2] || src->negate[3]) {
         IlcSpvId negId = 0;
 
-        if (typeId == compiler->float4Id) {
-            negId = ilcSpvPutAlu(compiler->module, SpvOpFNegate, compiler->float4Id, 1, &varId);
-        } else if (typeId == compiler->int4Id) {
-            negId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id, 1, &varId);
+        if (typeId == compiler->floatIds[3]) {
+            negId = ilcSpvPutAlu(compiler->module, SpvOpFNegate, compiler->floatIds[3], 1, &varId);
+        } else if (typeId == compiler->intIds[3]) {
+            negId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->intIds[3], 1, &varId);
         } else {
             assert(false);
         }
@@ -362,8 +412,8 @@ static void storeDestination(
 
     if (dst->clamp) {
         // Clamp to [0.f, 1.f]
-        IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL);
-        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL);
+        IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->floatIds[0], ZERO_LITERAL);
+        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->floatIds[0], ONE_LITERAL);
         const IlcSpvId zeroConsistuentIds[] = { zeroId, zeroId, zeroId, zeroId };
         const IlcSpvId oneConsistuentIds[] = { oneId, oneId, oneId, oneId };
         IlcSpvId zeroCompositeId = ilcSpvPutConstantComposite(compiler->module, dstReg->typeId,
@@ -395,7 +445,7 @@ static void storeDestination(
         (dst->component[2] == IL_MODCOMP_0 || dst->component[2] == IL_MODCOMP_1) ||
         (dst->component[3] == IL_MODCOMP_0 || dst->component[3] == IL_MODCOMP_1)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId zeroOneId = emitZeroOneVector(compiler);
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler, compiler->floatIds[0], compiler->floatIds[1], 0);//TODO: adjust types
 
         const IlcSpvWord components[] = {
             dst->component[0] == IL_MODCOMP_0 ? 4 : (dst->component[0] == IL_MODCOMP_1 ? 5 : 0),
@@ -441,15 +491,14 @@ static void emitLiteral(
 
     assert(src->registerType == IL_REGTYPE_LITERAL);
 
-    IlcSpvId literalTypeId = 0;
-    IlcSpvId literalId = emitVectorVariable(compiler, &literalTypeId, 4, compiler->floatId,
-                                            SpvStorageClassPrivate);
+    IlcSpvId literalTypeId = compiler->floatIds[3];
+    IlcSpvId literalId = emitVectorVariable(compiler, literalTypeId, SpvStorageClassPrivate);
 
     IlcSpvId consistuentIds[] = {
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[0]),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[1]),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[2]),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[3]),
+        ilcSpvPutConstant(compiler->module, compiler->floatIds[0], instr->extras[0]),
+        ilcSpvPutConstant(compiler->module, compiler->floatIds[0], instr->extras[1]),
+        ilcSpvPutConstant(compiler->module, compiler->floatIds[0], instr->extras[2]),
+        ilcSpvPutConstant(compiler->module, compiler->floatIds[0], instr->extras[3]),
     };
     IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, literalTypeId,
                                                       4, consistuentIds);
@@ -461,6 +510,7 @@ static void emitLiteral(
         .typeId = literalTypeId,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
+        .literalValues = {instr->extras[0], instr->extras[1], instr->extras[2], instr->extras[3]},
     };
 
     addRegister(compiler, &reg, 'l');
@@ -482,9 +532,8 @@ static void emitOutput(
            !dst->clamp &&
            dst->shiftScale == IL_SHIFT_NONE);
 
-    IlcSpvId outputTypeId = 0;
-    IlcSpvId outputId = emitVectorVariable(compiler, &outputTypeId, 4, compiler->floatId,
-                                           SpvStorageClassOutput);
+    IlcSpvId typeId = compiler->floatIds[3];
+    IlcSpvId outputId = emitVectorVariable(compiler, typeId, SpvStorageClassOutput);
 
     if (importUsage == IL_IMPORTUSAGE_POS) {
         IlcSpvWord builtInType = SpvBuiltInPosition;
@@ -498,9 +547,10 @@ static void emitOutput(
 
     const IlcRegister reg = {
         .id = outputId,
-        .typeId = outputTypeId,
+        .typeId = typeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
+        .literalValues = {},
     };
 
     addRegister(compiler, &reg, 'o');
@@ -526,17 +576,17 @@ static void emitInput(
            dst->shiftScale == IL_SHIFT_NONE);
 
     if (importUsage == IL_IMPORTUSAGE_GENERIC) {
-        inputId = emitVectorVariable(compiler, &inputTypeId, 4, compiler->floatId,
-                                     SpvStorageClassInput);
+        inputTypeId = compiler->floatIds[3];
+        inputId = emitVectorVariable(compiler, inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
     } else if (importUsage == IL_IMPORTUSAGE_VERTEXID ||
                importUsage == IL_IMPORTUSAGE_INSTANCEID) {
         IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput,
-                                                  compiler->intId);
+                                                  compiler->intIds[0]);
         inputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassInput);
-        inputTypeId = compiler->intId;
+        inputTypeId = compiler->intIds[0];
 
         IlcSpvWord builtInType = importUsage == IL_IMPORTUSAGE_VERTEXID ?
                                  SpvBuiltInVertexIndex : SpvBuiltInInstanceIndex;
@@ -569,9 +619,113 @@ static void emitInput(
         .typeId = inputTypeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
+        .literalValues = {},
     };
 
     addRegister(compiler, &reg, 'v');
+}
+
+static SpvImageFormat getSpvImageFormat(size_t formatCount, const uint8_t *ilResourceFmt, const SpvImageFormat* imageFormats)
+{
+    for (unsigned i = 1; i < formatCount; ++i) {
+        if (ilResourceFmt[i] != ilResourceFmt[i - 1]) {
+            return imageFormats[i - 1];
+        }
+    }
+    return imageFormats[formatCount - 1];
+}
+
+static unsigned getCoordinateVectorSize(uint8_t type)
+{
+    switch (type) {
+    case IL_USAGE_PIXTEX_1D:
+    case IL_USAGE_PIXTEX_BUFFER:
+        return 1;
+    case IL_USAGE_PIXTEX_1DARRAY:
+    case IL_USAGE_PIXTEX_2DMSAA:
+    case IL_USAGE_PIXTEX_2D:
+        return 2;
+    case IL_USAGE_PIXTEX_2DARRAY:
+    case IL_USAGE_PIXTEX_2DARRAYMSAA:
+    case IL_USAGE_PIXTEX_CUBEMAP:
+    case IL_USAGE_PIXTEX_CUBEMAP_ARRAY:
+    case IL_USAGE_PIXTEX_3D:
+        return 3;
+    default:
+        LOGE("Unknown PixTexUsage type 0x%X\n", type);
+        assert(false);
+        return 0;
+    }
+}
+
+static bool getSpvImage(uint8_t type, const uint8_t *imgFmt, SpvDim* outDim, SpvImageFormat* outImageFormat, IlcSpvWord* isArrayed, IlcSpvWord* isMultiSampled)
+{
+    *isArrayed = 0;
+    *isMultiSampled = 0;
+    switch (type) {
+    case IL_USAGE_PIXTEX_1DARRAY:
+        *isArrayed = 1;
+    case IL_USAGE_PIXTEX_1D:
+        *outDim = SpvDim1D;
+        break;
+    case IL_USAGE_PIXTEX_2DARRAY:
+    case IL_USAGE_PIXTEX_2DARRAYMSAA:
+        *isArrayed = 1;
+    case IL_USAGE_PIXTEX_2DMSAA:
+    case IL_USAGE_PIXTEX_2D:
+        *outDim = SpvDim2D;
+        *isMultiSampled = (type == IL_USAGE_PIXTEX_2DMSAA || type == IL_USAGE_PIXTEX_2DARRAYMSAA);
+        break;
+    case IL_USAGE_PIXTEX_CUBEMAP_ARRAY:
+        *isArrayed = 1;
+    case IL_USAGE_PIXTEX_CUBEMAP:
+        *outDim = SpvDimCube;
+        break;
+    case IL_USAGE_PIXTEX_3D:
+        *outDim = SpvDim3D;
+        break;
+    case IL_USAGE_PIXTEX_BUFFER:
+        *outDim = SpvDimBuffer;
+        break;
+    default:
+        LOGE("Unknown PixTexUsage type 0x%X\n", type);
+        assert(false);
+        return false;
+    }
+    const SpvImageFormat floatFormats[4] = {SpvImageFormatR32f, SpvImageFormatRg32f, SpvImageFormatUnknown, SpvImageFormatRgba32f};
+    const SpvImageFormat snormFormats[4] = {SpvImageFormatR8Snorm, SpvImageFormatRg8Snorm, SpvImageFormatUnknown, SpvImageFormatRgba8Snorm};
+    const SpvImageFormat unormFormats[4] = {SpvImageFormatR8, SpvImageFormatRg8, SpvImageFormatUnknown, SpvImageFormatRgba8};
+    const SpvImageFormat uintFormats[4] = {SpvImageFormatR32ui, SpvImageFormatRg32ui, SpvImageFormatUnknown, SpvImageFormatRgba32ui};
+    const SpvImageFormat intFormats[4] = {SpvImageFormatR32i, SpvImageFormatRg32i, SpvImageFormatUnknown, SpvImageFormatRgba32i};
+    switch (imgFmt[0]) {
+    case IL_ELEMENTFORMAT_UNKNOWN:
+        *outImageFormat = SpvImageFormatUnknown;
+        break;
+    case IL_ELEMENTFORMAT_FLOAT:
+        *outImageFormat = getSpvImageFormat(4, imgFmt, floatFormats);
+        break;
+    case IL_ELEMENTFORMAT_SNORM:
+        *outImageFormat = getSpvImageFormat(4, imgFmt, snormFormats);
+        break;
+    case IL_ELEMENTFORMAT_UNORM:
+        *outImageFormat = getSpvImageFormat(4, imgFmt, unormFormats);
+        break;
+    case IL_ELEMENTFORMAT_UINT:
+        *outImageFormat = getSpvImageFormat(4, imgFmt, uintFormats);
+        break;
+    case IL_ELEMENTFORMAT_SINT:
+        *outImageFormat = getSpvImageFormat(4, imgFmt, intFormats);
+        break;
+    case IL_ELEMENTFORMAT_SRGB:
+        LOGE("Couldn't find format for IL_ELEMENTFORMAT_SRGB\n");
+        assert(false);
+        return false;
+    default:
+        LOGE("Couldn't find format for 0x%X\n", imgFmt[0]);
+        assert(false);
+        return false;
+    }
+    return true;
 }
 
 static void emitResource(
@@ -589,46 +743,27 @@ static void emitResource(
     uint8_t fmty = GET_BITS(instr->extras[0], 23, 25);
     uint8_t fmtz = GET_BITS(instr->extras[0], 26, 28);
     uint8_t fmtw = GET_BITS(instr->extras[0], 29, 31);
-
-    SpvDim spvDim = 0;
-
-    switch (type) {
-    case IL_USAGE_PIXTEX_1D:
-        spvDim = SpvDim1D;
-        break;
-    case IL_USAGE_PIXTEX_2D:
-        spvDim = SpvDim2D;
-        break;
-    case IL_USAGE_PIXTEX_3D:
-        spvDim = SpvDim3D;
-        break;
-    case IL_USAGE_PIXTEX_BUFFER:
-        spvDim = SpvDimBuffer;
-        break;
-    default:
-        LOGE("unhandled resource type %d\n", type);
-        assert(false);
-    }
+    uint8_t imgFmt[4] = {fmtx, fmty, fmtz, fmtw};
+    LOGT("found resource %d %d\n", id, type, fmtx);
+    SpvDim dim;
+    SpvImageFormat imageFormat;
+    IlcSpvWord isArrayed, isMultiSampled;
+    getSpvImage(type, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
 
     if (unnorm) {
-        LOGE("unhandled unnorm resource\n");
-        assert(false);
-    }
-    if (fmtx != IL_ELEMENTFORMAT_FLOAT || fmty != IL_ELEMENTFORMAT_FLOAT ||
-        fmtz != IL_ELEMENTFORMAT_FLOAT || fmtw != IL_ELEMENTFORMAT_FLOAT) {
-        LOGE("unhandled resource format %d %d %d %d\n", fmtx, fmty, fmtz, fmtw);
+        LOGE("unhandled resource type %d %d - can't handle unnormalized image types\n", type, unnorm);
         assert(false);
     }
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, spvDim,
-                                          0, 0, 0, 1, SpvImageFormatRgba32f);
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatIds[0], dim,
+                                          0 /*depth*/, isArrayed, isMultiSampled, 1, imageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
 
     ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
-    ilcSpvPutName(compiler->module, imageId, "float4Buffer");
+    ilcSpvPutName(compiler->module, imageId, "float4Buffer");//TODO: replace name
 
     IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
@@ -641,6 +776,7 @@ static void emitResource(
         .typeId = imageId,
         .ilId = id,
         .strideId = 0,
+        .ilType = type,
     };
 
     addResource(compiler, &resource);
@@ -652,7 +788,7 @@ static void emitStructuredSrv(
 {
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->intId, SpvDimBuffer,
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->intIds[0], SpvDimBuffer,
                                           0, 0, 0, 1, SpvImageFormatR32i);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
@@ -672,7 +808,7 @@ static void emitStructuredSrv(
         .id = resourceId,
         .typeId = imageId,
         .ilId = id,
-        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
+        .strideId = ilcSpvPutConstant(compiler->module, compiler->intIds[0], instr->extras[0]),
     };
 
     addResource(compiler, &resource);
@@ -709,40 +845,40 @@ static void emitFloatOp(
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], componentMask, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], componentMask, compiler->floatIds[3]);
     }
 
     switch (instr->opcode) {
     case IL_OP_ABS:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FAbs, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_ACOS: {
-        IlcSpvId acosId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Acos, compiler->float4Id,
+        IlcSpvId acosId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Acos, compiler->floatIds[3],
                                           instr->srcCount, srcIds);
         // Replicate .w on all components
         const IlcSpvWord components[] = { COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W };
-        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, acosId, acosId,
+        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->floatIds[3], acosId, acosId,
                                        4, components);
     }   break;
     case IL_OP_ADD:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, compiler->float4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, compiler->floatIds[3],
                              instr->srcCount, srcIds);
         break;
     case IL_OP_ASIN: {
-        IlcSpvId asinId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Asin, compiler->float4Id,
+        IlcSpvId asinId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Asin, compiler->floatIds[3],
                                           instr->srcCount, srcIds);
         // Replicate .w on all components
         const IlcSpvWord components[] = { COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W };
-        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, asinId, asinId,
+        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->floatIds[3], asinId, asinId,
                                        4, components);
     }   break;
     case IL_OP_ATAN: {
-        IlcSpvId atanId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Atan, compiler->float4Id,
+        IlcSpvId atanId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Atan, compiler->floatIds[3],
                                           instr->srcCount, srcIds);
         // Replicate .w on all components
         const IlcSpvWord components[] = { COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W, COMP_INDEX_W };
-        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, atanId, atanId,
+        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->floatIds[3], atanId, atanId,
                                        4, components);
     }   break;
     case IL_OP_DIV:
@@ -750,7 +886,7 @@ static void emitFloatOp(
             LOGW("unhandled div zero op %d\n", instr->control);
         }
         // FIXME SPIR-V has undefined division by zero
-        resId = ilcSpvPutAlu(compiler->module, SpvOpFDiv, compiler->float4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpFDiv, compiler->floatIds[3],
                              instr->srcCount, srcIds);
         break;
     case IL_OP_DP2:
@@ -760,14 +896,14 @@ static void emitFloatOp(
         if (!ieee) {
             LOGW("unhandled non-IEEE dot product\n");
         }
-        IlcSpvId dotId = ilcSpvPutAlu(compiler->module, SpvOpDot, compiler->floatId,
+        IlcSpvId dotId = ilcSpvPutAlu(compiler->module, SpvOpDot, compiler->floatIds[0],
                                       instr->srcCount, srcIds);
         // Replicate dot product on all components
         const IlcSpvWord constituents[] = { dotId, dotId, dotId, dotId };
-        resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, constituents);
+        resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->floatIds[3], 4, constituents);
     }   break;
     case IL_OP_FRC:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fract, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fract, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_MAD: {
@@ -775,7 +911,7 @@ static void emitFloatOp(
         if (!ieee) {
             LOGW("unhandled non-IEEE mad\n");
         }
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fma, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fma, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
     }   break;
     case IL_OP_MAX: {
@@ -783,7 +919,7 @@ static void emitFloatOp(
         if (!ieee) {
             LOGW("unhandled non-IEEE max\n");
         }
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450NMax, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450NMax, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
     }   break;
     case IL_OP_MIN: {
@@ -791,7 +927,7 @@ static void emitFloatOp(
         if (!ieee) {
             LOGW("unhandled non-IEEE min\n");
         }
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450NMin, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450NMin, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
     }   break;
     case IL_OP_MOV:
@@ -802,49 +938,49 @@ static void emitFloatOp(
         if (!ieee) {
             LOGW("unhandled non-IEEE mul\n");
         }
-        resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, compiler->float4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, compiler->floatIds[3],
                              instr->srcCount, srcIds);
     }   break;
     case IL_OP_FTOI:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertFToS, compiler->int4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertFToS, compiler->intIds[3],
                              instr->srcCount, srcIds);
-        resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
+        resId = ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], resId);
         break;
     case IL_OP_ITOF:
-        resId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
-        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertSToF, compiler->float4Id, 1, &resId);
+        resId = ilcSpvPutBitcast(compiler->module, compiler->intIds[3], srcIds[0]);
+        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertSToF, compiler->floatIds[3], 1, &resId);
         break;
     case IL_OP_ROUND_NEG_INF:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Floor, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Floor, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_ROUND_PLUS_INF:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Ceil, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Ceil, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_EXP_VEC:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Exp, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Exp, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_LOG_VEC:
         // FIXME handle log(0)
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Log, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Log, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_RSQ_VEC:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450InverseSqrt, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450InverseSqrt, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_SIN_VEC:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sin, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sin, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_COS_VEC:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Cos, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Cos, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_SQRT_VEC:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sqrt, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sqrt, compiler->floatIds[3],
                                 instr->srcCount, srcIds);
         break;
     default:
@@ -863,7 +999,7 @@ static void emitFloatComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->floatIds[3]);
     }
 
     switch (instr->opcode) {
@@ -886,15 +1022,15 @@ static void emitFloatComparisonOp(
 
     IlcSpvId condId = ilcSpvPutAlu(compiler->module, compOp, compiler->bool4Id,
                                    instr->srcCount, srcIds);
-    IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatId, TRUE_LITERAL);
-    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatId, FALSE_LITERAL);
+    IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatIds[0], TRUE_LITERAL);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatIds[0], FALSE_LITERAL);
     const IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
     const IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
-    IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
+    IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->floatIds[3],
                                                           4, trueConsistuentIds);
-    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
+    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->floatIds[3],
                                                            4, falseConsistuentIds);
-    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
+    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->floatIds[3], condId,
                                      trueCompositeId, falseCompositeId);
 
     storeDestination(compiler, &instr->dsts[0], resId);
@@ -908,24 +1044,24 @@ static void emitIntegerOp(
     IlcSpvId resId = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->int4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->intIds[3]);
     }
 
     switch (instr->opcode) {
     case IL_OP_I_NOT:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpNot, compiler->int4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpNot, compiler->intIds[3],
                              instr->srcCount, srcIds);
         break;
     case IL_OP_I_OR:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseOr, compiler->int4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseOr, compiler->intIds[3],
                              instr->srcCount, srcIds);
         break;
     case IL_OP_I_ADD:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intIds[3],
                              instr->srcCount, srcIds);
         break;
     case IL_OP_AND:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
+        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->intIds[3],
                              instr->srcCount, srcIds);
         break;
     case IL_OP_U_BIT_EXTRACT: {
@@ -934,14 +1070,14 @@ static void emitIntegerOp(
         LOGW("IL_OP_U_BIT_EXTRACT is partially implemented\n");
 
         IlcSpvWord widthIndex = COMP_INDEX_X;
-        IlcSpvId widthId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcIds[0],
+        IlcSpvId widthId = ilcSpvPutCompositeExtract(compiler->module, compiler->intIds[0], srcIds[0],
                                                      1, &widthIndex);
         IlcSpvWord offsetIndex = COMP_INDEX_X;
-        IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcIds[1],
+        IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intIds[0], srcIds[1],
                                                       1, &offsetIndex);
 
         const IlcSpvId argIds[] = { srcIds[2], offsetId, widthId };
-        resId = ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->int4Id, 3, argIds);
+        resId = ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intIds[3], 3, argIds);
         break;
     }
     default:
@@ -950,7 +1086,7 @@ static void emitIntegerOp(
     }
 
     storeDestination(compiler, &instr->dsts[0],
-                     ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId));
+                     ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], resId));
 }
 
 static void emitIntegerComparisonOp(
@@ -961,7 +1097,7 @@ static void emitIntegerComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->int4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->intIds[3]);
     }
 
     switch (instr->opcode) {
@@ -981,15 +1117,15 @@ static void emitIntegerComparisonOp(
 
     IlcSpvId condId = ilcSpvPutAlu(compiler->module, compOp, compiler->bool4Id,
                                    instr->srcCount, srcIds);
-    IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatId, TRUE_LITERAL);
-    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatId, FALSE_LITERAL);
+    IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatIds[0], TRUE_LITERAL);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatIds[0], FALSE_LITERAL);
     const IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
     const IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
-    IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
+    IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->floatIds[3],
                                                           4, trueConsistuentIds);
-    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
+    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->floatIds[3],
                                                            4, falseConsistuentIds);
-    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
+    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->floatIds[3], condId,
                                      trueCompositeId, falseCompositeId);
 
     storeDestination(compiler, &instr->dsts[0], resId);
@@ -1002,18 +1138,18 @@ static void emitCmovLogical(
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->floatIds[3]);
     }
 
     // For each component, select src1 if src0 has any bit set, otherwise select src2
-    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intIds[0], FALSE_LITERAL);
     const IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
-    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->int4Id,
+    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->intIds[3],
                                                            4, falseConsistuentIds);
-    IlcSpvId castId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
+    IlcSpvId castId = ilcSpvPutBitcast(compiler->module, compiler->intIds[3], srcIds[0]);
     const IlcSpvId compIds[] = { castId, falseCompositeId };
     IlcSpvId condId = ilcSpvPutAlu(compiler->module, SpvOpINotEqual, compiler->bool4Id, 2, compIds);
-    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
+    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->floatIds[3], condId,
                                      srcIds[1], srcIds[2]);
 
     storeDestination(compiler, &instr->dsts[0], resId);
@@ -1025,8 +1161,8 @@ static IlcSpvId emitConditionCheck(
     bool notZero)
 {
     IlcSpvWord xIndex = COMP_INDEX_X;
-    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId, 1, &xIndex);
-    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
+    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->intIds[0], srcId, 1, &xIndex);
+    IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intIds[0], FALSE_LITERAL);
     const IlcSpvId compIds[] = { xId, falseId };
     return ilcSpvPutAlu(compiler->module, notZero ? SpvOpINotEqual : SpvOpIEqual, compiler->boolId,
                         2, compIds);
@@ -1042,7 +1178,7 @@ static void emitIf(
         .hasElseBlock = false,
     };
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->intIds[3]);
     IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
     IlcSpvId condId = emitConditionCheck(compiler, srcId, instr->opcode == IL_OP_IF_LOGICALNZ);
     ilcSpvPutSelectionMerge(compiler->module, ifElseBlock.labelEndId);
@@ -1152,7 +1288,7 @@ static void emitBreak(
         ilcSpvPutBranch(compiler->module, block->loop.labelBreakId);
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
-        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->intIds[3]);
         IlcSpvId condId = emitConditionCheck(compiler, srcId,
                                              instr->opcode == IL_OP_BREAK_LOGICALNZ);
         ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
@@ -1178,6 +1314,307 @@ static void emitContinue(
     ilcSpvPutLabel(compiler->module, labelId);
 }
 
+static IlcSpvId emitOrGetSampler(
+    IlcCompiler* compiler,
+    uint8_t ilSamplerId)
+{
+    if (compiler->samplerResources[ilSamplerId] != 0) {
+        return compiler->samplerResources[ilSamplerId];
+    }
+    if (compiler->samplerId == 0) {
+        compiler->samplerId = ilcSpvPutSamplerType(compiler->module);
+    }
+    IlcSpvId pSamplerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                                 compiler->samplerId);
+    compiler->samplerResources[ilSamplerId] = ilcSpvPutVariable(compiler->module, pSamplerId,
+                                                               SpvStorageClassUniformConstant);
+    IlcSpvId descriptorSetIdx = compiler->kernel->shaderType;
+    ilcSpvPutDecoration(compiler->module, compiler->samplerResources[ilSamplerId], SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    IlcSpvWord bindingIdx = ilSamplerId;
+    ilcSpvPutDecoration(compiler->module, compiler->samplerResources[ilSamplerId], SpvDecorationBinding, 1, &bindingIdx);
+    return compiler->samplerResources[ilSamplerId];
+}
+
+
+static bool getOffsetCoordinateType(
+    IlcCompiler* compiler,
+    unsigned coordinateVecSize,
+    IlcSpvId* outTypeId,
+    uint32_t* outMask)
+{
+    if (outTypeId == NULL) {
+        return false;
+    }
+    unsigned mask;
+    IlcSpvId coordTypeId;
+    switch (coordinateVecSize) {
+    case 1:
+        coordTypeId = compiler->intIds[0];
+        mask = COMP_MASK_X;
+        break;
+    case 2:
+        coordTypeId = compiler->intIds[1];
+        mask = COMP_MASK_XY;
+        break;
+    case 3:
+        coordTypeId = compiler->intIds[2];
+        mask = COMP_MASK_XYZ;
+        break;
+    case 4:
+        coordTypeId = compiler->intIds[3];
+        mask = COMP_MASK_XYZW;
+        break;
+    default:
+        LOGE("invalid coordinate size\n");
+        return false;
+    }
+
+    if (outTypeId != NULL) {
+        *outTypeId = coordTypeId;
+    }
+
+    if (outMask != NULL) {
+        *outMask = mask;
+    }
+    return true;
+}
+
+static void emitSample(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    uint8_t ilSamplerId  = GET_BITS(instr->control, 8, 11);
+    bool indexedArgs = GET_BIT(instr->control, 12);
+
+    if (indexedArgs) {
+        if ((instr->srcs[instr->srcCount - 1].registerType != IL_REGTYPE_LITERAL && instr->srcs[instr->srcCount - 1].registerType != IL_REGTYPE_CONST_INT) ||
+            (instr->srcs[instr->srcCount - 2].registerType != IL_REGTYPE_LITERAL && instr->srcs[instr->srcCount - 2].registerType != IL_REGTYPE_CONST_INT)) {
+            LOGE("can't handle non-constant resource offsets\n");
+            return;
+        }
+        if (instr->srcs[instr->srcCount - 2].swizzle[0] >= IL_COMPSEL_LAST || instr->srcs[instr->srcCount - 1].swizzle[0] >= IL_COMPSEL_LAST) {
+            LOGE("invalid swizzle for resource offset X coordinate\n");
+            return;
+        }
+        // offset extraction
+        switch (instr->srcs[instr->srcCount - 2].swizzle[0]) {
+        case IL_COMPSEL_0:
+            //do nothing :D
+            break;
+        case IL_COMPSEL_1:
+            ilResourceId += 1;
+            break;
+        default: {
+            const IlcRegister* reg = findRegister(compiler, instr->srcs[instr->srcCount - 2].registerType, instr->srcs[instr->srcCount - 2].registerNum);
+            if (reg == NULL) {
+                LOGE("failed to find register %d", instr->srcs[instr->srcCount - 2].registerNum);
+                return;
+            }
+            ilResourceId += reg->literalValues[instr->srcs[instr->srcCount - 2].swizzle[0]];
+        } break;
+        }
+
+        switch (instr->srcs[instr->srcCount - 1].swizzle[0]) {
+        case IL_COMPSEL_0:
+            //do nothing :D
+            break;
+        case IL_COMPSEL_1:
+            ilSamplerId += 1;
+            break;
+        default: {
+            const IlcRegister* reg = findRegister(compiler, instr->srcs[instr->srcCount - 1].registerType, instr->srcs[instr->srcCount - 1].registerNum);
+            if (reg == NULL) {
+                LOGE("failed to find register %d", instr->srcs[instr->srcCount - 1].registerNum);
+                return;
+            }
+            ilSamplerId += reg->literalValues[instr->srcs[instr->srcCount - 1].swizzle[0]];
+        } break;
+        }
+    }
+
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+    if (resource == NULL && indexedArgs) {
+        bool unnormalized = GET_BIT(instr->control, 15) ? (GET_BITS(instr->primModifier, 2, 3) == IL_TEXCOORDMODE_UNNORMALIZED) : false;
+        if (unnormalized) {
+            LOGE("unhandled resource type %d %d - can't handle unnormalized image types\n", instr->resourceFormat, unnormalized);
+            assert(false);
+        }
+        SpvDim dim;
+        SpvImageFormat imageFormat;
+        IlcSpvWord isArrayed, isMultiSampled;
+        uint8_t imgFmt[4] = {IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN};
+        getSpvImage(instr->resourceFormat, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
+        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatIds[0], dim,
+                                              0 /*depth*/, false, false, 1, SpvImageFormatUnknown);
+        IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                                 imageId);
+        IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                                SpvStorageClassUniformConstant);
+
+        ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
+        ilcSpvPutName(compiler->module, imageId, "float4Buffer");//TODO: replace name
+
+        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                            1, &descriptorSetIdx);//TODO: replace descriptor sets
+        IlcSpvWord bindingIdx = ilResourceId;
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding,
+                            1, &bindingIdx);
+        const IlcResource newResource = {
+            .id = resourceId,
+            .typeId = imageId,
+            .ilId = ilResourceId,
+            .ilType = instr->resourceFormat,
+        };
+
+        resource = addResource(compiler, &newResource);
+    }
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+    unsigned coordinateVecSize;
+    if (resource->ilType == 0) {
+        // that shouldn't happen really
+        LOGE("ilType of resource is 0\n");
+        return;
+    }
+    else {
+        coordinateVecSize = getCoordinateVectorSize(resource->ilType);
+    }
+    uint32_t mask;
+    IlcSpvId coordTypeId;
+    switch (coordinateVecSize) {
+    case 1:
+        coordTypeId = compiler->floatIds[0];
+        mask = COMP_MASK_X;
+        break;
+    case 2:
+        coordTypeId = compiler->floatIds[1];
+        mask = COMP_MASK_XY;
+        break;
+    case 3:
+        coordTypeId = compiler->floatIds[2];
+        mask = COMP_MASK_XYZ;
+        break;
+    case 4:
+        coordTypeId = compiler->floatIds[3];
+        mask = COMP_MASK_XYZW;
+        break;
+    default:
+        LOGE("invalid coordinate size\n");
+        assert(false);
+        return;
+    }
+    const Destination* dst = &instr->dsts[0];
+    //TODO: check mask by image type
+    IlcSpvId coordSrcId = loadSource(compiler, &instr->srcs[0], mask, coordTypeId);
+    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
+    IlcSpvId samplerResourceId = emitOrGetSampler(compiler, ilSamplerId);
+    IlcSpvId imageResourceId  = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId samplerId  = ilcSpvPutLoad(compiler->module, compiler->samplerId, samplerResourceId);
+    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId, imageResourceId, samplerId);
+    IlcSpvId drefId = 0;
+    IlcSpvId argMask = 0;
+    unsigned argCount = 0;
+    IlcSpvId parameters[9];//just in case
+    bool depthComparison = false;
+    switch (instr->opcode) {
+    case IL_OP_SAMPLE_B:
+    {
+        parameters[argCount] = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);// bias
+        argCount++;
+        argMask |= SpvImageOperandsBiasMask;
+    } break;
+    case IL_OP_SAMPLE_G: {
+        parameters[argCount] = loadSource(compiler, &instr->srcs[1], mask, coordTypeId);// dividend
+        argCount++;
+        parameters[argCount] = loadSource(compiler, &instr->srcs[2], mask, coordTypeId);// divisor
+        argCount++;
+        argMask |= SpvImageOperandsGradMask;
+    }  break;
+    case IL_OP_SAMPLE_L: {
+        parameters[argCount] = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);// bias
+        argCount++;
+        argMask |= SpvImageOperandsLodMask;
+    } break;
+    case IL_OP_SAMPLE_C: {
+        depthComparison = true;
+        drefId = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);
+    } break;
+    case IL_OP_SAMPLE_C_B:
+    {
+        depthComparison = true;
+        drefId = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);
+        parameters[argCount] = loadSource(compiler, &instr->srcs[2], mask, compiler->floatIds[0]);// bias
+        argCount++;
+        argMask |= SpvImageOperandsBiasMask;
+    } break;
+    case IL_OP_SAMPLE_C_G: {
+        depthComparison = true;
+        drefId = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);
+        parameters[argCount] = loadSource(compiler, &instr->srcs[2], mask, coordTypeId);// dividend
+        argCount++;
+        parameters[argCount] = loadSource(compiler, &instr->srcs[3], mask, coordTypeId);// divisor
+        argCount++;
+        argMask |= SpvImageOperandsGradMask;
+    }  break;
+    case IL_OP_SAMPLE_C_L: {
+        depthComparison = true;
+        drefId = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);
+        parameters[argCount] = loadSource(compiler, &instr->srcs[2], mask, compiler->floatIds[0]);// lod
+        argCount++;
+        argMask |= SpvImageOperandsLodMask;
+    } break;
+    case IL_OP_SAMPLE_C_LZ: {
+        depthComparison = true;
+        drefId = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);
+        parameters[argCount] = ilcSpvPutConstant(compiler->module, compiler->floatIds[0], ZERO_LITERAL);// lod is zero float here
+        argCount++;
+        argMask |= SpvImageOperandsLodMask;
+    } break;
+    default:
+        break;
+    }
+    if (GET_BIT(instr->control, 13)) {
+        IlcSpvId offsetTypeId = 0;
+        if (!getOffsetCoordinateType(compiler, coordinateVecSize, &offsetTypeId, NULL)) {
+            LOGE("couldn't get type for texture offset\n");
+            return;
+        }
+
+        IlcSpvId offsetValues[4];//TODO: add support for 3d images
+        for (unsigned i = 0; i < coordinateVecSize; ++i) {
+            uint8_t offsetVal = (uint8_t)((instr->addressOffset >> (i * 8)) & 0xFF);
+            int literalOffsetVal = (int)(*((int8_t*)&offsetVal) >> 1);
+            offsetValues[i] = ilcSpvPutConstant(compiler->module, compiler->intIds[0], *((IlcSpvWord*)&literalOffsetVal));
+        }
+        argMask |= SpvImageOperandsConstOffsetMask;
+        parameters[argCount] = ilcSpvPutConstantComposite(compiler->module, offsetTypeId, coordinateVecSize, offsetValues);
+        argCount++;
+    }
+    IlcSpvId sampleResultId = depthComparison ?
+        ilcSpvPutImageSampleDref(
+            compiler->module,
+            compiler->floatIds[3],
+            sampledImageId,
+            coordSrcId,
+            drefId,
+            argMask,
+            parameters) :
+        ilcSpvPutImageSample(
+            compiler->module,
+            compiler->floatIds[3],
+            sampledImageId,
+            coordSrcId,
+            argMask,
+            parameters);
+    storeDestination(compiler, dst, sampleResultId);
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1193,9 +1630,9 @@ static void emitLoad(
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->intIds[3]);
     IlcSpvWord addressIndex = COMP_INDEX_X;
-    IlcSpvId addressId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
+    IlcSpvId addressId = ilcSpvPutCompositeExtract(compiler->module, compiler->intIds[0], srcId,
                                                    1, &addressIndex);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, addressId);
@@ -1222,29 +1659,29 @@ static void emitStructuredSrvLoad(
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId  = loadSource(compiler, &instr->srcs[0], COMP_MASK_XY, compiler->intIds[1]);
     IlcSpvWord indexIndex = COMP_INDEX_X;
-    IlcSpvId indexId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
+    IlcSpvId indexId = ilcSpvPutCompositeExtract(compiler->module, compiler->intIds[0], srcId,
                                                  1, &indexIndex);
     IlcSpvWord offsetIndex = COMP_INDEX_Y;
-    IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
+    IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intIds[0], srcId,
                                                   1, &offsetIndex);
 
     // addr = (index * stride + offset) / 4
     const IlcSpvId mulIds[] = { indexId, resource->strideId };
-    IlcSpvId baseId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->intId, 2, mulIds);
+    IlcSpvId baseId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->intIds[0], 2, mulIds);
     const IlcSpvId addIds[] = { baseId, offsetId };
-    IlcSpvId byteAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
+    IlcSpvId byteAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intIds[0], 2, addIds);
     const IlcSpvId divIds[] = {
-        byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4)
+        byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intIds[0], 4)
     };
-    IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
+    IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intIds[0], 2, divIds);
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->int4Id, resourceId,
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->intIds[3], resourceId,
                                            wordAddrId);
     storeDestination(compiler, dst,
-                     ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
+                     ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], fetchId));
 }
 
 static void emitInstr(
@@ -1346,6 +1783,17 @@ static void emitInstr(
     case IL_OP_LOAD:
         emitLoad(compiler, instr);
         break;
+    case IL_OP_SAMPLE:
+    case IL_OP_SAMPLE_B:
+    case IL_OP_SAMPLE_L:
+    case IL_OP_SAMPLE_G:
+    case IL_OP_SAMPLE_C:
+    case IL_OP_SAMPLE_C_B:
+    case IL_OP_SAMPLE_C_L:
+    case IL_OP_SAMPLE_C_G:
+    case IL_OP_SAMPLE_C_LZ:
+        emitSample(compiler, instr);
+        break;
     case IL_OP_CMOV_LOGICAL:
         emitCmovLogical(compiler, instr);
         break;
@@ -1390,19 +1838,33 @@ static void emitEntryPoint(
         break;
     }
 
-    unsigned interfaceCount = compiler->regCount + compiler->resourceCount;
+    unsigned samplerCount = 0;
+    for (int i = 0; i < 16; ++i) {
+        if (compiler->samplerResources[i] != 0) {
+            samplerCount++;
+        }
+    }
+
+    unsigned interfaceCount = compiler->regCount + compiler->resourceCount + samplerCount;
     IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
     for (int i = 0; i < compiler->regCount; i++) {
         const IlcRegister* reg = &compiler->regs[i];
 
         interfaces[i] = reg->id;
     }
+
     for (int i = 0; i < compiler->resourceCount; i++) {
         const IlcResource* resource = &compiler->resources[i];
 
         interfaces[compiler->regCount + i] = resource->id;
     }
 
+    unsigned intIndex = compiler->regCount + compiler->resourceCount;
+    for (int i = 0; i < 16; i++) {
+        if (compiler->samplerResources[i] != 0) {
+            interfaces[intIndex++] = compiler->samplerResources[i];
+        }
+    }
     ilcSpvPutEntryPoint(compiler->module, compiler->entryPointId, execution, name,
                         interfaceCount, interfaces);
     ilcSpvPutName(compiler->module, compiler->entryPointId, name);
@@ -1426,6 +1888,7 @@ uint32_t* ilcCompileKernel(
     ilcSpvInit(&module);
 
     IlcSpvId intId = ilcSpvPutIntType(&module, true);
+    IlcSpvId uintId = ilcSpvPutIntType(&module, true);
     IlcSpvId floatId = ilcSpvPutFloatType(&module);
     IlcSpvId boolId = ilcSpvPutBoolType(&module);
 
@@ -1433,16 +1896,33 @@ uint32_t* ilcCompileKernel(
         .module = &module,
         .kernel = kernel,
         .entryPointId = ilcSpvAllocId(&module),
-        .intId = intId,
-        .int4Id = ilcSpvPutVectorType(&module, intId, 4),
-        .floatId = floatId,
-        .float4Id = ilcSpvPutVectorType(&module, floatId, 4),
+        .intIds = {
+            intId,
+            ilcSpvPutVectorType(&module, intId, 2),
+            ilcSpvPutVectorType(&module, intId, 3),
+            ilcSpvPutVectorType(&module, intId, 4)
+        },
+        .floatIds = {
+            floatId,
+            ilcSpvPutVectorType(&module, floatId, 2),
+            ilcSpvPutVectorType(&module, floatId, 3),
+            ilcSpvPutVectorType(&module, floatId, 4)
+        },
+        .uintIds = {
+            uintId,
+            ilcSpvPutVectorType(&module, uintId, 2),
+            ilcSpvPutVectorType(&module, uintId, 3),
+            ilcSpvPutVectorType(&module, uintId, 4)
+        },
+        .zeroUintId = 0,//lazy
         .boolId = boolId,
         .bool4Id = ilcSpvPutVectorType(&module, boolId, 4),
+        .samplerId = 0,
         .regCount = 0,
         .regs = NULL,
         .resourceCount = 0,
         .resources = NULL,
+        .samplerResources = {},
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
         .isInFunction = true,

@@ -67,6 +67,11 @@ void ilcSpvPutCapability(
     IlcSpvModule* module,
     IlcSpvWord capability);
 
+unsigned getSpvTypeComponentCount(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId *outScalarTypeId);
+
 IlcSpvId ilcSpvPutVoidType(
     IlcSpvModule* module);
 
@@ -94,6 +99,13 @@ IlcSpvId ilcSpvPutImageType(
     IlcSpvWord ms,
     IlcSpvWord sampled,
     IlcSpvWord format);
+
+IlcSpvId ilcSpvPutSampledImageType(
+    IlcSpvModule* module,
+    IlcSpvId imageTypeId);
+
+IlcSpvId ilcSpvPutSamplerType(
+    IlcSpvModule* module);
 
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,
@@ -132,6 +144,30 @@ IlcSpvId ilcSpvPutVariable(
     IlcSpvId resultTypeId,
     IlcSpvWord storageClass);
 
+IlcSpvId ilcSpvPutImageSample(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId argMask,
+    IlcSpvId* operands);
+
+IlcSpvId ilcSpvPutImageSampleDref(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId drefId,
+    IlcSpvId argMask,
+    IlcSpvId* operands);
+
+IlcSpvId ilcSpvPutSampledImage(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId imageResourceId,
+    IlcSpvId samplerId);
+
+
 IlcSpvId ilcSpvPutLoad(
     IlcSpvModule* module,
     IlcSpvId typeId,
@@ -148,6 +184,12 @@ void ilcSpvPutDecoration(
     IlcSpvWord decoration,
     unsigned argCount,
     const IlcSpvWord* args);
+
+IlcSpvId ilcSpvPutVectorExtractDynamic(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId vecId,
+    IlcSpvId indexId);
 
 IlcSpvId ilcSpvPutVectorShuffle(
     IlcSpvModule* module,

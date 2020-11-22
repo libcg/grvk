@@ -1,6 +1,8 @@
 #include "amdilc_internal.h"
 #include "amdilc_spirv.h"
-
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 #define BUFFER_ALLOC_THRESHOLD 64
 
 static unsigned strlenw(
@@ -69,6 +71,46 @@ static void putHeader(
     putWord(buffer, 0);
     putWord(buffer, module->currentId);
     putWord(buffer, 0);
+}
+
+unsigned getSpvTypeComponentCount(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId *outScalarTypeId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_TYPES];
+    for (int i = 0; i < buffer->wordCount;) {
+        SpvOp typeOp = buffer->words[i] & SpvOpCodeMask;
+        unsigned typeWordCount = buffer->words[i] >> SpvWordCountShift;
+        IlcSpvId foundTypeId;
+        switch (typeOp) {
+        case SpvOpTypeVector:
+            foundTypeId = buffer->words[i + 1];
+            if (foundTypeId == typeId) {
+                if (outScalarTypeId != NULL) {
+                    *outScalarTypeId = buffer->words[i + 2];
+                }
+                return buffer->words[i + 3];// cuz scalar type is +2
+            }
+            break;
+        case SpvOpTypeInt:
+        case SpvOpTypeFloat:
+            foundTypeId = buffer->words[i + 1];
+            if (foundTypeId == typeId) {
+                if (outScalarTypeId != NULL) {
+                    *outScalarTypeId = typeId;
+                }
+                return 1;// found some scalar
+            }
+            break;
+        default:
+            break;
+        }
+
+        i += typeWordCount;
+    }
+    LOGW("couldn't find a proper numeric type for %d\n", typeId);
+    return 0;
 }
 
 static IlcSpvId putType(
@@ -321,6 +363,19 @@ IlcSpvId ilcSpvPutVectorType(
     return putType(module, SpvOpTypeVector, 2, args);
 }
 
+IlcSpvId ilcSpvPutSamplerType(
+    IlcSpvModule* module)
+{
+    return putType(module, SpvOpTypeSampler, 0, NULL);
+}
+
+IlcSpvId ilcSpvPutSampledImageType(
+    IlcSpvModule* module,
+    IlcSpvId imageTypeId)
+{
+    return putType(module, SpvOpTypeSampledImage, 1, &imageTypeId);
+}
+
 IlcSpvId ilcSpvPutImageType(
     IlcSpvModule* module,
     IlcSpvId sampledTypeId,
@@ -371,6 +426,95 @@ IlcSpvId ilcSpvPutFunctionType(
 
     return id;
 }
+
+IlcSpvId ilcSpvPutSampledImage(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId imageResourceId,
+    IlcSpvId samplerId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpSampledImage, 5);
+    putWord(buffer, resultType);
+    putWord(buffer, id);
+    putWord(buffer, imageResourceId);
+    putWord(buffer, samplerId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutImageSample(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId argMask,
+    IlcSpvId* operands)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+    uint32_t operandCount;
+#ifdef _MSC_VER
+    operandCount = __popcnt(argMask);
+#else
+    operandCount = __builtin_popcount(argMask);
+#endif
+    if (argMask & SpvImageOperandsLodMask) {
+        putInstr(buffer, SpvOpImageSampleExplicitLod, 5 + operandCount + (operandCount > 0));
+    }
+    else {
+        putInstr(buffer, SpvOpImageSampleImplicitLod, 5 + operandCount + (operandCount > 0));
+    }
+    putWord(buffer, resultType);
+    putWord(buffer, id);
+    putWord(buffer, sampledImageId);
+    putWord(buffer, coordinateVariableId);
+    if (operandCount > 0) {
+        putWord(buffer, argMask);
+    }
+    for (uint32_t i = 0; i < operandCount; ++i) {
+        putWord(buffer, operands[i]);
+    }
+    return id;
+}
+
+IlcSpvId ilcSpvPutImageSampleDref(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId drefId,
+    IlcSpvId argMask,
+    IlcSpvId* operands)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+    uint32_t operandCount;
+#ifdef _MSC_VER
+    operandCount = __popcnt(argMask);
+#else
+    operandCount = __builtin_popcount(argMask);
+#endif
+    if (argMask & SpvImageOperandsLodMask) {
+        putInstr(buffer, SpvOpImageSampleDrefExplicitLod, 6 + operandCount + (operandCount > 0));
+    }
+    else {
+        putInstr(buffer, SpvOpImageSampleDrefImplicitLod, 6 + operandCount + (operandCount > 0));
+    }
+    putWord(buffer, resultType);
+    putWord(buffer, id);
+    putWord(buffer, sampledImageId);
+    putWord(buffer, coordinateVariableId);
+    putWord(buffer, drefId);
+    if (operandCount > 0) {
+        putWord(buffer, argMask);
+    }
+    for (uint32_t i = 0; i < operandCount; ++i) {
+        putWord(buffer, operands[i]);
+    }
+    return id;
+}
+
 
 IlcSpvId ilcSpvPutConstant(
     IlcSpvModule* module,
@@ -471,6 +615,23 @@ void ilcSpvPutDecoration(
     for (int i = 0; i < argCount; i++) {
         putWord(buffer, args[i]);
     }
+}
+
+IlcSpvId ilcSpvPutVectorExtractDynamic(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId vecId,
+    IlcSpvId indexId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpVectorExtractDynamic, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, vecId);
+    putWord(buffer, indexId);
+    return id;
 }
 
 IlcSpvId ilcSpvPutVectorShuffle(
