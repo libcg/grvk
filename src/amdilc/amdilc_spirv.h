@@ -27,6 +27,7 @@ typedef IlcSpvWord IlcSpvId;
 
 typedef struct {
     unsigned wordCount;
+    unsigned ptr;
     IlcSpvWord* words;
 } IlcSpvBuffer;
 
@@ -35,6 +36,11 @@ typedef struct {
     IlcSpvId glsl450ImportId;
     IlcSpvBuffer buffer[ID_MAX];
 } IlcSpvModule;
+
+typedef struct {
+    IlcSpvId label;
+    uint32_t literal;
+} IlcSpvSwitchCase;
 
 void ilcSpvInit(
     IlcSpvModule* module);
@@ -66,6 +72,15 @@ void ilcSpvPutExecMode(
 void ilcSpvPutCapability(
     IlcSpvModule* module,
     IlcSpvWord capability);
+
+/*gets current pointer position of the code buffer */
+uint32_t ilcSpvGetInsertionPtr(const IlcSpvModule* module);
+
+/*resets position of the code buffer */
+void ilcSpvEndInsertion(IlcSpvModule* module);
+
+/*sets pointer of the code buffer to specified position, allowing to insert commands in the middle of the buffer*/
+bool ilcSpvBeginInsertion(IlcSpvModule* module, uint32_t newPtr);
 
 unsigned getSpvTypeComponentCount(
     IlcSpvModule* module,
@@ -259,6 +274,13 @@ void ilcSpvPutBranchConditional(
     IlcSpvId conditionId,
     IlcSpvId trueLabelId,
     IlcSpvId falseLabelId);
+
+void ilcSpvPutSwitch(
+    IlcSpvModule* module,
+    IlcSpvId selectorId,
+    IlcSpvId defaultLabelId,
+    uint32_t caseSize,
+    const IlcSpvSwitchCase* cases);
 
 void ilcSpvPutReturn(
     IlcSpvModule* module);

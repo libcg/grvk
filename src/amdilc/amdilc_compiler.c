@@ -37,6 +37,7 @@ typedef struct {
 typedef enum {
     BLOCK_IF_ELSE,
     BLOCK_LOOP,
+    BLOCK_SWITCH
 } IlcControlFlowBlockType;
 
 typedef struct {
@@ -51,11 +52,27 @@ typedef struct {
     IlcSpvId labelBreakId;
 } IlcLoopBlock;
 
+typedef struct IlcSwitchCase {
+    IlcSpvId label;
+    uint32_t literal;
+    struct IlcSwitchCase* next;
+} IlcSwitchCase;
+
+typedef struct {
+    unsigned insertPtr;
+    IlcSpvId selectorId;
+    IlcSpvId labelBreak;
+    IlcSpvId labelCase;
+    IlcSpvId labelDefault;
+    IlcSwitchCase *labelCases;// pointer t
+} IlcSwitchBlock;
+
 typedef struct {
     IlcControlFlowBlockType type;
     union {
         IlcIfElseBlock ifElse;
         IlcLoopBlock loop;
+        IlcSwitchBlock switchBlock;
     };
 } IlcControlFlowBlock;
 
@@ -225,6 +242,13 @@ static void pushControlFlowBlock(
     compiler->controlFlowBlocks[compiler->controlFlowBlockCount - 1] = *block;
 }
 
+static IlcControlFlowBlock* topControlFlowBlock(
+    IlcCompiler* compiler)
+{
+    assert(compiler->controlFlowBlockCount > 0);
+    return compiler->controlFlowBlocks + compiler->controlFlowBlockCount - 1;
+}
+
 static IlcControlFlowBlock popControlFlowBlock(
     IlcCompiler* compiler)
 {
@@ -236,6 +260,20 @@ static IlcControlFlowBlock popControlFlowBlock(
     compiler->controlFlowBlocks = realloc(compiler->controlFlowBlocks, size);
 
     return block;
+}
+
+static IlcControlFlowBlock* findBreakableControlFlowBlock(
+    IlcCompiler* compiler)
+{
+    for (int i = compiler->controlFlowBlockCount - 1; i >= 0; i--) {
+        IlcControlFlowBlock* block = &compiler->controlFlowBlocks[i];
+
+        if (block->type == BLOCK_LOOP || block->type == BLOCK_SWITCH) {
+            return block;
+        }
+    }
+
+    return NULL;
 }
 
 static const IlcControlFlowBlock* findControlFlowBlock(
@@ -1255,6 +1293,115 @@ static void emitEndIf(
     ilcSpvPutLabel(compiler->module, block.ifElse.labelEndId);
 }
 
+static void emitSwitch(IlcCompiler* compiler, const Instruction* instr)
+{
+    IlcSpvId valueId = loadSource(compiler, &instr->srcs[0], COMP_MASK_X, compiler->intIds[0]);
+
+    const IlcControlFlowBlock block = {
+        .type = BLOCK_SWITCH,
+        .switchBlock = (IlcSwitchBlock){
+            .insertPtr = ilcSpvGetInsertionPtr(compiler->module),
+            .selectorId = valueId,
+            .labelBreak = ilcSpvAllocId(compiler->module),
+            .labelCase = ilcSpvAllocId(compiler->module),
+            .labelDefault = 0,
+            .labelCases = NULL,
+        },
+    };
+
+    ilcSpvPutLabel(compiler->module, block.switchBlock.labelCase);
+    pushControlFlowBlock(compiler, &block);
+}
+
+static void emitCase(IlcCompiler* compiler, const Instruction* instr)
+{
+    IlcControlFlowBlock* block = topControlFlowBlock(compiler);
+    if (block->type != BLOCK_SWITCH) {
+        LOGE("no matching switch block was found\n");
+        assert(false);
+    }
+    IlcSwitchCase* newLabel = malloc(sizeof(IlcSwitchCase));
+    newLabel->literal = instr->srcs[0].headerValue;
+    newLabel->label = block->switchBlock.labelCase;
+    newLabel->next  = block->switchBlock.labelCases;
+    block->switchBlock.labelCases = newLabel;
+}
+
+static void emitDefault(IlcCompiler* compiler, const Instruction* instr)
+{
+    IlcControlFlowBlock* block = topControlFlowBlock(compiler);
+    if (block->type != BLOCK_SWITCH) {
+        LOGE("no matching switch block was found\n");
+        assert(false);
+    }
+    block->switchBlock.labelDefault = block->switchBlock.labelCase;
+}
+
+static void emitEndSwitch(IlcCompiler* compiler, const Instruction* instr)
+{
+    IlcControlFlowBlock block = popControlFlowBlock(compiler);
+    if (block.type != BLOCK_SWITCH) {
+        LOGE("no matching switch block was found\n");
+        assert(false);
+    }
+
+    // If no 'default' label was specified, use the last allocated
+    // 'case' label. This is guaranteed to be an empty block unless
+    // a previous 'case' block was not closed properly.
+    if (block.switchBlock.labelDefault == 0) {
+      block.switchBlock.labelDefault = block.switchBlock.labelCase;
+    }
+
+    // Close the current 'case' block
+    ilcSpvPutBranch(compiler->module, block.switchBlock.labelBreak);
+    ilcSpvPutLabel(compiler->module, block.switchBlock.labelBreak);
+
+    // Insert the 'switch' statement. For that, we need to
+    // gather all the literal-label pairs for the construct.
+    ilcSpvBeginInsertion(compiler->module, block.switchBlock.insertPtr);
+    ilcSpvPutSelectionMerge(compiler->module, block.switchBlock.labelBreak);
+
+    // We'll restore the original order of the case labels here
+    uint32_t caseCount;
+    if (block.switchBlock.labelCases != NULL) {
+        caseCount = 1;
+        IlcSwitchCase* caseBlock = block.switchBlock.labelCases;
+        while (caseBlock->next != NULL) {
+            caseCount++;
+            caseBlock = caseBlock->next;
+        }
+    }
+    else {
+        caseCount = 0;
+    }
+
+    IlcSpvSwitchCase* cases = caseCount == 0 ? NULL : (IlcSpvSwitchCase*)malloc(sizeof(IlcSpvSwitchCase) * caseCount);
+    IlcSwitchCase* caseBlock = block.switchBlock.labelCases;
+    for (uint32_t i = 1; i <= caseCount; i++) {
+        cases[caseCount - i] = (IlcSpvSwitchCase){
+            .label = caseBlock->label,
+            .literal = caseBlock->literal,
+        };
+        // free switch case block here
+        IlcSwitchCase* caseToDelete = caseBlock;
+        caseBlock = caseBlock->next;
+        free(caseToDelete);
+    }
+
+    ilcSpvPutSwitch(
+        compiler->module,
+        block.switchBlock.selectorId,
+        block.switchBlock.labelDefault,
+        caseCount,
+        cases);
+    // set the pointer back to normal
+    ilcSpvEndInsertion(compiler->module);
+    // cleanup buffer
+    if (caseCount != 0) {
+        free(cases);
+    }
+}
+
 static void emitEndLoop(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1276,27 +1423,30 @@ static void emitBreak(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    const IlcControlFlowBlock* block = findControlFlowBlock(compiler, BLOCK_LOOP);
+    IlcControlFlowBlock* block = findBreakableControlFlowBlock(compiler);
     if (block == NULL) {
         LOGE("no matching loop block was found\n");
         assert(false);
     }
 
     IlcSpvId labelId = ilcSpvAllocId(compiler->module);
-
+    IlcSpvId breakId = block->type == BLOCK_SWITCH ? block->switchBlock.labelBreak : block->loop.labelBreakId;
     if (instr->opcode == IL_OP_BREAK) {
-        ilcSpvPutBranch(compiler->module, block->loop.labelBreakId);
+        ilcSpvPutBranch(compiler->module, breakId);
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
-        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->intIds[3]);
+        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_X, compiler->intIds[0]);
         IlcSpvId condId = emitConditionCheck(compiler, srcId,
                                              instr->opcode == IL_OP_BREAK_LOGICALNZ);
-        ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
+        ilcSpvPutBranchConditional(compiler->module, condId, breakId, labelId);
     } else {
         assert(false);
     }
 
     ilcSpvPutLabel(compiler->module, labelId);
+    if (block->type == BLOCK_SWITCH) {
+        block->switchBlock.labelCase = labelId;
+    }
 }
 
 static void emitContinue(
@@ -1739,6 +1889,18 @@ static void emitInstr(
         break;
     case IL_OP_ELSE:
         emitElse(compiler, instr);
+        break;
+    case IL_OP_SWITCH:
+        emitSwitch(compiler, instr);
+        break;
+    case IL_OP_CASE:
+        emitCase(compiler, instr);
+        break;
+    case IL_OP_DEFAULT:
+        emitDefault(compiler, instr);
+        break;
+    case IL_OP_ENDSWITCH:
+        emitEndSwitch(compiler, instr);
         break;
     case IL_OP_END:
     case IL_OP_ENDMAIN:

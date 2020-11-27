@@ -25,6 +25,10 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
     [IL_OP_ENDIF] = { IL_OP_ENDIF, 0, 0, 0, false },
     [IL_OP_ENDLOOP] = { IL_OP_ENDLOOP, 0, 0, 0, false },
+    [IL_OP_SWITCH] = { IL_OP_SWITCH, 0, 1, 0, false },
+    [IL_OP_CASE] = { IL_OP_CASE, 0, 1, 0, false },
+    [IL_OP_DEFAULT] = { IL_OP_DEFAULT, 0, 0, 0, false },
+    [IL_OP_ENDSWITCH] = { IL_OP_ENDSWITCH, 0, 0, 0, false },
     [IL_OP_ENDMAIN] = { IL_OP_ENDMAIN, 0, 0, 0, false },
     [IL_OP_FRC] = { IL_OP_FRC, 1, 1, 0, false },
     [IL_OP_MAD] = { IL_OP_MAD, 1, 3, 0, false },
@@ -247,6 +251,7 @@ static unsigned decodeSource(
     dimension = GET_BIT(token[idx], 25);
     src->hasImmediate = GET_BIT(token[idx], 26);
     extended = GET_BIT(token[idx], 31);
+    src->headerValue = token[idx];
     idx++;
 
     if (modifierPresent) {

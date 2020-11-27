@@ -21,8 +21,14 @@ static void putWord(
         size_t size = sizeof(IlcSpvWord) * (buffer->wordCount + BUFFER_ALLOC_THRESHOLD);
         buffer->words = realloc(buffer->words, size);
     }
+    if (buffer->ptr < buffer->wordCount) {
+        // memcpy stuff
+        memmove((void*)(buffer->words + buffer->ptr + 1), (void*)(buffer->words + buffer->ptr), (buffer->wordCount - buffer->ptr) * sizeof(IlcSpvWord));
+    }
 
-    buffer->words[buffer->wordCount++] = word;
+    buffer->words[buffer->ptr] = word;
+    buffer->wordCount++;
+    buffer->ptr++;
 }
 
 static void putInstr(
@@ -71,6 +77,27 @@ static void putHeader(
     putWord(buffer, 0);
     putWord(buffer, module->currentId);
     putWord(buffer, 0);
+}
+
+uint32_t ilcSpvGetInsertionPtr(const IlcSpvModule* module) {
+    const IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    return buffer->ptr;
+}
+
+void ilcSpvEndInsertion( IlcSpvModule* module) {
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    buffer->ptr = buffer->wordCount;
+}
+
+bool ilcSpvBeginInsertion(IlcSpvModule* module, uint32_t newPtr) {
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    if (newPtr > buffer->wordCount) {
+        return false;
+    }
+    else {
+        buffer->ptr = newPtr;
+        return true;
+    }
 }
 
 unsigned getSpvTypeComponentCount(
@@ -238,7 +265,7 @@ void ilcSpvInit(
     module->currentId = 1;
     module->glsl450ImportId = ilcSpvAllocId(module);
     for (int i = 0; i < ID_MAX; i++) {
-        module->buffer[i] = (IlcSpvBuffer) { 0, NULL };
+        module->buffer[i] = (IlcSpvBuffer) { 0, 0, NULL };
     }
 
     ilcSpvPutCapability(module, SpvCapabilityShader);
@@ -822,6 +849,24 @@ void ilcSpvPutBranchConditional(
     putWord(buffer, conditionId);
     putWord(buffer, trueLabelId);
     putWord(buffer, falseLabelId);
+}
+
+void ilcSpvPutSwitch(
+    IlcSpvModule* module,
+    IlcSpvId selectorId,
+    IlcSpvId defaultLabelId,
+    uint32_t caseSize,
+    const IlcSpvSwitchCase* cases)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpSwitch, 3 + caseSize * 2);
+    putWord(buffer, selectorId);
+    putWord(buffer, defaultLabelId);
+    for (uint32_t i = 0; i < caseSize; ++i) {
+        putWord(buffer, cases[i].literal);
+        putWord(buffer, cases[i].label);
+    }
 }
 
 void ilcSpvPutReturn(
