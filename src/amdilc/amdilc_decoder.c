@@ -107,7 +107,8 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_UAV_ADD] = { IL_OP_UAV_ADD, 0, 2, 0, false },
     [IL_OP_UAV_READ_ADD] = { IL_OP_UAV_READ_ADD, 1, 2, 0, false },
     [IL_OP_DCL_STRUCT_SRV] = { IL_OP_DCL_STRUCT_SRV, 0, 0, 1, false },
-    [IL_OP_SRV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, false },
+    [IL_OP_SRV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, true },
+    [IL_OP_SRV_RAW_LOAD] = { IL_OP_SRV_RAW_LOAD, 1, 1, 0, true },
     [IL_DCL_STRUCT_LDS] = { IL_DCL_STRUCT_LDS, 0, 0, 2, false },
     [IL_OP_U_BIT_EXTRACT] = { IL_OP_U_BIT_EXTRACT, 1, 3, 0, false },
     [IL_OP_U_BIT_INSERT] = { IL_OP_U_BIT_INSERT, 1, 4, 0, false },
@@ -122,12 +123,12 @@ static unsigned getSourceCount(
     const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
     bool indexedArgs = GET_BIT(instr->control, 12);
     bool priModifierPresent = GET_BIT(instr->control, 15);
-
-    if (info->hasIndexedResourceSampler && indexedArgs) {
+    // LOAD instructions can have indexedResourceSampler, but they consume only one extra source register...
+    if (info->hasIndexedResourceSampler && indexedArgs && (instr->opcode != IL_OP_SRV_STRUCT_LOAD && instr->opcode != IL_OP_SRV_RAW_LOAD)) {
         // AMDIL spec, section 7.2.3: If the indexed_args bit is set to 1, there are two
         // additional source arguments, corresponding to resource index and sampler index.
         return info->srcCount + 2;
-    } else if (instr->opcode == IL_OP_SRV_STRUCT_LOAD && indexedArgs) {
+    } else if ((instr->opcode == IL_OP_SRV_STRUCT_LOAD || instr->opcode == IL_OP_SRV_RAW_LOAD) && indexedArgs) {
         // Extra indexed input
         return info->srcCount + 1;
     } else if (instr->opcode == IL_DCL_CONST_BUFFER && !priModifierPresent) {

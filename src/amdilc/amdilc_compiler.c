@@ -156,7 +156,7 @@ static const IlcRegister* addRegister(
 }
 
 static const IlcRegister* findRegister(
-    IlcCompiler* compiler,
+    const IlcCompiler* compiler,
     uint32_t type,
     uint32_t num)
 {
@@ -1530,6 +1530,36 @@ static bool getOffsetCoordinateType(
     return true;
 }
 
+static bool getIndexedResourceId(const IlcCompiler* compiler, const Source* src, uint8_t *outResourceId)
+{
+    if (src->registerType != IL_REGTYPE_LITERAL && src->registerType != IL_REGTYPE_CONST_INT) {
+        LOGE("can't handle non-constant resource offsets\n");
+        return false;
+    }
+    if (src->swizzle[0] >= IL_COMPSEL_LAST) {
+        LOGE("invalid swizzle for resource offset X coordinate\n");
+        return false;
+    }
+    switch (src->swizzle[0]) {
+    case IL_COMPSEL_0:
+        //do nothing :D
+        break;
+    case IL_COMPSEL_1:
+        *outResourceId += 1;
+        break;
+    default: {
+        const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
+        if (reg == NULL) {
+            LOGE("failed to find register %d", src->registerNum);
+            return false;
+        }
+        *outResourceId += reg->literalValues[src->swizzle[0]];
+    } break;
+    }
+
+    return true;
+}
+
 static void emitSample(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1539,48 +1569,11 @@ static void emitSample(
     bool indexedArgs = GET_BIT(instr->control, 12);
 
     if (indexedArgs) {
-        if ((instr->srcs[instr->srcCount - 1].registerType != IL_REGTYPE_LITERAL && instr->srcs[instr->srcCount - 1].registerType != IL_REGTYPE_CONST_INT) ||
-            (instr->srcs[instr->srcCount - 2].registerType != IL_REGTYPE_LITERAL && instr->srcs[instr->srcCount - 2].registerType != IL_REGTYPE_CONST_INT)) {
-            LOGE("can't handle non-constant resource offsets\n");
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 2, &ilResourceId)) {
             return;
         }
-        if (instr->srcs[instr->srcCount - 2].swizzle[0] >= IL_COMPSEL_LAST || instr->srcs[instr->srcCount - 1].swizzle[0] >= IL_COMPSEL_LAST) {
-            LOGE("invalid swizzle for resource offset X coordinate\n");
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 1, &ilSamplerId)) {
             return;
-        }
-        // offset extraction
-        switch (instr->srcs[instr->srcCount - 2].swizzle[0]) {
-        case IL_COMPSEL_0:
-            //do nothing :D
-            break;
-        case IL_COMPSEL_1:
-            ilResourceId += 1;
-            break;
-        default: {
-            const IlcRegister* reg = findRegister(compiler, instr->srcs[instr->srcCount - 2].registerType, instr->srcs[instr->srcCount - 2].registerNum);
-            if (reg == NULL) {
-                LOGE("failed to find register %d", instr->srcs[instr->srcCount - 2].registerNum);
-                return;
-            }
-            ilResourceId += reg->literalValues[instr->srcs[instr->srcCount - 2].swizzle[0]];
-        } break;
-        }
-
-        switch (instr->srcs[instr->srcCount - 1].swizzle[0]) {
-        case IL_COMPSEL_0:
-            //do nothing :D
-            break;
-        case IL_COMPSEL_1:
-            ilSamplerId += 1;
-            break;
-        default: {
-            const IlcRegister* reg = findRegister(compiler, instr->srcs[instr->srcCount - 1].registerType, instr->srcs[instr->srcCount - 1].registerNum);
-            if (reg == NULL) {
-                LOGE("failed to find register %d", instr->srcs[instr->srcCount - 1].registerNum);
-                return;
-            }
-            ilSamplerId += reg->literalValues[instr->srcs[instr->srcCount - 1].swizzle[0]];
-        } break;
         }
     }
 
@@ -1789,16 +1782,101 @@ static void emitLoad(
     storeDestination(compiler, dst, fetchId);
 }
 
+static void emitRawSrvLoad(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    bool indexedResourceId = GET_BIT(instr->control, 12);
+    if (indexedResourceId) {
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + 1, &ilResourceId)) {
+            return;
+        }
+    }
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+
+    if (indexedResourceId && resource == NULL) {
+        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->uintId, SpvDimBuffer,
+                                              0 /*depth*/, false, false, 0, SpvImageFormatRgba32ui);
+        IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                                 imageId);
+        IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                                SpvStorageClassUniformConstant);
+        ilcSpvPutName(compiler->module, imageId, "uint4Buffer");
+        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+        IlcSpvWord bindingIdx = ilResourceId;
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                            1, &descriptorSetIdx);//TODO: replace descriptor sets
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding,
+                            1, &bindingIdx);
+        const IlcResource newResource = {
+            .id = resourceId,
+            .typeId = imageId,
+            .ilId = ilResourceId,
+            .ilType = instr->resourceFormat,
+        };
+
+        resource = addResource(compiler, &newResource);
+    }
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+    const Destination* dst = &instr->dsts[0];
+    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
+    if (dstReg == NULL) {
+        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
+        return;
+    }
+
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_X, compiler->intIds[0]);
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->uintIds[3], resourceId, srcId);
+    storeDestination(compiler, dst,
+                     ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
+}
+
 static void emitStructuredSrvLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     bool indexedResourceId = GET_BIT(instr->control, 12);
+    if (indexedResourceId) {
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + 1, &ilResourceId)) {
+            return;
+        }
+    }
     const IlcResource* resource = findResource(compiler, ilResourceId);
 
-    if (indexedResourceId) {
-        LOGW("unhandled indexed resource ID\n");
+    if (indexedResourceId && resource == NULL) {
+        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->uintIds[0], SpvDimBuffer,
+                                              0 /*depth*/, false, false, 0, SpvImageFormatRgba32ui);
+        IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                                 imageId);
+        IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                                SpvStorageClassUniformConstant);
+        ilcSpvPutName(compiler->module, imageId, "uint4Buffer");
+        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+        IlcSpvWord bindingIdx = ilResourceId;
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                            1, &descriptorSetIdx);//TODO: replace descriptor sets
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding,
+                            1, &bindingIdx);//TODO: replace descriptor sets
+        const IlcResource newResource = {
+            .id = resourceId,
+            .typeId = imageId,
+            .ilId = ilResourceId,
+            .ilType = instr->resourceFormat,
+        };
+
+        resource = addResource(compiler, &newResource);
+    }
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
     }
 
     const Destination* dst = &instr->dsts[0];
@@ -1828,7 +1906,7 @@ static void emitStructuredSrvLoad(
     IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intIds[0], 2, divIds);
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->intIds[3], resourceId,
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->uintIds[3], resourceId,
                                            wordAddrId);
     storeDestination(compiler, dst,
                      ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], fetchId));
@@ -1964,6 +2042,9 @@ static void emitInstr(
         break;
     case IL_OP_SRV_STRUCT_LOAD:
         emitStructuredSrvLoad(compiler, instr);
+        break;
+    case IL_OP_SRV_RAW_LOAD:
+        emitRawSrvLoad(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
