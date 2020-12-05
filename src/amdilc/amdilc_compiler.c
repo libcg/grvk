@@ -32,6 +32,7 @@ typedef struct {
     uint32_t ilId;
     uint32_t strideId;
     uint32_t ilType;
+    uint32_t ilSampledType;
 } IlcResource;
 
 typedef enum {
@@ -91,6 +92,8 @@ typedef struct {
     IlcRegister* regs;
     unsigned resourceCount;
     IlcResource* resources;
+    unsigned uavResourceCount;
+    IlcResource* uavResources;
     IlcSpvId samplerResources[16];
     unsigned controlFlowBlockCount;
     IlcControlFlowBlock* controlFlowBlocks;
@@ -211,6 +214,21 @@ static const IlcResource* findResource(
     return NULL;
 }
 
+static const IlcResource* findUavResource(
+    IlcCompiler* compiler,
+    uint32_t ilId)
+{
+    for (int i = 0; i < compiler->uavResourceCount; i++) {
+        const IlcResource* resource = &compiler->uavResources[i];
+
+        if (resource->ilId == ilId) {
+            return resource;
+        }
+    }
+
+    return NULL;
+}
+
 static const IlcResource* addResource(
     IlcCompiler* compiler,
     const IlcResource* resource)
@@ -230,6 +248,27 @@ static const IlcResource* addResource(
                                   sizeof(IlcResource) * compiler->resourceCount);
     compiler->resources[compiler->resourceCount - 1] = *resource;
     return compiler->resources + compiler->resourceCount - 1;
+}
+
+static const IlcResource* addUavResource(
+    IlcCompiler* compiler,
+    const IlcResource* resource)
+{
+    const IlcResource* existingResource = findUavResource(compiler, resource->ilId);
+    if (existingResource != NULL) {
+        LOGE("resource %d already present\n", resource->ilId);
+        return existingResource;
+    }
+
+    char name[32];
+    snprintf(name, 32, "resource%u", resource->ilId);
+    ilcSpvPutName(compiler->module, resource->id, name);
+
+    compiler->uavResourceCount++;
+    compiler->uavResources = realloc(compiler->uavResources,
+                                  sizeof(IlcResource) * compiler->uavResourceCount);
+    compiler->uavResources[compiler->uavResourceCount - 1] = *resource;
+    return compiler->uavResources + compiler->uavResourceCount - 1;
 }
 
 static void pushControlFlowBlock(
@@ -766,6 +805,105 @@ static bool getSpvImage(uint8_t type, const uint8_t *imgFmt, SpvDim* outDim, Spv
     return true;
 }
 
+static IlcSpvId getScalarSampledTypeId(
+    const IlcCompiler* compiler,
+    uint8_t ilElementType)
+{
+    switch (ilElementType) {
+    case IL_ELEMENTFORMAT_UINT:
+        return compiler->uintIds[0];
+    case IL_ELEMENTFORMAT_SINT:
+        return compiler->intIds[0];
+    case IL_ELEMENTFORMAT_UNKNOWN:
+    case IL_ELEMENTFORMAT_FLOAT:
+    case IL_ELEMENTFORMAT_SNORM:
+    case IL_ELEMENTFORMAT_UNORM:
+        return compiler->floatIds[0];
+    default:
+        return 0;
+    }
+}
+
+static IlcSpvId getVectorSampledTypeId(
+    const IlcCompiler* compiler,
+    uint32_t ilElementType)
+{
+    switch (ilElementType) {
+    case IL_ELEMENTFORMAT_UINT:
+        return compiler->uintIds[3];
+    case IL_ELEMENTFORMAT_SINT:
+        return compiler->intIds[3];
+    case IL_ELEMENTFORMAT_UNKNOWN:
+    case IL_ELEMENTFORMAT_FLOAT:
+    case IL_ELEMENTFORMAT_SNORM:
+    case IL_ELEMENTFORMAT_UNORM:
+        return compiler->floatIds[3];
+    default:
+        return 0;
+    }
+}
+
+static const IlcResource* createUavResource(
+    IlcCompiler* compiler,
+    uint8_t id,
+    uint8_t type,
+    uint8_t fmtx)
+{
+    //just use unknown
+    //TODO: check for atomic operations to emit image type
+    uint8_t imgFmt[4] = { IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN};
+    LOGT("found UAV resource %d %d\n", id, type, fmtx);
+    SpvDim dim;
+    SpvImageFormat imageFormat;
+    IlcSpvWord isArrayed, isMultiSampled;
+    getSpvImage(type, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
+    IlcSpvWord sampledTypeId = getScalarSampledTypeId(compiler, fmtx);
+    if (sampledTypeId == 0) {
+        LOGE("unsupported element format %X", fmtx);
+        assert(false);
+    }
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, dim,
+                                                    0 /*depth*/, isArrayed, isMultiSampled,
+                                                    2 /*storage image*/,
+                                          imageFormat/*, SpvAccessQualifierReadWrite*/);// just specify read write, it is possible to check for access type though or not write access type at all
+    IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                             imageId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                            SpvStorageClassUniformConstant);
+
+    ilcSpvPutName(compiler->module, imageId, "uav4Buffer");//TODO: replace name
+
+    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    IlcSpvWord bindingIdx = id;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+    const IlcResource resource = {
+        .id = resourceId,
+        .typeId = imageId,
+        .ilId = id,
+        .strideId = 0,
+        .ilType = type,
+        .ilSampledType = fmtx,
+    };
+
+    return addUavResource(compiler, &resource);
+}
+
+static void emitUavResource(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    assert(instr->dstCount == 0 &&
+           instr->srcCount == 0 &&
+           instr->extraCount == 1);
+
+    uint8_t id = GET_BITS(instr->control, 0, 3);
+    uint8_t type = GET_BITS(instr->control, 8, 13);
+    uint8_t fmtx = GET_BITS(instr->extras[0], 4, 7);
+    createUavResource(compiler, id, type, fmtx);
+}
+
 static void emitResource(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -793,7 +931,13 @@ static void emitResource(
         assert(false);
     }
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatIds[0], dim,
+    IlcSpvWord sampledTypeId = getScalarSampledTypeId(compiler, fmtx);
+    if (sampledTypeId == 0) {
+        LOGE("unsupported element format %X", fmtx);
+        assert(false);
+    }
+
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, dim,
                                           0 /*depth*/, isArrayed, isMultiSampled, 1, imageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
@@ -815,6 +959,7 @@ static void emitResource(
         .ilId = id,
         .strideId = 0,
         .ilType = type,
+        .ilSampledType = fmtx,
     };
 
     addResource(compiler, &resource);
@@ -847,6 +992,7 @@ static void emitStructuredSrv(
         .typeId = imageId,
         .ilId = id,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intIds[0], instr->extras[0]),
+        .ilSampledType = IL_ELEMENTFORMAT_SINT,
     };
 
     addResource(compiler, &resource);
@@ -1610,6 +1756,7 @@ static void emitSample(
             .typeId = imageId,
             .ilId = ilResourceId,
             .ilType = instr->resourceFormat,
+            .ilSampledType = IL_ELEMENTFORMAT_UNKNOWN,
         };
 
         resource = addResource(compiler, &newResource);
@@ -1782,6 +1929,135 @@ static void emitLoad(
     storeDestination(compiler, dst, fetchId);
 }
 
+static void emitUavStore(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    bool indexedArgs = GET_BIT(instr->control, 12);
+    const IlcResource* resource = findUavResource(compiler, ilResourceId);
+    if (indexedArgs) {
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 1, &ilResourceId)) {
+            return;
+        }
+    }
+    if (resource == NULL && indexedArgs) {
+        resource = createUavResource(compiler, ilResourceId, instr->resourceFormat, IL_ELEMENTFORMAT_UNKNOWN);
+    }
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    uint32_t coordinateVecSize;
+    if (resource->ilType == 0) {
+        // that shouldn't happen really
+        LOGE("ilType of resource is 0\n");
+        return;
+    }
+    else {
+        coordinateVecSize = getCoordinateVectorSize(resource->ilType);
+    }
+    uint32_t mask;
+    IlcSpvId coordTypeId;
+    switch (coordinateVecSize) {
+    case 1:
+        coordTypeId = compiler->intIds[0];
+        mask = COMP_MASK_X;
+        break;
+    case 2:
+        coordTypeId = compiler->intIds[1];
+        mask = COMP_MASK_XY;
+        break;
+    case 3:
+        coordTypeId = compiler->intIds[2];
+        mask = COMP_MASK_XYZ;
+        break;
+    case 4:
+        coordTypeId = compiler->intIds[3];
+        mask = COMP_MASK_XYZW;
+        break;
+    default:
+        LOGE("invalid coordinate size\n");
+        assert(false);
+        return;
+    }
+    IlcSpvId coordId = loadSource(compiler, &instr->srcs[0], mask, coordTypeId);
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId sampledTypeId = getVectorSampledTypeId(compiler, resource->ilSampledType);
+    IlcSpvId valueId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, sampledTypeId);
+    ilcSpvPutImageWrite(compiler->module, resourceId, coordId, valueId);
+}
+
+static void emitUavLoad(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    bool indexedArgs = GET_BIT(instr->control, 12);
+    const IlcResource* resource = findUavResource(compiler, ilResourceId);
+    if (indexedArgs) {
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 1, &ilResourceId)) {
+            return;
+        }
+    }
+    if (resource == NULL && indexedArgs) {
+        resource = createUavResource(compiler, ilResourceId, instr->resourceFormat, IL_ELEMENTFORMAT_UNKNOWN);
+    }
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+    const Destination* dst = &instr->dsts[0];
+    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
+
+    if (dstReg == NULL) {
+        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
+        return;
+    }
+    uint32_t coordinateVecSize;
+    if (resource->ilType == 0) {
+        // that shouldn't happen really
+        LOGE("ilType of resource is 0\n");
+        return;
+    }
+    else {
+        coordinateVecSize = getCoordinateVectorSize(resource->ilType);
+    }
+    uint32_t mask;
+    IlcSpvId coordTypeId;
+    switch (coordinateVecSize) {
+    case 1:
+        coordTypeId = compiler->intIds[0];
+        mask = COMP_MASK_X;
+        break;
+    case 2:
+        coordTypeId = compiler->intIds[1];
+        mask = COMP_MASK_XY;
+        break;
+    case 3:
+        coordTypeId = compiler->intIds[2];
+        mask = COMP_MASK_XYZ;
+        break;
+    case 4:
+        coordTypeId = compiler->intIds[3];
+        mask = COMP_MASK_XYZW;
+        break;
+    default:
+        LOGE("invalid coordinate size\n");
+        assert(false);
+        return;
+    }
+    IlcSpvId coordId = loadSource(compiler, &instr->srcs[0], mask, coordTypeId);
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId sampledTypeId = getVectorSampledTypeId(compiler, resource->ilSampledType);
+    IlcSpvId readId = ilcSpvPutImageRead(compiler->module, sampledTypeId, resourceId, coordId);
+    if (dstReg->typeId != sampledTypeId) {
+        readId = ilcSpvPutBitcast(compiler->module, dstReg->typeId, readId);// TODO: move this logic to storeDestination
+    }
+    storeDestination(compiler, dst, readId);
+}
+
 static void emitRawSrvLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1796,7 +2072,7 @@ static void emitRawSrvLoad(
     const IlcResource* resource = findResource(compiler, ilResourceId);
 
     if (indexedResourceId && resource == NULL) {
-        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->uintId, SpvDimBuffer,
+        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->uintIds[0], SpvDimBuffer,
                                               0 /*depth*/, false, false, 0, SpvImageFormatRgba32ui);
         IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                                  imageId);
@@ -1814,6 +2090,7 @@ static void emitRawSrvLoad(
             .typeId = imageId,
             .ilId = ilResourceId,
             .ilType = instr->resourceFormat,
+            .ilSampledType = IL_ELEMENTFORMAT_UINT,
         };
 
         resource = addResource(compiler, &newResource);
@@ -1832,9 +2109,13 @@ static void emitRawSrvLoad(
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_X, compiler->intIds[0]);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->uintIds[3], resourceId, srcId);
-    storeDestination(compiler, dst,
-                     ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
+    // need to adjust fetched vector type to image sampled type
+    IlcSpvId sampledTypeId = getVectorSampledTypeId(compiler, resource->ilSampledType);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, sampledTypeId, resourceId, srcId);
+    if (compiler->floatIds[3] != sampledTypeId) {
+        fetchId = ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], fetchId);
+    }
+    storeDestination(compiler, dst, fetchId);
 }
 
 static void emitStructuredSrvLoad(
@@ -1869,6 +2150,7 @@ static void emitStructuredSrvLoad(
             .typeId = imageId,
             .ilId = ilResourceId,
             .ilType = instr->resourceFormat,
+            .ilSampledType = IL_ELEMENTFORMAT_UINT,
         };
 
         resource = addResource(compiler, &newResource);
@@ -1906,10 +2188,14 @@ static void emitStructuredSrvLoad(
     IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intIds[0], 2, divIds);
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->uintIds[3], resourceId,
+
+    IlcSpvId sampledTypeId = getVectorSampledTypeId(compiler, resource->ilSampledType);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, sampledTypeId, resourceId,
                                            wordAddrId);
-    storeDestination(compiler, dst,
-                     ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], fetchId));
+    if (compiler->floatIds[3] != sampledTypeId) {
+        fetchId = ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], fetchId);
+    }
+    storeDestination(compiler, dst, fetchId);
 }
 
 static void emitInstr(
@@ -2020,6 +2306,9 @@ static void emitInstr(
     case IL_DCL_RESOURCE:
         emitResource(compiler, instr);
         break;
+    case IL_OP_DCL_UAV:
+        emitUavResource(compiler, instr);
+        break;
     case IL_OP_LOAD:
         emitLoad(compiler, instr);
         break;
@@ -2045,6 +2334,12 @@ static void emitInstr(
         break;
     case IL_OP_SRV_RAW_LOAD:
         emitRawSrvLoad(compiler, instr);
+        break;
+    case IL_OP_UAV_LOAD:
+        emitUavLoad(compiler, instr);
+        break;
+    case IL_OP_UAV_STORE:
+        emitUavStore(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
@@ -2088,7 +2383,7 @@ static void emitEntryPoint(
         }
     }
 
-    unsigned interfaceCount = compiler->regCount + compiler->resourceCount + samplerCount;
+    unsigned interfaceCount = compiler->regCount + compiler->resourceCount + compiler->uavResourceCount + samplerCount;
     IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
     for (int i = 0; i < compiler->regCount; i++) {
         const IlcRegister* reg = &compiler->regs[i];
@@ -2101,8 +2396,11 @@ static void emitEntryPoint(
 
         interfaces[compiler->regCount + i] = resource->id;
     }
-
-    unsigned intIndex = compiler->regCount + compiler->resourceCount;
+    for (int i = 0; i < compiler->uavResourceCount; i++) {
+        const IlcResource* resource = &compiler->uavResources[i];
+        interfaces[compiler->regCount + compiler->resourceCount + i] = resource->id;
+    }
+    unsigned intIndex = compiler->regCount + compiler->resourceCount + compiler->uavResourceCount;
     for (int i = 0; i < 16; i++) {
         if (compiler->samplerResources[i] != 0) {
             interfaces[intIndex++] = compiler->samplerResources[i];
@@ -2165,6 +2463,8 @@ uint32_t* ilcCompileKernel(
         .regs = NULL,
         .resourceCount = 0,
         .resources = NULL,
+        .uavResourceCount = 0,
+        .uavResources = NULL,
         .samplerResources = {},
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
@@ -2180,6 +2480,7 @@ uint32_t* ilcCompileKernel(
 
     free(compiler.regs);
     free(compiler.resources);
+    free(compiler.uavResources);
     free(compiler.controlFlowBlocks);
     ilcSpvFinish(&module);
 

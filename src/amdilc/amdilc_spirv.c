@@ -403,6 +403,32 @@ IlcSpvId ilcSpvPutSampledImageType(
     return putType(module, SpvOpTypeSampledImage, 1, &imageTypeId);
 }
 
+IlcSpvId ilcSpvPutImageTypeWithAccess(
+    IlcSpvModule* module,
+    IlcSpvId sampledTypeId,
+    IlcSpvWord dim,
+    IlcSpvWord depth,
+    IlcSpvWord arrayed,
+    IlcSpvWord ms,
+    IlcSpvWord sampled,
+    IlcSpvWord format,
+    IlcSpvWord accessMode)
+{
+    const IlcSpvWord args[] = {
+        sampledTypeId,
+        dim,
+        depth,
+        arrayed,
+        ms,
+        sampled,
+        format,
+        accessMode,
+    };
+
+    return putType(module, SpvOpTypeImage, 8, args);
+}
+
+
 IlcSpvId ilcSpvPutImageType(
     IlcSpvModule* module,
     IlcSpvId sampledTypeId,
@@ -718,6 +744,39 @@ IlcSpvId ilcSpvPutCompositeExtract(
     for (int i = 0; i < indexCount; i++) {
         putWord(buffer, indexes[i]);
     }
+    return id;
+}
+
+IlcSpvId ilcSpvPutImageRead(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpImageRead, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, imageId);
+    putWord(buffer, coordinateId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutImageWrite(
+    IlcSpvModule* module,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId,
+    IlcSpvId valueId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpImageWrite, 4);
+    putWord(buffer, imageId);
+    putWord(buffer, coordinateId);
+    putWord(buffer, valueId);
     return id;
 }
 

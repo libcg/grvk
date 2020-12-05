@@ -102,8 +102,8 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_LDS_LOAD_VEC] = { IL_OP_LDS_LOAD_VEC, 1, 2, 0, false },
     [IL_OP_LDS_STORE_VEC] = { IL_OP_LDS_STORE_VEC, 1, 3, 0, false },
     [IL_OP_DCL_UAV] = { IL_OP_DCL_UAV, 0, 0, 0, false },
-    [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0, false },
-    [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0, false },
+    [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0, true },
+    [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0, true },
     [IL_OP_UAV_ADD] = { IL_OP_UAV_ADD, 0, 2, 0, false },
     [IL_OP_UAV_READ_ADD] = { IL_OP_UAV_READ_ADD, 1, 2, 0, false },
     [IL_OP_DCL_STRUCT_SRV] = { IL_OP_DCL_STRUCT_SRV, 0, 0, 1, false },
@@ -117,6 +117,20 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_UNK_660] = { IL_UNK_660, 1, 0, 0, false }, // FIXME undocumented
 };
 
+static bool isUavOrSrvOperation(uint16_t opcode)
+{
+    switch (opcode) {
+    case IL_OP_SRV_RAW_LOAD:
+    case IL_OP_SRV_STRUCT_LOAD:
+    case IL_OP_UAV_RAW_LOAD:
+    case IL_OP_UAV_LOAD:
+    case IL_OP_UAV_STORE:
+        return true;
+    default:
+        return false;
+    }
+}
+
 static unsigned getSourceCount(
     const Instruction* instr)
 {
@@ -124,11 +138,12 @@ static unsigned getSourceCount(
     bool indexedArgs = GET_BIT(instr->control, 12);
     bool priModifierPresent = GET_BIT(instr->control, 15);
     // LOAD instructions can have indexedResourceSampler, but they consume only one extra source register...
-    if (info->hasIndexedResourceSampler && indexedArgs && (instr->opcode != IL_OP_SRV_STRUCT_LOAD && instr->opcode != IL_OP_SRV_RAW_LOAD)) {
+    bool isUavOperation = isUavOrSrvOperation(instr->opcode);
+    if (info->hasIndexedResourceSampler && indexedArgs && (!isUavOperation)) {
         // AMDIL spec, section 7.2.3: If the indexed_args bit is set to 1, there are two
         // additional source arguments, corresponding to resource index and sampler index.
         return info->srcCount + 2;
-    } else if ((instr->opcode == IL_OP_SRV_STRUCT_LOAD || instr->opcode == IL_OP_SRV_RAW_LOAD) && indexedArgs) {
+    } else if (isUavOperation && indexedArgs) {
         // Extra indexed input
         return info->srcCount + 1;
     } else if (instr->opcode == IL_DCL_CONST_BUFFER && !priModifierPresent) {
