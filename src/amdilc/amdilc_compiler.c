@@ -1905,6 +1905,182 @@ static void emitSample(
     storeDestination(compiler, dst, sampleResultId);
 }
 
+static void emitGather(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    uint8_t ilSamplerId  = GET_BITS(instr->control, 8, 11);
+    bool indexedArgs = GET_BIT(instr->control, 12);
+
+    if (indexedArgs) {
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 2, &ilResourceId)) {
+            return;
+        }
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 1, &ilSamplerId)) {
+            return;
+        }
+    }
+
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+    if (resource == NULL && indexedArgs) {
+        bool unnormalized = GET_BIT(instr->control, 15) ? (GET_BITS(instr->primModifier, 2, 3) == IL_TEXCOORDMODE_UNNORMALIZED) : false;
+        if (unnormalized) {
+            LOGE("unhandled resource type %d %d - can't handle unnormalized image types\n", instr->resourceFormat, unnormalized);
+            assert(false);
+        }
+        SpvDim dim;
+        SpvImageFormat imageFormat;
+        IlcSpvWord isArrayed, isMultiSampled;
+        uint8_t imgFmt[4] = {IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN};
+        //LAST is 14 so use 15, some compilers can generate extra bits for some reason (0x42 for 2D image, for example)
+        getSpvImage(instr->resourceFormat & 15, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
+        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatIds[0], dim,
+                                              0 /*depth*/, false, false, 1, SpvImageFormatUnknown);
+        IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                                 imageId);
+        IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                                SpvStorageClassUniformConstant);
+
+        ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
+        ilcSpvPutName(compiler->module, imageId, "float4Buffer");//TODO: replace name
+
+        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                            1, &descriptorSetIdx);//TODO: replace descriptor sets
+        IlcSpvWord bindingIdx = ilResourceId;
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding,
+                            1, &bindingIdx);
+        const IlcResource newResource = {
+            .id = resourceId,
+            .typeId = imageId,
+            .ilId = ilResourceId,
+            .ilType = instr->resourceFormat & 15,
+            .ilSampledType = IL_ELEMENTFORMAT_UNKNOWN,
+        };
+
+        resource = addResource(compiler, &newResource);
+    }
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+    uint32_t coordinateVecSize;
+    if (resource->ilType == 0) {
+        // that shouldn't happen really
+        LOGE("ilType of resource is 0\n");
+        return;
+    }
+    else {
+        coordinateVecSize = getCoordinateVectorSize(resource->ilType);
+    }
+    uint32_t mask;
+    IlcSpvId coordTypeId;
+    switch (coordinateVecSize) {
+    case 1:
+        coordTypeId = compiler->floatIds[0];
+        mask = COMP_MASK_X;
+        break;
+    case 2:
+        coordTypeId = compiler->floatIds[1];
+        mask = COMP_MASK_XY;
+        break;
+    case 3:
+        coordTypeId = compiler->floatIds[2];
+        mask = COMP_MASK_XYZ;
+        break;
+    case 4:
+        coordTypeId = compiler->floatIds[3];
+        mask = COMP_MASK_XYZW;
+        break;
+    default:
+        LOGE("invalid coordinate size\n");
+        assert(false);
+        return;
+    }
+    const Destination* dst = &instr->dsts[0];
+
+    IlcSpvId coordSrcId = loadSource(compiler, &instr->srcs[0], mask, coordTypeId);
+    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
+    IlcSpvId samplerResourceId = emitOrGetSampler(compiler, ilSamplerId);
+    IlcSpvId imageResourceId  = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId samplerId  = ilcSpvPutLoad(compiler->module, compiler->samplerId, samplerResourceId);
+    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId, imageResourceId, samplerId);
+    IlcSpvId drefOrComponentId = 0;
+    IlcSpvId argMask = 0;
+    uint32_t argCount = 0;
+    IlcSpvId parameters[9];//just in case
+    bool depthComparison = false;
+    bool offsetPresent = false;
+
+    switch (instr->opcode) {
+    case IL_OP_FETCH4_C: {
+        depthComparison = true;
+        drefOrComponentId = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);
+    } break;
+    case IL_OP_FETCH4_PO_C: {
+        depthComparison = true;
+        drefOrComponentId = loadSource(compiler, &instr->srcs[1], mask, compiler->floatIds[0]);
+    }
+    case IL_OP_FETCH4_PO: {
+        ilcSpvPutCapability(compiler->module, SpvCapabilityImageGatherExtended);
+        IlcSpvId offsetTypeId = 0;
+        getOffsetCoordinateType(compiler, coordinateVecSize, &offsetTypeId, NULL);
+        argMask |= SpvImageOperandsOffsetMask;
+        //mask is probably the same
+        parameters[argCount] = loadSource(compiler, &instr->srcs[1 + depthComparison ? 1 : 0], mask, offsetTypeId);
+        argCount++;
+        offsetPresent = true;
+    }
+    default:
+        break;
+    }
+    if (drefOrComponentId == 0) {
+        //idk why, but primModifier contains values from 4 to 7, so just get modulo of division by 4
+        unsigned componentValue = GET_BIT(instr->control, 15) ? (instr->primModifier & 0x3) : 0;
+        drefOrComponentId = ilcSpvPutConstant(compiler->module, compiler->uintIds[0], componentValue);
+    }
+    if (GET_BIT(instr->control, 13)) {
+        if (offsetPresent) {
+            LOGE("constant offset shouldn't be present if programmable offset is\n");
+            return;
+        }
+        IlcSpvId offsetTypeId = 0;
+        if (!getOffsetCoordinateType(compiler, coordinateVecSize, &offsetTypeId, NULL)) {
+            LOGE("couldn't get type for texture offset\n");
+            return;
+        }
+        IlcSpvId offsetValues[4];
+        for (uint32_t i = 0; i < coordinateVecSize; ++i) {
+            uint8_t offsetVal = (uint8_t)((instr->addressOffset >> (i * 8)) & 0xFF);
+            int literalOffsetVal = (int)(*((int8_t*)&offsetVal) >> 1);
+            offsetValues[i] = ilcSpvPutConstant(compiler->module, compiler->intIds[0], *((IlcSpvWord*)&literalOffsetVal));
+        }
+        argMask |= SpvImageOperandsConstOffsetMask;
+        parameters[argCount] = ilcSpvPutConstantComposite(compiler->module, offsetTypeId, coordinateVecSize, offsetValues);
+        argCount++;
+    }
+    IlcSpvId sampleResultId = depthComparison ?
+        ilcSpvPutImageDrefGather(
+            compiler->module,
+            compiler->floatIds[3],
+            sampledImageId,
+            coordSrcId,
+            drefOrComponentId,
+            argMask,
+            parameters) :
+        ilcSpvPutImageGather(
+            compiler->module,
+            compiler->floatIds[3],
+            sampledImageId,
+            coordSrcId,
+            drefOrComponentId,
+            argMask,
+            parameters);
+    storeDestination(compiler, dst, sampleResultId);
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2322,6 +2498,12 @@ static void emitInstr(
     case IL_OP_SAMPLE_C_G:
     case IL_OP_SAMPLE_C_LZ:
         emitSample(compiler, instr);
+        break;
+    case IL_OP_FETCH4:
+    case IL_OP_FETCH4_C:
+    case IL_OP_FETCH4_PO:
+    case IL_OP_FETCH4_PO_C:
+        emitGather(compiler, instr);
         break;
     case IL_OP_CMOV_LOGICAL:
         emitCmovLogical(compiler, instr);

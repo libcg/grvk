@@ -171,6 +171,25 @@ IlcSpvId ilcSpvPutVariable(
     IlcSpvId resultTypeId,
     IlcSpvWord storageClass);
 
+
+IlcSpvId ilcSpvPutImageGather(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId componentId,
+    IlcSpvId argMask,
+    IlcSpvId* operands);
+
+IlcSpvId ilcSpvPutImageDrefGather(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId drefId,
+    IlcSpvId argMask,
+    IlcSpvId* operands);
+
 IlcSpvId ilcSpvPutImageSample(
     IlcSpvModule* module,
     IlcSpvId resultType,

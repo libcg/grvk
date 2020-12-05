@@ -496,6 +496,70 @@ IlcSpvId ilcSpvPutSampledImage(
     return id;
 }
 
+IlcSpvId ilcSpvPutImageGather(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId componentId,
+    IlcSpvId argMask,
+    IlcSpvId* operands)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+    uint32_t operandCount;
+#ifdef _MSC_VER
+    operandCount = __popcnt(argMask);
+#else
+    operandCount = __builtin_popcount(argMask);
+#endif
+    putInstr(buffer, SpvOpImageGather, 6 + operandCount + (operandCount > 0));
+    putWord(buffer, resultType);
+    putWord(buffer, id);
+    putWord(buffer, sampledImageId);
+    putWord(buffer, coordinateVariableId);
+    putWord(buffer, componentId);
+    if (operandCount > 0) {
+        putWord(buffer, argMask);
+    }
+    for (uint32_t i = 0; i < operandCount; ++i) {
+        putWord(buffer, operands[i]);
+    }
+    return id;
+}
+
+IlcSpvId ilcSpvPutImageDrefGather(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId drefId,
+    IlcSpvId argMask,
+    IlcSpvId* operands)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+    uint32_t operandCount;
+#ifdef _MSC_VER
+    operandCount = __popcnt(argMask);
+#else
+    operandCount = __builtin_popcount(argMask);
+#endif
+    putInstr(buffer, SpvOpImageDrefGather, 6 + operandCount + (operandCount > 0));
+    putWord(buffer, resultType);
+    putWord(buffer, id);
+    putWord(buffer, sampledImageId);
+    putWord(buffer, coordinateVariableId);
+    putWord(buffer, drefId);
+    if (operandCount > 0) {
+        putWord(buffer, argMask);
+    }
+    for (uint32_t i = 0; i < operandCount; ++i) {
+        putWord(buffer, operands[i]);
+    }
+    return id;
+}
+
 IlcSpvId ilcSpvPutImageSample(
     IlcSpvModule* module,
     IlcSpvId resultType,
