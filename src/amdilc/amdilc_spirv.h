@@ -179,7 +179,7 @@ IlcSpvId ilcSpvPutImageGather(
     IlcSpvId coordinateVariableId,
     IlcSpvId componentId,
     IlcSpvId argMask,
-    IlcSpvId* operands);
+    const IlcSpvId* operands);
 
 IlcSpvId ilcSpvPutImageDrefGather(
     IlcSpvModule* module,
@@ -188,7 +188,7 @@ IlcSpvId ilcSpvPutImageDrefGather(
     IlcSpvId coordinateVariableId,
     IlcSpvId drefId,
     IlcSpvId argMask,
-    IlcSpvId* operands);
+    const IlcSpvId* operands);
 
 IlcSpvId ilcSpvPutImageSample(
     IlcSpvModule* module,
@@ -196,7 +196,7 @@ IlcSpvId ilcSpvPutImageSample(
     IlcSpvId sampledImageId,
     IlcSpvId coordinateVariableId,
     IlcSpvId argMask,
-    IlcSpvId* operands);
+    const IlcSpvId* operands);
 
 IlcSpvId ilcSpvPutImageSampleDref(
     IlcSpvModule* module,
@@ -205,7 +205,7 @@ IlcSpvId ilcSpvPutImageSampleDref(
     IlcSpvId coordinateVariableId,
     IlcSpvId drefId,
     IlcSpvId argMask,
-    IlcSpvId* operands);
+    const IlcSpvId* operands);
 
 IlcSpvId ilcSpvPutSampledImage(
     IlcSpvModule* module,
@@ -274,7 +274,9 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId imageId,
-    IlcSpvId coordinateId);
+    IlcSpvId coordinateId,
+    IlcSpvId argMask,
+    const IlcSpvId* operands);
 
 IlcSpvId ilcSpvPutAlu(
     IlcSpvModule* module,

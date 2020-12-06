@@ -503,7 +503,7 @@ IlcSpvId ilcSpvPutImageGather(
     IlcSpvId coordinateVariableId,
     IlcSpvId componentId,
     IlcSpvId argMask,
-    IlcSpvId* operands)
+    const IlcSpvId* operands)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
     IlcSpvId id = ilcSpvAllocId(module);
@@ -535,7 +535,7 @@ IlcSpvId ilcSpvPutImageDrefGather(
     IlcSpvId coordinateVariableId,
     IlcSpvId drefId,
     IlcSpvId argMask,
-    IlcSpvId* operands)
+    const IlcSpvId* operands)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
     IlcSpvId id = ilcSpvAllocId(module);
@@ -566,7 +566,7 @@ IlcSpvId ilcSpvPutImageSample(
     IlcSpvId sampledImageId,
     IlcSpvId coordinateVariableId,
     IlcSpvId argMask,
-    IlcSpvId* operands)
+    const IlcSpvId* operands)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
     IlcSpvId id = ilcSpvAllocId(module);
@@ -602,7 +602,7 @@ IlcSpvId ilcSpvPutImageSampleDref(
     IlcSpvId coordinateVariableId,
     IlcSpvId drefId,
     IlcSpvId argMask,
-    IlcSpvId* operands)
+    const IlcSpvId* operands)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
     IlcSpvId id = ilcSpvAllocId(module);
@@ -848,16 +848,29 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId imageId,
-    IlcSpvId coordinateId)
+    IlcSpvId coordinateId,
+    IlcSpvId argMask,
+    const IlcSpvId* operands)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
-
+    uint32_t operandCount;
+#ifdef _MSC_VER
+    operandCount = __popcnt(argMask);
+#else
+    operandCount = __builtin_popcount(argMask);
+#endif
     IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, SpvOpImageFetch, 5);
+    putInstr(buffer, SpvOpImageFetch, 5 + operandCount + (operandCount > 0));
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, imageId);
     putWord(buffer, coordinateId);
+    if (operandCount > 0) {
+        putWord(buffer, argMask);
+    }
+    for (uint32_t i = 0; i < operandCount; ++i) {
+        putWord(buffer, operands[i]);
+    }
     return id;
 }
 

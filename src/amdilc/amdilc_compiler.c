@@ -904,6 +904,59 @@ static void emitUavResource(
     createUavResource(compiler, id, type, fmtx);
 }
 
+static const IlcResource* createResource(
+    IlcCompiler* compiler,
+    uint8_t id,
+    uint8_t type,
+    const uint8_t imgFmt[4],
+    bool unnormalized)
+{
+    if (unnormalized) {
+        LOGE("unhandled resource type %d %d - can't handle unnormalized image types\n", type, unnormalized);
+        assert(false);
+    }
+
+    SpvDim dim;
+    SpvImageFormat imageFormat;
+    IlcSpvWord isArrayed, isMultiSampled;
+    getSpvImage(type, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
+
+    IlcSpvWord sampledTypeId = getScalarSampledTypeId(compiler, imgFmt[0]);
+    if (sampledTypeId == 0) {
+        LOGE("unsupported element format %X", imgFmt[0]);
+        assert(false);
+    }
+
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, dim,
+                                          0 /*depth*/, isArrayed, isMultiSampled, 1, imageFormat);
+    IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                             imageId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                            SpvStorageClassUniformConstant);
+    if (dim == SpvDimBuffer) {
+        ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
+    }
+
+    ilcSpvPutName(compiler->module, imageId, "float4Buffer");//TODO: replace name
+
+    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    IlcSpvWord bindingIdx = id;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+
+    const IlcResource resource = {
+        .id = resourceId,
+        .typeId = imageId,
+        .ilId = id,
+        .strideId = 0,
+        .ilType = type,
+        .ilSampledType = imgFmt[0],
+    };
+
+    return addResource(compiler, &resource);
+}
+
 static void emitResource(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -921,48 +974,7 @@ static void emitResource(
     uint8_t fmtw = GET_BITS(instr->extras[0], 29, 31);
     uint8_t imgFmt[4] = {fmtx, fmty, fmtz, fmtw};
     LOGT("found resource %d %d\n", id, type, fmtx);
-    SpvDim dim;
-    SpvImageFormat imageFormat;
-    IlcSpvWord isArrayed, isMultiSampled;
-    getSpvImage(type, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
-
-    if (unnorm) {
-        LOGE("unhandled resource type %d %d - can't handle unnormalized image types\n", type, unnorm);
-        assert(false);
-    }
-
-    IlcSpvWord sampledTypeId = getScalarSampledTypeId(compiler, fmtx);
-    if (sampledTypeId == 0) {
-        LOGE("unsupported element format %X", fmtx);
-        assert(false);
-    }
-
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, dim,
-                                          0 /*depth*/, isArrayed, isMultiSampled, 1, imageFormat);
-    IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
-                                             imageId);
-    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
-                                            SpvStorageClassUniformConstant);
-
-    ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
-    ilcSpvPutName(compiler->module, imageId, "float4Buffer");//TODO: replace name
-
-    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
-                        1, &descriptorSetIdx);
-    IlcSpvWord bindingIdx = id;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
-
-    const IlcResource resource = {
-        .id = resourceId,
-        .typeId = imageId,
-        .ilId = id,
-        .strideId = 0,
-        .ilType = type,
-        .ilSampledType = fmtx,
-    };
-
-    addResource(compiler, &resource);
+    createResource(compiler, id, type, imgFmt, unnorm);
 }
 
 static void emitStructuredSrv(
@@ -1726,40 +1738,8 @@ static void emitSample(
     const IlcResource* resource = findResource(compiler, ilResourceId);
     if (resource == NULL && indexedArgs) {
         bool unnormalized = GET_BIT(instr->control, 15) ? (GET_BITS(instr->primModifier, 2, 3) == IL_TEXCOORDMODE_UNNORMALIZED) : false;
-        if (unnormalized) {
-            LOGE("unhandled resource type %d %d - can't handle unnormalized image types\n", instr->resourceFormat, unnormalized);
-            assert(false);
-        }
-        SpvDim dim;
-        SpvImageFormat imageFormat;
-        IlcSpvWord isArrayed, isMultiSampled;
         uint8_t imgFmt[4] = {IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN};
-        getSpvImage(instr->resourceFormat, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
-        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatIds[0], dim,
-                                              0 /*depth*/, false, false, 1, SpvImageFormatUnknown);
-        IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
-                                                 imageId);
-        IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
-                                                SpvStorageClassUniformConstant);
-
-        ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
-        ilcSpvPutName(compiler->module, imageId, "float4Buffer");//TODO: replace name
-
-        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
-                            1, &descriptorSetIdx);//TODO: replace descriptor sets
-        IlcSpvWord bindingIdx = ilResourceId;
-        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding,
-                            1, &bindingIdx);
-        const IlcResource newResource = {
-            .id = resourceId,
-            .typeId = imageId,
-            .ilId = ilResourceId,
-            .ilType = instr->resourceFormat,
-            .ilSampledType = IL_ELEMENTFORMAT_UNKNOWN,
-        };
-
-        resource = addResource(compiler, &newResource);
+        resource = createResource(compiler, ilResourceId, instr->resourceFormat, imgFmt, unnormalized);
     }
 
     if (resource == NULL) {
@@ -1925,41 +1905,9 @@ static void emitGather(
     const IlcResource* resource = findResource(compiler, ilResourceId);
     if (resource == NULL && indexedArgs) {
         bool unnormalized = GET_BIT(instr->control, 15) ? (GET_BITS(instr->primModifier, 2, 3) == IL_TEXCOORDMODE_UNNORMALIZED) : false;
-        if (unnormalized) {
-            LOGE("unhandled resource type %d %d - can't handle unnormalized image types\n", instr->resourceFormat, unnormalized);
-            assert(false);
-        }
-        SpvDim dim;
-        SpvImageFormat imageFormat;
-        IlcSpvWord isArrayed, isMultiSampled;
         uint8_t imgFmt[4] = {IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN};
         //LAST is 14 so use 15, some compilers can generate extra bits for some reason (0x42 for 2D image, for example)
-        getSpvImage(instr->resourceFormat & 15, imgFmt, &dim, &imageFormat, &isArrayed, &isMultiSampled);
-        IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatIds[0], dim,
-                                              0 /*depth*/, false, false, 1, SpvImageFormatUnknown);
-        IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
-                                                 imageId);
-        IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
-                                                SpvStorageClassUniformConstant);
-
-        ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
-        ilcSpvPutName(compiler->module, imageId, "float4Buffer");//TODO: replace name
-
-        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
-                            1, &descriptorSetIdx);//TODO: replace descriptor sets
-        IlcSpvWord bindingIdx = ilResourceId;
-        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding,
-                            1, &bindingIdx);
-        const IlcResource newResource = {
-            .id = resourceId,
-            .typeId = imageId,
-            .ilId = ilResourceId,
-            .ilType = instr->resourceFormat & 15,
-            .ilSampledType = IL_ELEMENTFORMAT_UNKNOWN,
-        };
-
-        resource = addResource(compiler, &newResource);
+        resource = createResource(compiler, ilResourceId, instr->resourceFormat & 15, imgFmt, unnormalized);
     }
 
     if (resource == NULL) {
@@ -2086,7 +2034,26 @@ static void emitLoad(
     const Instruction* instr)
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    bool indexedArgs = GET_BIT(instr->control, 12);
+
+    if (indexedArgs) {
+        if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 2, &ilResourceId)) {
+            return;
+        }
+    }
+
     const IlcResource* resource = findResource(compiler, ilResourceId);
+    if (resource == NULL && indexedArgs) {
+        bool unnormalized = GET_BIT(instr->control, 15) ? (GET_BITS(instr->primModifier, 2, 3) == IL_TEXCOORDMODE_UNNORMALIZED) : false;
+        uint8_t imgFmt[4] = {IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN, IL_ELEMENTFORMAT_UNKNOWN};
+        //LAST is 14 so use 15, some compilers can generate extra bits for some reason (0x42 for 2D image, for example)
+        resource = createResource(compiler, ilResourceId, instr->resourceFormat, imgFmt, unnormalized);
+    }
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
 
     const Destination* dst = &instr->dsts[0];
     const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
@@ -2096,12 +2063,62 @@ static void emitLoad(
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->intIds[3]);
-    IlcSpvWord addressIndex = COMP_INDEX_X;
-    IlcSpvId addressId = ilcSpvPutCompositeExtract(compiler->module, compiler->intIds[0], srcId,
-                                                   1, &addressIndex);
+    uint32_t coordinateVecSize;
+    if (resource->ilType == 0) {
+        // that shouldn't happen really
+        LOGE("ilType of resource is 0\n");
+        return;
+    }
+    else {
+        coordinateVecSize = getCoordinateVectorSize(resource->ilType);
+    }
+
+    uint32_t mask;
+    IlcSpvId coordTypeId;
+    switch (coordinateVecSize) {
+    case 1:
+        coordTypeId = compiler->intIds[0];
+        mask = COMP_MASK_X;
+        break;
+    case 2:
+        coordTypeId = compiler->intIds[1];
+        mask = COMP_MASK_XY;
+        break;
+    case 3:
+        coordTypeId = compiler->intIds[2];
+        mask = COMP_MASK_XYZ;
+        break;
+    case 4:
+        coordTypeId = compiler->intIds[3];
+        mask = COMP_MASK_XYZW;
+        break;
+    default:
+        LOGE("invalid coordinate size\n");
+        assert(false);
+        return;
+    }
+    IlcSpvId argMask = 0;
+    IlcSpvId parameters[9];
+    if (GET_BIT(instr->control, 13)) {
+        IlcSpvId offsetTypeId = 0;
+        if (!getOffsetCoordinateType(compiler, coordinateVecSize, &offsetTypeId, NULL)) {
+            LOGE("couldn't get type for texture offset\n");
+            return;
+        }
+
+        IlcSpvId offsetValues[4];//TODO: add support for 3d images
+        for (uint32_t i = 0; i < coordinateVecSize; ++i) {
+            uint8_t offsetVal = (uint8_t)((instr->addressOffset >> (i * 8)) & 0xFF);
+            int literalOffsetVal = (int)(*((int8_t*)&offsetVal) >> 1);
+            offsetValues[i] = ilcSpvPutConstant(compiler->module, compiler->intIds[0], *((IlcSpvWord*)&literalOffsetVal));
+        }
+        argMask |= SpvImageOperandsConstOffsetMask;
+        parameters[0] = ilcSpvPutConstantComposite(compiler->module, offsetTypeId, coordinateVecSize, offsetValues);
+    }
+
+    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], mask, coordTypeId);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, addressId);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, addressId, argMask, parameters);
     storeDestination(compiler, dst, fetchId);
 }
 
@@ -2287,7 +2304,7 @@ static void emitRawSrvLoad(
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     // need to adjust fetched vector type to image sampled type
     IlcSpvId sampledTypeId = getVectorSampledTypeId(compiler, resource->ilSampledType);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, sampledTypeId, resourceId, srcId);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, sampledTypeId, resourceId, srcId, 0, NULL);
     if (compiler->floatIds[3] != sampledTypeId) {
         fetchId = ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], fetchId);
     }
@@ -2367,7 +2384,7 @@ static void emitStructuredSrvLoad(
 
     IlcSpvId sampledTypeId = getVectorSampledTypeId(compiler, resource->ilSampledType);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, sampledTypeId, resourceId,
-                                           wordAddrId);
+                                           wordAddrId, 0, NULL);
     if (compiler->floatIds[3] != sampledTypeId) {
         fetchId = ilcSpvPutBitcast(compiler->module, compiler->floatIds[3], fetchId);
     }
