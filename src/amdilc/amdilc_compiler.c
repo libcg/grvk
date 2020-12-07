@@ -29,11 +29,21 @@ typedef struct {
 typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
+    IlcSpvId depthTypeId; // needed for depth sample operations
     uint32_t ilId;
     uint32_t strideId;
     uint32_t ilType;
     uint32_t ilSampledType;
 } IlcResource;
+
+typedef struct {
+    IlcSpvId id;
+    IlcSpvId typeId;
+    uint32_t ilId;
+    uint32_t strideId;
+    uint32_t ilType;
+    uint32_t ilSampledType;
+} IlcUavResource;
 
 typedef enum {
     BLOCK_IF_ELSE,
@@ -93,7 +103,7 @@ typedef struct {
     unsigned resourceCount;
     IlcResource* resources;
     unsigned uavResourceCount;
-    IlcResource* uavResources;
+    IlcUavResource* uavResources;
     IlcSpvId samplerResources[16];
     unsigned controlFlowBlockCount;
     IlcControlFlowBlock* controlFlowBlocks;
@@ -214,12 +224,12 @@ static const IlcResource* findResource(
     return NULL;
 }
 
-static const IlcResource* findUavResource(
+static const IlcUavResource* findUavResource(
     IlcCompiler* compiler,
     uint32_t ilId)
 {
     for (int i = 0; i < compiler->uavResourceCount; i++) {
-        const IlcResource* resource = &compiler->uavResources[i];
+        const IlcUavResource* resource = &compiler->uavResources[i];
 
         if (resource->ilId == ilId) {
             return resource;
@@ -250,11 +260,11 @@ static const IlcResource* addResource(
     return compiler->resources + compiler->resourceCount - 1;
 }
 
-static const IlcResource* addUavResource(
+static const IlcUavResource* addUavResource(
     IlcCompiler* compiler,
-    const IlcResource* resource)
+    const IlcUavResource* resource)
 {
-    const IlcResource* existingResource = findUavResource(compiler, resource->ilId);
+    const IlcUavResource* existingResource = findUavResource(compiler, resource->ilId);
     if (existingResource != NULL) {
         LOGE("resource %d already present\n", resource->ilId);
         return existingResource;
@@ -843,7 +853,7 @@ static IlcSpvId getVectorSampledTypeId(
     }
 }
 
-static const IlcResource* createUavResource(
+static const IlcUavResource* createUavResource(
     IlcCompiler* compiler,
     uint8_t id,
     uint8_t type,
@@ -878,7 +888,7 @@ static const IlcResource* createUavResource(
                         1, &descriptorSetIdx);
     IlcSpvWord bindingIdx = id;
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
-    const IlcResource resource = {
+    const IlcUavResource resource = {
         .id = resourceId,
         .typeId = imageId,
         .ilId = id,
@@ -928,7 +938,11 @@ static const IlcResource* createResource(
     }
 
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, dim,
-                                          0 /*depth*/, isArrayed, isMultiSampled, 1, imageFormat);
+                                          false /*depth*/, isArrayed, isMultiSampled, 1, imageFormat);
+    // unless sampled type is float, don't define an additional depth type
+    IlcSpvId depthImageId = sampledTypeId == compiler->floatIds[0] ? ilcSpvPutImageType(compiler->module, sampledTypeId, dim,
+                                                                                    true /*depth*/, isArrayed, isMultiSampled,
+                                                                                    1, imageFormat) : 0;
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -948,6 +962,7 @@ static const IlcResource* createResource(
     const IlcResource resource = {
         .id = resourceId,
         .typeId = imageId,
+        .depthTypeId = depthImageId,
         .ilId = id,
         .strideId = 0,
         .ilType = type,
@@ -1002,6 +1017,7 @@ static void emitStructuredSrv(
     const IlcResource resource = {
         .id = resourceId,
         .typeId = imageId,
+        .depthTypeId = 0,// don't need depth here
         .ilId = id,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intIds[0], instr->extras[0]),
         .ilSampledType = IL_ELEMENTFORMAT_SINT,
@@ -1780,13 +1796,7 @@ static void emitSample(
         return;
     }
     const Destination* dst = &instr->dsts[0];
-    //TODO: check mask by image type
     IlcSpvId coordSrcId = loadSource(compiler, &instr->srcs[0], mask, coordTypeId);
-    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
-    IlcSpvId samplerResourceId = emitOrGetSampler(compiler, ilSamplerId);
-    IlcSpvId imageResourceId  = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId samplerId  = ilcSpvPutLoad(compiler->module, compiler->samplerId, samplerResourceId);
-    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId, imageResourceId, samplerId);
     IlcSpvId drefId = 0;
     IlcSpvId argMask = 0;
     unsigned argCount = 0;
@@ -1866,6 +1876,15 @@ static void emitSample(
         parameters[argCount] = ilcSpvPutConstantComposite(compiler->module, offsetTypeId, coordinateVecSize, offsetValues);
         argCount++;
     }
+    if (depthComparison && resource->depthTypeId == 0) {
+        LOGE("No depth type Id for resource %d provided\n", resource->id);
+        return;
+    }
+    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, depthComparison ? resource->depthTypeId : resource->typeId);
+    IlcSpvId samplerResourceId = emitOrGetSampler(compiler, ilSamplerId);
+    IlcSpvId imageResourceId  = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId samplerId  = ilcSpvPutLoad(compiler->module, compiler->samplerId, samplerResourceId);
+    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId, imageResourceId, samplerId);
     IlcSpvId sampleResultId = depthComparison ?
         ilcSpvPutImageSampleDref(
             compiler->module,
@@ -1950,11 +1969,7 @@ static void emitGather(
     const Destination* dst = &instr->dsts[0];
 
     IlcSpvId coordSrcId = loadSource(compiler, &instr->srcs[0], mask, coordTypeId);
-    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
-    IlcSpvId samplerResourceId = emitOrGetSampler(compiler, ilSamplerId);
-    IlcSpvId imageResourceId  = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId samplerId  = ilcSpvPutLoad(compiler->module, compiler->samplerId, samplerResourceId);
-    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId, imageResourceId, samplerId);
+
     IlcSpvId drefOrComponentId = 0;
     IlcSpvId argMask = 0;
     uint32_t argCount = 0;
@@ -2009,6 +2024,17 @@ static void emitGather(
         parameters[argCount] = ilcSpvPutConstantComposite(compiler->module, offsetTypeId, coordinateVecSize, offsetValues);
         argCount++;
     }
+
+    if (depthComparison && resource->depthTypeId == 0) {
+        LOGE("No depth type Id for resource %d provided\n", resource->id);
+        return;
+    }
+
+    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, depthComparison ? resource->depthTypeId : resource->typeId);
+    IlcSpvId samplerResourceId = emitOrGetSampler(compiler, ilSamplerId);
+    IlcSpvId imageResourceId  = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId samplerId  = ilcSpvPutLoad(compiler->module, compiler->samplerId, samplerResourceId);
+    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId, imageResourceId, samplerId);
     IlcSpvId sampleResultId = depthComparison ?
         ilcSpvPutImageDrefGather(
             compiler->module,
@@ -2128,7 +2154,7 @@ static void emitUavStore(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     bool indexedArgs = GET_BIT(instr->control, 12);
-    const IlcResource* resource = findUavResource(compiler, ilResourceId);
+    const IlcUavResource* resource = findUavResource(compiler, ilResourceId);
     if (indexedArgs) {
         if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 1, &ilResourceId)) {
             return;
@@ -2188,7 +2214,7 @@ static void emitUavLoad(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     bool indexedArgs = GET_BIT(instr->control, 12);
-    const IlcResource* resource = findUavResource(compiler, ilResourceId);
+    const IlcUavResource* resource = findUavResource(compiler, ilResourceId);
     if (indexedArgs) {
         if (!getIndexedResourceId((const IlcCompiler*)compiler, instr->srcs + instr->srcCount - 1, &ilResourceId)) {
             return;
@@ -2281,6 +2307,7 @@ static void emitRawSrvLoad(
         const IlcResource newResource = {
             .id = resourceId,
             .typeId = imageId,
+            .depthTypeId = 0,
             .ilId = ilResourceId,
             .ilType = instr->resourceFormat,
             .ilSampledType = IL_ELEMENTFORMAT_UINT,
@@ -2341,6 +2368,7 @@ static void emitStructuredSrvLoad(
         const IlcResource newResource = {
             .id = resourceId,
             .typeId = imageId,
+            .depthTypeId = 0,// don't need depth type here
             .ilId = ilResourceId,
             .ilType = instr->resourceFormat,
             .ilSampledType = IL_ELEMENTFORMAT_UINT,
@@ -2596,7 +2624,7 @@ static void emitEntryPoint(
         interfaces[compiler->regCount + i] = resource->id;
     }
     for (int i = 0; i < compiler->uavResourceCount; i++) {
-        const IlcResource* resource = &compiler->uavResources[i];
+        const IlcUavResource* resource = &compiler->uavResources[i];
         interfaces[compiler->regCount + compiler->resourceCount + i] = resource->id;
     }
     unsigned intIndex = compiler->regCount + compiler->resourceCount + compiler->uavResourceCount;
