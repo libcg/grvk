@@ -1384,6 +1384,12 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->intIds[3],
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_I_MAD: {
+        IlcSpvId mulId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->intIds[3],
+                                      2, srcIds);
+        IlcSpvId addIds[2] = {mulId, srcIds[2]};
+        resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intIds[3], 2, addIds);
+    } break;
     case IL_OP_U_BIT_EXTRACT: {
         // FIXME: not sure if the settings are per-component
         // TODO: 0x1F mask
@@ -2892,6 +2898,7 @@ static void emitInstr(
     case IL_OP_NE:
         emitFloatComparisonOp(compiler, instr);
         break;
+    case IL_OP_I_MAD:
     case IL_OP_I_NOT:
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
