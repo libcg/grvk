@@ -106,11 +106,18 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_LDS_LOAD_VEC] = { IL_OP_LDS_LOAD_VEC, 1, 2, 0, false },
     [IL_OP_LDS_STORE_VEC] = { IL_OP_LDS_STORE_VEC, 1, 3, 0, false },
     [IL_OP_DCL_UAV] = { IL_OP_DCL_UAV, 0, 0, 0, false },
+    [IL_OP_DCL_STRUCT_UAV] = { IL_OP_DCL_STRUCT_UAV, 0, 0, 1, false },
+    [IL_OP_DCL_RAW_UAV] = { IL_OP_DCL_RAW_UAV, 0, 0, 0, false },
+    [IL_OP_UAV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, false },
+    [IL_OP_UAV_RAW_LOAD] = { IL_OP_UAV_RAW_LOAD, 1, 1, 0, true },
     [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0, true },
     [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0, true },
+    [IL_OP_UAV_STRUCT_STORE] = { IL_OP_UAV_STRUCT_STORE, 1, 2, 0, false },// not sure if this operation has ext flag as docs don't say anything 
+    [IL_OP_UAV_RAW_STORE] = { IL_OP_UAV_RAW_STORE, 1, 2, 0, true },
     [IL_OP_UAV_ADD] = { IL_OP_UAV_ADD, 0, 2, 0, false },
     [IL_OP_UAV_READ_ADD] = { IL_OP_UAV_READ_ADD, 1, 2, 0, false },
     [IL_OP_DCL_STRUCT_SRV] = { IL_OP_DCL_STRUCT_SRV, 0, 0, 1, false },
+    [IL_OP_DCL_RAW_SRV] = { IL_OP_DCL_RAW_SRV, 0, 0, 0, false },
     [IL_OP_SRV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, true },
     [IL_OP_SRV_RAW_LOAD] = { IL_OP_SRV_RAW_LOAD, 1, 1, 0, true },
     [IL_DCL_STRUCT_LDS] = { IL_DCL_STRUCT_LDS, 0, 0, 2, false },
@@ -129,6 +136,7 @@ static bool isUavOrSrvOperation(uint16_t opcode)
     case IL_OP_UAV_RAW_LOAD:
     case IL_OP_UAV_LOAD:
     case IL_OP_UAV_STORE:
+    case IL_OP_UAV_RAW_STORE:// not sure about struct_store operation
         return true;
     default:
         return false;
