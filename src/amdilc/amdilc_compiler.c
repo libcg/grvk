@@ -1151,6 +1151,11 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_I_MAD: {
+        IlcSpvId mulId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->int4Id, 2, srcIds);
+        IlcSpvId addIds[] = { mulId, srcIds[2] };
+        resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id, 2, addIds);
+    } break;
     case IL_OP_I_NEGATE:
         resId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id,
                              instr->srcCount, srcIds);
@@ -1676,6 +1681,7 @@ static void emitInstr(
     case IL_OP_I_NOT:
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
+    case IL_OP_I_MAD:
     case IL_OP_I_NEGATE:
     case IL_OP_U_DIV:
     case IL_OP_U_MOD:
