@@ -87,16 +87,16 @@ GR_RESULT grInitAndEnumerateGpus(
     free(grvkEngineName);
     vulkanLoaderInstanceInit(vkInstance);
 
-    uint32_t physicalDeviceCount = 0;
-    vki.vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, NULL);
-    if (physicalDeviceCount > GR_MAX_PHYSICAL_GPUS) {
-        physicalDeviceCount = GR_MAX_PHYSICAL_GPUS;
+    uint32_t vkPhysicalDeviceCount = 0;
+    vki.vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, NULL);
+    if (vkPhysicalDeviceCount > GR_MAX_PHYSICAL_GPUS) {
+        vkPhysicalDeviceCount = GR_MAX_PHYSICAL_GPUS;
     }
 
     VkPhysicalDevice physicalDevices[GR_MAX_PHYSICAL_GPUS];
-    vki.vkEnumeratePhysicalDevices(vkInstance, &physicalDeviceCount, physicalDevices);
+    vki.vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, physicalDevices);
 
-    *pGpuCount = physicalDeviceCount;
+    *pGpuCount = vkPhysicalDeviceCount;
     for (int i = 0; i < *pGpuCount; i++) {
         GrPhysicalGpu* grPhysicalGpu = malloc(sizeof(GrPhysicalGpu));
         *grPhysicalGpu = (GrPhysicalGpu) {
@@ -182,12 +182,12 @@ GR_RESULT grCreateDevice(
     VkResult vkRes;
     GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
     VkDevice vkDevice = VK_NULL_HANDLE;
-    uint32_t universalQueueIndex = INVALID_QUEUE_INDEX;
-    uint32_t universalQueueCount = 0;
+    unsigned universalQueueIndex = INVALID_QUEUE_INDEX;
+    unsigned universalQueueCount = 0;
     bool universalQueueRequested = false;
     VkCommandPool universalCommandPool = VK_NULL_HANDLE;
-    uint32_t computeQueueIndex = INVALID_QUEUE_INDEX;
-    uint32_t computeQueueCount = 0;
+    unsigned computeQueueIndex = INVALID_QUEUE_INDEX;
+    unsigned computeQueueCount = 0;
     bool computeQueueRequested = false;
     VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
@@ -213,16 +213,17 @@ GR_RESULT grCreateDevice(
          VK_VERSION_MINOR(physicalDeviceProps.driverVersion),
          VK_VERSION_PATCH(physicalDeviceProps.driverVersion));
 
-    uint32_t queueFamilyPropertyCount = 0;
+    uint32_t vkQueueFamilyPropertyCount = 0;
     vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
-                                                 &queueFamilyPropertyCount, NULL);
+                                                 &vkQueueFamilyPropertyCount, NULL);
 
     VkQueueFamilyProperties* queueFamilyProperties =
-        malloc(sizeof(VkQueueFamilyProperties) * queueFamilyPropertyCount);
+        malloc(sizeof(VkQueueFamilyProperties) * vkQueueFamilyPropertyCount);
     vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
-                                                 &queueFamilyPropertyCount, queueFamilyProperties);
+                                                 &vkQueueFamilyPropertyCount,
+                                                 queueFamilyProperties);
 
-    for (int i = 0; i < queueFamilyPropertyCount; i++) {
+    for (int i = 0; i < vkQueueFamilyPropertyCount; i++) {
         const VkQueueFamilyProperties* queueFamilyProperty = &queueFamilyProperties[i];
 
         if ((queueFamilyProperty->queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) ==

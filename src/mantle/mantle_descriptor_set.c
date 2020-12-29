@@ -27,7 +27,7 @@ static void setDescriptorSetSlot(
     DescriptorSetSlot* slot,
     DescriptorSetSlotType type,
     const void* data,
-    uint32_t size)
+    unsigned size)
 {
     clearDescriptorSetSlot(slot);
 
@@ -113,7 +113,7 @@ GR_VOID grEndDescriptorSetUpdate(
 
     // TODO free old descriptor sets and layouts if applicable
 
-    uint32_t descriptorCount = 0;
+    unsigned descriptorCount = 0;
     VkDescriptorSetLayout vkLayouts[MAX_STAGE_COUNT];
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
         VkDescriptorSetLayoutBinding* bindings =

@@ -12,7 +12,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 {
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     VkDescriptorSetLayoutBinding* bindings = NULL;
-    uint32_t bindingCount = 0;
+    unsigned bindingCount = 0;
 
     if (stage->shader->shader != GR_NULL_HANDLE) {
         for (int i = 1; i < GR_MAX_DESCRIPTOR_SETS; i++) {
@@ -28,7 +28,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         const GR_DESCRIPTOR_SET_MAPPING* mapping = &stage->shader->descriptorSetMapping[0];
 
         // Find maximum entity index to generate unique binding numbers for unused slots
-        uint32_t maxEntityIndex = 0;
+        unsigned maxEntityIndex = 0;
         for (int i = 0; i < mapping->descriptorCount; i++) {
             const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[i];
 
@@ -138,8 +138,8 @@ static VkRenderPass getVkRenderPass(
     VkAttachmentDescription descriptions[GR_MAX_COLOR_TARGETS + 1];
     VkAttachmentReference colorReferences[GR_MAX_COLOR_TARGETS];
     VkAttachmentReference depthStencilReference;
-    uint32_t descriptionCount = 0;
-    uint32_t colorReferenceCount = 0;
+    unsigned descriptionCount = 0;
+    unsigned colorReferenceCount = 0;
     bool hasDepthStencil = false;
 
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
@@ -258,7 +258,7 @@ GR_RESULT grCreateShader(
     LOGT("%p %p %p\n", device, pCreateInfo, pShader);
     GrDevice* grDevice = (GrDevice*)device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
-    uint32_t spirvCodeSize;
+    unsigned spirvCodeSize;
     uint32_t* spirvCode;
 
     if ((pCreateInfo->flags & GR_SHADER_CREATE_ALLOW_RE_Z) != 0) {
@@ -319,7 +319,7 @@ GR_RESULT grCreateGraphicsPipeline(
         { &pCreateInfo->ps, VK_SHADER_STAGE_FRAGMENT_BIT },
     };
 
-    uint32_t stageCount = 0;
+    unsigned stageCount = 0;
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo[MAX_STAGE_COUNT];
 
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
@@ -445,7 +445,7 @@ GR_RESULT grCreateGraphicsPipeline(
         LOGW("dual source blend is not implemented\n");
     }
 
-    uint32_t attachmentCount = 0;
+    unsigned attachmentCount = 0;
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
 
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {

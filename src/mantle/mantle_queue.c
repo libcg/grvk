@@ -1,6 +1,6 @@
 #include "mantle_internal.h"
 
-static uint32_t getVkQueueFamilyIndex(
+static unsigned getVkQueueFamilyIndex(
     GrDevice* grDevice,
     GR_QUEUE_TYPE queueType)
 {
@@ -27,7 +27,7 @@ GR_RESULT grGetDeviceQueue(
     GrDevice* grDevice = (GrDevice*)device;
     VkQueue vkQueue = VK_NULL_HANDLE;
 
-    uint32_t queueIndex = getVkQueueFamilyIndex(grDevice, queueType);
+    unsigned queueIndex = getVkQueueFamilyIndex(grDevice, queueType);
     if (queueIndex == INVALID_QUEUE_INDEX) {
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }

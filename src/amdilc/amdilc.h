@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 uint32_t* ilcCompileShader(
-    uint32_t* compiledSize,
+    unsigned* compiledSize,
     const void* code,
     unsigned size);
 

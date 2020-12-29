@@ -23,7 +23,7 @@ static CopyCommandBuffer* mCopyCommandBuffers = 0;
 static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
 
-static uint32_t getMemoryTypeIndex(
+static unsigned getMemoryTypeIndex(
     uint32_t memoryTypeBits)
 {
     // Index corresponds to the location of the LSB
@@ -150,7 +150,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
 static void initSwapchain(
     GrDevice* grDevice,
     HWND hwnd,
-    uint32_t queueIndex)
+    unsigned queueIndex)
 {
     const VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
@@ -340,10 +340,10 @@ GR_RESULT grWsiWinQueuePresent(
         initSwapchain(grQueue->grDevice, pPresentInfo->hWndDest, grQueue->queueIndex);
     }
 
-    uint32_t imageIndex = 0;
+    uint32_t vkImageIndex = 0;
 
     vkRes = vki.vkAcquireNextImageKHR(grQueue->grDevice->device, mSwapchain, UINT64_MAX,
-                                      mAcquireSemaphore, VK_NULL_HANDLE, &imageIndex);
+                                      mAcquireSemaphore, VK_NULL_HANDLE, &vkImageIndex);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkAcquireNextImageKHR failed (%d)\n", vkRes);
         assert(vkRes != VK_ERROR_OUT_OF_DATE_KHR); // FIXME temporary hack to avoid log spam
@@ -352,7 +352,7 @@ GR_RESULT grWsiWinQueuePresent(
 
     // Find suitable copy command buffer for presentable and swapchain images combination
     for (int i = 0; i < mCopyCommandBufferCount; i++) {
-        if (mCopyCommandBuffers[i].dstImage == mImages[imageIndex] &&
+        if (mCopyCommandBuffers[i].dstImage == mImages[vkImageIndex] &&
             mCopyCommandBuffers[i].srcImage == srcGrImage->image) {
             vkCopyCommandBuffer = mCopyCommandBuffers[i].commandBuffer;
             break;
@@ -385,7 +385,7 @@ GR_RESULT grWsiWinQueuePresent(
         .pWaitSemaphores = &mCopySemaphore,
         .swapchainCount = 1,
         .pSwapchains = &mSwapchain,
-        .pImageIndices = &imageIndex,
+        .pImageIndices = &vkImageIndex,
         .pResults = NULL,
     };
 

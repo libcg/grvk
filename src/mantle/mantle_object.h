@@ -41,7 +41,7 @@ typedef struct _GrCmdBuffer {
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
     GR_COLOR_TARGET_BIND_INFO colorTargets[GR_MAX_COLOR_TARGETS];
-    uint32_t colorTargetCount;
+    unsigned colorTargetCount;
     GR_DEPTH_STENCIL_BIND_INFO depthTarget;
     bool hasDepthTarget;
     bool hasActiveRenderPass;
@@ -77,7 +77,7 @@ typedef struct _GrDescriptorSet {
     VkDevice device;
     VkDescriptorPool descriptorPool;
     void* slots;
-    uint32_t slotCount;
+    unsigned slotCount;
     VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
 } GrDescriptorSet;
 
@@ -85,9 +85,9 @@ typedef struct _GrDevice {
     GrStructType sType;
     VkDevice device;
     VkPhysicalDevice physicalDevice;
-    uint32_t universalQueueIndex;
+    unsigned universalQueueIndex;
     VkCommandPool universalCommandPool;
-    uint32_t computeQueueIndex;
+    unsigned computeQueueIndex;
     VkCommandPool computeCommandPool;
 } GrDevice;
 
@@ -148,15 +148,15 @@ typedef struct _GrQueue {
     GrStructType sType;
     GrDevice* grDevice;
     VkQueue queue;
-    uint32_t queueIndex;
+    unsigned queueIndex;
 } GrQueue;
 
 typedef struct _GrViewportStateObject {
     GrStructType sType;
     VkViewport* viewports;
-    uint32_t viewportCount;
+    unsigned viewportCount;
     VkRect2D* scissors;
-    uint32_t scissorCount;
+    unsigned scissorCount;
 } GrViewportStateObject;
 
 #endif // GR_OBJECT_H_

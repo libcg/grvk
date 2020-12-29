@@ -3,7 +3,7 @@
 
 #define BUFFER_ALLOC_THRESHOLD 64
 
-static uint32_t strlenw(
+static unsigned strlenw(
     const char* str)
 {
     // String length in words, including \0
