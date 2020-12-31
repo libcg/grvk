@@ -17,26 +17,19 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
 static VkFramebuffer getVkFramebuffer(
     VkDevice device,
     VkRenderPass renderPass,
-    unsigned colorTargetCount,
-    const GrColorTargetView** colorTargets,
+    unsigned attachmentCount,
+    const VkImageView* attachments,
     VkExtent2D extent2D,
     uint32_t layerCount)
 {
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
-
-    VkImageView attachments[GR_MAX_COLOR_TARGETS + 1];
-    int attachmentIdx = 0;
-
-    for (int i = 0; i < colorTargetCount; i++) {
-        attachments[attachmentIdx++] = colorTargets[i]->imageView;
-    }
 
     const VkFramebufferCreateInfo framebufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .renderPass = renderPass,
-        .attachmentCount = attachmentIdx,
+        .attachmentCount = attachmentCount,
         .pAttachments = attachments,
         .width = extent2D.width,
         .height = extent2D.height,
@@ -67,7 +60,7 @@ static void initCmdBufferResources(
 
     VkFramebuffer framebuffer =
         getVkFramebuffer(grCmdBuffer->grDescriptorSet->device, grPipeline->renderPass,
-                         grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets,
+                         grCmdBuffer->attachmentCount, grCmdBuffer->attachments,
                          grCmdBuffer->minExtent2D, grCmdBuffer->minLayerCount);
 
     const VkRenderPassBeginInfo beginInfo = {
@@ -260,13 +253,13 @@ GR_VOID grCmdBindTargets(
         grCmdBuffer->minLayerCount = MIN(grCmdBuffer->minLayerCount, grColorTargetView->layerCount);
     }
 
-    // Copy target data
-    grCmdBuffer->colorTargetCount = colorTargetCount;
+    // Copy attachments
+    grCmdBuffer->attachmentCount = colorTargetCount;
 
     for (int i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
-        grCmdBuffer->colorTargets[i] = grColorTargetView;
+        grCmdBuffer->attachments[i] = grColorTargetView->imageView;
     }
 }
 

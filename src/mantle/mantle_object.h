@@ -41,8 +41,8 @@ typedef struct _GrCmdBuffer {
     VkCommandBuffer commandBuffer;
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
-    unsigned colorTargetCount;
-    const GrColorTargetView* colorTargets[GR_MAX_COLOR_TARGETS];
+    unsigned attachmentCount;
+    VkImageView attachments[GR_MAX_COLOR_TARGETS + 1]; // Extra depth target
     VkExtent2D minExtent2D;
     uint32_t minLayerCount;
     bool hasActiveRenderPass;
