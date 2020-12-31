@@ -46,6 +46,8 @@ GR_RESULT grCreateCommandBuffer(
         .colorTargetCount = 0,
         .depthTarget = { 0 },
         .hasDepthTarget = false,
+        .minExtent2D = { 0, 0 },
+        .minLayerCount = 0,
         .hasActiveRenderPass = false,
         .isDirty = false,
     };

@@ -14,47 +14,6 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
     };
 }
 
-static VkExtent2D getMinimumExtent2D(
-    unsigned colorTargetCount,
-    const GR_COLOR_TARGET_BIND_INFO* colorTargets,
-    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget)
-{
-    VkExtent2D extent2D = { UINT32_MAX, UINT32_MAX };
-
-    for (int i = 0; i < colorTargetCount; i++) {
-        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
-
-        extent2D.width = MIN(extent2D.width, grColorTargetView->extent2D.width);
-        extent2D.height = MIN(extent2D.height, grColorTargetView->extent2D.height);
-    }
-
-    if (depthTarget != NULL) {
-        LOGW("unhandled depth target\n");
-    }
-
-    return extent2D;
-}
-
-static uint32_t getMinimumLayerCount(
-    unsigned colorTargetCount,
-    const GR_COLOR_TARGET_BIND_INFO* colorTargets,
-    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget)
-{
-    uint32_t layerCount = UINT32_MAX;
-
-    for (int i = 0; i < colorTargetCount; i++) {
-        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
-
-        layerCount = MIN(layerCount, grColorTargetView->layerCount);
-    }
-
-    if (depthTarget != NULL) {
-        LOGW("unhandled depth target\n");
-    }
-
-    return layerCount;
-}
-
 static VkFramebuffer getVkFramebuffer(
     VkDevice device,
     VkRenderPass renderPass,
@@ -70,7 +29,7 @@ static VkFramebuffer getVkFramebuffer(
     int attachmentIdx = 0;
 
     for (int i = 0; i < colorTargetCount; i++) {
-        GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
+        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
 
         attachments[attachmentIdx++] = grColorTargetView->imageView;
     }
@@ -116,15 +75,10 @@ static void initCmdBufferResources(
                                 grPipeline->pipelineLayout, 0, 1,
                                 grCmdBuffer->grDescriptorSet->descriptorSets, 0, NULL);
 
-    VkExtent2D minExtent2D =
-        getMinimumExtent2D(grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets, depthTarget);
-    uint32_t minLayerCount =
-        getMinimumLayerCount(grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets, depthTarget);
-
     VkFramebuffer framebuffer =
         getVkFramebuffer(grCmdBuffer->grDescriptorSet->device, grPipeline->renderPass,
                          grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets,
-                         depthTarget, minExtent2D, minLayerCount);
+                         depthTarget, grCmdBuffer->minExtent2D, grCmdBuffer->minLayerCount);
 
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -133,7 +87,7 @@ static void initCmdBufferResources(
         .framebuffer = framebuffer,
         .renderArea = (VkRect2D) {
             .offset = { 0, 0 },
-            .extent = minExtent2D,
+            .extent = grCmdBuffer->minExtent2D,
         },
         .clearValueCount = 0,
         .pClearValues = NULL,
@@ -296,6 +250,25 @@ GR_VOID grCmdBindTargets(
     LOGT("%p %u %p %p\n", cmdBuffer, colorTargetCount, pColorTargets, pDepthTarget);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
+    // Find minimum extent and layer count
+    grCmdBuffer->minExtent2D = (VkExtent2D) { UINT32_MAX, UINT32_MAX };
+    grCmdBuffer->minLayerCount = UINT32_MAX;
+
+    for (int i = 0; i < colorTargetCount; i++) {
+        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
+
+        grCmdBuffer->minExtent2D.width = MIN(grCmdBuffer->minExtent2D.width,
+                                             grColorTargetView->extent2D.width);
+        grCmdBuffer->minExtent2D.height = MIN(grCmdBuffer->minExtent2D.height,
+                                              grColorTargetView->extent2D.height);
+        grCmdBuffer->minLayerCount = MIN(grCmdBuffer->minLayerCount, grColorTargetView->layerCount);
+    }
+
+    if (pDepthTarget != NULL) {
+        LOGW("unhandled depth target extent\n");
+    }
+
+    // Copy target data
     memcpy(grCmdBuffer->colorTargets, pColorTargets,
            sizeof(GR_COLOR_TARGET_BIND_INFO) * colorTargetCount);
     grCmdBuffer->colorTargetCount = colorTargetCount;

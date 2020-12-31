@@ -44,6 +44,8 @@ typedef struct _GrCmdBuffer {
     unsigned colorTargetCount;
     GR_DEPTH_STENCIL_BIND_INFO depthTarget;
     bool hasDepthTarget;
+    VkExtent2D minExtent2D;
+    uint32_t minLayerCount;
     bool hasActiveRenderPass;
     bool isDirty;
 } GrCmdBuffer;
