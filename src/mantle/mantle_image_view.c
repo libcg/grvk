@@ -43,7 +43,8 @@ GR_RESULT grCreateColorTargetView(
     *grColorTargetView = (GrColorTargetView) {
         .sType = GR_STRUCT_TYPE_COLOR_TARGET_VIEW,
         .imageView = vkImageView,
-        .extent = { grImage->extent.width, grImage->extent.height, pCreateInfo->arraySize },
+        .extent2D = { grImage->extent.width, grImage->extent.height },
+        .layerCount = pCreateInfo->arraySize,
     };
 
     *pView = (GR_COLOR_TARGET_VIEW)grColorTargetView;

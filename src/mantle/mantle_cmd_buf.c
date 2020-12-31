@@ -14,28 +14,45 @@ static VkImageSubresourceRange getVkImageSubresourceRange(
     };
 }
 
-static VkExtent3D getMinimumExtent(
+static VkExtent2D getMinimumExtent2D(
     unsigned colorTargetCount,
     const GR_COLOR_TARGET_BIND_INFO* colorTargets,
     const GR_DEPTH_STENCIL_BIND_INFO* depthTarget)
 {
-    VkExtent3D extent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
-
-    assert(colorTargetCount > 0 || depthTarget != NULL);
+    VkExtent2D extent2D = { UINT32_MAX, UINT32_MAX };
 
     for (int i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
 
-        extent.width = MIN(extent.width, grColorTargetView->extent.width);
-        extent.height = MIN(extent.height, grColorTargetView->extent.height);
-        extent.depth = MIN(extent.depth, grColorTargetView->extent.depth);
+        extent2D.width = MIN(extent2D.width, grColorTargetView->extent2D.width);
+        extent2D.height = MIN(extent2D.height, grColorTargetView->extent2D.height);
     }
 
     if (depthTarget != NULL) {
-        LOGW("unhandled depth target extent\n");
+        LOGW("unhandled depth target\n");
     }
 
-    return extent;
+    return extent2D;
+}
+
+static uint32_t getMinimumLayerCount(
+    unsigned colorTargetCount,
+    const GR_COLOR_TARGET_BIND_INFO* colorTargets,
+    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget)
+{
+    uint32_t layerCount = UINT32_MAX;
+
+    for (int i = 0; i < colorTargetCount; i++) {
+        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
+
+        layerCount = MIN(layerCount, grColorTargetView->layerCount);
+    }
+
+    if (depthTarget != NULL) {
+        LOGW("unhandled depth target\n");
+    }
+
+    return layerCount;
 }
 
 static VkFramebuffer getVkFramebuffer(
@@ -44,7 +61,8 @@ static VkFramebuffer getVkFramebuffer(
     unsigned colorTargetCount,
     const GR_COLOR_TARGET_BIND_INFO* colorTargets,
     const GR_DEPTH_STENCIL_BIND_INFO* depthTarget,
-    VkExtent3D extent)
+    VkExtent2D extent2D,
+    uint32_t layerCount)
 {
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
 
@@ -69,9 +87,9 @@ static VkFramebuffer getVkFramebuffer(
         .renderPass = renderPass,
         .attachmentCount = attachmentIdx,
         .pAttachments = attachments,
-        .width = extent.width,
-        .height = extent.height,
-        .layers = extent.depth,
+        .width = extent2D.width,
+        .height = extent2D.height,
+        .layers = layerCount,
     };
 
     if (vki.vkCreateFramebuffer(device, &framebufferCreateInfo, NULL,
@@ -98,13 +116,15 @@ static void initCmdBufferResources(
                                 grPipeline->pipelineLayout, 0, 1,
                                 grCmdBuffer->grDescriptorSet->descriptorSets, 0, NULL);
 
-    VkExtent3D minExtent =
-        getMinimumExtent(grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets, depthTarget);
+    VkExtent2D minExtent2D =
+        getMinimumExtent2D(grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets, depthTarget);
+    uint32_t minLayerCount =
+        getMinimumLayerCount(grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets, depthTarget);
 
     VkFramebuffer framebuffer =
         getVkFramebuffer(grCmdBuffer->grDescriptorSet->device, grPipeline->renderPass,
                          grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets,
-                         depthTarget, minExtent);
+                         depthTarget, minExtent2D, minLayerCount);
 
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -113,7 +133,7 @@ static void initCmdBufferResources(
         .framebuffer = framebuffer,
         .renderArea = (VkRect2D) {
             .offset = { 0, 0 },
-            .extent = { minExtent.width, minExtent.height },
+            .extent = minExtent2D,
         },
         .clearValueCount = 0,
         .pClearValues = NULL,
