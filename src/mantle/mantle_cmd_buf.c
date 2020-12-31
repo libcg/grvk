@@ -18,8 +18,7 @@ static VkFramebuffer getVkFramebuffer(
     VkDevice device,
     VkRenderPass renderPass,
     unsigned colorTargetCount,
-    const GR_COLOR_TARGET_BIND_INFO* colorTargets,
-    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget,
+    const GrColorTargetView** colorTargets,
     VkExtent2D extent2D,
     uint32_t layerCount)
 {
@@ -29,14 +28,7 @@ static VkFramebuffer getVkFramebuffer(
     int attachmentIdx = 0;
 
     for (int i = 0; i < colorTargetCount; i++) {
-        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)colorTargets[i].view;
-
-        attachments[attachmentIdx++] = grColorTargetView->imageView;
-    }
-
-    // TODO
-    if (depthTarget != NULL) {
-        LOGW("depth targets are not supported\n");
+        attachments[attachmentIdx++] = colorTargets[i]->imageView;
     }
 
     const VkFramebufferCreateInfo framebufferCreateInfo = {
@@ -65,8 +57,6 @@ static void initCmdBufferResources(
 {
     const GrPipeline* grPipeline = grCmdBuffer->grPipeline;
     VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
-    const GR_DEPTH_STENCIL_BIND_INFO* depthTarget =
-        grCmdBuffer->hasDepthTarget ? &grCmdBuffer->depthTarget : NULL;
 
     vki.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
 
@@ -78,7 +68,7 @@ static void initCmdBufferResources(
     VkFramebuffer framebuffer =
         getVkFramebuffer(grCmdBuffer->grDescriptorSet->device, grPipeline->renderPass,
                          grCmdBuffer->colorTargetCount, grCmdBuffer->colorTargets,
-                         depthTarget, grCmdBuffer->minExtent2D, grCmdBuffer->minLayerCount);
+                         grCmdBuffer->minExtent2D, grCmdBuffer->minLayerCount);
 
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -241,6 +231,8 @@ GR_VOID grCmdPrepareMemoryRegions(
     }
 }
 
+// FIXME what are target states for?
+// TODO handle NULL color targets, depth target
 GR_VOID grCmdBindTargets(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT colorTargetCount,
@@ -249,6 +241,10 @@ GR_VOID grCmdBindTargets(
 {
     LOGT("%p %u %p %p\n", cmdBuffer, colorTargetCount, pColorTargets, pDepthTarget);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+
+    if (pDepthTarget != NULL) {
+        LOGW("unhandled depth target\n");
+    }
 
     // Find minimum extent and layer count
     grCmdBuffer->minExtent2D = (VkExtent2D) { UINT32_MAX, UINT32_MAX };
@@ -264,20 +260,13 @@ GR_VOID grCmdBindTargets(
         grCmdBuffer->minLayerCount = MIN(grCmdBuffer->minLayerCount, grColorTargetView->layerCount);
     }
 
-    if (pDepthTarget != NULL) {
-        LOGW("unhandled depth target extent\n");
-    }
-
     // Copy target data
-    memcpy(grCmdBuffer->colorTargets, pColorTargets,
-           sizeof(GR_COLOR_TARGET_BIND_INFO) * colorTargetCount);
     grCmdBuffer->colorTargetCount = colorTargetCount;
 
-    if (pDepthTarget == NULL) {
-        grCmdBuffer->hasDepthTarget = false;
-    } else {
-        memcpy(&grCmdBuffer->depthTarget, pDepthTarget, sizeof(GR_DEPTH_STENCIL_BIND_INFO));
-        grCmdBuffer->hasDepthTarget = true;
+    for (int i = 0; i < colorTargetCount; i++) {
+        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
+
+        grCmdBuffer->colorTargets[i] = grColorTargetView;
     }
 }
 

@@ -27,6 +27,7 @@ typedef enum _GrStructType {
     GR_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
 } GrStructType;
 
+typedef struct _GrColorTargetView GrColorTargetView;
 typedef struct _GrDescriptorSet GrDescriptorSet;
 typedef struct _GrPipeline GrPipeline;
 
@@ -40,10 +41,8 @@ typedef struct _GrCmdBuffer {
     VkCommandBuffer commandBuffer;
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
-    GR_COLOR_TARGET_BIND_INFO colorTargets[GR_MAX_COLOR_TARGETS];
     unsigned colorTargetCount;
-    GR_DEPTH_STENCIL_BIND_INFO depthTarget;
-    bool hasDepthTarget;
+    const GrColorTargetView* colorTargets[GR_MAX_COLOR_TARGETS];
     VkExtent2D minExtent2D;
     uint32_t minLayerCount;
     bool hasActiveRenderPass;
