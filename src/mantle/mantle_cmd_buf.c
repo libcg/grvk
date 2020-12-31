@@ -225,7 +225,7 @@ GR_VOID grCmdPrepareMemoryRegions(
 }
 
 // FIXME what are target states for?
-// TODO handle NULL color targets, depth target
+// TODO handle depth target
 GR_VOID grCmdBindTargets(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT colorTargetCount,
@@ -246,20 +246,26 @@ GR_VOID grCmdBindTargets(
     for (int i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
-        grCmdBuffer->minExtent2D.width = MIN(grCmdBuffer->minExtent2D.width,
-                                             grColorTargetView->extent2D.width);
-        grCmdBuffer->minExtent2D.height = MIN(grCmdBuffer->minExtent2D.height,
-                                              grColorTargetView->extent2D.height);
-        grCmdBuffer->minLayerCount = MIN(grCmdBuffer->minLayerCount, grColorTargetView->layerCount);
+        if (grColorTargetView != NULL) {
+            grCmdBuffer->minExtent2D.width = MIN(grCmdBuffer->minExtent2D.width,
+                                                 grColorTargetView->extent2D.width);
+            grCmdBuffer->minExtent2D.height = MIN(grCmdBuffer->minExtent2D.height,
+                                                  grColorTargetView->extent2D.height);
+            grCmdBuffer->minLayerCount = MIN(grCmdBuffer->minLayerCount,
+                                             grColorTargetView->layerCount);
+        }
     }
 
     // Copy attachments
-    grCmdBuffer->attachmentCount = colorTargetCount;
+    grCmdBuffer->attachmentCount = 0;
 
     for (int i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
-        grCmdBuffer->attachments[i] = grColorTargetView->imageView;
+        if (grColorTargetView != NULL) {
+            grCmdBuffer->attachments[grCmdBuffer->attachmentCount] = grColorTargetView->imageView;
+            grCmdBuffer->attachmentCount++;
+        }
     }
 }
 
