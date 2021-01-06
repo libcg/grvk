@@ -43,6 +43,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         .srcImage = srcImage,
         .commandBuffer = VK_NULL_HANDLE,
     };
+    VkResult res;
 
     const VkCommandBufferAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -52,9 +53,9 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    if (vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo,
-                                     &copyCmdBuf.commandBuffer) != VK_SUCCESS) {
-        LOGE("vkAllocateCommandBuffers failed\n");
+    res = vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &copyCmdBuf.commandBuffer);
+    if (res != VK_SUCCESS) {
+        LOGE("vkAllocateCommandBuffers failed (%d)\n", res);
     }
 
     const VkCommandBufferBeginInfo beginInfo = {
@@ -64,8 +65,9 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         .pInheritanceInfo = NULL
     };
 
-    if (vki.vkBeginCommandBuffer(copyCmdBuf.commandBuffer, &beginInfo) != VK_SUCCESS) {
-        LOGE("vkBeginCommandBuffer failed\n");
+    res = vki.vkBeginCommandBuffer(copyCmdBuf.commandBuffer, &beginInfo);
+    if (res != VK_SUCCESS) {
+        LOGE("vkBeginCommandBuffer failed (%d)\n", res);
     }
 
     const VkImageMemoryBarrier preCopyBarrier = {
@@ -140,8 +142,9 @@ static CopyCommandBuffer buildCopyCommandBuffer(
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, 1, &postCopyBarrier);
 
-    if (vki.vkEndCommandBuffer(copyCmdBuf.commandBuffer) != VK_SUCCESS) {
-        LOGE("vkEndCommandBuffer failed\n");
+    res = vki.vkEndCommandBuffer(copyCmdBuf.commandBuffer);
+    if (res != VK_SUCCESS) {
+        LOGE("vkEndCommandBuffer failed (%d)\n", res);
     }
 
     return copyCmdBuf;
@@ -152,6 +155,8 @@ static void initSwapchain(
     HWND hwnd,
     unsigned queueIndex)
 {
+    VkResult res;
+
     const VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
         .pNext = NULL,
@@ -160,16 +165,17 @@ static void initSwapchain(
         .hwnd = hwnd,
     };
 
-    if (vki.vkCreateWin32SurfaceKHR(vk, &surfaceCreateInfo, NULL, &mSurface) != VK_SUCCESS) {
-        LOGE("vkCreateWin32SurfaceKHR failed\n");
+    res = vki.vkCreateWin32SurfaceKHR(vk, &surfaceCreateInfo, NULL, &mSurface);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateWin32SurfaceKHR failed (%d)\n", res);
     }
 
     VkBool32 supported = VK_FALSE;
-    if (vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueIndex, mSurface,
-                                                 &supported) != VK_SUCCESS) {
-        LOGE("vkGetPhysicalDeviceSurfaceSupportKHR failed\n");
-    }
-    if (!supported) {
+    res = vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueIndex, mSurface,
+                                                   &supported);
+    if (res != VK_SUCCESS) {
+        LOGE("vkGetPhysicalDeviceSurfaceSupportKHR failed (%d)\n", res);
+    } else if (!supported) {
         LOGW("unsupported surface\n");
     }
 
@@ -200,9 +206,9 @@ static void initSwapchain(
         .oldSwapchain = VK_NULL_HANDLE,
     };
 
-    if (vki.vkCreateSwapchainKHR(grDevice->device, &swapchainCreateInfo, NULL,
-                                 &mSwapchain) != VK_SUCCESS) {
-        LOGE("vkCreateSwapchainKHR failed\n");
+    res = vki.vkCreateSwapchainKHR(grDevice->device, &swapchainCreateInfo, NULL, &mSwapchain);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateSwapchainKHR failed (%d)\n", res);
         return;
     }
 
@@ -230,8 +236,17 @@ static void initSwapchain(
         .flags = 0,
     };
 
-    vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
-    vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
+    res = vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateSemaphore failed (%d)\n", res);
+        return;
+    }
+
+    res = vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateSemaphore failed (%d)\n", res);
+        return;
+    }
 }
 
 // Functions
@@ -244,6 +259,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
 {
     LOGT("%p %p %p %p\n", device, pCreateInfo, pImage, pMem);
     GrDevice* grDevice = (GrDevice*)device;
+    VkResult res;
     VkImage vkImage = VK_NULL_HANDLE;
     VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
 
@@ -267,9 +283,10 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    if (vki.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage) != VK_SUCCESS) {
-        LOGE("vkCreateImage failed\n");
-        return GR_ERROR_INVALID_VALUE;
+    res = vki.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateImage failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     VkMemoryRequirements memoryRequirements;
@@ -282,18 +299,19 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .memoryTypeIndex = getMemoryTypeIndex(memoryRequirements.memoryTypeBits),
     };
 
-    if (vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL,
-                             &vkDeviceMemory) != VK_SUCCESS) {
-        LOGE("vkAllocateMemory failed\n");
+    res = vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkDeviceMemory);
+    if (res != VK_SUCCESS) {
+        LOGE("vkAllocateMemory failed (%d)\n", res);
         vki.vkDestroyImage(grDevice->device, vkImage, NULL);
-        return GR_ERROR_OUT_OF_MEMORY;
+        return getGrResult(res);
     }
 
-    if (vki.vkBindImageMemory(grDevice->device, vkImage, vkDeviceMemory, 0) != VK_SUCCESS) {
-        LOGE("vkBindImageMemory failed\n");
+    res = vki.vkBindImageMemory(grDevice->device, vkImage, vkDeviceMemory, 0);
+    if (res != VK_SUCCESS) {
+        LOGE("vkBindImageMemory failed (%d)\n", res);
         vki.vkFreeMemory(grDevice->device, vkDeviceMemory, NULL);
         vki.vkDestroyImage(grDevice->device, vkImage, NULL);
-        return GR_ERROR_OUT_OF_MEMORY;
+        return getGrResult(res);
     }
 
     const PresentableImage presentImage = {
@@ -373,9 +391,10 @@ GR_RESULT grWsiWinQueuePresent(
         .pSignalSemaphores = &mCopySemaphore,
     };
 
-    if (vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-        LOGE("vkQueueSubmit failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    vkRes = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkQueueSubmit failed (%d)\n", vkRes);
+        return getGrResult(vkRes);
     }
 
     const VkPresentInfoKHR vkPresentInfo = {

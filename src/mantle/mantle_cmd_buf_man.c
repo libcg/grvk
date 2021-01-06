@@ -30,10 +30,10 @@ GR_RESULT grCreateCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    if (vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo,
-                                     &vkCommandBuffer) != VK_SUCCESS) {
-        LOGE("vkAllocateCommandBuffers failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &vkCommandBuffer);
+    if (res != VK_SUCCESS) {
+        LOGE("vkAllocateCommandBuffers failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
@@ -73,9 +73,10 @@ GR_RESULT grBeginCommandBuffer(
         .pInheritanceInfo = NULL,
     };
 
-    if (vki.vkBeginCommandBuffer(grCmdBuffer->commandBuffer, &beginInfo) != VK_SUCCESS) {
-        LOGE("vkBeginCommandBuffer failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkBeginCommandBuffer(grCmdBuffer->commandBuffer, &beginInfo);
+    if (res != VK_SUCCESS) {
+        LOGE("vkBeginCommandBuffer failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     return GR_SUCCESS;
@@ -91,9 +92,10 @@ GR_RESULT grEndCommandBuffer(
         vki.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
     }
 
-    if (vki.vkEndCommandBuffer(grCmdBuffer->commandBuffer) != VK_SUCCESS) {
-        LOGE("vkEndCommandBuffer failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
+    if (res != VK_SUCCESS) {
+        LOGE("vkEndCommandBuffer failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     return GR_SUCCESS;

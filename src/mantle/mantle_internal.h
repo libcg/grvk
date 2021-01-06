@@ -18,6 +18,9 @@
 GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
     VkPhysicalDeviceType type);
 
+GR_RESULT getGrResult(
+    VkResult result);
+
 VkFormat getVkFormat(
     GR_FORMAT format);
 

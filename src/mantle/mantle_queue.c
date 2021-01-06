@@ -57,15 +57,17 @@ GR_RESULT grQueueSubmit(
     LOGT("%p %u %p %u %p %p\n", queue, cmdBufferCount, pCmdBuffers, memRefCount, pMemRefs, fence);
     GrQueue* grQueue = (GrQueue*)queue;
     GrFence* grFence = (GrFence*)fence;
+    VkResult res;
 
     VkFence vkFence = VK_NULL_HANDLE;
 
     if (grFence != NULL) {
         vkFence = grFence->fence;
 
-        if (vki.vkResetFences(grQueue->grDevice->device, 1, &vkFence) != VK_SUCCESS) {
-            LOGE("vkResetFences failed\n");
-            return GR_ERROR_OUT_OF_MEMORY;
+        res = vki.vkResetFences(grQueue->grDevice->device, 1, &vkFence);
+        if (res != VK_SUCCESS) {
+            LOGE("vkResetFences failed (%d)\n", res);
+            return getGrResult(res);
         }
     }
 
@@ -86,15 +88,14 @@ GR_RESULT grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    VkResult res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
+    res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
     free(vkCommandBuffers);
 
     if (res != VK_SUCCESS) {
-        LOGE("vkQueueSubmit failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+        LOGE("vkQueueSubmit failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }
 
 GR_RESULT grQueueWaitIdle(
@@ -109,12 +110,12 @@ GR_RESULT grQueueWaitIdle(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    if (vki.vkQueueWaitIdle(grQueue->queue) != VK_SUCCESS) {
-        LOGE("vkQueueWaitIdle failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkQueueWaitIdle(grQueue->queue);
+    if (res != VK_SUCCESS) {
+        LOGE("vkQueueWaitIdle failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }
 
 GR_RESULT grDeviceWaitIdle(
@@ -129,10 +130,10 @@ GR_RESULT grDeviceWaitIdle(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    if (vki.vkDeviceWaitIdle(grDevice->device) != VK_SUCCESS) {
-        LOGE("vkDeviceWaitIdle failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkDeviceWaitIdle(grDevice->device);
+    if (res != VK_SUCCESS) {
+        LOGE("vkDeviceWaitIdle failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }

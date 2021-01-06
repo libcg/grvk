@@ -10,6 +10,8 @@ GR_RESULT grCreateFence(
     LOGT("%p %p %p\n", device, pCreateInfo, pFence);
     GrDevice* grDevice = (GrDevice*)device;
 
+    // TODO validate parameters
+
     VkFence vkFence = VK_NULL_HANDLE;
 
     const VkFenceCreateInfo createInfo = {
@@ -18,9 +20,10 @@ GR_RESULT grCreateFence(
         .flags = 0,
     };
 
-    if (vki.vkCreateFence(grDevice->device, &createInfo, NULL, &vkFence) != VK_SUCCESS) {
-        LOGE("vkCreateFence failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkCreateFence(grDevice->device, &createInfo, NULL, &vkFence);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateFence failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     GrFence* grFence = malloc(sizeof(GrFence));
@@ -48,15 +51,11 @@ GR_RESULT grGetFenceStatus(
     }
 
     VkResult res = vki.vkGetFenceStatus(grFence->device, grFence->fence);
-
-    if (res == VK_NOT_READY) {
-        return GR_NOT_READY;
-    } else if (res != VK_SUCCESS) {
-        LOGE("vkGetFenceStatus failed %d\n", res);
-        return GR_ERROR_OUT_OF_MEMORY;
+    if (res != VK_SUCCESS && res != VK_NOT_READY) {
+        LOGE("vkGetFenceStatus failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }
 
 GR_RESULT grWaitForFences(
@@ -95,14 +94,11 @@ GR_RESULT grWaitForFences(
     VkResult res = vki.vkWaitForFences(grDevice->device, fenceCount, vkFences, waitAll, vkTimeout);
     free(vkFences);
 
-    if (res == VK_TIMEOUT) {
-        return GR_TIMEOUT;
-    } else if (res != VK_SUCCESS) {
-        LOGE("vkWaitForFences failed %d\n", res);
-        return GR_ERROR_OUT_OF_MEMORY;
+    if (res != VK_SUCCESS && res != VK_TIMEOUT) {
+        LOGE("vkWaitForFences failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }
 
 GR_RESULT grCreateQueueSemaphore(
@@ -136,9 +132,10 @@ GR_RESULT grCreateQueueSemaphore(
         .flags = 0,
     };
 
-    if (vki.vkCreateSemaphore(grDevice->device, &createInfo, NULL, &vkSem) != VK_SUCCESS) {
-        LOGE("vkCreateSemaphore failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkCreateSemaphore(grDevice->device, &createInfo, NULL, &vkSem);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateSemaphore failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     GrQueueSemaphore* grQueueSemaphore = malloc(sizeof(GrQueueSemaphore));
@@ -176,12 +173,12 @@ GR_RESULT grSignalQueueSemaphore(
         .pSignalSemaphores = &grQueueSemaphore->semaphore,
     };
 
-    if (vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-        LOGE("vkQueueSubmit failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (res != VK_SUCCESS) {
+        LOGE("vkQueueSubmit failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }
 
 GR_RESULT grWaitQueueSemaphore(
@@ -211,12 +208,12 @@ GR_RESULT grWaitQueueSemaphore(
         .pSignalSemaphores = NULL,
     };
 
-    if (vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-        LOGE("vkQueueSubmit failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (res != VK_SUCCESS) {
+        LOGE("vkQueueSubmit failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }
 
 GR_RESULT grCreateEvent(
@@ -243,9 +240,10 @@ GR_RESULT grCreateEvent(
         .flags = 0,
     };
 
-    if (vki.vkCreateEvent(grDevice->device, &createInfo, NULL, &vkEvent) != VK_SUCCESS) {
-        LOGE("vkCreateEvent failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkCreateEvent(grDevice->device, &createInfo, NULL, &vkEvent);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateEvent failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     GrEvent* grEvent = malloc(sizeof(GrEvent));
@@ -272,15 +270,11 @@ GR_RESULT grGetEventStatus(
     }
 
     VkResult res = vki.vkGetEventStatus(grEvent->device, grEvent->event);
-
-    if (res == VK_EVENT_SET) {
-        return GR_EVENT_SET;
-    } else if (res == VK_EVENT_RESET) {
-        return GR_EVENT_RESET;
-    } else {
-        LOGE("vkGetEventStatus failed %d\n", res);
-        return GR_ERROR_OUT_OF_MEMORY;
+    if (res != VK_EVENT_SET && res != VK_EVENT_SET) {
+        LOGE("vkGetEventStatus failed (%d)\n", res);
     }
+
+    return getGrResult(res);
 }
 
 GR_RESULT grSetEvent(
@@ -295,12 +289,12 @@ GR_RESULT grSetEvent(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    if (vki.vkSetEvent(grEvent->device, grEvent->event) != VK_SUCCESS) {
-        LOGE("vkSetEvent failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkSetEvent(grEvent->device, grEvent->event);
+    if (res != VK_SUCCESS) {
+        LOGE("vkSetEvent failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }
 
 GR_RESULT grResetEvent(
@@ -315,10 +309,10 @@ GR_RESULT grResetEvent(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    if (vki.vkResetEvent(grEvent->device, grEvent->event) != VK_SUCCESS) {
-        LOGE("vkResetEvent failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkResetEvent(grEvent->device, grEvent->event);
+    if (res != VK_SUCCESS) {
+        LOGE("vkResetEvent failed (%d)\n", res);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(res);
 }

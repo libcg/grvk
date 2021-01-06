@@ -20,7 +20,38 @@ GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
         break;
     }
 
+    LOGW("unsupported type %d\n", type);
     return GR_GPU_TYPE_OTHER;
+}
+
+GR_RESULT getGrResult(
+    VkResult result)
+{
+    switch (result) {
+    case VK_SUCCESS:
+        return GR_SUCCESS;
+    case VK_NOT_READY:
+        return GR_NOT_READY;
+    case VK_TIMEOUT:
+        return GR_TIMEOUT;
+    case VK_EVENT_SET:
+        return GR_EVENT_SET;
+    case VK_EVENT_RESET:
+        return GR_EVENT_RESET;
+    case VK_ERROR_OUT_OF_HOST_MEMORY:
+        return GR_ERROR_OUT_OF_MEMORY;
+    case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+        return GR_ERROR_OUT_OF_GPU_MEMORY;
+    case VK_ERROR_DEVICE_LOST:
+        return GR_ERROR_DEVICE_LOST;
+    case VK_ERROR_MEMORY_MAP_FAILED:
+        return GR_ERROR_MEMORY_MAP_FAILED;
+    default:
+        break;
+    }
+
+    LOGW("unsupported result %d\n", result);
+    return GR_ERROR_UNKNOWN;
 }
 
 VkFormat getVkFormat(

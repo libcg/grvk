@@ -12,6 +12,8 @@ GR_RESULT grCreateColorTargetView(
     GrImage* grImage = (GrImage*)pCreateInfo->image;
     VkImageView vkImageView = VK_NULL_HANDLE;
 
+    // TODO validate parameters
+
     const VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
@@ -34,16 +36,17 @@ GR_RESULT grCreateColorTargetView(
         }
     };
 
-    if (vki.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView) != VK_SUCCESS) {
-        LOGE("vkCreateImageView failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateImageView failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     GrColorTargetView* grColorTargetView = malloc(sizeof(GrColorTargetView));
     *grColorTargetView = (GrColorTargetView) {
         .sType = GR_STRUCT_TYPE_COLOR_TARGET_VIEW,
         .imageView = vkImageView,
-        .extent2D = { grImage->extent.width, grImage->extent.height },
+        .extent2D = grImage->extent,
         .layerCount = pCreateInfo->arraySize,
     };
 

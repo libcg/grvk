@@ -76,8 +76,9 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         .pBindings = bindings,
     };
 
-    if (vki.vkCreateDescriptorSetLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
-        LOGE("vkCreateDescriptorSetLayout failed\n");
+    VkResult res = vki.vkCreateDescriptorSetLayout(vkDevice, &createInfo, NULL, &layout);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
     }
 
     free(bindings);
@@ -119,8 +120,9 @@ static VkPipelineLayout getVkPipelineLayout(
         .pPushConstantRanges = NULL,
     };
 
-    if (vki.vkCreatePipelineLayout(vkDevice, &createInfo, NULL, &layout) != VK_SUCCESS) {
-        LOGE("vkCreatePipelineLayout failed\n");
+    VkResult res = vki.vkCreatePipelineLayout(vkDevice, &createInfo, NULL, &layout);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreatePipelineLayout failed (%d)\n", res);
         for (int i = 0; i < MAX_STAGE_COUNT; i++) {
             vki.vkDestroyDescriptorSetLayout(vkDevice, descriptorSetLayouts[i], NULL);
         }
@@ -240,8 +242,9 @@ static VkRenderPass getVkRenderPass(
         .pDependencies = NULL,
     };
 
-    if (vki.vkCreateRenderPass(vkDevice, &renderPassCreateInfo, NULL, &renderPass) != VK_SUCCESS) {
-        LOGE("vkCreateRenderPass failed\n");
+    VkResult res = vki.vkCreateRenderPass(vkDevice, &renderPassCreateInfo, NULL, &renderPass);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateRenderPass failed (%d)\n", res);
         return VK_NULL_HANDLE;
     }
 
@@ -280,9 +283,10 @@ GR_RESULT grCreateShader(
         .pCode = spirvCode,
     };
 
-    if (vki.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule)) {
-        LOGE("vkCreateShaderModule failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateShaderModule failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
@@ -306,6 +310,8 @@ GR_RESULT grCreateGraphicsPipeline(
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pPipeline);
     GrDevice* grDevice = (GrDevice*)device;
+
+    // TODO validate parameters
 
     // Ignored parameters:
     // - iaState.disableVertexReuse (hint)
@@ -562,12 +568,13 @@ GR_RESULT grCreateGraphicsPipeline(
         .basePipelineIndex = -1,
     };
 
-    if (vki.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
-                                      NULL, &vkPipeline) != VK_SUCCESS) {
-        LOGE("vkCreateGraphicsPipelines failed\n");
+    VkResult res = vki.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1,
+                                                 &pipelineCreateInfo, NULL, &vkPipeline);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateGraphicsPipelines failed (%d)\n", res);
         vki.vkDestroyPipelineLayout(grDevice->device, layout, NULL);
         vki.vkDestroyRenderPass(grDevice->device, renderPass, NULL);
-        return GR_ERROR_OUT_OF_MEMORY;
+        return getGrResult(res);
     }
 
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));

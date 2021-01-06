@@ -108,6 +108,8 @@ GR_RESULT grAllocMemory(
     // TODO consider pAllocInfo->memPriority
 
     VkDeviceMemory vkMemory = VK_NULL_HANDLE;
+
+    // Try to allocate from the best heap
     for (int i = 0; i < pAllocInfo->heapCount; i++) {
         const VkMemoryAllocateInfo allocateInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -119,14 +121,16 @@ GR_RESULT grAllocMemory(
         vkRes = vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
         if (vkRes == VK_SUCCESS) {
             break;
-        } else if (vkRes != VK_ERROR_OUT_OF_DEVICE_MEMORY) {
-            LOGE("vkAllocateMemory failed %d\n", vkRes);
-            return GR_ERROR_OUT_OF_GPU_MEMORY;
+        } else if (vkRes == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
+            continue;
+        } else {
+            LOGE("vkAllocateMemory failed (%d)\n", vkRes);
+            return getGrResult(vkRes);
         }
     }
 
     if (vkRes != VK_SUCCESS) {
-        LOGE("no suitable heap was found %d\n", vkRes);
+        LOGE("no suitable heap was found\n");
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
@@ -142,17 +146,19 @@ GR_RESULT grAllocMemory(
     };
 
     VkBuffer vkBuffer = VK_NULL_HANDLE;
-    if (vki.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer) != VK_SUCCESS) {
-        LOGE("vkCreateBuffer failed\n");
+    vkRes = vki.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateBuffer failed (%d)\n", vkRes);
         vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
-        return GR_ERROR_OUT_OF_GPU_MEMORY;
+        return getGrResult(vkRes);
     }
 
-    if (vki.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0) != VK_SUCCESS) {
-        LOGE("vkBindBufferMemory failed\n");
+    vkRes = vki.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
         vki.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
         vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
-        return GR_ERROR_OUT_OF_GPU_MEMORY;
+        return getGrResult(vkRes);
     }
 
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
@@ -185,13 +191,13 @@ GR_RESULT grMapMemory(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    if (vki.vkMapMemory(grGpuMemory->device, grGpuMemory->deviceMemory,
-                        0, VK_WHOLE_SIZE, 0, ppData) != VK_SUCCESS) {
-        LOGE("vkMapMemory failed\n");
-        return GR_ERROR_MEMORY_MAP_FAILED;
+    VkResult vkRes = vki.vkMapMemory(grGpuMemory->device, grGpuMemory->deviceMemory,
+                                     0, VK_WHOLE_SIZE, 0, ppData);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkMapMemory failed (%d)\n", vkRes);
     }
 
-    return GR_SUCCESS;
+    return getGrResult(vkRes);
 }
 
 GR_RESULT grUnmapMemory(

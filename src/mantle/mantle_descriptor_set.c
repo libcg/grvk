@@ -70,10 +70,11 @@ GR_RESULT grCreateDescriptorSet(
     };
 
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
-    if (vki.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL,
-                                   &vkDescriptorPool) != VK_SUCCESS) {
-        LOGE("vkCreateDescriptorPool failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL,
+                                              &vkDescriptorPool);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateDescriptorPool failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     DescriptorSetSlot* slots = malloc(sizeof(DescriptorSetSlot) * pCreateInfo->slots);
@@ -110,6 +111,7 @@ GR_VOID grEndDescriptorSetUpdate(
 {
     LOGT("%p\n", descriptorSet);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
+    VkResult res;
 
     // TODO free old descriptor sets and layouts if applicable
 
@@ -173,12 +175,14 @@ GR_VOID grEndDescriptorSetUpdate(
             .pBindings = bindings,
         };
 
-        if (vki.vkCreateDescriptorSetLayout(grDescriptorSet->device, &createInfo, NULL,
-                                            &vkLayouts[i]) != VK_SUCCESS) {
-            LOGE("vkCreateDescriptorSetLayout failed\n");
-        }
-
+        res = vki.vkCreateDescriptorSetLayout(grDescriptorSet->device, &createInfo, NULL,
+                                              &vkLayouts[i]);
         free(bindings);
+
+        if (res != VK_SUCCESS) {
+            LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
+            return;
+        }
     }
 
     const VkDescriptorSetAllocateInfo allocateInfo = {
@@ -189,9 +193,11 @@ GR_VOID grEndDescriptorSetUpdate(
         .pSetLayouts = vkLayouts,
     };
 
-    if (vki.vkAllocateDescriptorSets(grDescriptorSet->device, &allocateInfo,
-                                     grDescriptorSet->descriptorSets) != VK_SUCCESS) {
-        LOGE("vkAllocateDescriptorSets failed\n");
+    res = vki.vkAllocateDescriptorSets(grDescriptorSet->device, &allocateInfo,
+                                       grDescriptorSet->descriptorSets);
+    if (res != VK_SUCCESS) {
+        LOGE("vkAllocateDescriptorSets failed (%d)\n", res);
+        return;
     }
 
     for (int i = 0; i < MAX_STAGE_COUNT; i++) {
@@ -214,9 +220,10 @@ GR_VOID grEndDescriptorSetUpdate(
                 };
 
                 // TODO track buffer view reference
-                if (vki.vkCreateBufferView(grDescriptorSet->device, &createInfo, NULL,
-                                           &bufferView) != VK_SUCCESS) {
-                    LOGE("vkCreateBufferView failed\n");
+                res = vki.vkCreateBufferView(grDescriptorSet->device, &createInfo, NULL, &bufferView);
+                if (res != VK_SUCCESS) {
+                    LOGE("vkCreateBufferView failed (%d)\n", res);
+                    return;
                 }
 
                 VkWriteDescriptorSet writeDescriptorSet = {

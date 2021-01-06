@@ -74,6 +74,8 @@ GR_RESULT grInitAndEnumerateGpus(
     };
 
     vkRes = vkl.vkCreateInstance(&createInfo, NULL, &vkInstance);
+    free(grvkEngineName);
+
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateInstance failed (%d)\n", vkRes);
 
@@ -84,7 +86,6 @@ GR_RESULT grInitAndEnumerateGpus(
         return GR_ERROR_INITIALIZATION_FAILED;
     }
 
-    free(grvkEngineName);
     vulkanLoaderInstanceInit(vkInstance);
 
     uint32_t vkPhysicalDeviceCount = 0;
@@ -315,7 +316,7 @@ GR_RESULT grCreateDevice(
 
     vkRes = vki.vkCreateDevice(grPhysicalGpu->physicalDevice, &createInfo, NULL, &vkDevice);
     if (vkRes != VK_SUCCESS) {
-        LOGE("vkCreateDevice failed\n");
+        LOGE("vkCreateDevice failed (%d)\n", vkRes);
 
         if (vkRes == VK_ERROR_EXTENSION_NOT_PRESENT) {
             LOGE("missing extension. make sure your Vulkan driver supports "
@@ -334,9 +335,9 @@ GR_RESULT grCreateDevice(
             .queueFamilyIndex = universalQueueIndex,
         };
 
-        if (vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
-                                    &universalCommandPool) != VK_SUCCESS) {
-            LOGE("vkCreateCommandPool failed\n");
+        vkRes = vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL, &universalCommandPool);
+        if (vkRes != VK_SUCCESS) {
+            LOGE("vkCreateCommandPool failed (%d)\n", vkRes);
             res = GR_ERROR_INITIALIZATION_FAILED;
             goto bail;
         }
@@ -349,9 +350,9 @@ GR_RESULT grCreateDevice(
             .queueFamilyIndex = computeQueueIndex,
         };
 
-        if (vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL,
-                                    &computeCommandPool) != VK_SUCCESS) {
-            LOGE("vkCreateCommandPool failed\n");
+        vkRes = vki.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL, &computeCommandPool);
+        if (vkRes != VK_SUCCESS) {
+            LOGE("vkCreateCommandPool failed (%d)\n", vkRes);
             res = GR_ERROR_INITIALIZATION_FAILED;
             goto bail;
         }

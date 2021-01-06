@@ -41,9 +41,10 @@ GR_RESULT grCreateSampler(
         .unnormalizedCoordinates = VK_FALSE,
     };
 
-    if (vki.vkCreateSampler(grDevice->device, &createInfo, NULL, &vkSampler) != VK_SUCCESS) {
-        LOGE("vkCreateSampler failed\n");
-        return GR_ERROR_OUT_OF_MEMORY;
+    VkResult res = vki.vkCreateSampler(grDevice->device, &createInfo, NULL, &vkSampler);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateSampler failed (%d)\n", res);
+        return getGrResult(res);
     }
 
     GrSampler* grSampler = malloc(sizeof(GrSampler));
