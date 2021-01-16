@@ -27,6 +27,7 @@ typedef IlcSpvWord IlcSpvId;
 
 typedef struct {
     unsigned wordCount;
+    unsigned ptr;
     IlcSpvWord* words;
 } IlcSpvBuffer;
 
@@ -35,6 +36,11 @@ typedef struct {
     IlcSpvId glsl450ImportId;
     IlcSpvBuffer buffer[ID_MAX];
 } IlcSpvModule;
+
+typedef struct {
+    IlcSpvId label;
+    uint32_t literal;
+} IlcSpvSwitchCase;
 
 void ilcSpvInit(
     IlcSpvModule* module);
@@ -67,6 +73,20 @@ void ilcSpvPutCapability(
     IlcSpvModule* module,
     IlcSpvWord capability);
 
+/*gets current pointer position of the code buffer */
+uint32_t ilcSpvGetInsertionPtr(const IlcSpvModule* module);
+
+/*resets position of the code buffer */
+void ilcSpvEndInsertion(IlcSpvModule* module);
+
+/*sets pointer of the code buffer to specified position, allowing to insert commands in the middle of the buffer*/
+bool ilcSpvBeginInsertion(IlcSpvModule* module, uint32_t newPtr);
+
+unsigned getSpvTypeComponentCount(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId *outScalarTypeId);
+
 IlcSpvId ilcSpvPutVoidType(
     IlcSpvModule* module);
 
@@ -85,6 +105,18 @@ IlcSpvId ilcSpvPutVectorType(
     IlcSpvId typeId,
     unsigned count);
 
+IlcSpvId ilcSpvPutImageTypeWithAccess(
+    IlcSpvModule* module,
+    IlcSpvId sampledTypeId,
+    IlcSpvWord dim,
+    IlcSpvWord depth,
+    IlcSpvWord arrayed,
+    IlcSpvWord ms,
+    IlcSpvWord sampled,
+    IlcSpvWord format,
+    IlcSpvWord accessMode);
+
+
 IlcSpvId ilcSpvPutImageType(
     IlcSpvModule* module,
     IlcSpvId sampledTypeId,
@@ -94,6 +126,13 @@ IlcSpvId ilcSpvPutImageType(
     IlcSpvWord ms,
     IlcSpvWord sampled,
     IlcSpvWord format);
+
+IlcSpvId ilcSpvPutSampledImageType(
+    IlcSpvModule* module,
+    IlcSpvId imageTypeId);
+
+IlcSpvId ilcSpvPutSamplerType(
+    IlcSpvModule* module);
 
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,
@@ -132,6 +171,49 @@ IlcSpvId ilcSpvPutVariable(
     IlcSpvId resultTypeId,
     IlcSpvWord storageClass);
 
+
+IlcSpvId ilcSpvPutImageGather(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId componentId,
+    IlcSpvId argMask,
+    const IlcSpvId* operands);
+
+IlcSpvId ilcSpvPutImageDrefGather(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId drefId,
+    IlcSpvId argMask,
+    const IlcSpvId* operands);
+
+IlcSpvId ilcSpvPutImageSample(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId argMask,
+    const IlcSpvId* operands);
+
+IlcSpvId ilcSpvPutImageSampleDref(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateVariableId,
+    IlcSpvId drefId,
+    IlcSpvId argMask,
+    const IlcSpvId* operands);
+
+IlcSpvId ilcSpvPutSampledImage(
+    IlcSpvModule* module,
+    IlcSpvId resultType,
+    IlcSpvId imageResourceId,
+    IlcSpvId samplerId);
+
+
 IlcSpvId ilcSpvPutLoad(
     IlcSpvModule* module,
     IlcSpvId typeId,
@@ -148,6 +230,12 @@ void ilcSpvPutDecoration(
     IlcSpvWord decoration,
     unsigned argCount,
     const IlcSpvWord* args);
+
+IlcSpvId ilcSpvPutVectorExtractDynamic(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId vecId,
+    IlcSpvId indexId);
 
 IlcSpvId ilcSpvPutVectorShuffle(
     IlcSpvModule* module,
@@ -170,11 +258,25 @@ IlcSpvId ilcSpvPutCompositeExtract(
     unsigned indexCount,
     const IlcSpvId* indexes);
 
-IlcSpvId ilcSpvPutImageFetch(
+IlcSpvId ilcSpvPutImageRead(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId imageId,
     IlcSpvId coordinateId);
+
+IlcSpvId ilcSpvPutImageWrite(
+    IlcSpvModule* module,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId,
+    IlcSpvId valueId);
+
+IlcSpvId ilcSpvPutImageFetch(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId,
+    IlcSpvId argMask,
+    const IlcSpvId* operands);
 
 IlcSpvId ilcSpvPutAlu(
     IlcSpvModule* module,
@@ -217,6 +319,13 @@ void ilcSpvPutBranchConditional(
     IlcSpvId conditionId,
     IlcSpvId trueLabelId,
     IlcSpvId falseLabelId);
+
+void ilcSpvPutSwitch(
+    IlcSpvModule* module,
+    IlcSpvId selectorId,
+    IlcSpvId defaultLabelId,
+    uint32_t caseSize,
+    const IlcSpvSwitchCase* cases);
 
 void ilcSpvPutReturn(
     IlcSpvModule* module);

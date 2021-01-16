@@ -69,13 +69,13 @@ VkFormat getVkFormat(
     case PACK_FORMAT(GR_CH_FMT_R4G4B4A4, GR_NUM_FMT_UNORM):
         break; // FIXME VK_FORMAT_A4B4G4R4_UNORM_PACK16 isn't available
     case PACK_FORMAT(GR_CH_FMT_R5G6B5, GR_NUM_FMT_UNORM):
-        return VK_FORMAT_B5G6R5_UNORM_PACK16;
-    case PACK_FORMAT(GR_CH_FMT_B5G6R5, GR_NUM_FMT_UNORM):
         return VK_FORMAT_R5G6B5_UNORM_PACK16;
+    case PACK_FORMAT(GR_CH_FMT_B5G6R5, GR_NUM_FMT_UNORM):
+        return VK_FORMAT_B5G6R5_UNORM_PACK16;
     case PACK_FORMAT(GR_CH_FMT_B5G6R5, GR_NUM_FMT_SRGB):
         break; // FIXME VK_FORMAT_R5G6B5_SRGB_PACK16 isn't available
     case PACK_FORMAT(GR_CH_FMT_R5G5B5A1, GR_NUM_FMT_UNORM):
-        break; // FIXME VK_FORMAT_A1B5G5R5_UNORM_PACK16 isn't available
+        return VK_FORMAT_R5G5B5A1_UNORM_PACK16;
     case PACK_FORMAT(GR_CH_FMT_R8, GR_NUM_FMT_UNORM):
         return VK_FORMAT_R8_UNORM;
     case PACK_FORMAT(GR_CH_FMT_R8, GR_NUM_FMT_SNORM):
@@ -324,10 +324,56 @@ VkSampleCountFlagBits getVkSampleCountFlagBits(
         return VK_SAMPLE_COUNT_16_BIT;
     case 32:
         return VK_SAMPLE_COUNT_32_BIT;
+    case 64:
+        return VK_SAMPLE_COUNT_64_BIT;
     }
 
     LOGW("unsupported sample count %d\n", samples);
-    return VK_SAMPLE_COUNT_1_BIT;
+    return 0;//implementation should return error in this case, so return 0
+}
+
+VkImageUsageFlags getVkImageUsageFlags(GR_IMAGE_USAGE_FLAGS usage)
+{
+    VkImageUsageFlags flags = 0;
+    if (usage & GR_IMAGE_USAGE_SHADER_ACCESS_READ) {
+        flags |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+    if (usage & GR_IMAGE_USAGE_SHADER_ACCESS_WRITE) {
+        flags |= VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+    if (usage & GR_IMAGE_USAGE_COLOR_TARGET) {
+        flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    }
+    if (usage & GR_IMAGE_USAGE_DEPTH_STENCIL) {
+        flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    }
+    return flags;
+}
+
+VkImageTiling getVkImageTiling(GR_IMAGE_TILING tiling)
+{
+    switch (tiling) {
+    case GR_LINEAR_TILING:
+        return VK_IMAGE_TILING_LINEAR;
+    case GR_OPTIMAL_TILING:
+        return VK_IMAGE_TILING_OPTIMAL;
+    default:
+        return 0;
+    }
+}
+
+VkImageType getImageType(GR_IMAGE_TYPE type)
+{
+    switch (type) {
+    case GR_IMAGE_1D:
+        return VK_IMAGE_TYPE_1D;
+    case GR_IMAGE_2D:
+        return VK_IMAGE_TYPE_2D;
+    case GR_IMAGE_3D:
+        return VK_IMAGE_TYPE_3D;
+    default:
+        return 0xFFFFFFFF;
+    }
 }
 
 VkBlendFactor getVkBlendFactor(
@@ -710,4 +756,86 @@ VkBorderColor getVkBorderColor(
 
     LOGW("unsupported border color type 0x%X\n", borderColorType);
     return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+}
+/*maps vulkan feature flags to mantle ones, vkformat is used ONLY to determine whether format supports stencil attachment and not only depth attachment*/
+GR_FLAGS mapImageFeaturesFlags(VkFormatFeatureFlags flags, VkFormat format)
+{
+    GR_FLAGS formatFlag = 0;
+    if (flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
+        formatFlag |= GR_FORMAT_IMAGE_SHADER_READ;
+    }
+    if (flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
+        formatFlag |= (GR_FORMAT_COLOR_TARGET_WRITE | GR_FORMAT_MSAA_TARGET);
+    }
+    if (flags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) {
+        formatFlag |= GR_FORMAT_COLOR_TARGET_BLEND;
+    }
+    if (flags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {//TODO: check if format REALLY supports stencil attachment by it's format name
+        formatFlag |= (GR_FORMAT_DEPTH_TARGET | GR_FORMAT_MSAA_TARGET);
+        switch (format) {
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+            formatFlag |= (GR_FORMAT_STENCIL_TARGET | GR_FORMAT_DEPTH_TARGET);
+            break;
+        case VK_FORMAT_S8_UINT:
+            formatFlag |= GR_FORMAT_STENCIL_TARGET;
+            break;
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_D32_SFLOAT:
+            formatFlag |= GR_FORMAT_DEPTH_TARGET;
+            break;
+        default:
+            break;
+        }
+    }
+    if (flags & (VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT)) {
+        formatFlag |= GR_FORMAT_IMAGE_COPY;
+    }
+    return formatFlag;
+}
+
+GR_RESULT grGetFormatInfo(
+    GR_DEVICE device,
+    GR_FORMAT format,
+    GR_ENUM infoType,
+    GR_SIZE* pDataSize,
+    GR_VOID* pData)
+{
+    LOGT("%p 0x%X 0x%X %p %p\n", device, format, infoType, pDataSize, pData);
+    GrDevice* grDevice = (GrDevice*)device;
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    }
+    if (pDataSize == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+    if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+    if (infoType != GR_INFO_TYPE_FORMAT_PROPERTIES) {
+        return GR_ERROR_INVALID_VALUE;
+    }
+    VkFormat vkFormat = getVkFormat(format);
+    if (vkFormat == VK_FORMAT_UNDEFINED) {
+        return GR_ERROR_INVALID_FORMAT;
+    }
+    if (pData == NULL) {
+        *pDataSize = sizeof(GR_FORMAT_PROPERTIES);
+        return GR_SUCCESS;
+    }
+    else if (*pDataSize < sizeof(GR_FORMAT_PROPERTIES)) {
+        return GR_ERROR_INVALID_MEMORY_SIZE;
+    }
+    VkFormatProperties formatProps;
+    vki.vkGetPhysicalDeviceFormatProperties(grDevice->physicalDevice, vkFormat, &formatProps);
+    GR_FORMAT_PROPERTIES* outProps = (GR_FORMAT_PROPERTIES*)pData;
+    outProps->linearTilingFeatures  = mapImageFeaturesFlags(formatProps.linearTilingFeatures, vkFormat);
+    if (formatProps.bufferFeatures & (VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT |
+                                      VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT |
+                                      VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT)) {
+        outProps->linearTilingFeatures |= GR_FORMAT_MEMORY_SHADER_ACCESS;
+    }
+    outProps->optimalTilingFeatures = mapImageFeaturesFlags(formatProps.optimalTilingFeatures, vkFormat);
+    return GR_SUCCESS;
 }

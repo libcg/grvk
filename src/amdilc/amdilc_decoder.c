@@ -25,6 +25,10 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_END] = { IL_OP_END, 0, 0, 0, false },
     [IL_OP_ENDIF] = { IL_OP_ENDIF, 0, 0, 0, false },
     [IL_OP_ENDLOOP] = { IL_OP_ENDLOOP, 0, 0, 0, false },
+    [IL_OP_SWITCH] = { IL_OP_SWITCH, 0, 1, 0, false },
+    [IL_OP_CASE] = { IL_OP_CASE, 0, 1, 0, false },
+    [IL_OP_DEFAULT] = { IL_OP_DEFAULT, 0, 0, 0, false },
+    [IL_OP_ENDSWITCH] = { IL_OP_ENDSWITCH, 0, 0, 0, false },
     [IL_OP_ENDMAIN] = { IL_OP_ENDMAIN, 0, 0, 0, false },
     [IL_OP_FRC] = { IL_OP_FRC, 1, 1, 0, false },
     [IL_OP_MAD] = { IL_OP_MAD, 1, 3, 0, false },
@@ -51,7 +55,15 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_SAMPLE_B] = { IL_OP_SAMPLE_B, 1, 2, 0, true },
     [IL_OP_SAMPLE_G] = { IL_OP_SAMPLE_G, 1, 3, 0, true },
     [IL_OP_SAMPLE_L] = { IL_OP_SAMPLE_L, 1, 2, 0, true },
+    [IL_OP_SAMPLE_C] = { IL_OP_SAMPLE_C, 1, 2, 0, true },
+    [IL_OP_SAMPLE_C_B] = { IL_OP_SAMPLE_C_B, 1, 3, 0, true },
+    [IL_OP_SAMPLE_C_G] = { IL_OP_SAMPLE_C_G, 1, 4, 0, true },
+    [IL_OP_SAMPLE_C_L] = { IL_OP_SAMPLE_C_L, 1, 3, 0, true },
     [IL_OP_SAMPLE_C_LZ] = { IL_OP_SAMPLE_C_LZ, 1, 2, 0, true },
+    [IL_OP_FETCH4] = { IL_OP_FETCH4, 1, 1, 0, true },
+    [IL_OP_FETCH4_C] = { IL_OP_FETCH4_C, 1, 2, 0, true },
+    [IL_OP_FETCH4_PO] = { IL_OP_FETCH4_PO, 1, 2, 0, true },
+    [IL_OP_FETCH4_PO_C] = { IL_OP_FETCH4_PO_C, 1, 3, 0, true },
     [IL_OP_I_NOT] = { IL_OP_I_NOT, 1, 1, 0, false },
     [IL_OP_I_OR] = { IL_OP_I_OR, 1, 2, 0, false },
     [IL_OP_I_ADD] = { IL_OP_I_ADD, 1, 2, 0, false },
@@ -94,12 +106,20 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_LDS_LOAD_VEC] = { IL_OP_LDS_LOAD_VEC, 1, 2, 0, false },
     [IL_OP_LDS_STORE_VEC] = { IL_OP_LDS_STORE_VEC, 1, 3, 0, false },
     [IL_OP_DCL_UAV] = { IL_OP_DCL_UAV, 0, 0, 0, false },
-    [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0, false },
-    [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0, false },
+    [IL_OP_DCL_STRUCT_UAV] = { IL_OP_DCL_STRUCT_UAV, 0, 0, 1, false },
+    [IL_OP_DCL_RAW_UAV] = { IL_OP_DCL_RAW_UAV, 0, 0, 0, false },
+    [IL_OP_UAV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, false },
+    [IL_OP_UAV_RAW_LOAD] = { IL_OP_UAV_RAW_LOAD, 1, 1, 0, true },
+    [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0, true },
+    [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0, true },
+    [IL_OP_UAV_STRUCT_STORE] = { IL_OP_UAV_STRUCT_STORE, 1, 2, 0, false },// not sure if this operation has ext flag as docs don't say anything 
+    [IL_OP_UAV_RAW_STORE] = { IL_OP_UAV_RAW_STORE, 1, 2, 0, true },
     [IL_OP_UAV_ADD] = { IL_OP_UAV_ADD, 0, 2, 0, false },
     [IL_OP_UAV_READ_ADD] = { IL_OP_UAV_READ_ADD, 1, 2, 0, false },
     [IL_OP_DCL_STRUCT_SRV] = { IL_OP_DCL_STRUCT_SRV, 0, 0, 1, false },
-    [IL_OP_SRV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, false },
+    [IL_OP_DCL_RAW_SRV] = { IL_OP_DCL_RAW_SRV, 0, 0, 0, false },
+    [IL_OP_SRV_STRUCT_LOAD] = { IL_OP_SRV_STRUCT_LOAD, 1, 1, 0, true },
+    [IL_OP_SRV_RAW_LOAD] = { IL_OP_SRV_RAW_LOAD, 1, 1, 0, true },
     [IL_DCL_STRUCT_LDS] = { IL_DCL_STRUCT_LDS, 0, 0, 2, false },
     [IL_OP_U_BIT_EXTRACT] = { IL_OP_U_BIT_EXTRACT, 1, 3, 0, false },
     [IL_OP_U_BIT_INSERT] = { IL_OP_U_BIT_INSERT, 1, 4, 0, false },
@@ -108,18 +128,34 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_UNK_660] = { IL_UNK_660, 1, 0, 0, false }, // FIXME undocumented
 };
 
+static bool isUavOrSrvOperation(uint16_t opcode)
+{
+    switch (opcode) {
+    case IL_OP_SRV_RAW_LOAD:
+    case IL_OP_SRV_STRUCT_LOAD:
+    case IL_OP_UAV_RAW_LOAD:
+    case IL_OP_UAV_LOAD:
+    case IL_OP_UAV_STORE:
+    case IL_OP_UAV_RAW_STORE:// not sure about struct_store operation
+        return true;
+    default:
+        return false;
+    }
+}
+
 static unsigned getSourceCount(
     const Instruction* instr)
 {
     const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
     bool indexedArgs = GET_BIT(instr->control, 12);
     bool priModifierPresent = GET_BIT(instr->control, 15);
-
-    if (info->hasIndexedResourceSampler && indexedArgs) {
+    // LOAD instructions can have indexedResourceSampler, but they consume only one extra source register...
+    bool isUavOperation = isUavOrSrvOperation(instr->opcode);
+    if (info->hasIndexedResourceSampler && indexedArgs && (!isUavOperation)) {
         // AMDIL spec, section 7.2.3: If the indexed_args bit is set to 1, there are two
         // additional source arguments, corresponding to resource index and sampler index.
         return info->srcCount + 2;
-    } else if (instr->opcode == IL_OP_SRV_STRUCT_LOAD && indexedArgs) {
+    } else if (isUavOperation && indexedArgs) {
         // Extra indexed input
         return info->srcCount + 1;
     } else if (instr->opcode == IL_DCL_CONST_BUFFER && !priModifierPresent) {
@@ -243,6 +279,7 @@ static unsigned decodeSource(
     dimension = GET_BIT(token[idx], 25);
     src->hasImmediate = GET_BIT(token[idx], 26);
     extended = GET_BIT(token[idx], 31);
+    src->headerValue = token[idx];
     idx++;
 
     if (modifierPresent) {
@@ -314,14 +351,14 @@ static unsigned decodeInstruction(
     idx++;
 
     if (instr->opcode >= IL_OP_LAST) {
-        LOGE("invalid opcode %d\n", instr->opcode);
+        LOGE("invalid opcode 0x%X\n", instr->opcode);
         return idx;
     }
 
     const OpcodeInfo* info = &mOpcodeInfos[instr->opcode];
 
     if (info->opcode != instr->opcode) {
-        LOGW("unhandled opcode %d\n", instr->opcode);
+        LOGW("unhandled opcode 0x%X\n", instr->opcode);
         return idx;
     }
 

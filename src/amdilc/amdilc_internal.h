@@ -45,6 +45,7 @@ typedef struct _Source {
     Source* relativeSrc;
     bool hasImmediate;
     Token immediate;
+    uint32_t headerValue; // needed for switch-case
 } Source;
 
 typedef struct {

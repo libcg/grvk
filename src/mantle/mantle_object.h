@@ -11,6 +11,7 @@ typedef enum _GrStructType {
     GR_STRUCT_TYPE_COMMAND_BUFFER,
     GR_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
     GR_STRUCT_TYPE_COLOR_TARGET_VIEW,
+    GR_STRUCT_TYPE_DEPTH_STENCIL_TARGET_VIEW,
     GR_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
     GR_STRUCT_TYPE_DESCRIPTOR_SET,
     GR_STRUCT_TYPE_DEVICE,
@@ -18,6 +19,7 @@ typedef enum _GrStructType {
     GR_STRUCT_TYPE_FENCE,
     GR_STRUCT_TYPE_GPU_MEMORY,
     GR_STRUCT_TYPE_IMAGE,
+    GR_STRUCT_TYPE_IMAGE_VIEW,
     GR_STRUCT_TYPE_MSAA_STATE_OBJECT,
     GR_STRUCT_TYPE_PHYSICAL_GPU,
     GR_STRUCT_TYPE_PIPELINE,
@@ -27,6 +29,7 @@ typedef enum _GrStructType {
     GR_STRUCT_TYPE_SHADER,
     GR_STRUCT_TYPE_QUEUE,
     GR_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
+    GR_STRUCT_TYPE_QUERY_POOL,
 } GrStructType;
 
 typedef struct _GrColorTargetView GrColorTargetView;
@@ -41,6 +44,7 @@ typedef struct _GrObject {
 typedef struct _GrCmdBuffer {
     GrStructType sType;
     VkCommandBuffer commandBuffer;
+    VkQueryPool timestampQueryPool;
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
     unsigned attachmentCount;
@@ -56,12 +60,26 @@ typedef struct _GrColorBlendStateObject {
     float blendConstants[4];
 } GrColorBlendStateObject;
 
+typedef struct _GrImageView {
+    GrStructType sType;
+    VkImageView imageView;
+    VkExtent3D extent;
+    uint32_t layerCount;
+} GrImageView;
+
 typedef struct _GrColorTargetView {
     GrStructType sType;
     VkImageView imageView;
     VkExtent2D extent2D;
     uint32_t layerCount;
 } GrColorTargetView;
+
+typedef struct _GrDepthTargetView {
+    GrStructType sType;
+    VkImageView imageView;
+    VkExtent2D extent2D;
+    uint32_t layerCount;
+} GrDepthTargetView;
 
 typedef struct _GrDepthStencilStateObject {
     GrStructType sType;
@@ -89,6 +107,7 @@ typedef struct _GrDevice {
     GrStructType sType;
     VkDevice device;
     VkPhysicalDevice physicalDevice;
+    VkPhysicalDeviceMemoryProperties memoryProperties;
     unsigned universalQueueIndex;
     VkCommandPool universalCommandPool;
     unsigned computeQueueIndex;
@@ -116,8 +135,11 @@ typedef struct _GrGpuMemory {
 
 typedef struct _GrImage {
     GrStructType sType;
+    GrDevice* device;//TODO: add GrDevice pointer everywhere to support GrGetObjectInfo
     VkImage image;
-    VkExtent2D extent;
+    VkExtent3D extent;
+    uint32_t layerCount;
+    VkFormat format;
 } GrImage;
 
 typedef struct _GrMsaaStateObject {
@@ -175,4 +197,11 @@ typedef struct _GrViewportStateObject {
     unsigned scissorCount;
 } GrViewportStateObject;
 
+typedef struct _GrQueryPool {
+    GrStructType sType;
+    GrDevice *grDevice;
+    VkQueryPool pool;
+    VkQueryType queryType;
+    uint32_t queryCount;
+} GrQueryPool;
 #endif // GR_OBJECT_H_

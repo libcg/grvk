@@ -4,15 +4,6 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "logger.h"
 
-// Initialization and Device Functions
-
-GR_RESULT grDestroyDevice(
-    GR_DEVICE device)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Extension Discovery Functions
 
 GR_RESULT grGetExtensionSupport(
@@ -41,14 +32,7 @@ GR_RESULT grQueueSetGlobalMemReferences(
 
 // Memory Management Functions
 
-GR_RESULT grFreeMemory(
-    GR_GPU_MEMORY mem)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grSetMemoryPriority(
+GR_RESULT grSetMemoryPriority(//this function isn't available in Vulkan, not it is needed on other systems than Windows
     GR_GPU_MEMORY mem,
     GR_ENUM priority)
 {
@@ -88,59 +72,6 @@ GR_RESULT grDestroyObject(
     return GR_UNSUPPORTED;
 }
 
-// Image and Sample Functions
-
-GR_RESULT grGetFormatInfo(
-    GR_DEVICE device,
-    GR_FORMAT format,
-    GR_ENUM infoType,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grCreateImage(
-    GR_DEVICE device,
-    const GR_IMAGE_CREATE_INFO* pCreateInfo,
-    GR_IMAGE* pImage)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grGetImageSubresourceInfo(
-    GR_IMAGE image,
-    const GR_IMAGE_SUBRESOURCE* pSubresource,
-    GR_ENUM infoType,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-// Image View Functions
-
-GR_RESULT grCreateImageView(
-    GR_DEVICE device,
-    const GR_IMAGE_VIEW_CREATE_INFO* pCreateInfo,
-    GR_IMAGE_VIEW* pView)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grCreateDepthStencilView(
-    GR_DEVICE device,
-    const GR_DEPTH_STENCIL_VIEW_CREATE_INFO* pCreateInfo,
-    GR_DEPTH_STENCIL_VIEW* pView)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Shader and Pipeline Functions
 
 GR_RESULT grCreateComputePipeline(
@@ -166,28 +97,6 @@ GR_RESULT grLoadPipeline(
     GR_SIZE dataSize,
     const GR_VOID* pData,
     GR_PIPELINE* pPipeline)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-// Query and Synchronization Functions
-
-GR_RESULT grCreateQueryPool(
-    GR_DEVICE device,
-    const GR_QUERY_POOL_CREATE_INFO* pCreateInfo,
-    GR_QUERY_POOL* pQueryPool)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
-GR_RESULT grGetQueryPoolResults(
-    GR_QUERY_POOL queryPool,
-    GR_UINT startQuery,
-    GR_UINT queryCount,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
@@ -302,56 +211,6 @@ GR_VOID grCmdDispatchIndirect(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdCopyMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY srcMem,
-    GR_GPU_MEMORY destMem,
-    GR_UINT regionCount,
-    const GR_MEMORY_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdCopyImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE srcImage,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdCopyMemoryToImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY srcMem,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_MEMORY_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdCopyImageToMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE srcImage,
-    GR_GPU_MEMORY destMem,
-    GR_UINT regionCount,
-    const GR_MEMORY_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdResolveImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE srcImage,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_IMAGE_RESOLVE* pRegions)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdCloneImageData(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
@@ -362,78 +221,12 @@ GR_VOID grCmdCloneImageData(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdUpdateMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset,
-    GR_GPU_SIZE dataSize,
-    const GR_UINT32* pData)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdFillMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset,
-    GR_GPU_SIZE fillSize,
-    GR_UINT32 data)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdClearDepthStencil(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE image,
-    GR_FLOAT depth,
-    GR_UINT8 stencil,
-    GR_UINT rangeCount,
-    const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdMemoryAtomic(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,
     GR_GPU_SIZE destOffset,
     GR_UINT64 srcData,
     GR_ENUM atomicOp)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdBeginQuery(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT slot,
-    GR_FLAGS flags)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdEndQuery(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT slot)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdResetQueryPool(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT startQuery,
-    GR_UINT queryCount)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdWriteTimestamp(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM timestampType,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset)
 {
     LOGW("STUB\n");
 }
