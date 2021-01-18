@@ -358,11 +358,15 @@ GR_RESULT grCreateDevice(
         }
     }
 
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+    vki.vkGetPhysicalDeviceMemoryProperties(grPhysicalGpu->physicalDevice, &memoryProperties);
+
     GrDevice* grDevice = malloc(sizeof(GrDevice));
     *grDevice = (GrDevice) {
         .sType = GR_STRUCT_TYPE_DEVICE,
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
+        .memoryProperties = memoryProperties,
         .universalQueueIndex = universalQueueIndex,
         .universalCommandPool = universalCommandPool,
         .computeQueueIndex = computeQueueIndex,

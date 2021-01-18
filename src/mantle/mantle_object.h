@@ -89,6 +89,7 @@ typedef struct _GrDevice {
     GrStructType sType;
     VkDevice device;
     VkPhysicalDevice physicalDevice;
+    VkPhysicalDeviceMemoryProperties memoryProperties;
     unsigned universalQueueIndex;
     VkCommandPool universalCommandPool;
     unsigned computeQueueIndex;

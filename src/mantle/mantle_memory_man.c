@@ -17,10 +17,7 @@ GR_RESULT grGetMemoryHeapCount(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    VkPhysicalDeviceMemoryProperties vkMemoryProperties;
-    vki.vkGetPhysicalDeviceMemoryProperties(grDevice->physicalDevice, &vkMemoryProperties);
-
-    *pCount = vkMemoryProperties.memoryTypeCount;
+    *pCount = grDevice->memoryProperties.memoryTypeCount;
     return GR_SUCCESS;
 }
 
@@ -49,20 +46,17 @@ GR_RESULT grGetMemoryHeapInfo(
         return GR_ERROR_INVALID_MEMORY_SIZE;
     }
 
-    VkPhysicalDeviceMemoryProperties vkMemoryProperties;
-    vki.vkGetPhysicalDeviceMemoryProperties(grDevice->physicalDevice, &vkMemoryProperties);
-
-    if (heapId >= vkMemoryProperties.memoryTypeCount) {
+    if (heapId >= grDevice->memoryProperties.memoryTypeCount) {
         return GR_ERROR_INVALID_ORDINAL;
     }
 
-    VkMemoryPropertyFlags flags = vkMemoryProperties.memoryTypes[heapId].propertyFlags;
-    uint32_t vkHeapIndex = vkMemoryProperties.memoryTypes[heapId].heapIndex;
+    VkMemoryPropertyFlags flags = grDevice->memoryProperties.memoryTypes[heapId].propertyFlags;
+    uint32_t vkHeapIndex = grDevice->memoryProperties.memoryTypes[heapId].heapIndex;
 
     *(GR_MEMORY_HEAP_PROPERTIES*)pData = (GR_MEMORY_HEAP_PROPERTIES) {
         .heapMemoryType = (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0 ?
                           GR_HEAP_MEMORY_LOCAL : GR_HEAP_MEMORY_REMOTE,
-        .heapSize = vkMemoryProperties.memoryHeaps[vkHeapIndex].size,
+        .heapSize = grDevice->memoryProperties.memoryHeaps[vkHeapIndex].size,
         .pageSize = 4096, // FIXME guessed
         .flags = ((flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 ?
                   GR_MEMORY_HEAP_CPU_VISIBLE : 0) |
