@@ -496,7 +496,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .logicOpEnable = VK_TRUE,
+        .logicOpEnable = pCreateInfo->cbState.logicOp != GR_LOGIC_OP_COPY,
         .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
         .attachmentCount = attachmentCount,
         .pAttachments = attachments,
