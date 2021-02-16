@@ -34,6 +34,8 @@ GR_RESULT grGetDeviceQueue(
 
     vki.vkGetDeviceQueue(grDevice->device, queueIndex, queueId, &vkQueue);
 
+    // FIXME technically, this object should be created in advance so it doesn't get duplicated
+    // when the application requests it multiple times
     GrQueue* grQueue = malloc(sizeof(GrQueue));
     *grQueue = (GrQueue) {
         .sType = GR_STRUCT_TYPE_QUEUE,
