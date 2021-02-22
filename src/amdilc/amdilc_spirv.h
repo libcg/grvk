@@ -9,6 +9,7 @@
 typedef enum {
     ID_MAIN,
     ID_CAPABILITIES,
+    ID_EXTENSIONS,
     ID_EXT_INST_IMPORTS,
     ID_MEMORY_MODEL,
     ID_ENTRY_POINTS,
@@ -44,6 +45,10 @@ void ilcSpvFinish(
 
 uint32_t ilcSpvAllocId(
     IlcSpvModule* module);
+
+void ilcSpvPutExtension(
+    IlcSpvModule* module,
+    const char* name);
 
 void ilcSpvPutName(
     IlcSpvModule* module,
@@ -227,5 +232,8 @@ IlcSpvId ilcSpvPutGLSLOp(
     IlcSpvId resultTypeId,
     unsigned idCount,
     const IlcSpvId* ids);
+
+void ilcSpvPutDemoteToHelperInvocation(
+    IlcSpvModule* module);
 
 #endif // AMDILC_SPIRV_H_

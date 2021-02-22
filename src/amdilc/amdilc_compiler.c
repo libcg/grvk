@@ -1202,6 +1202,26 @@ static void emitContinue(
     ilcSpvPutLabel(compiler->module, labelId);
 }
 
+static void emitDiscard(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
+    IlcSpvId labelEndId = ilcSpvAllocId(compiler->module);
+
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId condId = emitConditionCheck(compiler, srcId, instr->opcode == IL_OP_DISCARD_LOGICALNZ);
+    ilcSpvPutSelectionMerge(compiler->module, labelEndId);
+    ilcSpvPutBranchConditional(compiler->module, condId, labelBeginId, labelEndId);
+    ilcSpvPutLabel(compiler->module, labelBeginId);
+
+    ilcSpvPutCapability(compiler->module, SpvCapabilityDemoteToHelperInvocationEXT);
+    ilcSpvPutDemoteToHelperInvocation(compiler->module); // Direct3D discard
+
+    ilcSpvPutBranch(compiler->module, labelEndId);
+    ilcSpvPutLabel(compiler->module, labelEndId);
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1370,6 +1390,10 @@ static void emitInstr(
     case IL_DCL_RESOURCE:
         emitResource(compiler, instr);
         break;
+    case IL_OP_DISCARD_LOGICALZ:
+    case IL_OP_DISCARD_LOGICALNZ:
+        emitDiscard(compiler, instr);
+        break;
     case IL_OP_LOAD:
         emitLoad(compiler, instr);
         break;
@@ -1436,6 +1460,7 @@ static void emitEntryPoint(
 
     switch (compiler->kernel->shaderType) {
     case IL_SHADER_PIXEL:
+        ilcSpvPutExtension(compiler->module, "SPV_EXT_demote_to_helper_invocation");
         ilcSpvPutExecMode(compiler->module, compiler->entryPointId,
                           SpvExecutionModeOriginUpperLeft);
         break;

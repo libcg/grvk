@@ -222,6 +222,16 @@ uint32_t ilcSpvAllocId(
     return module->currentId++;
 }
 
+void ilcSpvPutExtension(
+    IlcSpvModule* module,
+    const char* name)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_EXTENSIONS];
+
+    putInstr(buffer, SpvOpExtension, 1 + strlenw(name));
+    putString(buffer, name);
+}
+
 void ilcSpvPutName(
     IlcSpvModule* module,
     IlcSpvId target,
@@ -690,4 +700,12 @@ IlcSpvId ilcSpvPutGLSLOp(
         putWord(buffer, ids[i]);
     }
     return id;
+}
+
+void ilcSpvPutDemoteToHelperInvocation(
+    IlcSpvModule* module)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpDemoteToHelperInvocationEXT, 1);
 }

@@ -285,6 +285,11 @@ GR_RESULT grCreateDevice(
         .pNext = NULL,
         .extendedDynamicState = VK_TRUE,
     };
+    const VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT,
+        .pNext = (void*)&extendedDynamicState,
+        .shaderDemoteToHelperInvocation = VK_TRUE,
+    };
 
     const VkPhysicalDeviceFeatures deviceFeatures = {
         .geometryShader = VK_TRUE,
@@ -298,12 +303,13 @@ GR_RESULT grCreateDevice(
 
     const char *deviceExtensions[] = {
         VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
+        VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 
     const VkDeviceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &extendedDynamicState,
+        .pNext = &demoteToHelperInvocation,
         .flags = 0,
         .queueCreateInfoCount = pCreateInfo->queueRecordCount,
         .pQueueCreateInfos = queueCreateInfos,
