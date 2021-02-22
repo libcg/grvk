@@ -6,6 +6,7 @@
 #define ONE_LITERAL         (0x3F800000)
 #define FALSE_LITERAL       (0x00000000)
 #define TRUE_LITERAL        (0xFFFFFFFF)
+#define SHIFT_MASK_LITERAL  (0x1F)
 #define COMP_INDEX_X        (0)
 #define COMP_INDEX_Y        (1)
 #define COMP_INDEX_Z        (2)
@@ -939,6 +940,18 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_U_SHR: {
+        // Only keep the lower 5 bits of the shift value
+        IlcSpvId maskId = ilcSpvPutConstant(compiler->module, compiler->intId, SHIFT_MASK_LITERAL);
+        const IlcSpvId maskConsistuentIds[] = { maskId, maskId, maskId, maskId };
+        IlcSpvId maskCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->int4Id,
+                                                              4, maskConsistuentIds);
+        const IlcSpvId andIds[] = { srcIds[1], maskCompositeId };
+        IlcSpvId shiftId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
+                                        2, andIds);
+        const IlcSpvId argIds[] = { srcIds[0], shiftId };
+        resId = ilcSpvPutAlu(compiler->module, SpvOpShiftRightLogical, compiler->int4Id, 2, argIds);
+    }   break;
     case IL_OP_U_BIT_EXTRACT: {
         // FIXME: not sure if the settings are per-component
         // TODO: 0x1F mask
@@ -1302,6 +1315,7 @@ static void emitInstr(
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
     case IL_OP_AND:
+    case IL_OP_U_SHR:
     case IL_OP_U_BIT_EXTRACT:
         emitIntegerOp(compiler, instr);
         break;
