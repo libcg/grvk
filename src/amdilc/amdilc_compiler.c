@@ -61,6 +61,8 @@ typedef struct {
     IlcSpvModule* module;
     const Kernel* kernel;
     IlcSpvId entryPointId;
+    IlcSpvId uintId;
+    IlcSpvId uint4Id;
     IlcSpvId intId;
     IlcSpvId int4Id;
     IlcSpvId floatId;
@@ -810,9 +812,18 @@ static void emitFloatOp(
                              instr->srcCount, srcIds);
         resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
         break;
+    case IL_OP_FTOU:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertFToU, compiler->uint4Id,
+                             instr->srcCount, srcIds);
+        resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
+        break;
     case IL_OP_ITOF:
         resId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
         resId = ilcSpvPutAlu(compiler->module, SpvOpConvertSToF, compiler->float4Id, 1, &resId);
+        break;
+    case IL_OP_UTOF:
+        resId = ilcSpvPutBitcast(compiler->module, compiler->uint4Id, srcIds[0]);
+        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertUToF, compiler->float4Id, 1, &resId);
         break;
     case IL_OP_ROUND_NEG_INF:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Floor, compiler->float4Id,
@@ -1267,7 +1278,9 @@ static void emitInstr(
     case IL_OP_MOV:
     case IL_OP_MUL:
     case IL_OP_FTOI:
+    case IL_OP_FTOU:
     case IL_OP_ITOF:
+    case IL_OP_UTOF:
     case IL_OP_ROUND_NEG_INF:
     case IL_OP_ROUND_PLUS_INF:
     case IL_OP_EXP_VEC:
@@ -1425,6 +1438,7 @@ uint32_t* ilcCompileKernel(
 
     ilcSpvInit(&module);
 
+    IlcSpvId uintId = ilcSpvPutIntType(&module, false);
     IlcSpvId intId = ilcSpvPutIntType(&module, true);
     IlcSpvId floatId = ilcSpvPutFloatType(&module);
     IlcSpvId boolId = ilcSpvPutBoolType(&module);
@@ -1433,6 +1447,8 @@ uint32_t* ilcCompileKernel(
         .module = &module,
         .kernel = kernel,
         .entryPointId = ilcSpvAllocId(&module),
+        .uintId = uintId,
+        .uint4Id = ilcSpvPutVectorType(&module, uintId, 4),
         .intId = intId,
         .int4Id = ilcSpvPutVectorType(&module, intId, 4),
         .floatId = floatId,
