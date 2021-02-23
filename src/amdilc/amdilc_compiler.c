@@ -24,6 +24,7 @@ typedef struct {
     IlcSpvId typeId;
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
+    uint8_t ilImportUsage; // Input/output only
 } IlcRegister;
 
 typedef struct {
@@ -154,6 +155,7 @@ static const IlcRegister* findOrCreateRegister(
             .typeId = tempTypeId,
             .ilType = type,
             .ilNum = num,
+            .ilImportUsage = 0,
         };
 
         reg = addRegister(compiler, &tempReg, 'r');
@@ -464,6 +466,7 @@ static void emitLiteral(
         .typeId = literalTypeId,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
+        .ilImportUsage = 0,
     };
 
     addRegister(compiler, &reg, 'l');
@@ -485,6 +488,19 @@ static void emitOutput(
            !dst->clamp &&
            dst->shiftScale == IL_SHIFT_NONE);
 
+    const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    if (dupeReg != NULL) {
+        // Outputs are allowed to be redeclared with different components.
+        // Can be safely ignored as long as the import usage stays the same.
+        if (dupeReg->ilImportUsage == importUsage) {
+            return;
+        } else {
+            LOGE("unhandled o%d redeclaration with different import usage %d (was %d)\n",
+                 dst->registerNum, importUsage, dupeReg->ilImportUsage);
+            assert(false);
+        }
+    }
+
     IlcSpvId outputTypeId = 0;
     IlcSpvId outputId = emitVectorVariable(compiler, &outputTypeId, 4, compiler->floatId,
                                            SpvStorageClassOutput);
@@ -504,6 +520,7 @@ static void emitOutput(
         .typeId = outputTypeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
+        .ilImportUsage = importUsage,
     };
 
     addRegister(compiler, &reg, 'o');
@@ -572,6 +589,7 @@ static void emitInput(
         .typeId = inputTypeId,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
+        .ilImportUsage = importUsage,
     };
 
     addRegister(compiler, &reg, 'v');
