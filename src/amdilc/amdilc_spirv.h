@@ -100,6 +100,13 @@ IlcSpvId ilcSpvPutImageType(
     IlcSpvWord sampled,
     IlcSpvWord format);
 
+IlcSpvId ilcSpvPutSamplerType(
+    IlcSpvModule* module);
+
+IlcSpvId ilcSpvPutSampledImageType(
+    IlcSpvModule* module,
+    IlcSpvId imageTypeId);
+
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,
     IlcSpvWord storageClass,
@@ -174,6 +181,18 @@ IlcSpvId ilcSpvPutCompositeExtract(
     IlcSpvId compositeId,
     unsigned indexCount,
     const IlcSpvId* indexes);
+
+IlcSpvId ilcSpvPutSampledImage(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId samplerId);
+
+IlcSpvId ilcSpvPutImageSampleImplicitLod(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId sampledImageId,
+    IlcSpvId coordinateId);
 
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,

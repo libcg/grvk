@@ -34,6 +34,11 @@ typedef struct {
     uint32_t strideId;
 } IlcResource;
 
+typedef struct {
+    IlcSpvId id;
+    uint32_t ilId;
+} IlcSampler;
+
 typedef enum {
     BLOCK_IF_ELSE,
     BLOCK_LOOP,
@@ -75,6 +80,8 @@ typedef struct {
     IlcRegister* regs;
     unsigned resourceCount;
     IlcResource* resources;
+    unsigned samplerCount;
+    IlcSampler* samplers;
     unsigned controlFlowBlockCount;
     IlcControlFlowBlock* controlFlowBlocks;
     bool isInFunction;
@@ -185,7 +192,7 @@ static void addResource(
 {
     if (findResource(compiler, resource->ilId) != NULL) {
         LOGE("resource %d already present\n", resource->ilId);
-        return;
+        assert(false);
     }
 
     char name[32];
@@ -196,6 +203,72 @@ static void addResource(
     compiler->resources = realloc(compiler->resources,
                                   sizeof(IlcResource) * compiler->resourceCount);
     compiler->resources[compiler->resourceCount - 1] = *resource;
+}
+
+static const IlcSampler* findSampler(
+    IlcCompiler* compiler,
+    uint32_t ilId)
+{
+    for (int i = 0; i < compiler->samplerCount; i++) {
+        const IlcSampler* sampler = &compiler->samplers[i];
+
+        if (sampler->ilId == ilId) {
+            return sampler;
+        }
+    }
+
+    return NULL;
+}
+
+static const IlcSampler* addSampler(
+    IlcCompiler* compiler,
+    const IlcSampler* sampler)
+{
+    if (findSampler(compiler, sampler->ilId) != NULL) {
+        LOGE("sampler %d already present\n", sampler->ilId);
+        assert(false);
+    }
+
+    char name[32];
+    snprintf(name, 32, "sampler%u", sampler->ilId);
+    ilcSpvPutName(compiler->module, sampler->id, name);
+
+    compiler->samplerCount++;
+    compiler->samplers = realloc(compiler->samplers, sizeof(IlcSampler) * compiler->samplerCount);
+    compiler->samplers[compiler->samplerCount - 1] = *sampler;
+
+    return &compiler->samplers[compiler->samplerCount - 1];
+}
+
+static const IlcSampler* findOrCreateSampler(
+    IlcCompiler* compiler,
+    uint32_t ilId)
+{
+    const IlcSampler* sampler = findSampler(compiler, ilId);
+
+    if (sampler == NULL) {
+        // Create new sampler
+        IlcSpvId samplerTypeId = ilcSpvPutSamplerType(compiler->module);
+        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                                  samplerTypeId);
+        IlcSpvId samplerId = ilcSpvPutVariable(compiler->module, pointerId,
+                                               SpvStorageClassUniformConstant);
+
+        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+        ilcSpvPutDecoration(compiler->module, samplerId, SpvDecorationDescriptorSet,
+                            1, &descriptorSetIdx);
+        IlcSpvWord bindingIdx = ilId;
+        ilcSpvPutDecoration(compiler->module, samplerId, SpvDecorationBinding, 1, &bindingIdx);
+
+        const IlcSampler newSampler = {
+            .id = samplerId,
+            .ilId = ilId,
+        };
+
+        sampler = addSampler(compiler, &newSampler);
+    }
+
+    return sampler;
 }
 
 static void pushControlFlowBlock(
@@ -1245,12 +1318,15 @@ static void emitLoad(
     const Instruction* instr)
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
-    const IlcResource* resource = findResource(compiler, ilResourceId);
 
+    const IlcResource* resource = findResource(compiler, ilResourceId);
     const Destination* dst = &instr->dsts[0];
     const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
-    if (dstReg == NULL) {
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    } else if (dstReg == NULL) {
         LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
     }
@@ -1264,22 +1340,59 @@ static void emitLoad(
     storeDestination(compiler, dst, fetchId);
 }
 
+static void emitSample(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    uint8_t ilSamplerId = GET_BITS(instr->control, 8, 11);
+    // TODO handle indexed args and aoffimmi
+
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcSampler* sampler = findOrCreateSampler(compiler, ilSamplerId);
+    const Destination* dst = &instr->dsts[0];
+    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    } else if (dstReg == NULL) {
+        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
+        return;
+    }
+
+    IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
+                                       compiler->float4Id);
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId samplerTypeId = ilcSpvPutSamplerType(compiler->module);
+    IlcSpvId samplerId = ilcSpvPutLoad(compiler->module, samplerTypeId, sampler->id);
+    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
+    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId,
+                                                    resourceId, samplerId);
+    IlcSpvId sampleId = ilcSpvPutImageSampleImplicitLod(compiler->module, dstReg->typeId,
+                                                        sampledImageId, coordinateId);
+    storeDestination(compiler, dst, sampleId);
+}
+
 static void emitStructuredSrvLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     bool indexedResourceId = GET_BIT(instr->control, 12);
-    const IlcResource* resource = findResource(compiler, ilResourceId);
 
     if (indexedResourceId) {
         LOGW("unhandled indexed resource ID\n");
     }
 
+    const IlcResource* resource = findResource(compiler, ilResourceId);
     const Destination* dst = &instr->dsts[0];
     const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
-    if (dstReg == NULL) {
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    } else if (dstReg == NULL) {
         LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
     }
@@ -1415,6 +1528,9 @@ static void emitInstr(
     case IL_OP_LOAD:
         emitLoad(compiler, instr);
         break;
+    case IL_OP_SAMPLE:
+        emitSample(compiler, instr);
+        break;
     case IL_OP_CMOV_LOGICAL:
         emitCmovLogical(compiler, instr);
         break;
@@ -1459,17 +1575,26 @@ static void emitEntryPoint(
         break;
     }
 
-    unsigned interfaceCount = compiler->regCount + compiler->resourceCount;
+    unsigned interfaceCount = compiler->regCount + compiler->resourceCount + compiler->samplerCount;
     IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
+    unsigned interfaceIndex = 0;
     for (int i = 0; i < compiler->regCount; i++) {
         const IlcRegister* reg = &compiler->regs[i];
 
-        interfaces[i] = reg->id;
+        interfaces[interfaceIndex] = reg->id;
+        interfaceIndex++;
     }
     for (int i = 0; i < compiler->resourceCount; i++) {
         const IlcResource* resource = &compiler->resources[i];
 
-        interfaces[compiler->regCount + i] = resource->id;
+        interfaces[interfaceIndex] = resource->id;
+        interfaceIndex++;
+    }
+    for (int i = 0; i < compiler->samplerCount; i++) {
+        const IlcSampler* sampler = &compiler->samplers[i];
+
+        interfaces[interfaceIndex] = sampler->id;
+        interfaceIndex++;
     }
 
     ilcSpvPutEntryPoint(compiler->module, compiler->entryPointId, execution, name,
@@ -1516,6 +1641,8 @@ uint32_t* ilcCompileKernel(
         .regs = NULL,
         .resourceCount = 0,
         .resources = NULL,
+        .samplerCount = 0,
+        .samplers = NULL,
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
         .isInFunction = true,
