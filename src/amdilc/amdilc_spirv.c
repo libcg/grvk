@@ -607,6 +607,38 @@ IlcSpvId ilcSpvPutImageFetch(
     return id;
 }
 
+IlcSpvId ilcSpvPutImageQuerySizeLod(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId lodId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpImageQuerySizeLod, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, imageId);
+    putWord(buffer, lodId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutImageQueryLevels(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpImageQueryLevels, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, imageId);
+    return id;
+}
+
 IlcSpvId ilcSpvPutAlu(
     IlcSpvModule* module,
     SpvOp op,

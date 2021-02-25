@@ -200,6 +200,17 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvId imageId,
     IlcSpvId coordinateId);
 
+IlcSpvId ilcSpvPutImageQuerySizeLod(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId lodId);
+
+IlcSpvId ilcSpvPutImageQueryLevels(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId);
+
 IlcSpvId ilcSpvPutAlu(
     IlcSpvModule* module,
     SpvOp op,

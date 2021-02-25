@@ -32,6 +32,7 @@ typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
     uint32_t ilId;
+    uint8_t ilType;
     uint32_t strideId;
 } IlcResource;
 
@@ -87,6 +88,27 @@ typedef struct {
     IlcControlFlowBlock* controlFlowBlocks;
     bool isInFunction;
 } IlcCompiler;
+
+static unsigned getResourceDimensionCount(
+    uint8_t ilType)
+{
+    switch (ilType) {
+    case IL_USAGE_PIXTEX_1D:
+    case IL_USAGE_PIXTEX_BUFFER:
+        return 1;
+    case IL_USAGE_PIXTEX_2D:
+    case IL_USAGE_PIXTEX_1DARRAY:
+        return 2;
+    case IL_USAGE_PIXTEX_3D:
+    case IL_USAGE_PIXTEX_2DARRAY:
+        return 3;
+    default:
+        LOGE("unhandled resource type %d\n", ilType);
+        assert(false);
+    }
+
+    return 0;
+}
 
 static IlcSpvId emitVectorVariable(
     IlcCompiler* compiler,
@@ -766,6 +788,7 @@ static void emitResource(
         .id = resourceId,
         .typeId = imageId,
         .ilId = id,
+        .ilType = type,
         .strideId = 0,
     };
 
@@ -798,6 +821,7 @@ static void emitStructuredSrv(
         .id = resourceId,
         .typeId = imageId,
         .ilId = id,
+        .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
     };
 
@@ -1385,6 +1409,54 @@ static void emitLoad(
     storeDestination(compiler, dst, fetchId);
 }
 
+static void emitResinfo(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    bool ilReturnType = GET_BIT(instr->control, 8);
+
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const Destination* dst = &instr->dsts[0];
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    unsigned dimCount = getResourceDimensionCount(resource->ilType);
+
+    IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvWord lodIndex = COMP_INDEX_X;
+    IlcSpvId lodId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
+                                               1, &lodIndex);
+    ilcSpvPutCapability(compiler->module, SpvCapabilityImageQuery);
+    IlcSpvId sizesId = ilcSpvPutImageQuerySizeLod(compiler->module, vecTypeId, resourceId,
+                                                 lodId);
+    IlcSpvId levelsId = ilcSpvPutImageQueryLevels(compiler->module, compiler->intId, resourceId);
+
+    // Put everything together: zero-padded sizes (index 0 to 2) and mipmap count (index 3)
+    // TODO handle out of bounds LOD
+    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
+    const IlcSpvWord constituents[] = { zeroId, zeroId, zeroId, levelsId };
+    IlcSpvId zeroLevelsId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id,
+                                                        4, constituents);
+    const IlcSpvWord components[] = {
+        dimCount >= 1 ? 4 : 0, // Width
+        dimCount >= 2 ? 5 : 1, // Height
+        dimCount >= 3 ? 6 : 2, // Depth/slices
+        3, // Mip count
+    };
+    IlcSpvId infoId = ilcSpvPutVectorShuffle(compiler->module, compiler->int4Id,
+                                             zeroLevelsId, sizesId, 4, components);
+    IlcSpvId resId = ilReturnType ? ilcSpvPutBitcast(compiler->module, compiler->float4Id, infoId)
+                                  : ilcSpvPutAlu(compiler->module, SpvOpConvertSToF,
+                                                 compiler->float4Id, 1, &infoId);
+    storeDestination(compiler, dst, resId);
+}
+
 static void emitSample(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1576,6 +1648,9 @@ static void emitInstr(
         break;
     case IL_OP_LOAD:
         emitLoad(compiler, instr);
+        break;
+    case IL_OP_RESINFO:
+        emitResinfo(compiler, instr);
         break;
     case IL_OP_SAMPLE:
         emitSample(compiler, instr);
