@@ -1543,6 +1543,9 @@ static void emitInstr(
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
         break;
+    case IL_UNK_660:
+        // FIXME seems to be a no-op
+        break;
     default:
         LOGW("unhandled instruction %d\n", instr->opcode);
     }
