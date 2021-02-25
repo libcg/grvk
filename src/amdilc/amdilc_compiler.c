@@ -1053,6 +1053,10 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_I_NEGATE:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id,
+                             instr->srcCount, srcIds);
+        break;
     case IL_OP_AND:
         resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
                              instr->srcCount, srcIds);
@@ -1114,6 +1118,15 @@ static void emitIntegerComparisonOp(
         break;
     case IL_OP_I_LT:
         compOp = SpvOpSLessThan;
+        break;
+    case IL_OP_I_NE:
+        compOp = SpvOpINotEqual;
+        break;
+    case IL_OP_U_LT:
+        compOp = SpvOpULessThan;
+        break;
+    case IL_OP_U_GE:
+        compOp = SpvOpUGreaterThanEqual;
         break;
     default:
         assert(false);
@@ -1491,6 +1504,7 @@ static void emitInstr(
     case IL_OP_I_NOT:
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
+    case IL_OP_I_NEGATE:
     case IL_OP_AND:
     case IL_OP_U_SHR:
     case IL_OP_U_BIT_EXTRACT:
@@ -1499,6 +1513,9 @@ static void emitInstr(
     case IL_OP_I_EQ:
     case IL_OP_I_GE:
     case IL_OP_I_LT:
+    case IL_OP_I_NE:
+    case IL_OP_U_LT:
+    case IL_OP_U_GE:
         emitIntegerComparisonOp(compiler, instr);
         break;
     case IL_OP_CONTINUE:
