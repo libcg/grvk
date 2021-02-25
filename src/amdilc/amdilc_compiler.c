@@ -705,7 +705,6 @@ static void emitResource(
     uint8_t fmtw = GET_BITS(instr->extras[0], 29, 31);
 
     SpvDim spvDim = 0;
-
     switch (type) {
     case IL_USAGE_PIXTEX_1D:
         spvDim = SpvDim1D;
@@ -728,21 +727,28 @@ static void emitResource(
         LOGE("unhandled unnorm resource\n");
         assert(false);
     }
-    if (fmtx != IL_ELEMENTFORMAT_FLOAT || fmty != IL_ELEMENTFORMAT_FLOAT ||
-        fmtz != IL_ELEMENTFORMAT_FLOAT || fmtw != IL_ELEMENTFORMAT_FLOAT) {
+
+    SpvImageFormat spvImageFormat;
+    if (fmtx == IL_ELEMENTFORMAT_FLOAT && fmty == IL_ELEMENTFORMAT_FLOAT &&
+        fmtz == IL_ELEMENTFORMAT_FLOAT && fmtw == IL_ELEMENTFORMAT_FLOAT) {
+        spvImageFormat = SpvImageFormatRgba32f;
+    } else if (fmtx == IL_ELEMENTFORMAT_UINT && fmty == IL_ELEMENTFORMAT_UINT &&
+               fmtz == IL_ELEMENTFORMAT_UINT && fmtw == IL_ELEMENTFORMAT_UINT) {
+        spvImageFormat = SpvImageFormatRgba32ui;
+    } else {
         LOGE("unhandled resource format %d %d %d %d\n", fmtx, fmty, fmtz, fmtw);
         assert(false);
     }
 
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, spvDim,
-                                          0, 0, 0, 1, SpvImageFormatRgba32f);
+                                          0, 0, 0, 1, spvImageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
 
     ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
-    ilcSpvPutName(compiler->module, imageId, "float4Buffer");
+    ilcSpvPutName(compiler->module, imageId, "float4Buffer"); // FIXME wrong name
 
     IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
