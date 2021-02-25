@@ -1401,11 +1401,8 @@ static void emitLoad(
     }
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvWord addressIndex = COMP_INDEX_X;
-    IlcSpvId addressId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
-                                                   1, &addressIndex);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, addressId);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, srcId);
     storeDestination(compiler, dst, fetchId);
 }
 
@@ -1426,7 +1423,8 @@ static void emitResinfo(
 
     unsigned dimCount = getResourceDimensionCount(resource->ilType);
 
-    IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
+    IlcSpvId vecTypeId = dimCount == 1 ? compiler->intId :
+                         ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvWord lodIndex = COMP_INDEX_X;
