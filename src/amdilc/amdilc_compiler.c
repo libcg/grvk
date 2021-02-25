@@ -637,7 +637,13 @@ static void emitInput(
         }
     }
 
-    if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+    if (importUsage == IL_IMPORTUSAGE_POS) {
+        inputId = emitVectorVariable(compiler, &inputTypeId, 4, compiler->floatId,
+                                     SpvStorageClassInput);
+
+        IlcSpvWord builtInType = SpvBuiltInFragCoord;
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
+    } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
         inputId = emitVectorVariable(compiler, &inputTypeId, 4, compiler->floatId,
                                      SpvStorageClassInput);
 

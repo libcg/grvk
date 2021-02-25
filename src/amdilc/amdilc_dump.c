@@ -500,6 +500,9 @@ static void dumpInstruction(
         fprintf(file, "dcl_output_%s", mIlImportUsageNames[instr->control]);
         break;
     case IL_DCL_INPUT:
+        if (GET_BITS(instr->control, 8, 15)) {
+            LOGW("unhandled input flags 0x%X\n", instr->control);
+        }
         fprintf(file, "dcl_input_%s%s",
                 mIlImportUsageNames[GET_BITS(instr->control, 0, 4)],
                 mIlInterpModeNames[GET_BITS(instr->control, 5, 7)]);
