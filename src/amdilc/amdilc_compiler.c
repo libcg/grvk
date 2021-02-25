@@ -25,6 +25,7 @@ typedef struct {
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
     uint8_t ilImportUsage; // Input/output only
+    uint8_t ilInterpMode; // Input only
 } IlcRegister;
 
 typedef struct {
@@ -163,6 +164,7 @@ static const IlcRegister* findOrCreateRegister(
             .ilType = type,
             .ilNum = num,
             .ilImportUsage = 0,
+            .ilInterpMode = 0,
         };
 
         reg = addRegister(compiler, &tempReg, 'r');
@@ -540,6 +542,7 @@ static void emitLiteral(
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
+        .ilInterpMode = 0,
     };
 
     addRegister(compiler, &reg, 'l');
@@ -564,7 +567,7 @@ static void emitOutput(
     const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
         // Outputs are allowed to be redeclared with different components.
-        // Can be safely ignored as long as the import usage stays the same.
+        // Can be safely ignored as long as the import usage is equivalent.
         if (dupeReg->ilImportUsage == importUsage) {
             return;
         } else {
@@ -594,6 +597,7 @@ static void emitOutput(
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
+        .ilInterpMode = 0,
     };
 
     addRegister(compiler, &reg, 'o');
@@ -617,6 +621,21 @@ static void emitInput(
     assert(dst->registerType == IL_REGTYPE_INPUT &&
            !dst->clamp &&
            dst->shiftScale == IL_SHIFT_NONE);
+
+    const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    if (dupeReg != NULL) {
+        // Inputs are allowed to be redeclared with different components.
+        // Can be safely ignored as long as the import usage and interp mode are equivalent.
+        if (dupeReg->ilImportUsage == importUsage && dupeReg->ilInterpMode == interpMode) {
+            return;
+        } else {
+            LOGE("unhandled v%d redeclaration with different import usage %d (was %d) or "
+                 "interp mode %d (was %d)\n",
+                 dst->registerNum, importUsage, dupeReg->ilImportUsage,
+                 interpMode, dupeReg->ilInterpMode);
+            assert(false);
+        }
+    }
 
     if (importUsage == IL_IMPORTUSAGE_GENERIC) {
         inputId = emitVectorVariable(compiler, &inputTypeId, 4, compiler->floatId,
@@ -663,6 +682,7 @@ static void emitInput(
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
+        .ilInterpMode = interpMode,
     };
 
     addRegister(compiler, &reg, 'v');
