@@ -785,6 +785,7 @@ static void emitResource(
     case IL_USAGE_PIXTEX_1D:
     case IL_USAGE_PIXTEX_1DARRAY:
         spvDim = SpvDim1D;
+        ilcSpvPutCapability(compiler->module, SpvCapabilityImage1D);
         break;
     case IL_USAGE_PIXTEX_2D:
     case IL_USAGE_PIXTEX_2DARRAY:
@@ -795,6 +796,7 @@ static void emitResource(
         break;
     case IL_USAGE_PIXTEX_BUFFER:
         spvDim = SpvDimBuffer;
+        ilcSpvPutCapability(compiler->module, SpvCapabilityImageBuffer);
         break;
     default:
         LOGE("unhandled resource type %d\n", type);
@@ -827,9 +829,6 @@ static void emitResource(
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
-
-    ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
-    ilcSpvPutName(compiler->module, imageId, "float4Buffer"); // FIXME wrong name
 
     IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
