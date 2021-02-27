@@ -135,6 +135,19 @@ static IlcSpvId emitZeroOneVector(
     return ilcSpvPutConstantComposite(compiler->module, float2Id, 2, consistuentIds);
 }
 
+static IlcSpvId emitShiftMask(
+    IlcCompiler* compiler,
+    IlcSpvId srcId)
+{
+    // Only keep the lower 5 bits of the shift value
+    IlcSpvId maskId = ilcSpvPutConstant(compiler->module, compiler->intId, SHIFT_MASK_LITERAL);
+    const IlcSpvId maskConsistuentIds[] = { maskId, maskId, maskId, maskId };
+    IlcSpvId maskCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->int4Id,
+                                                          4, maskConsistuentIds);
+    const IlcSpvId andIds[] = { srcId, maskCompositeId };
+    return ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id, 2, andIds);
+}
+
 static const IlcRegister* addRegister(
     IlcCompiler* compiler,
     const IlcRegister* reg,
@@ -1113,31 +1126,27 @@ static void emitIntegerOp(
                              instr->srcCount, srcIds);
         break;
     case IL_OP_U_SHR: {
-        // Only keep the lower 5 bits of the shift value
-        IlcSpvId maskId = ilcSpvPutConstant(compiler->module, compiler->intId, SHIFT_MASK_LITERAL);
-        const IlcSpvId maskConsistuentIds[] = { maskId, maskId, maskId, maskId };
-        IlcSpvId maskCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->int4Id,
-                                                              4, maskConsistuentIds);
-        const IlcSpvId andIds[] = { srcIds[1], maskCompositeId };
-        IlcSpvId shiftId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
-                                        2, andIds);
-        const IlcSpvId argIds[] = { srcIds[0], shiftId };
+        const IlcSpvId argIds[] = { srcIds[0], emitShiftMask(compiler, srcIds[1]) };
         resId = ilcSpvPutAlu(compiler->module, SpvOpShiftRightLogical, compiler->int4Id, 2, argIds);
     }   break;
     case IL_OP_U_BIT_EXTRACT: {
-        // FIXME: not sure if the settings are per-component
-        // TODO: 0x1F mask
-        LOGW("IL_OP_U_BIT_EXTRACT is partially implemented\n");
-
-        IlcSpvWord widthIndex = COMP_INDEX_X;
-        IlcSpvId widthId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcIds[0],
-                                                     1, &widthIndex);
-        IlcSpvWord offsetIndex = COMP_INDEX_X;
-        IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcIds[1],
-                                                      1, &offsetIndex);
-
-        const IlcSpvId argIds[] = { srcIds[2], offsetId, widthId };
-        resId = ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->int4Id, 3, argIds);
+        IlcSpvId widthsId = emitShiftMask(compiler, srcIds[0]);
+        IlcSpvId offsetsId = emitShiftMask(compiler, srcIds[1]);
+        IlcSpvId bfId[4];
+        for (unsigned i = 0; i < 4; i++) {
+            // FIXME handle width + offset >= 32
+            IlcSpvWord compIndex = i;
+            IlcSpvId widthId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId,
+                                                         widthsId, 1, &compIndex);
+            IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId,
+                                                          offsetsId, 1, &compIndex);
+            IlcSpvId baseId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId,
+                                                        srcIds[2], 1, &compIndex);
+            const IlcSpvId argIds[] = { baseId, offsetId, widthId };
+            bfId[i] = ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
+                                   3, argIds);
+        }
+        resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, bfId);
         break;
     }
     default:
