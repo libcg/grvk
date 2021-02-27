@@ -934,6 +934,14 @@ static void emitFloatOp(
         const IlcSpvWord constituents[] = { dotId, dotId, dotId, dotId };
         resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, constituents);
     }   break;
+    case IL_OP_DSX:
+    case IL_OP_DSY: {
+        bool fine = GET_BIT(instr->control, 7);
+        IlcSpvWord op = instr->opcode == IL_OP_DSX ? (fine ? SpvOpDPdxFine : SpvOpDPdxCoarse)
+                                                   : (fine ? SpvOpDPdyFine : SpvOpDPdyCoarse);
+        ilcSpvPutCapability(compiler->module, SpvCapabilityDerivativeControl);
+        resId = ilcSpvPutAlu(compiler->module, op, compiler->float4Id, instr->srcCount, srcIds);
+    }   break;
     case IL_OP_FRC:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fract, compiler->float4Id,
                                 instr->srcCount, srcIds);
@@ -1588,6 +1596,8 @@ static void emitInstr(
     case IL_OP_DIV:
     case IL_OP_DP3:
     case IL_OP_DP4:
+    case IL_OP_DSX:
+    case IL_OP_DSY:
     case IL_OP_FRC:
     case IL_OP_MAD:
     case IL_OP_MAX:
