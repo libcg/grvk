@@ -735,9 +735,11 @@ static void emitResource(
     SpvDim spvDim = 0;
     switch (type) {
     case IL_USAGE_PIXTEX_1D:
+    case IL_USAGE_PIXTEX_1DARRAY:
         spvDim = SpvDim1D;
         break;
     case IL_USAGE_PIXTEX_2D:
+    case IL_USAGE_PIXTEX_2DARRAY:
         spvDim = SpvDim2D;
         break;
     case IL_USAGE_PIXTEX_3D:
@@ -760,6 +762,9 @@ static void emitResource(
     if (fmtx == IL_ELEMENTFORMAT_FLOAT && fmty == IL_ELEMENTFORMAT_FLOAT &&
         fmtz == IL_ELEMENTFORMAT_FLOAT && fmtw == IL_ELEMENTFORMAT_FLOAT) {
         spvImageFormat = SpvImageFormatRgba32f;
+    } else if (fmtx == IL_ELEMENTFORMAT_SINT && fmty == IL_ELEMENTFORMAT_SINT &&
+               fmtz == IL_ELEMENTFORMAT_SINT && fmtw == IL_ELEMENTFORMAT_SINT) {
+        spvImageFormat = SpvImageFormatRgba32i;
     } else if (fmtx == IL_ELEMENTFORMAT_UINT && fmty == IL_ELEMENTFORMAT_UINT &&
                fmtz == IL_ELEMENTFORMAT_UINT && fmtw == IL_ELEMENTFORMAT_UINT) {
         spvImageFormat = SpvImageFormatRgba32ui;
