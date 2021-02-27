@@ -1064,10 +1064,18 @@ static void emitIntegerOp(
     const Instruction* instr)
 {
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
+    IlcSpvId srcTypeId = 0;
     IlcSpvId resId = 0;
 
+    if (instr->opcode == IL_OP_U_DIV ||
+        instr->opcode == IL_OP_U_MOD) {
+        srcTypeId = compiler->uint4Id;
+    } else {
+        srcTypeId = compiler->int4Id;
+    }
+
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->int4Id);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, srcTypeId);
     }
 
     switch (instr->opcode) {
@@ -1085,6 +1093,14 @@ static void emitIntegerOp(
         break;
     case IL_OP_I_NEGATE:
         resId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id,
+                             instr->srcCount, srcIds);
+        break;
+    case IL_OP_U_DIV:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpUDiv, compiler->uint4Id,
+                             instr->srcCount, srcIds);
+        break;
+    case IL_OP_U_MOD:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpUMod, compiler->uint4Id,
                              instr->srcCount, srcIds);
         break;
     case IL_OP_AND:
@@ -1581,6 +1597,8 @@ static void emitInstr(
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
     case IL_OP_I_NEGATE:
+    case IL_OP_U_DIV:
+    case IL_OP_U_MOD:
     case IL_OP_AND:
     case IL_OP_U_SHR:
     case IL_OP_U_BIT_EXTRACT:
