@@ -148,17 +148,16 @@ static IlcSpvId emitShiftMask(
     return ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id, 2, andIds);
 }
 
-static IlcSpvId emitTrimVector(
+static IlcSpvId emitVectorTrim(
     IlcCompiler* compiler,
     IlcSpvId vecId,
     IlcSpvId typeId,
-    unsigned dimCount)
+    unsigned offset,
+    unsigned count)
 {
-    assert(1 <= dimCount && dimCount <= 4);
+    assert(1 <= (offset + count) && (offset + count) <= 4);
 
     IlcSpvId baseTypeId;
-    IlcSpvWord compIndex[] = { COMP_INDEX_X, COMP_INDEX_Y, COMP_INDEX_Z, COMP_INDEX_W };
-
     if (typeId == compiler->float4Id) {
         baseTypeId = compiler->floatId;
     } else if (typeId == compiler->uint4Id) {
@@ -169,13 +168,17 @@ static IlcSpvId emitTrimVector(
         assert(false);
     }
 
-    if (dimCount == 1) {
+    const IlcSpvWord compIndex[] = {
+        COMP_INDEX_X + offset, COMP_INDEX_Y + offset,
+        COMP_INDEX_Z + offset, COMP_INDEX_W + offset
+    };
+
+    if (count == 1) {
         // Extract scalar
         return ilcSpvPutCompositeExtract(compiler->module, baseTypeId, vecId, 1, compIndex);
     } else {
-        IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, baseTypeId, dimCount);
-        return ilcSpvPutVectorShuffle(compiler->module, vecTypeId, vecId, vecId,
-                                      dimCount, compIndex);
+        IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, baseTypeId, count);
+        return ilcSpvPutVectorShuffle(compiler->module, vecTypeId, vecId, vecId, count, compIndex);
     }
 }
 
@@ -1174,13 +1177,9 @@ static void emitIntegerOp(
         IlcSpvId bfId[4];
         for (unsigned i = 0; i < 4; i++) {
             // FIXME handle width + offset >= 32
-            IlcSpvWord compIndex = i;
-            IlcSpvId widthId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId,
-                                                         widthsId, 1, &compIndex);
-            IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId,
-                                                          offsetsId, 1, &compIndex);
-            IlcSpvId baseId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId,
-                                                        srcIds[2], 1, &compIndex);
+            IlcSpvId widthId = emitVectorTrim(compiler, widthsId, compiler->int4Id, i, 1);
+            IlcSpvId offsetId = emitVectorTrim(compiler, offsetsId, compiler->int4Id, i, 1);
+            IlcSpvId baseId = emitVectorTrim(compiler, srcIds[2], compiler->int4Id, i, 1);
             const IlcSpvId argIds[] = { baseId, offsetId, widthId };
             bfId[i] = ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
                                    3, argIds);
@@ -1277,8 +1276,7 @@ static IlcSpvId emitConditionCheck(
     IlcSpvId srcId,
     bool notZero)
 {
-    IlcSpvWord xIndex = COMP_INDEX_X;
-    IlcSpvId xId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId, 1, &xIndex);
+    IlcSpvId xId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
     const IlcSpvId compIds[] = { xId, falseId };
     return ilcSpvPutAlu(compiler->module, notZero ? SpvOpINotEqual : SpvOpIEqual, compiler->boolId,
@@ -1496,9 +1494,7 @@ static void emitResinfo(
                          ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvWord lodIndex = COMP_INDEX_X;
-    IlcSpvId lodId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
-                                               1, &lodIndex);
+    IlcSpvId lodId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     ilcSpvPutCapability(compiler->module, SpvCapabilityImageQuery);
     IlcSpvId sizesId = ilcSpvPutImageQuerySizeLod(compiler->module, vecTypeId, resourceId,
                                                  lodId);
@@ -1561,17 +1557,19 @@ static void emitSample(
 
         IlcSpvId xGradId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW,
                                       compiler->float4Id);
-        operandIds[0] = emitTrimVector(compiler, xGradId, compiler->float4Id, dimCount);
+        operandIds[0] = emitVectorTrim(compiler, xGradId, compiler->float4Id,
+                                       COMP_INDEX_X, dimCount);
         IlcSpvId yGradId = loadSource(compiler, &instr->srcs[2], COMP_MASK_XYZW,
                                       compiler->float4Id);
-        operandIds[1] = emitTrimVector(compiler, yGradId, compiler->float4Id, dimCount);
+        operandIds[1] = emitVectorTrim(compiler, yGradId, compiler->float4Id,
+                                       COMP_INDEX_X, dimCount);
         operandIdCount += 2;
     } else if (instr->opcode == IL_OP_SAMPLE_L) {
         sampleOp = SpvOpImageSampleExplicitLod;
         operandsMask |= SpvImageOperandsLodMask;
 
         IlcSpvId lodId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
-        operandIds[0] = emitTrimVector(compiler, lodId, compiler->float4Id, 1);
+        operandIds[0] = emitVectorTrim(compiler, lodId, compiler->float4Id, COMP_INDEX_X, 1);
         operandIdCount++;
     } else {
         assert(false);
@@ -1613,12 +1611,8 @@ static void emitStructuredSrvLoad(
     }
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvWord indexIndex = COMP_INDEX_X;
-    IlcSpvId indexId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
-                                                 1, &indexIndex);
-    IlcSpvWord offsetIndex = COMP_INDEX_Y;
-    IlcSpvId offsetId = ilcSpvPutCompositeExtract(compiler->module, compiler->intId, srcId,
-                                                  1, &offsetIndex);
+    IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
+    IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
 
     // addr = (index * stride + offset) / 4
     const IlcSpvId mulIds[] = { indexId, resource->strideId };
