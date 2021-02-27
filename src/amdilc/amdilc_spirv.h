@@ -190,10 +190,13 @@ IlcSpvId ilcSpvPutSampledImage(
 
 IlcSpvId ilcSpvPutImageSample(
     IlcSpvModule* module,
+    IlcSpvWord sampleOp,
     IlcSpvId resultTypeId,
     IlcSpvId sampledImageId,
     IlcSpvId coordinateId,
-    IlcSpvId lodId);
+    SpvImageOperandsMask mask,
+    unsigned operandIdCount,
+    const IlcSpvId* operandIds);
 
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,

@@ -575,30 +575,28 @@ IlcSpvId ilcSpvPutSampledImage(
 
 IlcSpvId ilcSpvPutImageSample(
     IlcSpvModule* module,
+    IlcSpvWord sampleOp,
     IlcSpvId resultTypeId,
     IlcSpvId sampledImageId,
     IlcSpvId coordinateId,
-    IlcSpvId lodId)
+    SpvImageOperandsMask mask,
+    unsigned operandIdCount,
+    const IlcSpvId* operandIds)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
-
-    IlcSpvWord op = SpvOpImageSampleImplicitLod;
-    unsigned length = 5;
-
-    if (lodId != 0) {
-        op = SpvOpImageSampleExplicitLod;
-        length += 2;
-    }
+    unsigned length = 5 + (mask != 0) + operandIdCount;
 
     IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, op, length);
+    putInstr(buffer, sampleOp, length);
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, sampledImageId);
     putWord(buffer, coordinateId);
-    if (lodId != 0) {
-        putWord(buffer, SpvImageOperandsLodMask);
-        putWord(buffer, lodId);
+    if (mask != 0) {
+        putWord(buffer, mask);
+    }
+    for (unsigned i = 0; i < operandIdCount; i++) {
+        putWord(buffer, operandIds[i]);
     }
     return id;
 }

@@ -148,6 +148,37 @@ static IlcSpvId emitShiftMask(
     return ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id, 2, andIds);
 }
 
+static IlcSpvId emitTrimVector(
+    IlcCompiler* compiler,
+    IlcSpvId vecId,
+    IlcSpvId typeId,
+    unsigned dimCount)
+{
+    assert(1 <= dimCount && dimCount <= 4);
+
+    IlcSpvId baseTypeId;
+    IlcSpvWord compIndex[] = { COMP_INDEX_X, COMP_INDEX_Y, COMP_INDEX_Z, COMP_INDEX_W };
+
+    if (typeId == compiler->float4Id) {
+        baseTypeId = compiler->floatId;
+    } else if (typeId == compiler->uint4Id) {
+        baseTypeId = compiler->uintId;
+    } else if (typeId == compiler->int4Id) {
+        baseTypeId = compiler->intId;
+    } else {
+        assert(false);
+    }
+
+    if (dimCount == 1) {
+        // Extract scalar
+        return ilcSpvPutCompositeExtract(compiler->module, baseTypeId, vecId, 1, compIndex);
+    } else {
+        IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, baseTypeId, dimCount);
+        return ilcSpvPutVectorShuffle(compiler->module, vecTypeId, vecId, vecId,
+                                      dimCount, compIndex);
+    }
+}
+
 static const IlcRegister* addRegister(
     IlcCompiler* compiler,
     const IlcRegister* reg,
@@ -1514,14 +1545,36 @@ static void emitSample(
         return;
     }
 
+    unsigned dimCount = getResourceDimensionCount(resource->ilType);
+    IlcSpvWord sampleOp;
     IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
                                        compiler->float4Id);
-    IlcSpvId lodId = 0;
+    SpvImageOperandsMask operandsMask = 0;
+    unsigned operandIdCount = 0;
+    IlcSpvId operandIds[2];
 
-    if (instr->opcode == IL_OP_SAMPLE_L) {
-        IlcSpvId lod4Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
-        IlcSpvWord xIndex = COMP_INDEX_X;
-        lodId = ilcSpvPutCompositeExtract(compiler->module, compiler->floatId, lod4Id, 1, &xIndex);
+    if (instr->opcode == IL_OP_SAMPLE) {
+        sampleOp = SpvOpImageSampleImplicitLod;
+    } else if (instr->opcode == IL_OP_SAMPLE_G) {
+        sampleOp = SpvOpImageSampleExplicitLod;
+        operandsMask |= SpvImageOperandsGradMask;
+
+        IlcSpvId xGradId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW,
+                                      compiler->float4Id);
+        operandIds[0] = emitTrimVector(compiler, xGradId, compiler->float4Id, dimCount);
+        IlcSpvId yGradId = loadSource(compiler, &instr->srcs[2], COMP_MASK_XYZW,
+                                      compiler->float4Id);
+        operandIds[1] = emitTrimVector(compiler, yGradId, compiler->float4Id, dimCount);
+        operandIdCount += 2;
+    } else if (instr->opcode == IL_OP_SAMPLE_L) {
+        sampleOp = SpvOpImageSampleExplicitLod;
+        operandsMask |= SpvImageOperandsLodMask;
+
+        IlcSpvId lodId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        operandIds[0] = emitTrimVector(compiler, lodId, compiler->float4Id, 1);
+        operandIdCount++;
+    } else {
+        assert(false);
     }
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
@@ -1530,8 +1583,9 @@ static void emitSample(
     IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
     IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId,
                                                     resourceId, samplerId);
-    IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, dstReg->typeId, sampledImageId,
-                                             coordinateId, lodId);
+    IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, dstReg->typeId,
+                                             sampledImageId, coordinateId, operandsMask,
+                                             operandIdCount, operandIds);
     storeDestination(compiler, dst, sampleId);
 }
 
@@ -1701,6 +1755,7 @@ static void emitInstr(
         emitResinfo(compiler, instr);
         break;
     case IL_OP_SAMPLE:
+    case IL_OP_SAMPLE_G:
     case IL_OP_SAMPLE_L:
         emitSample(compiler, instr);
         break;
