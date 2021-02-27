@@ -188,11 +188,12 @@ IlcSpvId ilcSpvPutSampledImage(
     IlcSpvId imageId,
     IlcSpvId samplerId);
 
-IlcSpvId ilcSpvPutImageSampleImplicitLod(
+IlcSpvId ilcSpvPutImageSample(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId sampledImageId,
-    IlcSpvId coordinateId);
+    IlcSpvId coordinateId,
+    IlcSpvId lodId);
 
 IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,

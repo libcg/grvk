@@ -1494,14 +1494,22 @@ static void emitSample(
 
     IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
                                        compiler->float4Id);
+    IlcSpvId lodId = 0;
+
+    if (instr->opcode == IL_OP_SAMPLE_L) {
+        IlcSpvId lod4Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvWord xIndex = COMP_INDEX_X;
+        lodId = ilcSpvPutCompositeExtract(compiler->module, compiler->floatId, lod4Id, 1, &xIndex);
+    }
+
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId samplerTypeId = ilcSpvPutSamplerType(compiler->module);
     IlcSpvId samplerId = ilcSpvPutLoad(compiler->module, samplerTypeId, sampler->id);
     IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
     IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId,
                                                     resourceId, samplerId);
-    IlcSpvId sampleId = ilcSpvPutImageSampleImplicitLod(compiler->module, dstReg->typeId,
-                                                        sampledImageId, coordinateId);
+    IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, dstReg->typeId, sampledImageId,
+                                             coordinateId, lodId);
     storeDestination(compiler, dst, sampleId);
 }
 
@@ -1669,6 +1677,7 @@ static void emitInstr(
         emitResinfo(compiler, instr);
         break;
     case IL_OP_SAMPLE:
+    case IL_OP_SAMPLE_L:
         emitSample(compiler, instr);
         break;
     case IL_OP_CMOV_LOGICAL:
