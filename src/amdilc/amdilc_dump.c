@@ -600,6 +600,9 @@ static void dumpInstruction(
     case IL_OP_I_SHL:
         fprintf(file, "ishl");
         break;
+    case IL_OP_I_SHR:
+        fprintf(file, "ishr");
+        break;
     case IL_OP_U_SHR:
         fprintf(file, "ushr");
         break;

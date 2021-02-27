@@ -1157,6 +1157,10 @@ static void emitIntegerOp(
         IlcSpvId addIds[] = { mulId, srcIds[2] };
         resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id, 2, addIds);
     } break;
+    case IL_OP_I_MUL:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->int4Id,
+                             instr->srcCount, srcIds);
+        break;
     case IL_OP_I_NEGATE:
         resId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id,
                              instr->srcCount, srcIds);
@@ -1173,9 +1177,19 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_I_SHL:
+    case IL_OP_I_SHR:
     case IL_OP_U_SHR: {
+        SpvOp op;
+        if (instr->opcode == IL_OP_I_SHL) {
+            op = SpvOpShiftLeftLogical;
+        } else if (instr->opcode == IL_OP_I_SHR) {
+            op = SpvOpShiftRightArithmetic;
+        } else {
+            op = SpvOpShiftRightLogical;
+        }
         const IlcSpvId argIds[] = { srcIds[0], emitShiftMask(compiler, srcIds[1]) };
-        resId = ilcSpvPutAlu(compiler->module, SpvOpShiftRightLogical, compiler->int4Id, 2, argIds);
+        resId = ilcSpvPutAlu(compiler->module, op, compiler->int4Id, 2, argIds);
     }   break;
     case IL_OP_U_BIT_EXTRACT: {
         IlcSpvId widthsId = emitShiftMask(compiler, srcIds[0]);
@@ -1689,11 +1703,14 @@ static void emitInstr(
     case IL_OP_I_OR:
     case IL_OP_I_ADD:
     case IL_OP_I_MAD:
+    case IL_OP_I_MUL:
     case IL_OP_I_NEGATE:
+    case IL_OP_I_SHL:
+    case IL_OP_I_SHR:
+    case IL_OP_U_SHR:
     case IL_OP_U_DIV:
     case IL_OP_U_MOD:
     case IL_OP_AND:
-    case IL_OP_U_SHR:
     case IL_OP_U_BIT_EXTRACT:
         emitIntegerOp(compiler, instr);
         break;
