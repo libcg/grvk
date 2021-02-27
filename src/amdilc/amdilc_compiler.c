@@ -87,6 +87,7 @@ typedef struct {
     unsigned controlFlowBlockCount;
     IlcControlFlowBlock* controlFlowBlocks;
     bool isInFunction;
+    bool isAfterReturn;
 } IlcCompiler;
 
 static unsigned getResourceDimensionCount(
@@ -1365,6 +1366,12 @@ static void emitEndIf(
         assert(false);
     }
 
+    if (compiler->isAfterReturn) {
+        // Declare a new block
+        ilcSpvPutLabel(compiler->module, ilcSpvAllocId(compiler->module));
+        compiler->isAfterReturn = false;
+    }
+
     if (!block.ifElse.hasElseBlock) {
         // If no else block was declared, insert a dummy one
         ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
@@ -1731,6 +1738,7 @@ static void emitInstr(
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
+        compiler->isAfterReturn = true;
         break;
     case IL_DCL_LITERAL:
         emitLiteral(compiler, instr);
@@ -1877,6 +1885,7 @@ uint32_t* ilcCompileKernel(
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
         .isInFunction = true,
+        .isAfterReturn = false,
     };
 
     emitFunc(&compiler, compiler.entryPointId);
