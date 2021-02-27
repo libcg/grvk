@@ -1576,6 +1576,13 @@ static void emitSample(
 
     if (instr->opcode == IL_OP_SAMPLE) {
         sampleOp = SpvOpImageSampleImplicitLod;
+    } else if (instr->opcode == IL_OP_SAMPLE_B) {
+        sampleOp = SpvOpImageSampleImplicitLod;
+        operandsMask |= SpvImageOperandsBiasMask;
+
+        IlcSpvId biasId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        operandIds[0] = emitVectorTrim(compiler, biasId, compiler->float4Id, COMP_INDEX_X, 1);
+        operandIdCount++;
     } else if (instr->opcode == IL_OP_SAMPLE_G) {
         sampleOp = SpvOpImageSampleExplicitLod;
         operandsMask |= SpvImageOperandsGradMask;
@@ -1779,6 +1786,7 @@ static void emitInstr(
         emitResinfo(compiler, instr);
         break;
     case IL_OP_SAMPLE:
+    case IL_OP_SAMPLE_B:
     case IL_OP_SAMPLE_G:
     case IL_OP_SAMPLE_L:
         emitSample(compiler, instr);
