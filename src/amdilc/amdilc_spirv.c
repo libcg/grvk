@@ -331,6 +331,16 @@ IlcSpvId ilcSpvPutVectorType(
     return putType(module, SpvOpTypeVector, 2, args);
 }
 
+IlcSpvId ilcSpvPutMatrixType(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    unsigned count)
+{
+    const IlcSpvWord args[] = { typeId, count };
+
+    return putType(module, SpvOpTypeMatrix, 2, args);
+}
+
 IlcSpvId ilcSpvPutImageType(
     IlcSpvModule* module,
     IlcSpvId sampledTypeId,
@@ -477,6 +487,23 @@ void ilcSpvPutStore(
     putInstr(buffer, SpvOpStore, 3);
     putWord(buffer, pointerId);
     putWord(buffer, objectId);
+}
+
+IlcSpvId ilcSpvPutAccessChain(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId baseId,
+    IlcSpvId indexId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpAccessChain, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, baseId);
+    putWord(buffer, indexId);
+    return id;
 }
 
 void ilcSpvPutDecoration(

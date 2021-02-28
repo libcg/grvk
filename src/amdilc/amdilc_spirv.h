@@ -90,6 +90,11 @@ IlcSpvId ilcSpvPutVectorType(
     IlcSpvId typeId,
     unsigned count);
 
+IlcSpvId ilcSpvPutMatrixType(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    unsigned count);
+
 IlcSpvId ilcSpvPutImageType(
     IlcSpvModule* module,
     IlcSpvId sampledTypeId,
@@ -153,6 +158,12 @@ void ilcSpvPutStore(
     IlcSpvModule* module,
     IlcSpvId pointerId,
     IlcSpvId objectId);
+
+IlcSpvId ilcSpvPutAccessChain(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId baseId,
+    IlcSpvId indexId);
 
 void ilcSpvPutDecoration(
     IlcSpvModule* module,

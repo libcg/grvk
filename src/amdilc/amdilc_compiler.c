@@ -22,6 +22,7 @@
 typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
+    IlcSpvId baseTypeId; // Base type for arrays
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
     uint8_t ilImportUsage; // Input/output only
@@ -231,6 +232,7 @@ static const IlcRegister* findOrCreateRegister(
         const IlcRegister tempReg = {
             .id = tempId,
             .typeId = tempTypeId,
+            .baseTypeId = 0,
             .ilType = type,
             .ilNum = num,
             .ilImportUsage = 0,
@@ -387,9 +389,6 @@ static IlcSpvId loadSource(
     uint8_t componentMask,
     IlcSpvId typeId)
 {
-    if (src->hasImmediate) {
-        LOGW("unhandled immediate\n");
-    }
     if (src->hasRelativeSrc) {
         LOGW("unhandled relative source\n");
     }
@@ -401,7 +400,22 @@ static IlcSpvId loadSource(
         return 0;
     }
 
-    IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, reg->id);
+    IlcSpvId ptrId = 0;
+    if (src->registerType != IL_REGTYPE_ITEMP) {
+        if (src->hasImmediate) {
+            LOGW("unhandled immediate\n");
+        }
+        ptrId = reg->id;
+    } else {
+        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
+                                                  reg->typeId);
+        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                             src->hasImmediate ? src->immediate : 0);
+        // TODO handle relative source
+        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, indexId);
+    }
+
+    IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
 
     if (reg->typeId == compiler->floatId || reg->typeId == compiler->intId) {
         // Convert scalar to float vector
@@ -499,11 +513,25 @@ static void storeDestination(
     const Destination* dst,
     IlcSpvId varId)
 {
-    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
+    const IlcRegister* reg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
-    if (dstReg == NULL) {
+    if (reg == NULL) {
         LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
+    }
+
+    IlcSpvId ptrId = 0;
+    if (dst->registerType != IL_REGTYPE_ITEMP) {
+        if (dst->hasImmediate) {
+            LOGW("unhandled immediate\n");
+        }
+        ptrId = reg->id;
+    } else {
+        assert(dst->hasImmediate);
+        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
+                                                  reg->typeId);
+        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, dst->immediate);
+        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, indexId);
     }
 
     if (dst->shiftScale != IL_SHIFT_NONE) {
@@ -516,19 +544,19 @@ static void storeDestination(
         IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL);
         const IlcSpvId zeroConsistuentIds[] = { zeroId, zeroId, zeroId, zeroId };
         const IlcSpvId oneConsistuentIds[] = { oneId, oneId, oneId, oneId };
-        IlcSpvId zeroCompositeId = ilcSpvPutConstantComposite(compiler->module, dstReg->typeId,
+        IlcSpvId zeroCompositeId = ilcSpvPutConstantComposite(compiler->module, reg->typeId,
                                                               4, zeroConsistuentIds);
-        IlcSpvId oneCompositeId = ilcSpvPutConstantComposite(compiler->module, dstReg->typeId,
+        IlcSpvId oneCompositeId = ilcSpvPutConstantComposite(compiler->module, reg->typeId,
                                                              4, oneConsistuentIds);
 
         const IlcSpvId paramIds[] = { varId, zeroCompositeId, oneCompositeId };
-        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FClamp, dstReg->typeId, 3, paramIds);
+        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FClamp, reg->typeId, 3, paramIds);
     }
 
     if (dst->component[0] == IL_MODCOMP_NOWRITE || dst->component[1] == IL_MODCOMP_NOWRITE ||
         dst->component[2] == IL_MODCOMP_NOWRITE || dst->component[3] == IL_MODCOMP_NOWRITE) {
         // Select components from {dst.x, dst.y, dst.z, dst.w, x, y, z, w}
-        IlcSpvId origId = ilcSpvPutLoad(compiler->module, dstReg->typeId, dstReg->id);
+        IlcSpvId origId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
 
         const IlcSpvWord components[] = {
             dst->component[0] == IL_MODCOMP_NOWRITE ? 0 : 4,
@@ -536,7 +564,7 @@ static void storeDestination(
             dst->component[2] == IL_MODCOMP_NOWRITE ? 2 : 6,
             dst->component[3] == IL_MODCOMP_NOWRITE ? 3 : 7,
         };
-        varId = ilcSpvPutVectorShuffle(compiler->module, dstReg->typeId, origId, varId,
+        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, origId, varId,
                                        4, components);
     }
 
@@ -553,11 +581,11 @@ static void storeDestination(
             dst->component[2] == IL_MODCOMP_0 ? 4 : (dst->component[2] == IL_MODCOMP_1 ? 5 : 2),
             dst->component[3] == IL_MODCOMP_0 ? 4 : (dst->component[3] == IL_MODCOMP_1 ? 5 : 3),
         };
-        varId = ilcSpvPutVectorShuffle(compiler->module, dstReg->typeId, varId, zeroOneId,
+        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, zeroOneId,
                                        4, components);
     }
 
-    ilcSpvPutStore(compiler->module, dstReg->id, varId);
+    ilcSpvPutStore(compiler->module, ptrId, varId);
 }
 
 static void emitGlobalFlags(
@@ -581,6 +609,34 @@ static void emitGlobalFlags(
     if (enableDoublePrecisionFloatOps) {
         LOGW("unhandled enableDoublePrecisionFloatOps flag\n");
     }
+}
+
+static void emitIndexedTempArray(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const Source* src = &instr->srcs[0];
+
+    assert(src->registerType == IL_REGTYPE_ITEMP && src->hasImmediate);
+
+    // Create temporary array register
+    unsigned arraySize = src->immediate;
+    IlcSpvId arrayTypeId = ilcSpvPutMatrixType(compiler->module, compiler->float4Id, arraySize);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
+                                              arrayTypeId);
+    IlcSpvId arrayId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassPrivate);
+
+    const IlcRegister tempArrayReg = {
+        .id = arrayId,
+        .typeId = compiler->float4Id,
+        .baseTypeId = arrayTypeId,
+        .ilType = src->registerType,
+        .ilNum = src->registerNum,
+        .ilImportUsage = 0,
+        .ilInterpMode = 0,
+    };
+
+    addRegister(compiler, &tempArrayReg, 'x');
 }
 
 static void emitLiteral(
@@ -609,6 +665,7 @@ static void emitLiteral(
     const IlcRegister reg = {
         .id = literalId,
         .typeId = literalTypeId,
+        .baseTypeId = 0,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
@@ -664,6 +721,7 @@ static void emitOutput(
     const IlcRegister reg = {
         .id = outputId,
         .typeId = outputTypeId,
+        .baseTypeId = 0,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
@@ -755,6 +813,7 @@ static void emitInput(
     const IlcRegister reg = {
         .id = inputId,
         .typeId = inputTypeId,
+        .baseTypeId = 0,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
@@ -1762,6 +1821,9 @@ static void emitInstr(
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
         compiler->isAfterReturn = true;
+        break;
+    case IL_DCL_INDEXED_TEMP_ARRAY:
+        emitIndexedTempArray(compiler, instr);
         break;
     case IL_DCL_LITERAL:
         emitLiteral(compiler, instr);
