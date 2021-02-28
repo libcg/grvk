@@ -777,12 +777,20 @@ static void emitInput(
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
     } else if (importUsage == IL_IMPORTUSAGE_VERTEXID ||
-               importUsage == IL_IMPORTUSAGE_INSTANCEID) {
+               importUsage == IL_IMPORTUSAGE_INSTANCEID ||
+               importUsage == IL_IMPORTUSAGE_PRIMITIVEID) {
         inputTypeId = compiler->intId;
         inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
-        IlcSpvWord builtInType = importUsage == IL_IMPORTUSAGE_VERTEXID ?
-                                 SpvBuiltInVertexIndex : SpvBuiltInInstanceIndex;
+        IlcSpvWord builtInType = 0;
+        if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
+            builtInType = SpvBuiltInVertexIndex;
+        } else if (importUsage == IL_IMPORTUSAGE_INSTANCEID) {
+            builtInType = SpvBuiltInInstanceIndex;
+        } else {
+            ilcSpvPutCapability(compiler->module, SpvCapabilityGeometry);
+            builtInType = SpvBuiltInPrimitiveId;
+        }
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
     } else {
         LOGW("unhandled import usage %d\n", importUsage);
