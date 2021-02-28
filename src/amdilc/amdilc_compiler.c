@@ -508,13 +508,19 @@ static IlcSpvId loadSource(
 static void storeDestination(
     IlcCompiler* compiler,
     const Destination* dst,
-    IlcSpvId varId)
+    IlcSpvId varId,
+    IlcSpvId typeId)
 {
     const IlcRegister* reg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
     if (reg == NULL) {
         LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
+    }
+
+    if (typeId != reg->typeId) {
+        // Need to cast to the expected type
+        varId = ilcSpvPutBitcast(compiler->module, reg->typeId, varId);
     }
 
     IlcSpvId ptrId = 0;
@@ -1131,7 +1137,7 @@ static void emitFloatOp(
         break;
     }
 
-    storeDestination(compiler, &instr->dsts[0], resId);
+    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
 }
 
 static void emitFloatComparisonOp(
@@ -1176,7 +1182,7 @@ static void emitFloatComparisonOp(
     IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
                                      trueCompositeId, falseCompositeId);
 
-    storeDestination(compiler, &instr->dsts[0], resId);
+    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
 }
 
 static void emitIntegerOp(
@@ -1184,18 +1190,18 @@ static void emitIntegerOp(
     const Instruction* instr)
 {
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
-    IlcSpvId srcTypeId = 0;
+    IlcSpvId typeId = 0;
     IlcSpvId resId = 0;
 
     if (instr->opcode == IL_OP_U_DIV ||
         instr->opcode == IL_OP_U_MOD) {
-        srcTypeId = compiler->uint4Id;
+        typeId = compiler->uint4Id;
     } else {
-        srcTypeId = compiler->int4Id;
+        typeId = compiler->int4Id;
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, srcTypeId);
+        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, typeId);
     }
 
     switch (instr->opcode) {
@@ -1271,8 +1277,7 @@ static void emitIntegerOp(
         break;
     }
 
-    storeDestination(compiler, &instr->dsts[0],
-                     ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId));
+    storeDestination(compiler, &instr->dsts[0], resId, typeId);
 }
 
 static void emitIntegerComparisonOp(
@@ -1323,7 +1328,7 @@ static void emitIntegerComparisonOp(
     IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
                                      trueCompositeId, falseCompositeId);
 
-    storeDestination(compiler, &instr->dsts[0], resId);
+    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
 }
 
 static void emitCmovLogical(
@@ -1347,7 +1352,7 @@ static void emitCmovLogical(
     IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
                                      srcIds[1], srcIds[2]);
 
-    storeDestination(compiler, &instr->dsts[0], resId);
+    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
 }
 
 static IlcSpvId emitConditionCheck(
@@ -1552,12 +1557,7 @@ static void emitLoad(
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
                                            srcId);
-    if (resource->texelTypeId == compiler->float4Id) {
-        storeDestination(compiler, dst, fetchId);
-    } else {
-        storeDestination(compiler, dst,
-                         ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
-    }
+    storeDestination(compiler, dst, fetchId, resource->texelTypeId);
 }
 
 static void emitResinfo(
@@ -1600,10 +1600,14 @@ static void emitResinfo(
     };
     IlcSpvId infoId = ilcSpvPutVectorShuffle(compiler->module, compiler->int4Id,
                                              zeroLevelsId, sizesId, 4, components);
-    IlcSpvId resId = ilReturnType ? ilcSpvPutBitcast(compiler->module, compiler->float4Id, infoId)
-                                  : ilcSpvPutAlu(compiler->module, SpvOpConvertSToF,
-                                                 compiler->float4Id, 1, &infoId);
-    storeDestination(compiler, dst, resId);
+    if (ilReturnType) {
+        storeDestination(compiler, dst, infoId, compiler->int4Id);
+    } else {
+        IlcSpvId fInfoId = ilcSpvPutAlu(compiler->module, SpvOpConvertSToF, compiler->float4Id,
+                                        1, &infoId);
+        storeDestination(compiler, dst, fInfoId, compiler->float4Id);
+    }
+
 }
 
 static void emitSample(
@@ -1673,12 +1677,7 @@ static void emitSample(
     IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, resource->texelTypeId,
                                              sampledImageId, coordinateId, operandsMask,
                                              operandIdCount, operandIds);
-    if (resource->texelTypeId == compiler->float4Id) {
-        storeDestination(compiler, dst, sampleId);
-    } else {
-        storeDestination(compiler, dst,
-                         ilcSpvPutBitcast(compiler->module, compiler->float4Id, sampleId));
-    }
+    storeDestination(compiler, dst, sampleId, resource->texelTypeId);
 }
 
 static void emitStructuredSrvLoad(
@@ -1717,8 +1716,7 @@ static void emitStructuredSrvLoad(
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
                                            wordAddrId);
-    storeDestination(compiler, dst,
-                     ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
+    storeDestination(compiler, dst, fetchId, resource->texelTypeId);
 }
 
 static void emitInstr(
