@@ -32,6 +32,7 @@ typedef struct {
 typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
+    IlcSpvId texelTypeId;
     uint32_t ilId;
     uint8_t ilType;
     uint32_t strideId;
@@ -857,23 +858,31 @@ static void emitResource(
         assert(false);
     }
 
+    IlcSpvId sampledTypeId = 0;
+    IlcSpvId texelTypeId = 0;
     SpvImageFormat spvImageFormat;
     if (fmtx == IL_ELEMENTFORMAT_FLOAT && fmty == IL_ELEMENTFORMAT_FLOAT &&
         fmtz == IL_ELEMENTFORMAT_FLOAT && fmtw == IL_ELEMENTFORMAT_FLOAT) {
+        sampledTypeId = compiler->floatId;
+        texelTypeId = compiler->float4Id;
         spvImageFormat = SpvImageFormatRgba32f;
     } else if (fmtx == IL_ELEMENTFORMAT_SINT && fmty == IL_ELEMENTFORMAT_SINT &&
                fmtz == IL_ELEMENTFORMAT_SINT && fmtw == IL_ELEMENTFORMAT_SINT) {
+        sampledTypeId = compiler->intId;
+        texelTypeId = compiler->int4Id;
         spvImageFormat = SpvImageFormatRgba32i;
     } else if (fmtx == IL_ELEMENTFORMAT_UINT && fmty == IL_ELEMENTFORMAT_UINT &&
                fmtz == IL_ELEMENTFORMAT_UINT && fmtw == IL_ELEMENTFORMAT_UINT) {
+        sampledTypeId = compiler->uintId;
+        texelTypeId = compiler->uint4Id;
         spvImageFormat = SpvImageFormatRgba32ui;
     } else {
         LOGE("unhandled resource format %d %d %d %d\n", fmtx, fmty, fmtz, fmtw);
         assert(false);
     }
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, spvDim,
-                                          0, 0, 0, 1, spvImageFormat);
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim, 0, 0, 0, 1,
+                                          spvImageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -888,6 +897,7 @@ static void emitResource(
     const IlcResource resource = {
         .id = resourceId,
         .typeId = imageId,
+        .texelTypeId = texelTypeId,
         .ilId = id,
         .ilType = type,
         .strideId = 0,
@@ -902,8 +912,8 @@ static void emitStructuredSrv(
 {
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->intId, SpvDimBuffer,
-                                          0, 0, 0, 1, SpvImageFormatR32i);
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->uintId, SpvDimBuffer,
+                                          0, 0, 0, 1, SpvImageFormatR32ui);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -921,6 +931,7 @@ static void emitStructuredSrv(
     const IlcResource resource = {
         .id = resourceId,
         .typeId = imageId,
+        .texelTypeId = compiler->uint4Id,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
@@ -1531,20 +1542,22 @@ static void emitLoad(
 
     const IlcResource* resource = findResource(compiler, ilResourceId);
     const Destination* dst = &instr->dsts[0];
-    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
-        return;
-    } else if (dstReg == NULL) {
-        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
     }
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, dstReg->typeId, resourceId, srcId);
-    storeDestination(compiler, dst, fetchId);
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
+                                           srcId);
+    if (resource->texelTypeId == compiler->float4Id) {
+        storeDestination(compiler, dst, fetchId);
+    } else {
+        storeDestination(compiler, dst,
+                         ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
+    }
 }
 
 static void emitResinfo(
@@ -1570,8 +1583,7 @@ static void emitResinfo(
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId lodId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     ilcSpvPutCapability(compiler->module, SpvCapabilityImageQuery);
-    IlcSpvId sizesId = ilcSpvPutImageQuerySizeLod(compiler->module, vecTypeId, resourceId,
-                                                 lodId);
+    IlcSpvId sizesId = ilcSpvPutImageQuerySizeLod(compiler->module, vecTypeId, resourceId, lodId);
     IlcSpvId levelsId = ilcSpvPutImageQueryLevels(compiler->module, compiler->intId, resourceId);
 
     // Put everything together: zero-padded sizes (index 0 to 2) and mipmap count (index 3)
@@ -1605,13 +1617,9 @@ static void emitSample(
     const IlcResource* resource = findResource(compiler, ilResourceId);
     const IlcSampler* sampler = findOrCreateSampler(compiler, ilSamplerId);
     const Destination* dst = &instr->dsts[0];
-    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
-        return;
-    } else if (dstReg == NULL) {
-        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
     }
 
@@ -1662,10 +1670,15 @@ static void emitSample(
     IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
     IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId,
                                                     resourceId, samplerId);
-    IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, dstReg->typeId,
+    IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, resource->texelTypeId,
                                              sampledImageId, coordinateId, operandsMask,
                                              operandIdCount, operandIds);
-    storeDestination(compiler, dst, sampleId);
+    if (resource->texelTypeId == compiler->float4Id) {
+        storeDestination(compiler, dst, sampleId);
+    } else {
+        storeDestination(compiler, dst,
+                         ilcSpvPutBitcast(compiler->module, compiler->float4Id, sampleId));
+    }
 }
 
 static void emitStructuredSrvLoad(
@@ -1681,13 +1694,9 @@ static void emitStructuredSrvLoad(
 
     const IlcResource* resource = findResource(compiler, ilResourceId);
     const Destination* dst = &instr->dsts[0];
-    const IlcRegister* dstReg = findOrCreateRegister(compiler, dst->registerType, dst->registerNum);
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
-        return;
-    } else if (dstReg == NULL) {
-        LOGE("destination register %d %d not found\n", dst->registerType, dst->registerNum);
         return;
     }
 
@@ -1706,7 +1715,7 @@ static void emitStructuredSrvLoad(
     IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, compiler->int4Id, resourceId,
+    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
                                            wordAddrId);
     storeDestination(compiler, dst,
                      ilcSpvPutBitcast(compiler->module, compiler->float4Id, fetchId));
