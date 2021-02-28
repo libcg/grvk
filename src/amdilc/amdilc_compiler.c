@@ -895,8 +895,12 @@ static void emitResource(
         assert(false);
     }
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim, 0, 0, 0, 1,
-                                          spvImageFormat);
+    bool isArrayed = type == IL_USAGE_PIXTEX_1DARRAY ||
+                     type == IL_USAGE_PIXTEX_2DARRAY ||
+                     type == IL_USAGE_PIXTEX_2DARRAYMSAA;
+
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim,
+                                          0, isArrayed, 0, 1, spvImageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
