@@ -66,7 +66,9 @@ void ilcSpvPutEntryPoint(
 void ilcSpvPutExecMode(
     IlcSpvModule* module,
     IlcSpvId id,
-    SpvExecutionMode execMode);
+    SpvExecutionMode execMode,
+    unsigned operandCount,
+    const IlcSpvWord* operands);
 
 void ilcSpvPutCapability(
     IlcSpvModule* module,

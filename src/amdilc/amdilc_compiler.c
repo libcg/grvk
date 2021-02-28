@@ -1371,6 +1371,19 @@ static void emitCmovLogical(
     storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
 }
 
+static void emitNumThreadPerGroup(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcSpvWord sizes[] = {
+        instr->extraCount >= 1 ? instr->extras[0] : 1,
+        instr->extraCount >= 2 ? instr->extras[1] : 1,
+        instr->extraCount >= 3 ? instr->extras[2] : 1,
+    };
+    ilcSpvPutExecMode(compiler->module, compiler->entryPointId, SpvExecutionModeLocalSize,
+                      3, sizes);
+}
+
 static IlcSpvId emitConditionCheck(
     IlcCompiler* compiler,
     IlcSpvId srcId,
@@ -1871,6 +1884,9 @@ static void emitInstr(
     case IL_OP_CMOV_LOGICAL:
         emitCmovLogical(compiler, instr);
         break;
+    case IL_OP_DCL_NUM_THREAD_PER_GROUP:
+        emitNumThreadPerGroup(compiler, instr);
+        break;
     case IL_OP_DCL_STRUCT_SRV:
         emitStructuredSrv(compiler, instr);
         break;
@@ -1945,7 +1961,7 @@ static void emitEntryPoint(
     case IL_SHADER_PIXEL:
         ilcSpvPutExtension(compiler->module, "SPV_EXT_demote_to_helper_invocation");
         ilcSpvPutExecMode(compiler->module, compiler->entryPointId,
-                          SpvExecutionModeOriginUpperLeft);
+                          SpvExecutionModeOriginUpperLeft, 0, NULL);
         break;
     }
 

@@ -266,13 +266,18 @@ void ilcSpvPutEntryPoint(
 void ilcSpvPutExecMode(
     IlcSpvModule* module,
     IlcSpvId id,
-    SpvExecutionMode execMode)
+    SpvExecutionMode execMode,
+    unsigned operandCount,
+    const IlcSpvWord* operands)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_EXEC_MODES];
 
-    putInstr(buffer, SpvOpExecutionMode, 3);
+    putInstr(buffer, SpvOpExecutionMode, 3 + operandCount);
     putWord(buffer, id);
     putWord(buffer, execMode);
+    for (unsigned i = 0; i < operandCount; i++) {
+        putWord(buffer, operands[i]);
+    }
 }
 
 void ilcSpvPutCapability(
