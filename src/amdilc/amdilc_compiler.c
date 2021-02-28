@@ -112,15 +112,12 @@ static unsigned getResourceDimensionCount(
     return 0;
 }
 
-static IlcSpvId emitVectorVariable(
+static IlcSpvId emitVariable(
     IlcCompiler* compiler,
-    IlcSpvId* typeId,
-    unsigned componentCount,
-    IlcSpvId componentTypeId,
+    IlcSpvId typeId,
     IlcSpvWord storageClass)
 {
-    *typeId = ilcSpvPutVectorType(compiler->module, componentTypeId, componentCount);
-    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, storageClass, *typeId);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, storageClass, typeId);
 
     return ilcSpvPutVariable(compiler->module, pointerId, storageClass);
 }
@@ -225,9 +222,8 @@ static const IlcRegister* findOrCreateRegister(
 
     if (reg == NULL && type == IL_REGTYPE_TEMP) {
         // Create temporary register
-        IlcSpvId tempTypeId = 0;
-        IlcSpvId tempId = emitVectorVariable(compiler, &tempTypeId, 4, compiler->floatId,
-                                             SpvStorageClassPrivate);
+        IlcSpvId tempTypeId = compiler->float4Id;
+        IlcSpvId tempId = emitVariable(compiler, tempTypeId, SpvStorageClassPrivate);
 
         const IlcRegister tempReg = {
             .id = tempId,
@@ -622,9 +618,7 @@ static void emitIndexedTempArray(
     // Create temporary array register
     unsigned arraySize = src->immediate;
     IlcSpvId arrayTypeId = ilcSpvPutMatrixType(compiler->module, compiler->float4Id, arraySize);
-    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
-                                              arrayTypeId);
-    IlcSpvId arrayId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassPrivate);
+    IlcSpvId arrayId = emitVariable(compiler, arrayTypeId, SpvStorageClassPrivate);
 
     const IlcRegister tempArrayReg = {
         .id = arrayId,
@@ -647,9 +641,8 @@ static void emitLiteral(
 
     assert(src->registerType == IL_REGTYPE_LITERAL);
 
-    IlcSpvId literalTypeId = 0;
-    IlcSpvId literalId = emitVectorVariable(compiler, &literalTypeId, 4, compiler->floatId,
-                                            SpvStorageClassPrivate);
+    IlcSpvId literalTypeId = compiler->float4Id;
+    IlcSpvId literalId = emitVariable(compiler, literalTypeId, SpvStorageClassPrivate);
 
     IlcSpvId consistuentIds[] = {
         ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[0]),
@@ -704,9 +697,8 @@ static void emitOutput(
         }
     }
 
-    IlcSpvId outputTypeId = 0;
-    IlcSpvId outputId = emitVectorVariable(compiler, &outputTypeId, 4, compiler->floatId,
-                                           SpvStorageClassOutput);
+    IlcSpvId outputTypeId = compiler->float4Id;
+    IlcSpvId outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
 
     if (importUsage == IL_IMPORTUSAGE_POS) {
         IlcSpvWord builtInType = SpvBuiltInPosition;
@@ -766,23 +758,21 @@ static void emitInput(
     }
 
     if (importUsage == IL_IMPORTUSAGE_POS) {
-        inputId = emitVectorVariable(compiler, &inputTypeId, 4, compiler->floatId,
-                                     SpvStorageClassInput);
+        inputTypeId = compiler->float4Id;
+        inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord builtInType = SpvBuiltInFragCoord;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
     } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
-        inputId = emitVectorVariable(compiler, &inputTypeId, 4, compiler->floatId,
-                                     SpvStorageClassInput);
+        inputTypeId = compiler->float4Id;
+        inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
     } else if (importUsage == IL_IMPORTUSAGE_VERTEXID ||
                importUsage == IL_IMPORTUSAGE_INSTANCEID) {
-        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassInput,
-                                                  compiler->intId);
-        inputId = ilcSpvPutVariable(compiler->module, pointerId, SpvStorageClassInput);
         inputTypeId = compiler->intId;
+        inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord builtInType = importUsage == IL_IMPORTUSAGE_VERTEXID ?
                                  SpvBuiltInVertexIndex : SpvBuiltInInstanceIndex;
