@@ -113,6 +113,42 @@ static unsigned getResourceDimensionCount(
     return 0;
 }
 
+static SpvDim getSpvDimension(
+    IlcCompiler* compiler,
+    uint8_t ilType,
+    bool isSampled)
+{
+    switch (ilType) {
+    case IL_USAGE_PIXTEX_1D:
+    case IL_USAGE_PIXTEX_1DARRAY:
+        ilcSpvPutCapability(compiler->module,
+                            isSampled ? SpvCapabilitySampled1D : SpvCapabilityImage1D);
+        return SpvDim1D;
+    case IL_USAGE_PIXTEX_2D:
+    case IL_USAGE_PIXTEX_2DARRAY:
+        return SpvDim2D;
+    case IL_USAGE_PIXTEX_3D:
+        return SpvDim3D;
+    case IL_USAGE_PIXTEX_BUFFER:
+        ilcSpvPutCapability(compiler->module,
+                            isSampled ? SpvCapabilitySampledBuffer : SpvCapabilityImageBuffer);
+        return SpvDimBuffer;
+    default:
+        LOGE("unhandled resource type %d\n", ilType);
+        assert(false);
+    }
+
+    return 0;
+}
+
+static bool isArrayed(
+    uint8_t ilType)
+{
+    return ilType == IL_USAGE_PIXTEX_1DARRAY ||
+           ilType == IL_USAGE_PIXTEX_2DARRAY ||
+           ilType == IL_USAGE_PIXTEX_2DARRAYMSAA;
+}
+
 static IlcSpvId emitVariable(
     IlcCompiler* compiler,
     IlcSpvId typeId,
@@ -844,28 +880,7 @@ static void emitResource(
     uint8_t fmtz = GET_BITS(instr->extras[0], 26, 28);
     uint8_t fmtw = GET_BITS(instr->extras[0], 29, 31);
 
-    SpvDim spvDim = 0;
-    switch (type) {
-    case IL_USAGE_PIXTEX_1D:
-    case IL_USAGE_PIXTEX_1DARRAY:
-        spvDim = SpvDim1D;
-        ilcSpvPutCapability(compiler->module, SpvCapabilityImage1D);
-        break;
-    case IL_USAGE_PIXTEX_2D:
-    case IL_USAGE_PIXTEX_2DARRAY:
-        spvDim = SpvDim2D;
-        break;
-    case IL_USAGE_PIXTEX_3D:
-        spvDim = SpvDim3D;
-        break;
-    case IL_USAGE_PIXTEX_BUFFER:
-        spvDim = SpvDimBuffer;
-        ilcSpvPutCapability(compiler->module, SpvCapabilityImageBuffer);
-        break;
-    default:
-        LOGE("unhandled resource type %d\n", type);
-        assert(false);
-    }
+    SpvDim spvDim = getSpvDimension(compiler, type, true);
 
     if (unnorm) {
         LOGE("unhandled unnorm resource\n");
@@ -895,12 +910,8 @@ static void emitResource(
         assert(false);
     }
 
-    bool isArrayed = type == IL_USAGE_PIXTEX_1DARRAY ||
-                     type == IL_USAGE_PIXTEX_2DARRAY ||
-                     type == IL_USAGE_PIXTEX_2DARRAYMSAA;
-
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim,
-                                          0, isArrayed, 0, 1, spvImageFormat);
+                                          0, isArrayed(type), 0, 1, spvImageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -918,6 +929,73 @@ static void emitResource(
         .texelTypeId = texelTypeId,
         .ilId = id,
         .ilType = type,
+        .strideId = 0,
+    };
+
+    addResource(compiler, &resource);
+}
+
+static void emitTypedUav(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint16_t id;
+    uint8_t fmtx;
+    uint8_t type;
+
+    if (instr->opcode == IL_OP_DCL_UAV) {
+        id = GET_BITS(instr->control, 0, 3);
+        fmtx = GET_BITS(instr->control, 4, 7);
+        type = GET_BITS(instr->control, 8, 11);
+    } else if (instr->opcode == IL_OP_DCL_TYPED_UAV) {
+        // IL_OP_DCL_TYPED_UAV allows 14-bit IDs
+        assert(instr->extraCount == 1);
+        id = GET_BITS(instr->control, 0, 13);
+        fmtx = GET_BITS(instr->extras[0], 0, 3);
+        type = GET_BITS(instr->extras[0], 4, 7);
+    } else {
+        assert(false);
+    }
+
+    SpvDim spvDim = getSpvDimension(compiler, type, false);
+
+    IlcSpvId sampledTypeId = 0;
+    SpvImageFormat spvImageFormat;
+    if (fmtx == IL_ELEMENTFORMAT_SINT) {
+        sampledTypeId = compiler->intId;
+        spvImageFormat = SpvImageFormatR32i;
+    } else if (fmtx == IL_ELEMENTFORMAT_UINT) {
+        sampledTypeId = compiler->uintId;
+        spvImageFormat = SpvImageFormatR32ui;
+    } else if (fmtx == IL_ELEMENTFORMAT_FLOAT) {
+        sampledTypeId = compiler->floatId;
+        spvImageFormat = SpvImageFormatR32f;
+    } else {
+        LOGE("unhandled format %d\n", fmtx);
+        assert(false);
+    }
+
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim,
+                                          0, isArrayed(type), 0, 2, spvImageFormat);
+    IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
+                                             imageId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
+                                            SpvStorageClassUniformConstant);
+
+    ilcSpvPutName(compiler->module, imageId, "typedUav");
+
+    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    IlcSpvWord bindingIdx = id;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+
+    const IlcResource resource = {
+        .id = resourceId,
+        .typeId = imageId,
+        .texelTypeId = sampledTypeId,
+        .ilId = id,
+        .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = 0,
     };
 
@@ -1890,6 +1968,10 @@ static void emitInstr(
         break;
     case IL_OP_DCL_NUM_THREAD_PER_GROUP:
         emitNumThreadPerGroup(compiler, instr);
+        break;
+    case IL_OP_DCL_UAV:
+    case IL_OP_DCL_TYPED_UAV:
+        emitTypedUav(compiler, instr);
         break;
     case IL_OP_DCL_STRUCT_SRV:
         emitStructuredSrv(compiler, instr);
