@@ -221,10 +221,10 @@ static IlcSpvId emitVectorTrim(
 static const IlcRegister* addRegister(
     IlcCompiler* compiler,
     const IlcRegister* reg,
-    char prefix)
+    const char* identifier)
 {
-    char name[16];
-    snprintf(name, 16, "%c%u", prefix, reg->ilNum);
+    char name[32];
+    snprintf(name, sizeof(name), "%s%u", identifier, reg->ilNum);
     ilcSpvPutName(compiler->module, reg->id, name);
 
     compiler->regCount++;
@@ -272,7 +272,7 @@ static const IlcRegister* findOrCreateRegister(
             .ilInterpMode = 0,
         };
 
-        reg = addRegister(compiler, &tempReg, 'r');
+        reg = addRegister(compiler, &tempReg, "r");
     }
 
     return reg;
@@ -303,7 +303,7 @@ static void addResource(
     }
 
     char name[32];
-    snprintf(name, 32, "resource%u", resource->ilId);
+    snprintf(name, sizeof(name), "resource%u", resource->ilId);
     ilcSpvPutName(compiler->module, resource->id, name);
 
     compiler->resourceCount++;
@@ -337,7 +337,7 @@ static const IlcSampler* addSampler(
     }
 
     char name[32];
-    snprintf(name, 32, "sampler%u", sampler->ilId);
+    snprintf(name, sizeof(name), "sampler%u", sampler->ilId);
     ilcSpvPutName(compiler->module, sampler->id, name);
 
     compiler->samplerCount++;
@@ -673,7 +673,7 @@ static void emitIndexedTempArray(
         .ilInterpMode = 0,
     };
 
-    addRegister(compiler, &tempArrayReg, 'x');
+    addRegister(compiler, &tempArrayReg, "x");
 }
 
 static void emitLiteral(
@@ -708,7 +708,7 @@ static void emitLiteral(
         .ilInterpMode = 0,
     };
 
-    addRegister(compiler, &reg, 'l');
+    addRegister(compiler, &reg, "l");
 }
 
 static void emitOutput(
@@ -763,7 +763,7 @@ static void emitOutput(
         .ilInterpMode = 0,
     };
 
-    addRegister(compiler, &reg, 'o');
+    addRegister(compiler, &reg, "o");
 }
 
 static void emitInput(
@@ -861,7 +861,7 @@ static void emitInput(
         .ilInterpMode = interpMode,
     };
 
-    addRegister(compiler, &reg, 'v');
+    addRegister(compiler, &reg, "v");
 }
 
 static void emitResource(
@@ -1900,6 +1900,30 @@ static void emitStructuredSrvLoad(
     storeDestination(compiler, dst, fetchId, resource->texelTypeId);
 }
 
+static void emitImplicitInputs(
+    IlcCompiler* compiler)
+{
+    if (compiler->kernel->shaderType == IL_SHADER_COMPUTE) {
+        IlcSpvId inputTypeId = compiler->uint4Id;
+        IlcSpvId inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+
+        IlcSpvWord builtInType = SpvBuiltInGlobalInvocationId;
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
+
+        const IlcRegister reg = {
+            .id = inputId,
+            .typeId = inputTypeId,
+            .baseTypeId = 0,
+            .ilType = IL_REGTYPE_ABSOLUTE_THREAD_ID,
+            .ilNum = 0,
+            .ilImportUsage = 0,
+            .ilInterpMode = 0,
+        };
+
+        addRegister(compiler, &reg, "vAbsTid");
+    }
+}
+
 static void emitInstr(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2168,6 +2192,7 @@ uint32_t* ilcCompileKernel(
         .isAfterReturn = false,
     };
 
+    emitImplicitInputs(&compiler);
     emitFunc(&compiler, compiler.entryPointId);
     for (int i = 0; i < kernel->instrCount; i++) {
         emitInstr(&compiler, &kernel->instrs[i]);
