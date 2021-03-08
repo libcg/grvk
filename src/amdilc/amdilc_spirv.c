@@ -669,6 +669,20 @@ IlcSpvId ilcSpvPutImageFetch(
     return id;
 }
 
+void ilcSpvPutImageWrite(
+    IlcSpvModule* module,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId,
+    IlcSpvId texelId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpImageWrite, 4);
+    putWord(buffer, imageId);
+    putWord(buffer, coordinateId);
+    putWord(buffer, texelId);
+}
+
 IlcSpvId ilcSpvPutImageQuerySizeLod(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,

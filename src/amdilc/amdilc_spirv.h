@@ -224,6 +224,12 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvId imageId,
     IlcSpvId coordinateId);
 
+void ilcSpvPutImageWrite(
+    IlcSpvModule* module,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId,
+    IlcSpvId texelId);
+
 IlcSpvId ilcSpvPutImageQuerySizeLod(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,

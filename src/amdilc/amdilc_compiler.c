@@ -1791,6 +1791,27 @@ static void emitSample(
     storeDestination(compiler, dst, sampleId, resource->texelTypeId);
 }
 
+static void emitUavStore(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
+
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId elementTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
+    IlcSpvId elementId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, elementTypeId);
+
+    ilcSpvPutImageWrite(compiler->module, resourceId, addressId, elementId);
+}
+
 static void emitUavAtomicOp(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2021,6 +2042,9 @@ static void emitInstr(
     case IL_OP_DCL_UAV:
     case IL_OP_DCL_TYPED_UAV:
         emitTypedUav(compiler, instr);
+        break;
+    case IL_OP_UAV_STORE:
+        emitUavStore(compiler, instr);
         break;
     case IL_OP_UAV_ADD:
     case IL_OP_UAV_READ_ADD:
