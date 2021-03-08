@@ -995,7 +995,7 @@ static void emitTypedUav(
         .typeId = imageId,
         .texelTypeId = sampledTypeId,
         .ilId = id,
-        .ilType = IL_USAGE_PIXTEX_UNKNOWN,
+        .ilType = type,
         .strideId = 0,
     };
 
@@ -1791,6 +1791,55 @@ static void emitSample(
     storeDestination(compiler, dst, sampleId, resource->texelTypeId);
 }
 
+static void emitUavAtomicOp(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
+
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    IlcSpvId vecTypeId = resource->texelTypeId == compiler->intId ?
+                         compiler->int4Id : compiler->uint4Id;
+
+    IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassImage,
+                                                  resource->texelTypeId);
+    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId trimAddressId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X,
+                                            getResourceDimensionCount(resource->ilType));
+    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
+    IlcSpvId texelPtrId = ilcSpvPutImageTexelPointer(compiler->module, pointerTypeId, resource->id,
+                                                     trimAddressId, zeroId);
+
+    IlcSpvId readId = 0;
+    IlcSpvId scopeId = ilcSpvPutConstant(compiler->module, compiler->intId, SpvScopeDevice);
+    IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                             SpvMemorySemanticsAcquireReleaseMask |
+                                             SpvMemorySemanticsImageMemoryMask);
+    IlcSpvId src1Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, vecTypeId);
+    IlcSpvId valueId = emitVectorTrim(compiler, src1Id, vecTypeId, COMP_INDEX_X, 1);
+
+    if (instr->opcode == IL_OP_UAV_ADD || instr->opcode == IL_OP_UAV_READ_ADD) {
+        readId = ilcSpvPutAtomicOp(compiler->module, SpvOpAtomicIAdd, resource->texelTypeId,
+                                   texelPtrId, scopeId, semanticsId, valueId);
+    } else {
+        assert(false);
+    }
+
+    if (instr->dstCount > 0) {
+        const IlcSpvWord constituents[] = { readId, readId, readId, readId };
+        IlcSpvId resId = ilcSpvPutCompositeConstruct(compiler->module, vecTypeId,
+                                                     4, constituents);
+
+        storeDestination(compiler, &instr->dsts[0], resId, vecTypeId);
+    }
+}
+
 static void emitStructuredSrvLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1972,6 +2021,10 @@ static void emitInstr(
     case IL_OP_DCL_UAV:
     case IL_OP_DCL_TYPED_UAV:
         emitTypedUav(compiler, instr);
+        break;
+    case IL_OP_UAV_ADD:
+    case IL_OP_UAV_READ_ADD:
+        emitUavAtomicOp(compiler, instr);
         break;
     case IL_OP_DCL_STRUCT_SRV:
         emitStructuredSrv(compiler, instr);

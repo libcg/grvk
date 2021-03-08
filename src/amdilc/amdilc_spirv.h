@@ -151,6 +151,13 @@ IlcSpvId ilcSpvPutVariable(
     IlcSpvId resultTypeId,
     IlcSpvWord storageClass);
 
+IlcSpvId ilcSpvPutImageTexelPointer(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId,
+    IlcSpvId sampleId);
+
 IlcSpvId ilcSpvPutLoad(
     IlcSpvModule* module,
     IlcSpvId typeId,
@@ -234,6 +241,15 @@ IlcSpvId ilcSpvPutAlu(
     IlcSpvId resultTypeId,
     unsigned idCount,
     const IlcSpvId* ids);
+
+IlcSpvId ilcSpvPutAtomicOp(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId pointerId,
+    IlcSpvWord memoryId,
+    IlcSpvWord semanticsId,
+    IlcSpvId valueId);
 
 IlcSpvId ilcSpvPutBitcast(
     IlcSpvModule* module,

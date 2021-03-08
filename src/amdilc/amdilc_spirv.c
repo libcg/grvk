@@ -467,6 +467,25 @@ IlcSpvId ilcSpvPutVariable(
     return id;
 }
 
+IlcSpvId ilcSpvPutImageTexelPointer(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId,
+    IlcSpvId sampleId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpImageTexelPointer, 6);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, imageId);
+    putWord(buffer, coordinateId);
+    putWord(buffer, sampleId);
+    return id;
+}
+
 IlcSpvId ilcSpvPutLoad(
     IlcSpvModule* module,
     IlcSpvId typeId,
@@ -698,6 +717,28 @@ IlcSpvId ilcSpvPutAlu(
     for (int i = 0; i < idCount; i++) {
         putWord(buffer, ids[i]);
     }
+    return id;
+}
+
+IlcSpvId ilcSpvPutAtomicOp(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId pointerId,
+    IlcSpvWord memoryId,
+    IlcSpvWord semanticsId,
+    IlcSpvId valueId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, op, 7);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, pointerId);
+    putWord(buffer, memoryId);
+    putWord(buffer, semanticsId);
+    putWord(buffer, valueId);
     return id;
 }
 
