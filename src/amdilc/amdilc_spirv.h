@@ -18,6 +18,7 @@ typedef enum {
     ID_DECORATIONS,
     ID_TYPES,
     ID_CONSTANTS,
+    ID_TYPES_WITH_CONSTANTS,
     ID_VARIABLES,
     ID_CODE,
     ID_MAX,
@@ -92,11 +93,6 @@ IlcSpvId ilcSpvPutVectorType(
     IlcSpvId typeId,
     unsigned count);
 
-IlcSpvId ilcSpvPutMatrixType(
-    IlcSpvModule* module,
-    IlcSpvId typeId,
-    unsigned count);
-
 IlcSpvId ilcSpvPutImageType(
     IlcSpvModule* module,
     IlcSpvId sampledTypeId,
@@ -113,6 +109,11 @@ IlcSpvId ilcSpvPutSamplerType(
 IlcSpvId ilcSpvPutSampledImageType(
     IlcSpvModule* module,
     IlcSpvId imageTypeId);
+
+IlcSpvId ilcSpvPutArrayType(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId lengthId);
 
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,

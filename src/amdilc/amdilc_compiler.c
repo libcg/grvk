@@ -22,7 +22,6 @@
 typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
-    IlcSpvId baseTypeId; // Base type for arrays
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
     uint8_t ilImportUsage; // Input/output only
@@ -265,7 +264,6 @@ static const IlcRegister* findOrCreateRegister(
         const IlcRegister tempReg = {
             .id = tempId,
             .typeId = tempTypeId,
-            .baseTypeId = 0,
             .ilType = type,
             .ilNum = num,
             .ilImportUsage = 0,
@@ -660,13 +658,13 @@ static void emitIndexedTempArray(
 
     // Create temporary array register
     unsigned arraySize = src->immediate;
-    IlcSpvId arrayTypeId = ilcSpvPutMatrixType(compiler->module, compiler->float4Id, arraySize);
+    IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->uintId, arraySize);
+    IlcSpvId arrayTypeId = ilcSpvPutArrayType(compiler->module, compiler->float4Id, lengthId);
     IlcSpvId arrayId = emitVariable(compiler, arrayTypeId, SpvStorageClassPrivate);
 
     const IlcRegister tempArrayReg = {
         .id = arrayId,
         .typeId = compiler->float4Id,
-        .baseTypeId = arrayTypeId,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
@@ -701,7 +699,6 @@ static void emitLiteral(
     const IlcRegister reg = {
         .id = literalId,
         .typeId = literalTypeId,
-        .baseTypeId = 0,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
@@ -756,7 +753,6 @@ static void emitOutput(
     const IlcRegister reg = {
         .id = outputId,
         .typeId = outputTypeId,
-        .baseTypeId = 0,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
@@ -854,7 +850,6 @@ static void emitInput(
     const IlcRegister reg = {
         .id = inputId,
         .typeId = inputTypeId,
-        .baseTypeId = 0,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
@@ -1913,7 +1908,6 @@ static void emitImplicitInputs(
         const IlcRegister reg = {
             .id = inputId,
             .typeId = inputTypeId,
-            .baseTypeId = 0,
             .ilType = IL_REGTYPE_ABSOLUTE_THREAD_ID,
             .ilNum = 0,
             .ilImportUsage = 0,

@@ -75,9 +75,10 @@ static IlcSpvId putType(
     IlcSpvModule* module,
     SpvOp op,
     unsigned argCount,
-    const IlcSpvWord* args)
+    const IlcSpvWord* args,
+    bool hasConstants)
 {
-    IlcSpvBuffer* buffer = &module->buffer[ID_TYPES];
+    IlcSpvBuffer* buffer = &module->buffer[hasConstants ? ID_TYPES_WITH_CONSTANTS : ID_TYPES];
 
     // Check if the type is already present
     for (int i = 0; i < buffer->wordCount;) {
@@ -300,13 +301,13 @@ void ilcSpvPutCapability(
 IlcSpvId ilcSpvPutVoidType(
     IlcSpvModule* module)
 {
-    return putType(module, SpvOpTypeVoid, 0, NULL);
+    return putType(module, SpvOpTypeVoid, 0, NULL, false);
 }
 
 IlcSpvId ilcSpvPutBoolType(
     IlcSpvModule* module)
 {
-    return putType(module, SpvOpTypeBool, 0, NULL);
+    return putType(module, SpvOpTypeBool, 0, NULL, false);
 }
 
 IlcSpvId ilcSpvPutIntType(
@@ -315,7 +316,7 @@ IlcSpvId ilcSpvPutIntType(
 {
     const IlcSpvWord args[2] = { 32, isSigned };
 
-    return putType(module, SpvOpTypeInt, 2, args);
+    return putType(module, SpvOpTypeInt, 2, args, false);
 }
 
 IlcSpvId ilcSpvPutFloatType(
@@ -323,7 +324,7 @@ IlcSpvId ilcSpvPutFloatType(
 {
     IlcSpvWord width = 32;
 
-    return putType(module, SpvOpTypeFloat, 1, &width);
+    return putType(module, SpvOpTypeFloat, 1, &width, false);
 }
 
 IlcSpvId ilcSpvPutVectorType(
@@ -333,17 +334,7 @@ IlcSpvId ilcSpvPutVectorType(
 {
     const IlcSpvWord args[] = { typeId, count };
 
-    return putType(module, SpvOpTypeVector, 2, args);
-}
-
-IlcSpvId ilcSpvPutMatrixType(
-    IlcSpvModule* module,
-    IlcSpvId typeId,
-    unsigned count)
-{
-    const IlcSpvWord args[] = { typeId, count };
-
-    return putType(module, SpvOpTypeMatrix, 2, args);
+    return putType(module, SpvOpTypeVector, 2, args, false);
 }
 
 IlcSpvId ilcSpvPutImageType(
@@ -366,20 +357,30 @@ IlcSpvId ilcSpvPutImageType(
         format,
     };
 
-    return putType(module, SpvOpTypeImage, 7, args);
+    return putType(module, SpvOpTypeImage, 7, args, false);
 }
 
 IlcSpvId ilcSpvPutSamplerType(
     IlcSpvModule* module)
 {
-    return putType(module, SpvOpTypeSampler, 0, NULL);
+    return putType(module, SpvOpTypeSampler, 0, NULL, false);
 }
 
 IlcSpvId ilcSpvPutSampledImageType(
     IlcSpvModule* module,
     IlcSpvId imageTypeId)
 {
-    return putType(module, SpvOpTypeSampledImage, 1, &imageTypeId);
+    return putType(module, SpvOpTypeSampledImage, 1, &imageTypeId, false);
+}
+
+IlcSpvId ilcSpvPutArrayType(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId lengthId)
+{
+    const IlcSpvWord args[] = { typeId, lengthId };
+
+    return putType(module, SpvOpTypeArray, 2, args, true);
 }
 
 IlcSpvId ilcSpvPutPointerType(
@@ -389,7 +390,7 @@ IlcSpvId ilcSpvPutPointerType(
 {
     const IlcSpvWord args[] = { storageClass, typeId };
 
-    return putType(module, SpvOpTypePointer, 2, args);
+    return putType(module, SpvOpTypePointer, 2, args, true);
 }
 
 IlcSpvId ilcSpvPutFunctionType(
@@ -404,7 +405,7 @@ IlcSpvId ilcSpvPutFunctionType(
     args[0] = returnTypeId;
     memcpy(&args[1], argTypeIds, sizeof(args[0]) * argTypeIdCount);
 
-    IlcSpvId id = putType(module, SpvOpTypeFunction, argCount, args);
+    IlcSpvId id = putType(module, SpvOpTypeFunction, argCount, args, false);
     free(args);
 
     return id;
