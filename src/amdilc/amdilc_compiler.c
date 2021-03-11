@@ -220,6 +220,32 @@ static IlcSpvId emitVectorTrim(
     }
 }
 
+static IlcSpvId emitVectorGrow(
+    IlcCompiler* compiler,
+    IlcSpvId vecId,
+    IlcSpvId componentTypeId,
+    unsigned componentCount)
+{
+    assert(1 <= componentCount && componentCount <= 3);
+
+    IlcSpvId vec4TypeId = ilcSpvPutVectorType(compiler->module, componentTypeId, 4);
+
+    if (componentCount == 1) {
+        // Convert scalar to vec4
+        const IlcSpvWord constituents[] = { vecId, vecId, vecId, vecId };
+        return ilcSpvPutCompositeConstruct(compiler->module, vec4TypeId, 4, constituents);
+    } else {
+        // Grow vector to vec4
+        const IlcSpvWord components[] = {
+            componentCount >= 1 ? 0 : 0,
+            componentCount >= 2 ? 1 : 0,
+            componentCount >= 3 ? 2 : 0,
+            componentCount >= 4 ? 3 : 0,
+        };
+        return ilcSpvPutVectorShuffle(compiler->module, vec4TypeId, vecId, vecId, 4, components);
+    }
+}
+
 static const IlcRegister* addRegister(
     IlcCompiler* compiler,
     const IlcRegister* reg,
@@ -459,19 +485,8 @@ static IlcSpvId loadSource(
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
     IlcSpvId vec4TypeId = ilcSpvPutVectorType(compiler->module, reg->componentTypeId, 4);
 
-    if (reg->componentCount == 1) {
-        // Convert scalar to vec4
-        const IlcSpvWord constituents[] = { varId, varId, varId, varId };
-        varId = ilcSpvPutCompositeConstruct(compiler->module, vec4TypeId, 4, constituents);
-    } else if (reg->componentCount < 4) {
-        // Grow vector to vec4
-        const IlcSpvWord components[] = {
-            reg->componentCount >= 1 ? 0 : 0,
-            reg->componentCount >= 2 ? 1 : 0,
-            reg->componentCount >= 3 ? 2 : 0,
-            reg->componentCount >= 4 ? 3 : 0,
-        };
-        varId = ilcSpvPutVectorShuffle(compiler->module, vec4TypeId, varId, varId, 4, components);
+    if (reg->componentCount < 4) {
+        varId = emitVectorGrow(compiler, varId, reg->componentTypeId, reg->componentCount);
     }
 
     const uint8_t swizzle[] = {
@@ -1148,8 +1163,7 @@ static void emitFloatOp(
         IlcSpvId dotId = ilcSpvPutAlu(compiler->module, SpvOpDot, compiler->floatId,
                                       instr->srcCount, srcIds);
         // Replicate dot product on all components
-        const IlcSpvWord constituents[] = { dotId, dotId, dotId, dotId };
-        resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, constituents);
+        resId = emitVectorGrow(compiler, dotId, compiler->floatId, 1);
     }   break;
     case IL_OP_DSX:
     case IL_OP_DSY: {
@@ -1832,6 +1846,29 @@ static void emitSample(
     storeDestination(compiler, dst, sampleId, resource->texelTypeId);
 }
 
+static void emitUavLoad(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
+
+    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const Destination* dst = &instr->dsts[0];
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId readId = ilcSpvPutImageRead(compiler->module, resource->texelTypeId, resourceId,
+                                         addressId);
+    IlcSpvId read4Id = emitVectorGrow(compiler, readId, resource->texelTypeId, 1);
+    IlcSpvId destTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
+    storeDestination(compiler, dst, read4Id, destTypeId);
+}
+
 static void emitUavStore(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1866,9 +1903,7 @@ static void emitUavAtomicOp(
         return;
     }
 
-    IlcSpvId vecTypeId = resource->texelTypeId == compiler->intId ?
-                         compiler->int4Id : compiler->uint4Id;
-
+    IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
     IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassImage,
                                                   resource->texelTypeId);
     IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
@@ -1894,10 +1929,7 @@ static void emitUavAtomicOp(
     }
 
     if (instr->dstCount > 0) {
-        const IlcSpvWord constituents[] = { readId, readId, readId, readId };
-        IlcSpvId resId = ilcSpvPutCompositeConstruct(compiler->module, vecTypeId,
-                                                     4, constituents);
-
+        IlcSpvId resId = emitVectorGrow(compiler, readId, resource->texelTypeId, 1);
         storeDestination(compiler, &instr->dsts[0], resId, vecTypeId);
     }
 }
@@ -2112,6 +2144,9 @@ static void emitInstr(
     case IL_OP_DCL_UAV:
     case IL_OP_DCL_TYPED_UAV:
         emitTypedUav(compiler, instr);
+        break;
+    case IL_OP_UAV_LOAD:
+        emitUavLoad(compiler, instr);
         break;
     case IL_OP_UAV_STORE:
         emitUavStore(compiler, instr);

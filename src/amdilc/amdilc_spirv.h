@@ -225,6 +225,12 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvId imageId,
     IlcSpvId coordinateId);
 
+IlcSpvId ilcSpvPutImageRead(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId imageId,
+    IlcSpvId coordinateId);
+
 void ilcSpvPutImageWrite(
     IlcSpvModule* module,
     IlcSpvId imageId,
