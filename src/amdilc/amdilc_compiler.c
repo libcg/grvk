@@ -22,6 +22,8 @@
 typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
+    IlcSpvId componentTypeId;
+    unsigned componentCount;
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
     uint8_t ilImportUsage; // Input/output only
@@ -159,15 +161,16 @@ static IlcSpvId emitVariable(
 }
 
 static IlcSpvId emitZeroOneVector(
-    IlcCompiler* compiler)
+    IlcCompiler* compiler,
+    IlcSpvId componentTypeId)
 {
-    IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
+    IlcSpvId vec2Id = ilcSpvPutVectorType(compiler->module, componentTypeId, 2);
 
     const IlcSpvId consistuentIds[] = {
-        ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL),
+        ilcSpvPutConstant(compiler->module, componentTypeId, ZERO_LITERAL),
+        ilcSpvPutConstant(compiler->module, componentTypeId, ONE_LITERAL),
     };
-    return ilcSpvPutConstantComposite(compiler->module, float2Id, 2, consistuentIds);
+    return ilcSpvPutConstantComposite(compiler->module, vec2Id, 2, consistuentIds);
 }
 
 static IlcSpvId emitShiftMask(
@@ -264,6 +267,8 @@ static const IlcRegister* findOrCreateRegister(
         const IlcRegister tempReg = {
             .id = tempId,
             .typeId = tempTypeId,
+            .componentTypeId = compiler->floatId,
+            .componentCount = 4,
             .ilType = type,
             .ilNum = num,
             .ilImportUsage = 0,
@@ -447,15 +452,21 @@ static IlcSpvId loadSource(
     }
 
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
+    IlcSpvId vec4TypeId = ilcSpvPutVectorType(compiler->module, reg->componentTypeId, 4);
 
-    if (reg->typeId == compiler->floatId || reg->typeId == compiler->intId) {
-        // Convert scalar to float vector
-        if (reg->typeId != compiler->floatId) {
-            varId = ilcSpvPutBitcast(compiler->module, compiler->floatId, varId);
-        }
-
+    if (reg->componentCount == 1) {
+        // Convert scalar to vec4
         const IlcSpvWord constituents[] = { varId, varId, varId, varId };
-        varId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, constituents);
+        varId = ilcSpvPutCompositeConstruct(compiler->module, vec4TypeId, 4, constituents);
+    } else if (reg->componentCount < 4) {
+        // Grow vector to vec4
+        const IlcSpvWord components[] = {
+            reg->componentCount >= 1 ? 0 : 0,
+            reg->componentCount >= 2 ? 1 : 0,
+            reg->componentCount >= 3 ? 2 : 0,
+            reg->componentCount >= 4 ? 3 : 0,
+        };
+        varId = ilcSpvPutVectorShuffle(compiler->module, vec4TypeId, varId, varId, 4, components);
     }
 
     const uint8_t swizzle[] = {
@@ -468,14 +479,14 @@ static IlcSpvId loadSource(
     if (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
         swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId zeroOneId = emitZeroOneVector(compiler);
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler, reg->componentTypeId);
 
         const IlcSpvWord components[] = { swizzle[0], swizzle[1], swizzle[2], swizzle[3] };
-        varId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id, varId, zeroOneId,
+        varId = ilcSpvPutVectorShuffle(compiler->module, vec4TypeId, varId, zeroOneId,
                                        4, components);
     }
 
-    if (typeId != reg->typeId) {
+    if (typeId != vec4TypeId) {
         // Need to cast to the expected type
         varId = ilcSpvPutBitcast(compiler->module, typeId, varId);
     }
@@ -610,7 +621,7 @@ static void storeDestination(
         (dst->component[2] == IL_MODCOMP_0 || dst->component[2] == IL_MODCOMP_1) ||
         (dst->component[3] == IL_MODCOMP_0 || dst->component[3] == IL_MODCOMP_1)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId zeroOneId = emitZeroOneVector(compiler);
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler, compiler->floatId);
 
         const IlcSpvWord components[] = {
             dst->component[0] == IL_MODCOMP_0 ? 4 : (dst->component[0] == IL_MODCOMP_1 ? 5 : 0),
@@ -665,6 +676,8 @@ static void emitIndexedTempArray(
     const IlcRegister tempArrayReg = {
         .id = arrayId,
         .typeId = compiler->float4Id,
+        .componentTypeId = compiler->floatId,
+        .componentCount = 4,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
@@ -699,6 +712,8 @@ static void emitLiteral(
     const IlcRegister reg = {
         .id = literalId,
         .typeId = literalTypeId,
+        .componentTypeId = compiler->floatId,
+        .componentCount = 4,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
@@ -753,6 +768,8 @@ static void emitOutput(
     const IlcRegister reg = {
         .id = outputId,
         .typeId = outputTypeId,
+        .componentTypeId = compiler->floatId,
+        .componentCount = 4,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
@@ -770,6 +787,8 @@ static void emitInput(
     uint8_t interpMode = GET_BITS(instr->control, 5, 7);
     IlcSpvId inputId = 0;
     IlcSpvId inputTypeId = 0;
+    IlcSpvId inputComponentTypeId = 0;
+    unsigned inputComponentCount = 0;
 
     assert(instr->dstCount == 1 &&
            instr->srcCount == 0 &&
@@ -797,12 +816,16 @@ static void emitInput(
     }
 
     if (importUsage == IL_IMPORTUSAGE_POS) {
+        inputComponentTypeId = compiler->floatId;
+        inputComponentCount = 4;
         inputTypeId = compiler->float4Id;
         inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord builtInType = SpvBuiltInFragCoord;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
     } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+        inputComponentTypeId = compiler->floatId;
+        inputComponentCount = 4;
         inputTypeId = compiler->float4Id;
         inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
@@ -811,6 +834,8 @@ static void emitInput(
     } else if (importUsage == IL_IMPORTUSAGE_VERTEXID ||
                importUsage == IL_IMPORTUSAGE_INSTANCEID ||
                importUsage == IL_IMPORTUSAGE_PRIMITIVEID) {
+        inputComponentTypeId = compiler->intId;
+        inputComponentCount = 1;
         inputTypeId = compiler->intId;
         inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
@@ -850,6 +875,8 @@ static void emitInput(
     const IlcRegister reg = {
         .id = inputId,
         .typeId = inputTypeId,
+        .componentTypeId = inputComponentTypeId,
+        .componentCount = inputComponentCount,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
@@ -1899,7 +1926,10 @@ static void emitImplicitInputs(
     IlcCompiler* compiler)
 {
     if (compiler->kernel->shaderType == IL_SHADER_COMPUTE) {
-        IlcSpvId inputTypeId = compiler->uint4Id;
+        IlcSpvId componentTypeId = compiler->uintId;
+        unsigned componentCount = 3;
+        IlcSpvId inputTypeId = ilcSpvPutVectorType(compiler->module, componentTypeId,
+                                                   componentCount);
         IlcSpvId inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord builtInType = SpvBuiltInGlobalInvocationId;
@@ -1908,6 +1938,8 @@ static void emitImplicitInputs(
         const IlcRegister reg = {
             .id = inputId,
             .typeId = inputTypeId,
+            .componentTypeId = componentTypeId,
+            .componentCount = componentCount,
             .ilType = IL_REGTYPE_ABSOLUTE_THREAD_ID,
             .ilNum = 0,
             .ilImportUsage = 0,
