@@ -1395,8 +1395,22 @@ static void emitIntegerOp(
                                    3, argIds);
         }
         resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, bfId);
-        break;
-    }
+    }   break;
+    case IL_OP_U_BIT_INSERT: {
+        IlcSpvId widthsId = emitShiftMask(compiler, srcIds[0]);
+        IlcSpvId offsetsId = emitShiftMask(compiler, srcIds[1]);
+        IlcSpvId bfId[4];
+        for (unsigned i = 0; i < 4; i++) {
+            IlcSpvId widthId = emitVectorTrim(compiler, widthsId, compiler->int4Id, i, 1);
+            IlcSpvId offsetId = emitVectorTrim(compiler, offsetsId, compiler->int4Id, i, 1);
+            IlcSpvId insertId = emitVectorTrim(compiler, srcIds[2], compiler->int4Id, i, 1);
+            IlcSpvId baseId = emitVectorTrim(compiler, srcIds[3], compiler->int4Id, i, 1);
+            const IlcSpvId argIds[] = { baseId, insertId, offsetId, widthId };
+            bfId[i] = ilcSpvPutAlu(compiler->module, SpvOpBitFieldInsert, compiler->intId,
+                                   4, argIds);
+        }
+        resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, bfId);
+    }   break;
     default:
         assert(false);
         break;
@@ -2012,6 +2026,7 @@ static void emitInstr(
     case IL_OP_U_MOD:
     case IL_OP_AND:
     case IL_OP_U_BIT_EXTRACT:
+    case IL_OP_U_BIT_INSERT:
         emitIntegerOp(compiler, instr);
         break;
     case IL_OP_I_EQ:
