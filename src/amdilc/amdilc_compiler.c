@@ -425,10 +425,6 @@ static IlcSpvId loadSource(
     uint8_t componentMask,
     IlcSpvId typeId)
 {
-    if (src->hasRelativeSrc) {
-        LOGW("unhandled relative source\n");
-    }
-
     const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
 
     if (reg == NULL) {
@@ -441,13 +437,22 @@ static IlcSpvId loadSource(
         if (src->hasImmediate) {
             LOGW("unhandled immediate\n");
         }
+        if (src->hasRelativeSrc) {
+            LOGW("unhandled relative source\n");
+        }
         ptrId = reg->id;
     } else {
         IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
                                                   reg->typeId);
         IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId,
                                              src->hasImmediate ? src->immediate : 0);
-        // TODO handle relative source
+        if (src->hasRelativeSrc) {
+            IlcSpvId rel4Id = loadSource(compiler, src->relativeSrc, COMP_MASK_XYZW,
+                                         compiler->int4Id);
+            IlcSpvId relId = emitVectorTrim(compiler, rel4Id, compiler->int4Id, 0, 1);
+            const IlcSpvId addIds[] = { indexId, relId };
+            indexId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
+        }
         ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, indexId);
     }
 
@@ -470,10 +475,10 @@ static IlcSpvId loadSource(
     }
 
     const uint8_t swizzle[] = {
-        componentMask & 1 ? src->swizzle[0] : IL_COMPSEL_0,
-        componentMask & 2 ? src->swizzle[1] : IL_COMPSEL_0,
-        componentMask & 4 ? src->swizzle[2] : IL_COMPSEL_0,
-        componentMask & 8 ? src->swizzle[3] : IL_COMPSEL_0,
+        componentMask & COMP_MASK_X ? src->swizzle[0] : IL_COMPSEL_0,
+        componentMask & COMP_MASK_Y ? src->swizzle[1] : IL_COMPSEL_0,
+        componentMask & COMP_MASK_Z ? src->swizzle[2] : IL_COMPSEL_0,
+        componentMask & COMP_MASK_W ? src->swizzle[3] : IL_COMPSEL_0,
     };
 
     if (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
