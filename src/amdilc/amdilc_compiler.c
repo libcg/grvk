@@ -2005,31 +2005,47 @@ static void emitStructuredSrvLoad(
     storeDestination(compiler, dst, fetchId, resource->texelTypeId);
 }
 
+static void emitImplicitInput(
+    IlcCompiler* compiler,
+    SpvBuiltIn spvBuiltIn,
+    uint32_t ilType,
+    unsigned componentCount,
+    const char* name)
+{
+    IlcSpvId componentTypeId = compiler->uintId;
+    IlcSpvId inputTypeId = ilcSpvPutVectorType(compiler->module, componentTypeId,
+                                               componentCount);
+    IlcSpvId inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+
+    IlcSpvWord builtInType = spvBuiltIn;
+    ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
+
+    const IlcRegister reg = {
+        .id = inputId,
+        .typeId = inputTypeId,
+        .componentTypeId = componentTypeId,
+        .componentCount = componentCount,
+        .ilType = ilType,
+        .ilNum = 0,
+        .ilImportUsage = 0,
+        .ilInterpMode = 0,
+    };
+
+    addRegister(compiler, &reg, name);
+}
+
 static void emitImplicitInputs(
     IlcCompiler* compiler)
 {
     if (compiler->kernel->shaderType == IL_SHADER_COMPUTE) {
-        IlcSpvId componentTypeId = compiler->uintId;
-        unsigned componentCount = 3;
-        IlcSpvId inputTypeId = ilcSpvPutVectorType(compiler->module, componentTypeId,
-                                                   componentCount);
-        IlcSpvId inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+        // TODO declare on-demand
+        emitImplicitInput(compiler, SpvBuiltInLocalInvocationId, IL_REGTYPE_THREAD_ID_IN_GROUP,
+                          3, "vTidInGrp");
+        emitImplicitInput(compiler, SpvBuiltInGlobalInvocationId, IL_REGTYPE_ABSOLUTE_THREAD_ID,
+                          3, "vAbsTid");
+        emitImplicitInput(compiler, SpvBuiltInWorkgroupId, IL_REGTYPE_THREAD_GROUP_ID,
+                          3, "vThreadGrpId");
 
-        IlcSpvWord builtInType = SpvBuiltInGlobalInvocationId;
-        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
-
-        const IlcRegister reg = {
-            .id = inputId,
-            .typeId = inputTypeId,
-            .componentTypeId = componentTypeId,
-            .componentCount = componentCount,
-            .ilType = IL_REGTYPE_ABSOLUTE_THREAD_ID,
-            .ilNum = 0,
-            .ilImportUsage = 0,
-            .ilInterpMode = 0,
-        };
-
-        addRegister(compiler, &reg, "vAbsTid");
     }
 }
 
