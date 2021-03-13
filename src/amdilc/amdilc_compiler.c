@@ -1078,6 +1078,39 @@ static void emitStructuredSrv(
     addResource(compiler, &resource);
 }
 
+static void emitStructuredLds(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint16_t id = GET_BITS(instr->control, 0, 13);
+    unsigned stride = instr->extras[0];
+    unsigned length = instr->extras[1];
+
+    IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->uintId, stride * length);
+    IlcSpvId arrayId = ilcSpvPutArrayType(compiler->module, compiler->uintId, lengthId);
+    IlcSpvId pArrayId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup, arrayId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pArrayId, SpvStorageClassWorkgroup);
+
+    ilcSpvPutName(compiler->module, arrayId, "structLds");
+
+    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    IlcSpvWord bindingIdx = id;
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+
+    const IlcResource resource = {
+        .id = resourceId,
+        .typeId = arrayId,
+        .texelTypeId = compiler->uintId,
+        .ilId = id,
+        .ilType = IL_USAGE_PIXTEX_UNKNOWN,
+        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, stride),
+    };
+
+    addResource(compiler, &resource);
+}
+
 static void emitFunc(
     IlcCompiler* compiler,
     IlcSpvId id)
@@ -2159,6 +2192,9 @@ static void emitInstr(
         break;
     case IL_OP_SRV_STRUCT_LOAD:
         emitStructuredSrvLoad(compiler, instr);
+        break;
+    case IL_DCL_STRUCT_LDS:
+        emitStructuredLds(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
