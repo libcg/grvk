@@ -1860,13 +1860,12 @@ static void emitUavLoad(
         return;
     }
 
+    // Vulkan spec: "The Result Type operand of OpImageRead must be a vector of four components."
+    IlcSpvId texel4TypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId readId = ilcSpvPutImageRead(compiler->module, resource->texelTypeId, resourceId,
-                                         addressId);
-    IlcSpvId read4Id = emitVectorGrow(compiler, readId, resource->texelTypeId, 1);
-    IlcSpvId destTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
-    storeDestination(compiler, dst, read4Id, destTypeId);
+    IlcSpvId readId = ilcSpvPutImageRead(compiler->module, texel4TypeId, resourceId, addressId);
+    storeDestination(compiler, dst, readId, texel4TypeId);
 }
 
 static void emitUavStore(
