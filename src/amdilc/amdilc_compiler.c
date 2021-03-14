@@ -1738,6 +1738,43 @@ static void emitDiscard(
     ilcSpvPutLabel(compiler->module, labelEndId);
 }
 
+static void emitFence(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    bool threads = GET_BIT(instr->control, 0);
+    bool lds = GET_BIT(instr->control, 1);
+    bool memory = GET_BIT(instr->control, 2);
+    bool sr = GET_BIT(instr->control, 3);
+    bool mem_write_only = GET_BIT(instr->control, 4);
+    bool mem_read_only = GET_BIT(instr->control, 5);
+    bool gds = GET_BIT(instr->control, 6);
+
+    SpvScope memoryScope = SpvScopeInvocation;
+    SpvMemorySemanticsMask semanticsMask = SpvMemorySemanticsMaskNone;
+
+    if (lds) {
+        memoryScope = SpvScopeWorkgroup;
+        semanticsMask |= SpvMemorySemanticsWorkgroupMemoryMask |
+                         SpvMemorySemanticsAcquireReleaseMask;
+    }
+    if (!lds || memory || sr || mem_write_only || mem_read_only || gds) {
+        LOGW("unhandled fence type %d %d %d %d %d %d %d",
+             threads, lds, memory, sr, mem_write_only, mem_read_only, gds);
+    }
+
+    IlcSpvId memoryId = ilcSpvPutConstant(compiler->module, compiler->uintId, memoryScope);
+    IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->uintId, semanticsMask);
+
+    if (!threads) {
+        ilcSpvPutMemoryBarrier(compiler->module, memoryId, semanticsId);
+    } else {
+        IlcSpvId executionId = ilcSpvPutConstant(compiler->module, compiler->uintId,
+                                                 SpvScopeWorkgroup);
+        ilcSpvPutControlBarrier(compiler->module, executionId, memoryId, semanticsId);
+    }
+}
+
 static void emitLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2294,6 +2331,9 @@ static void emitInstr(
         break;
     case IL_OP_DCL_NUM_THREAD_PER_GROUP:
         emitNumThreadPerGroup(compiler, instr);
+        break;
+    case IL_OP_FENCE:
+        emitFence(compiler, instr);
         break;
     case IL_OP_LDS_LOAD_VEC:
         emitLdsLoadVec(compiler, instr);

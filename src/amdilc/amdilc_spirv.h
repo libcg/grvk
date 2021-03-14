@@ -276,6 +276,17 @@ IlcSpvId ilcSpvPutSelect(
     IlcSpvId obj1Id,
     IlcSpvId obj2Id);
 
+void ilcSpvPutControlBarrier(
+    IlcSpvModule* module,
+    IlcSpvId executionId,
+    IlcSpvId memoryId,
+    IlcSpvId semanticsId);
+
+void ilcSpvPutMemoryBarrier(
+    IlcSpvModule* module,
+    IlcSpvId memoryId,
+    IlcSpvId semanticsId);
+
 void ilcSpvPutLoopMerge(
     IlcSpvModule* module,
     IlcSpvId mergeBlockId,

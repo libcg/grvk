@@ -808,6 +808,32 @@ IlcSpvId ilcSpvPutSelect(
     return id;
 }
 
+void ilcSpvPutControlBarrier(
+    IlcSpvModule* module,
+    IlcSpvId executionId,
+    IlcSpvId memoryId,
+    IlcSpvId semanticsId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpControlBarrier, 4);
+    putWord(buffer, executionId);
+    putWord(buffer, memoryId);
+    putWord(buffer, semanticsId);
+}
+
+void ilcSpvPutMemoryBarrier(
+    IlcSpvModule* module,
+    IlcSpvId memoryId,
+    IlcSpvId semanticsId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpMemoryBarrier, 3);
+    putWord(buffer, memoryId);
+    putWord(buffer, semanticsId);
+}
+
 void ilcSpvPutLoopMerge(
     IlcSpvModule* module,
     IlcSpvId mergeBlockId,
