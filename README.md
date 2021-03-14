@@ -11,7 +11,7 @@ This project is an attempt to revive Mantle and make it run everywhere.
 ### Requirements
 
 - [mingw-w64](http://mingw-w64.org/) compiler
-- [Meson](http://mesonbuild.com/) build system
+- [Meson](https://mesonbuild.com/) build system
 - Vulkan 1.2 compatible GPU and drivers that support `VK_EXT_extended_dynamic_state`
 
 NOTE: `binutils` 2.34 has [known issues](https://github.com/doitsujin/dxvk/issues/1625) and should be avoided.
