@@ -43,7 +43,7 @@ GR_RESULT grCreateCommandBuffer(
         .grPipeline = NULL,
         .grDescriptorSet = NULL,
         .attachmentCount = 0,
-        .attachments = { NULL },
+        .attachments = { 0 },
         .minExtent2D = { 0, 0 },
         .minLayerCount = 0,
         .hasActiveRenderPass = false,
