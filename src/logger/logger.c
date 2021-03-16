@@ -5,7 +5,6 @@
 #include "logger.h"
 
 LogLevel gLogLevel = LOG_LEVEL_INFO;
-static char* mLogFilePath = "grvk.log";
 static FILE* mLogFile = NULL;
 
 static void pickLogLevel()
@@ -23,26 +22,32 @@ static void pickLogLevel()
     }
 }
 
-static void pickLogFile()
+static const char* pickLogFile(
+    const char* logPathEnv,
+    const char* logPath)
 {
-    char* envValue = getenv("GRVK_LOG_PATH");
+    char* envValue = getenv(logPathEnv);
 
     if (envValue != NULL) {
         if (strlen(envValue) == 0) {
-            mLogFilePath = NULL;
+            return NULL;
         } else {
-            mLogFilePath = envValue;
+            return envValue;
         }
     }
+
+    return logPath;
 }
 
-void logInit()
+void logInit(
+    const char* logPathEnv,
+    const char* logPath)
 {
     pickLogLevel();
-    pickLogFile();
+    const char* path = pickLogFile(logPathEnv, logPath);
 
-    if (gLogLevel != LOG_LEVEL_NONE && mLogFilePath != NULL) {
-        mLogFile = fopen(mLogFilePath, "w");
+    if (gLogLevel != LOG_LEVEL_NONE && path != NULL) {
+        mLogFile = fopen(path, "w");
     }
 }
 

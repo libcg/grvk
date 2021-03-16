@@ -21,7 +21,9 @@ typedef enum {
 
 extern LogLevel gLogLevel;
 
-void logInit();
+void logInit(
+    const char* logPathEnv,
+    const char* logPath);
 
 void logPrint(
     LogLevel level,
