@@ -15,6 +15,9 @@
 #define MIN(a, b) \
     ((a) < (b) ? (a) : (b))
 
+#define COUNT_OF(array) \
+    (sizeof(array) / sizeof((array)[0]))
+
 GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
     VkPhysicalDeviceType type);
 

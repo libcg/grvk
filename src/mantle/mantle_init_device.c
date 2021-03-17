@@ -66,7 +66,7 @@ GR_RESULT grInitAndEnumerateGpus(
         .pApplicationInfo = &appInfo,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .enabledExtensionCount = sizeof(instanceExtensions) / sizeof(instanceExtensions[0]),
+        .enabledExtensionCount = COUNT_OF(instanceExtensions),
         .ppEnabledExtensionNames = instanceExtensions,
     };
 
@@ -312,7 +312,7 @@ GR_RESULT grCreateDevice(
         .pQueueCreateInfos = queueCreateInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .enabledExtensionCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]),
+        .enabledExtensionCount = COUNT_OF(deviceExtensions),
         .ppEnabledExtensionNames = deviceExtensions,
         .pEnabledFeatures = &deviceFeatures,
     };
@@ -322,8 +322,10 @@ GR_RESULT grCreateDevice(
         LOGE("vkCreateDevice failed (%d)\n", vkRes);
 
         if (vkRes == VK_ERROR_EXTENSION_NOT_PRESENT) {
-            LOGE("missing extension. make sure your Vulkan driver supports "
-                 "VK_EXT_extended_dynamic_state\n");
+            LOGE("missing extension. make sure your Vulkan driver supports:\n");
+            for (unsigned i = 0; i < COUNT_OF(deviceExtensions); i++) {
+                LOGE("- %s\n", deviceExtensions[i]);
+            }
         }
 
         res = GR_ERROR_INITIALIZATION_FAILED;

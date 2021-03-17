@@ -526,7 +526,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .dynamicStateCount = sizeof(dynamicStates) / sizeof(VkDynamicState),
+        .dynamicStateCount = COUNT_OF(dynamicStates),
         .pDynamicStates = dynamicStates,
     };
 
