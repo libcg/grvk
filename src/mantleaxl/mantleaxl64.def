@@ -1,5 +1,6 @@
 LIBRARY MANTLEAXL64.DLL
 EXPORTS
+    DllMain
     grAddEmulatedPrivateDisplay
     grAddPerfExperimentCounter
     grAddPerfExperimentTrace

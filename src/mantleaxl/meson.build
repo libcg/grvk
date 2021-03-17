@@ -1,4 +1,5 @@
 mantleaxl_src = [
+  'main.c',
   'stub.c'
 ]
 
@@ -6,6 +7,7 @@ mantleaxl_def = 'mantleaxl' + dll_variant + '.def'
 
 mantleaxl_dll = shared_library('mantleaxl' + dll_variant, mantleaxl_src,
   name_prefix         : '',
+  c_args              : '-DGRVK_VERSION="@0@"'.format(meson.project_version()),
   dependencies        : [ lib_vulkan, logger_dep ],
   include_directories : grvk_include_path,
   install             : true,

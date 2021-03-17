@@ -1,4 +1,5 @@
 mantle_src = [
+  'main.c',
   'mantle_cmd_buf.c',
   'mantle_cmd_buf_man.c',
   'mantle_descriptor_set.c',

@@ -1,5 +1,6 @@
 LIBRARY MANTLE64.DLL
 EXPORTS
+    DllMain
     grAllocMemory
     grAttachImageViewDescriptors
     grAttachMemoryViewDescriptors

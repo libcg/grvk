@@ -27,9 +27,6 @@ GR_RESULT grInitAndEnumerateGpus(
     GR_UINT* pGpuCount,
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
 {
-    logInit("GRVK_LOG_PATH", "grvk.log");
-    logPrintRaw("=== GRVK %s ===\n", GRVK_VERSION);
-
     LOGT("%p %p %p\n", pAppInfo, pAllocCb, pGpuCount);
     VkInstance vkInstance = VK_NULL_HANDLE;
     VkResult vkRes;
