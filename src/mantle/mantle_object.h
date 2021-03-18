@@ -7,39 +7,51 @@
 
 #define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
 
-typedef enum _GrStructType {
-    GR_STRUCT_TYPE_COMMAND_BUFFER,
-    GR_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
-    GR_STRUCT_TYPE_COLOR_TARGET_VIEW,
-    GR_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
-    GR_STRUCT_TYPE_DESCRIPTOR_SET,
-    GR_STRUCT_TYPE_DEVICE,
-    GR_STRUCT_TYPE_EVENT,
-    GR_STRUCT_TYPE_FENCE,
-    GR_STRUCT_TYPE_GPU_MEMORY,
-    GR_STRUCT_TYPE_IMAGE,
-    GR_STRUCT_TYPE_MSAA_STATE_OBJECT,
-    GR_STRUCT_TYPE_PHYSICAL_GPU,
-    GR_STRUCT_TYPE_PIPELINE,
-    GR_STRUCT_TYPE_QUEUE_SEMAPHORE,
-    GR_STRUCT_TYPE_RASTER_STATE_OBJECT,
-    GR_STRUCT_TYPE_SAMPLER,
-    GR_STRUCT_TYPE_SHADER,
-    GR_STRUCT_TYPE_QUEUE,
-    GR_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
-} GrStructType;
+#define GET_OBJ_TYPE(obj) \
+    (((GrBaseObject*)(obj))->grObjType)
 
-typedef struct _GrColorTargetView GrColorTargetView;
+#define GET_OBJ_DEVICE(obj) \
+    (((GrObject*)(obj))->grDevice)
+
+typedef enum _GrObjectType {
+    GR_OBJ_TYPE_COMMAND_BUFFER,
+    GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT,
+    GR_OBJ_TYPE_COLOR_TARGET_VIEW,
+    GR_OBJ_TYPE_DEPTH_STENCIL_STATE_OBJECT,
+    GR_OBJ_TYPE_DESCRIPTOR_SET,
+    GR_OBJ_TYPE_DEVICE,
+    GR_OBJ_TYPE_EVENT,
+    GR_OBJ_TYPE_FENCE,
+    GR_OBJ_TYPE_GPU_MEMORY,
+    GR_OBJ_TYPE_IMAGE,
+    GR_OBJ_TYPE_MSAA_STATE_OBJECT,
+    GR_OBJ_TYPE_PHYSICAL_GPU,
+    GR_OBJ_TYPE_PIPELINE,
+    GR_OBJ_TYPE_QUEUE_SEMAPHORE,
+    GR_OBJ_TYPE_RASTER_STATE_OBJECT,
+    GR_OBJ_TYPE_SAMPLER,
+    GR_OBJ_TYPE_SHADER,
+    GR_OBJ_TYPE_QUEUE,
+    GR_OBJ_TYPE_VIEWPORT_STATE_OBJECT,
+} GrObjectType;
+
 typedef struct _GrDescriptorSet GrDescriptorSet;
+typedef struct _GrDevice GrDevice;
 typedef struct _GrPipeline GrPipeline;
 
-// Generic object used to read the object type
+// Base object
+typedef struct _GrBaseObject {
+    GrObjectType grObjType;
+} GrBaseObject;
+
+// Device-bound object
 typedef struct _GrObject {
-    GrStructType sType;
+    GrObjectType grObjType;
+    GrDevice* grDevice;
 } GrObject;
 
 typedef struct _GrCmdBuffer {
-    GrStructType sType;
+    GrObject grObj;
     VkCommandBuffer commandBuffer;
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
@@ -52,19 +64,19 @@ typedef struct _GrCmdBuffer {
 } GrCmdBuffer;
 
 typedef struct _GrColorBlendStateObject {
-    GrStructType sType;
+    GrObject grObj;
     float blendConstants[4];
 } GrColorBlendStateObject;
 
 typedef struct _GrColorTargetView {
-    GrStructType sType;
+    GrObject grObj;
     VkImageView imageView;
     VkExtent2D extent2D;
     uint32_t layerCount;
 } GrColorTargetView;
 
 typedef struct _GrDepthStencilStateObject {
-    GrStructType sType;
+    GrObject grObj;
     VkBool32 depthTestEnable;
     VkBool32 depthWriteEnable;
     VkCompareOp depthCompareOp;
@@ -77,8 +89,7 @@ typedef struct _GrDepthStencilStateObject {
 } GrDepthStencilStateObject;
 
 typedef struct _GrDescriptorSet {
-    GrStructType sType;
-    VkDevice device;
+    GrObject grObj;
     VkDescriptorPool descriptorPool;
     void* slots;
     unsigned slotCount;
@@ -86,7 +97,7 @@ typedef struct _GrDescriptorSet {
 } GrDescriptorSet;
 
 typedef struct _GrDevice {
-    GrStructType sType;
+    GrBaseObject grBaseObj;
     VkDevice device;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;
@@ -97,53 +108,50 @@ typedef struct _GrDevice {
 } GrDevice;
 
 typedef struct _GrEvent {
-    GrStructType sType;
-    VkDevice device;
+    GrObject grObj;
     VkEvent event;
 } GrEvent;
 
 typedef struct _GrFence {
-    GrStructType sType;
-    VkDevice device;
+    GrObject grObj;
     VkFence fence;
 } GrFence;
 
 typedef struct _GrGpuMemory {
-    GrStructType sType;
+    GrObject grObj; // FIXME base object?
     VkDeviceMemory deviceMemory;
-    VkDevice device;
     VkBuffer buffer;
 } GrGpuMemory;
 
 typedef struct _GrImage {
-    GrStructType sType;
+    GrObject grObj;
     VkImage image;
     VkExtent2D extent;
 } GrImage;
 
 typedef struct _GrMsaaStateObject {
-    GrStructType sType;
+    GrObject grObj;
 } GrMsaaStateObject;
 
 typedef struct _GrPhysicalGpu {
-    GrStructType sType;
+    GrBaseObject grBaseObj;
     VkPhysicalDevice physicalDevice;
 } GrPhysicalGpu;
 
 typedef struct _GrPipeline {
-    GrStructType sType;
+    GrObject grObj;
     VkPipelineLayout pipelineLayout;
     VkPipeline pipeline;
     VkRenderPass renderPass;
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
-    GrStructType sType;
+    GrObject grObj;
     VkSemaphore semaphore;
 } GrQueueSemaphore;
 
 typedef struct _GrRasterStateObject {
-    GrStructType sType;
+    GrObject grObj;
     VkCullModeFlags cullMode;
     VkFrontFace frontFace;
     float depthBiasConstantFactor;
@@ -152,24 +160,23 @@ typedef struct _GrRasterStateObject {
 } GrRasterStateObject;
 
 typedef struct _GrSampler {
-    GrStructType sType;
+    GrObject grObj;
     VkSampler sampler;
 } GrSampler;
 
 typedef struct _GrShader {
-    GrStructType sType;
+    GrObject grObj;
     VkShaderModule shaderModule;
 } GrShader;
 
 typedef struct _GrQueue {
-    GrStructType sType;
-    GrDevice* grDevice;
+    GrObject grObj; // FIXME base object?
     VkQueue queue;
     unsigned queueIndex;
 } GrQueue;
 
 typedef struct _GrViewportStateObject {
-    GrStructType sType;
+    GrObject grObj;
     VkViewport* viewports;
     unsigned viewportCount;
     VkRect2D* scissors;

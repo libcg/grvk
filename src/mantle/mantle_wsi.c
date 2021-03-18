@@ -327,14 +327,14 @@ GR_RESULT grWsiWinCreatePresentableImage(
 
     GrImage* grImage = malloc(sizeof(GrImage));
     *grImage = (GrImage) {
-        .sType = GR_STRUCT_TYPE_IMAGE,
+        .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
         .image = vkImage,
         .extent = { createInfo.extent.width, createInfo.extent.height },
     };
 
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
     *grGpuMemory = (GrGpuMemory) {
-        .sType = GR_STRUCT_TYPE_GPU_MEMORY,
+        .grObj = { GR_OBJ_TYPE_GPU_MEMORY, grDevice },
         .deviceMemory = vkDeviceMemory,
     };
 
@@ -350,17 +350,21 @@ GR_RESULT grWsiWinQueuePresent(
 {
     LOGT("%p %p\n", queue, pPresentInfo);
     GrQueue* grQueue = (GrQueue*)queue;
-    GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
     VkResult vkRes;
     VkCommandBuffer vkCopyCommandBuffer = VK_NULL_HANDLE;
 
+    // TODO validate args
+
+    GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+    GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
+
     if (mSwapchain == VK_NULL_HANDLE) {
-        initSwapchain(grQueue->grDevice, pPresentInfo->hWndDest, grQueue->queueIndex);
+        initSwapchain(grDevice, pPresentInfo->hWndDest, grQueue->queueIndex);
     }
 
     uint32_t vkImageIndex = 0;
 
-    vkRes = vki.vkAcquireNextImageKHR(grQueue->grDevice->device, mSwapchain, UINT64_MAX,
+    vkRes = vki.vkAcquireNextImageKHR(grDevice->device, mSwapchain, UINT64_MAX,
                                       mAcquireSemaphore, VK_NULL_HANDLE, &vkImageIndex);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkAcquireNextImageKHR failed (%d)\n", vkRes);

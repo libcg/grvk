@@ -38,8 +38,7 @@ GR_RESULT grGetDeviceQueue(
     // when the application requests it multiple times
     GrQueue* grQueue = malloc(sizeof(GrQueue));
     *grQueue = (GrQueue) {
-        .sType = GR_STRUCT_TYPE_QUEUE,
-        .grDevice = grDevice,
+        .grObj = { GR_OBJ_TYPE_QUEUE, grDevice },
         .queue = vkQueue,
         .queueIndex = queueIndex,
     };
@@ -59,14 +58,17 @@ GR_RESULT grQueueSubmit(
     LOGT("%p %u %p %u %p %p\n", queue, cmdBufferCount, pCmdBuffers, memRefCount, pMemRefs, fence);
     GrQueue* grQueue = (GrQueue*)queue;
     GrFence* grFence = (GrFence*)fence;
+    VkFence vkFence = VK_NULL_HANDLE;
     VkResult res;
 
-    VkFence vkFence = VK_NULL_HANDLE;
+    // TODO validate args
 
     if (grFence != NULL) {
+        GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+
         vkFence = grFence->fence;
 
-        res = vki.vkResetFences(grQueue->grDevice->device, 1, &vkFence);
+        res = vki.vkResetFences(grDevice->device, 1, &vkFence);
         if (res != VK_SUCCESS) {
             LOGE("vkResetFences failed (%d)\n", res);
             return getGrResult(res);
@@ -108,7 +110,7 @@ GR_RESULT grQueueWaitIdle(
 
     if (grQueue == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grQueue->sType != GR_STRUCT_TYPE_QUEUE) {
+    } else if (GET_OBJ_TYPE(grQueue) != GR_OBJ_TYPE_QUEUE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
@@ -128,7 +130,7 @@ GR_RESULT grDeviceWaitIdle(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 

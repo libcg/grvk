@@ -35,7 +35,7 @@ GR_RESULT grGetFormatInfo(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (infoType != GR_INFO_TYPE_FORMAT_PROPERTIES) {
         return GR_ERROR_INVALID_VALUE;
@@ -78,7 +78,7 @@ GR_RESULT grCreateSampler(
     // TODO check invalid values
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pCreateInfo == NULL || pSampler == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -113,7 +113,7 @@ GR_RESULT grCreateSampler(
 
     GrSampler* grSampler = malloc(sizeof(GrSampler));
     *grSampler = (GrSampler) {
-        .sType = GR_STRUCT_TYPE_SAMPLER,
+        .grObj = { GR_OBJ_TYPE_SAMPLER, grDevice },
         .sampler = vkSampler,
     };
 

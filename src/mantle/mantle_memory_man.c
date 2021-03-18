@@ -11,7 +11,7 @@ GR_RESULT grGetMemoryHeapCount(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pCount == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -33,7 +33,7 @@ GR_RESULT grGetMemoryHeapInfo(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (infoType != GR_INFO_TYPE_MEMORY_HEAP_PROPERTIES) {
         return GR_ERROR_INVALID_VALUE;
@@ -86,7 +86,7 @@ GR_RESULT grAllocMemory(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pAllocInfo == NULL || pMem == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -157,9 +157,8 @@ GR_RESULT grAllocMemory(
 
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
     *grGpuMemory = (GrGpuMemory) {
-        .sType = GR_STRUCT_TYPE_GPU_MEMORY,
+        .grObj = { GR_OBJ_TYPE_GPU_MEMORY, grDevice },
         .deviceMemory = vkMemory,
-        .device = grDevice->device,
         .buffer = vkBuffer,
     };
 
@@ -175,12 +174,14 @@ GR_RESULT grFreeMemory(
 
     if (grGpuMemory == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grGpuMemory->sType != GR_STRUCT_TYPE_GPU_MEMORY) {
+    } else if (GET_OBJ_TYPE(grGpuMemory) != GR_OBJ_TYPE_GPU_MEMORY) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    vki.vkDestroyBuffer(grGpuMemory->device, grGpuMemory->buffer, NULL);
-    vki.vkFreeMemory(grGpuMemory->device, grGpuMemory->deviceMemory, NULL);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
+
+    vki.vkDestroyBuffer(grDevice->device, grGpuMemory->buffer, NULL);
+    vki.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
     free(grGpuMemory);
 
     return GR_SUCCESS;
@@ -196,7 +197,7 @@ GR_RESULT grMapMemory(
 
     if (grGpuMemory == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grGpuMemory->sType != GR_STRUCT_TYPE_GPU_MEMORY) {
+    } else if (GET_OBJ_TYPE(grGpuMemory) != GR_OBJ_TYPE_GPU_MEMORY) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (flags != 0) {
         return GR_ERROR_INVALID_FLAGS;
@@ -204,7 +205,9 @@ GR_RESULT grMapMemory(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    VkResult vkRes = vki.vkMapMemory(grGpuMemory->device, grGpuMemory->deviceMemory,
+    GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
+
+    VkResult vkRes = vki.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
                                      0, VK_WHOLE_SIZE, 0, ppData);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkMapMemory failed (%d)\n", vkRes);
@@ -221,11 +224,13 @@ GR_RESULT grUnmapMemory(
 
     if (grGpuMemory == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grGpuMemory->sType != GR_STRUCT_TYPE_GPU_MEMORY) {
+    } else if (GET_OBJ_TYPE(grGpuMemory) != GR_OBJ_TYPE_GPU_MEMORY) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    vki.vkUnmapMemory(grGpuMemory->device, grGpuMemory->deviceMemory);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
+
+    vki.vkUnmapMemory(grDevice->device, grGpuMemory->deviceMemory);
 
     return GR_SUCCESS;
 }

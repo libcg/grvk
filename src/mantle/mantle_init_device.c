@@ -98,7 +98,7 @@ GR_RESULT grInitAndEnumerateGpus(
     for (int i = 0; i < *pGpuCount; i++) {
         GrPhysicalGpu* grPhysicalGpu = malloc(sizeof(GrPhysicalGpu));
         *grPhysicalGpu = (GrPhysicalGpu) {
-            .sType = GR_STRUCT_TYPE_PHYSICAL_GPU,
+            .grBaseObj = { GR_OBJ_TYPE_PHYSICAL_GPU },
             .physicalDevice = physicalDevices[i],
         };
 
@@ -119,7 +119,7 @@ GR_RESULT grGetGpuInfo(
 
     if (grPhysicalGpu == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grPhysicalGpu->sType != GR_STRUCT_TYPE_PHYSICAL_GPU) {
+    } else if (GET_OBJ_TYPE(grPhysicalGpu) != GR_OBJ_TYPE_PHYSICAL_GPU) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pDataSize == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -368,7 +368,7 @@ GR_RESULT grCreateDevice(
 
     GrDevice* grDevice = malloc(sizeof(GrDevice));
     *grDevice = (GrDevice) {
-        .sType = GR_STRUCT_TYPE_DEVICE,
+        .grBaseObj = { GR_OBJ_TYPE_DEVICE },
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
@@ -409,7 +409,7 @@ GR_RESULT grDestroyDevice(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 

@@ -38,7 +38,7 @@ GR_RESULT grCreateCommandBuffer(
 
     GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
     *grCmdBuffer = (GrCmdBuffer) {
-        .sType = GR_STRUCT_TYPE_COMMAND_BUFFER,
+        .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandBuffer = vkCommandBuffer,
         .grPipeline = NULL,
         .grDescriptorSet = NULL,

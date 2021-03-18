@@ -48,6 +48,7 @@ static VkFramebuffer getVkFramebuffer(
 static void initCmdBufferResources(
     GrCmdBuffer* grCmdBuffer)
 {
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     const GrPipeline* grPipeline = grCmdBuffer->grPipeline;
     VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
 
@@ -59,7 +60,7 @@ static void initCmdBufferResources(
                                 grCmdBuffer->grDescriptorSet->descriptorSets, 0, NULL);
 
     VkFramebuffer framebuffer =
-        getVkFramebuffer(grCmdBuffer->grDescriptorSet->device, grPipeline->renderPass,
+        getVkFramebuffer(grDevice->device, grPipeline->renderPass,
                          grCmdBuffer->attachmentCount, grCmdBuffer->attachments,
                          grCmdBuffer->minExtent2D, grCmdBuffer->minLayerCount);
 

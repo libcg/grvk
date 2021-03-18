@@ -28,8 +28,7 @@ GR_RESULT grCreateFence(
 
     GrFence* grFence = malloc(sizeof(GrFence));
     *grFence = (GrFence) {
-        .sType = GR_STRUCT_TYPE_FENCE,
-        .device = grDevice->device,
+        .grObj = { GR_OBJ_TYPE_FENCE, grDevice },
         .fence = vkFence,
     };
 
@@ -46,11 +45,13 @@ GR_RESULT grGetFenceStatus(
 
     if (fence == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grFence->sType != GR_STRUCT_TYPE_FENCE) {
+    } else if (GET_OBJ_TYPE(grFence) != GR_OBJ_TYPE_FENCE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    VkResult res = vki.vkGetFenceStatus(grFence->device, grFence->fence);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grFence);
+
+    VkResult res = vki.vkGetFenceStatus(grDevice->device, grFence->fence);
     if (res != VK_SUCCESS && res != VK_NOT_READY) {
         LOGE("vkGetFenceStatus failed (%d)\n", res);
     }
@@ -71,7 +72,7 @@ GR_RESULT grWaitForFences(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (fenceCount == 0) {
         return GR_ERROR_INVALID_VALUE;
@@ -113,7 +114,7 @@ GR_RESULT grCreateQueueSemaphore(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pCreateInfo == NULL || pSemaphore == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -140,7 +141,7 @@ GR_RESULT grCreateQueueSemaphore(
 
     GrQueueSemaphore* grQueueSemaphore = malloc(sizeof(GrQueueSemaphore));
     *grQueueSemaphore = (GrQueueSemaphore) {
-        .sType = GR_STRUCT_TYPE_QUEUE_SEMAPHORE,
+        .grObj = { GR_OBJ_TYPE_QUEUE_SEMAPHORE, grDevice },
         .semaphore = vkSem,
     };
 
@@ -157,7 +158,7 @@ GR_RESULT grSignalQueueSemaphore(
 
     if (grQueue == NULL || grQueueSemaphore == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grQueue->sType != GR_STRUCT_TYPE_QUEUE) {
+    } else if (GET_OBJ_TYPE(grQueue) != GR_OBJ_TYPE_QUEUE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
@@ -191,7 +192,7 @@ GR_RESULT grWaitQueueSemaphore(
 
     if (grQueue == NULL || grQueueSemaphore == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grQueue->sType != GR_STRUCT_TYPE_QUEUE) {
+    } else if (GET_OBJ_TYPE(grQueue) != GR_OBJ_TYPE_QUEUE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
@@ -228,7 +229,7 @@ GR_RESULT grCreateEvent(
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grDevice->sType != GR_STRUCT_TYPE_DEVICE) {
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pCreateInfo == NULL || pEvent == NULL) {
         return GR_ERROR_INVALID_POINTER;
@@ -248,8 +249,7 @@ GR_RESULT grCreateEvent(
 
     GrEvent* grEvent = malloc(sizeof(GrEvent));
     *grEvent = (GrEvent) {
-        .sType = GR_STRUCT_TYPE_EVENT,
-        .device = grDevice->device,
+        .grObj = { GR_OBJ_TYPE_EVENT, grDevice },
         .event = vkEvent,
     };
 
@@ -265,11 +265,13 @@ GR_RESULT grGetEventStatus(
 
     if (grEvent == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grEvent->sType != GR_STRUCT_TYPE_EVENT) {
+    } else if (GET_OBJ_TYPE(grEvent) != GR_OBJ_TYPE_EVENT) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    VkResult res = vki.vkGetEventStatus(grEvent->device, grEvent->event);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grEvent);
+
+    VkResult res = vki.vkGetEventStatus(grDevice->device, grEvent->event);
     if (res != VK_EVENT_SET && res != VK_EVENT_SET) {
         LOGE("vkGetEventStatus failed (%d)\n", res);
     }
@@ -285,11 +287,13 @@ GR_RESULT grSetEvent(
 
     if (grEvent == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grEvent->sType != GR_STRUCT_TYPE_EVENT) {
+    } else if (GET_OBJ_TYPE(grEvent) != GR_OBJ_TYPE_EVENT) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    VkResult res = vki.vkSetEvent(grEvent->device, grEvent->event);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grEvent);
+
+    VkResult res = vki.vkSetEvent(grDevice->device, grEvent->event);
     if (res != VK_SUCCESS) {
         LOGE("vkSetEvent failed (%d)\n", res);
     }
@@ -305,11 +309,13 @@ GR_RESULT grResetEvent(
 
     if (grEvent == NULL) {
         return GR_ERROR_INVALID_HANDLE;
-    } else if (grEvent->sType != GR_STRUCT_TYPE_EVENT) {
+    } else if (GET_OBJ_TYPE(grEvent) != GR_OBJ_TYPE_EVENT) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    VkResult res = vki.vkResetEvent(grEvent->device, grEvent->event);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grEvent);
+
+    VkResult res = vki.vkResetEvent(grDevice->device, grEvent->event);
     if (res != VK_SUCCESS) {
         LOGE("vkResetEvent failed (%d)\n", res);
     }

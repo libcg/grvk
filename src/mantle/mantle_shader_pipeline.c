@@ -295,7 +295,7 @@ GR_RESULT grCreateShader(
 
     GrShader* grShader = malloc(sizeof(GrShader));
     *grShader = (GrShader) {
-        .sType = GR_STRUCT_TYPE_SHADER,
+        .grObj = { GR_OBJ_TYPE_SHADER, grDevice },
         .shaderModule = vkShaderModule,
     };
 
@@ -579,7 +579,7 @@ GR_RESULT grCreateGraphicsPipeline(
 
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
-        .sType = GR_STRUCT_TYPE_PIPELINE,
+        .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .pipelineLayout = layout,
         .pipeline = vkPipeline,
         .renderPass = renderPass,

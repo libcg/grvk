@@ -8,6 +8,9 @@ GR_RESULT grCreateViewportState(
     GR_VIEWPORT_STATE_OBJECT* pState)
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pState);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    // TODO validate args
 
     VkViewport *vkViewports = malloc(sizeof(VkViewport) * pCreateInfo->viewportCount);
     for (int i = 0; i < pCreateInfo->viewportCount; i++) {
@@ -43,7 +46,7 @@ GR_RESULT grCreateViewportState(
     GrViewportStateObject* grViewportStateObject = malloc(sizeof(GrViewportStateObject));
 
     *grViewportStateObject = (GrViewportStateObject) {
-        .sType = GR_STRUCT_TYPE_VIEWPORT_STATE_OBJECT,
+        .grObj = { GR_OBJ_TYPE_VIEWPORT_STATE_OBJECT, grDevice },
         .viewports = vkViewports,
         .viewportCount = pCreateInfo->viewportCount,
         .scissors = vkScissors,
@@ -60,6 +63,9 @@ GR_RESULT grCreateRasterState(
     GR_RASTER_STATE_OBJECT* pState)
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pState);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    // TODO validate args
 
     if (pCreateInfo->fillMode != GR_FILL_SOLID) {
         LOGW("fill mode 0x%x is not supported\n", pCreateInfo->fillMode);
@@ -68,7 +74,7 @@ GR_RESULT grCreateRasterState(
     GrRasterStateObject* grRasterStateObject = malloc(sizeof(GrRasterStateObject));
 
     *grRasterStateObject = (GrRasterStateObject) {
-        .sType = GR_STRUCT_TYPE_RASTER_STATE_OBJECT,
+        .grObj = { GR_OBJ_TYPE_RASTER_STATE_OBJECT, grDevice },
         .cullMode = getVkCullModeFlags(pCreateInfo->cullMode),
         .frontFace = getVkFrontFace(pCreateInfo->frontFace),
         .depthBiasConstantFactor = (float)pCreateInfo->depthBias,
@@ -86,6 +92,9 @@ GR_RESULT grCreateColorBlendState(
     GR_COLOR_BLEND_STATE_OBJECT* pState)
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pState);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    // TODO validate args
 
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_COLOR_TARGET_BLEND_STATE* target = &pCreateInfo->target[i];
@@ -107,7 +116,7 @@ GR_RESULT grCreateColorBlendState(
         malloc(sizeof(GrColorBlendStateObject));
 
     *grColorBlendStateObject = (GrColorBlendStateObject) {
-        .sType = GR_STRUCT_TYPE_COLOR_BLEND_STATE_OBJECT,
+        .grObj = { GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT, grDevice },
         .blendConstants = {
             pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
             pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
@@ -124,12 +133,15 @@ GR_RESULT grCreateDepthStencilState(
     GR_DEPTH_STENCIL_STATE_OBJECT* pState)
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pState);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    // TODO validate args
 
     GrDepthStencilStateObject* grDepthStencilStateObject =
         malloc(sizeof(GrDepthStencilStateObject));
 
     *grDepthStencilStateObject = (GrDepthStencilStateObject) {
-        .sType = GR_STRUCT_TYPE_DEPTH_STENCIL_STATE_OBJECT,
+        .grObj = { GR_OBJ_TYPE_DEPTH_STENCIL_STATE_OBJECT, grDevice },
         .depthTestEnable = pCreateInfo->depthEnable,
         .depthWriteEnable = pCreateInfo->depthWriteEnable,
         .depthCompareOp = getVkCompareOp(pCreateInfo->depthFunc),
@@ -167,6 +179,9 @@ GR_RESULT grCreateMsaaState(
     GR_MSAA_STATE_OBJECT* pState)
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pState);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    // TODO validate args
 
     if (pCreateInfo->samples != 1) {
         // TODO implement (don't forget samplingMask)
@@ -175,7 +190,7 @@ GR_RESULT grCreateMsaaState(
 
     GrMsaaStateObject* grMsaaStateObject = malloc(sizeof(GrMsaaStateObject));
     *grMsaaStateObject = (GrMsaaStateObject) {
-        .sType = GR_STRUCT_TYPE_MSAA_STATE_OBJECT,
+        .grObj = { GR_OBJ_TYPE_MSAA_STATE_OBJECT, grDevice },
     };
 
     *pState = (GR_MSAA_STATE_OBJECT)grMsaaStateObject;

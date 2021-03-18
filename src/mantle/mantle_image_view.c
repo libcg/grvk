@@ -44,7 +44,7 @@ GR_RESULT grCreateColorTargetView(
 
     GrColorTargetView* grColorTargetView = malloc(sizeof(GrColorTargetView));
     *grColorTargetView = (GrColorTargetView) {
-        .sType = GR_STRUCT_TYPE_COLOR_TARGET_VIEW,
+        .grObj = { GR_OBJ_TYPE_COLOR_TARGET_VIEW, grDevice },
         .imageView = vkImageView,
         .extent2D = grImage->extent,
         .layerCount = pCreateInfo->arraySize,

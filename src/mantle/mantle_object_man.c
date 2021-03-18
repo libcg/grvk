@@ -9,11 +9,15 @@ GR_RESULT grGetObjectInfo(
     GR_VOID* pData)
 {
     LOGT("%p 0x%X %p %p\n", object, infoType, pDataSize, pData);
-    GrObject* grObject = (GrObject*)object;
+    GrBaseObject* grBaseObject = (GrBaseObject*)object;
 
-    if (pDataSize == NULL) {
+    if (grBaseObject == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (pDataSize == NULL) {
         return GR_ERROR_INVALID_POINTER;
     }
+
+    GrObjectType objType = GET_OBJ_TYPE(grBaseObject);
 
     switch (infoType) {
     case GR_INFO_TYPE_MEMORY_REQUIREMENTS: {
@@ -26,8 +30,8 @@ GR_RESULT grGetObjectInfo(
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
-        if (grObject->sType == GR_STRUCT_TYPE_DESCRIPTOR_SET ||
-            grObject->sType == GR_STRUCT_TYPE_PIPELINE) {
+        if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
+            objType == GR_OBJ_TYPE_PIPELINE) {
             // No memory requirements
             *memReqs = (GR_MEMORY_REQUIREMENTS) {
                 .size = 0,
@@ -35,8 +39,7 @@ GR_RESULT grGetObjectInfo(
                 .heapCount = 0,
             };
         } else {
-            LOGW("unsupported type %d for info type 0x%X\n",
-                   grObject->sType, infoType);
+            LOGW("unsupported type %d for info type 0x%X\n", objType, infoType);
             return GR_ERROR_INVALID_VALUE;
         }
     }   break;
@@ -60,11 +63,13 @@ GR_RESULT grBindObjectMemory(
         return GR_ERROR_INVALID_HANDLE;
     }
 
-    if (grObject->sType == GR_STRUCT_TYPE_DESCRIPTOR_SET ||
-        grObject->sType == GR_STRUCT_TYPE_PIPELINE) {
+    GrObjectType objType = GET_OBJ_TYPE(grObject);
+
+    if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
+        objType == GR_OBJ_TYPE_PIPELINE) {
         // Nothing to do
     } else {
-        LOGW("unsupported object type %d\n", grObject->sType);
+        LOGW("unsupported object type %d\n", objType);
         return GR_ERROR_UNAVAILABLE;
     }
 
