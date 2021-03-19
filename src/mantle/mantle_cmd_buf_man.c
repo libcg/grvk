@@ -30,7 +30,7 @@ GR_RESULT grCreateCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    VkResult res = vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &vkCommandBuffer);
+    VkResult res = VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &vkCommandBuffer);
     if (res != VK_SUCCESS) {
         LOGE("vkAllocateCommandBuffers failed (%d)\n", res);
         return getGrResult(res);
@@ -60,6 +60,7 @@ GR_RESULT grBeginCommandBuffer(
 {
     LOGT("%p 0x%X\n", cmdBuffer, flags);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     VkCommandBufferUsageFlags vkUsageFlags = 0;
 
     if ((flags & GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT) != 0) {
@@ -73,7 +74,7 @@ GR_RESULT grBeginCommandBuffer(
         .pInheritanceInfo = NULL,
     };
 
-    VkResult res = vki.vkBeginCommandBuffer(grCmdBuffer->commandBuffer, &beginInfo);
+    VkResult res = VKD.vkBeginCommandBuffer(grCmdBuffer->commandBuffer, &beginInfo);
     if (res != VK_SUCCESS) {
         LOGE("vkBeginCommandBuffer failed (%d)\n", res);
         return getGrResult(res);
@@ -87,12 +88,13 @@ GR_RESULT grEndCommandBuffer(
 {
     LOGT("%p\n", cmdBuffer);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
     if (grCmdBuffer->hasActiveRenderPass) {
-        vki.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
+        VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
     }
 
-    VkResult res = vki.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
+    VkResult res = VKD.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
     if (res != VK_SUCCESS) {
         LOGE("vkEndCommandBuffer failed (%d)\n", res);
         return getGrResult(res);

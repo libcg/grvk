@@ -70,7 +70,7 @@ GR_RESULT grCreateDescriptorSet(
     };
 
     VkDescriptorPool vkDescriptorPool = VK_NULL_HANDLE;
-    VkResult res = vki.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL,
+    VkResult res = VKD.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL,
                                               &vkDescriptorPool);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateDescriptorPool failed (%d)\n", res);
@@ -175,7 +175,7 @@ GR_VOID grEndDescriptorSetUpdate(
             .pBindings = bindings,
         };
 
-        res = vki.vkCreateDescriptorSetLayout(grDevice->device, &createInfo, NULL, &vkLayouts[i]);
+        res = VKD.vkCreateDescriptorSetLayout(grDevice->device, &createInfo, NULL, &vkLayouts[i]);
         free(bindings);
 
         if (res != VK_SUCCESS) {
@@ -192,7 +192,7 @@ GR_VOID grEndDescriptorSetUpdate(
         .pSetLayouts = vkLayouts,
     };
 
-    res = vki.vkAllocateDescriptorSets(grDevice->device, &allocateInfo,
+    res = VKD.vkAllocateDescriptorSets(grDevice->device, &allocateInfo,
                                        grDescriptorSet->descriptorSets);
     if (res != VK_SUCCESS) {
         LOGE("vkAllocateDescriptorSets failed (%d)\n", res);
@@ -219,7 +219,7 @@ GR_VOID grEndDescriptorSetUpdate(
                 };
 
                 // TODO track buffer view reference
-                res = vki.vkCreateBufferView(grDevice->device, &createInfo, NULL, &bufferView);
+                res = VKD.vkCreateBufferView(grDevice->device, &createInfo, NULL, &bufferView);
                 if (res != VK_SUCCESS) {
                     LOGE("vkCreateBufferView failed (%d)\n", res);
                     return;
@@ -239,7 +239,7 @@ GR_VOID grEndDescriptorSetUpdate(
                 };
 
                 // TODO batch
-                vki.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
+                VKD.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
             } else if (slot->type == SLOT_TYPE_SAMPLER) {
                 GrSampler* grSampler = *(GrSampler**)slot->info;
 
@@ -263,7 +263,7 @@ GR_VOID grEndDescriptorSetUpdate(
                 };
 
                 // TODO batch
-                vki.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
+                VKD.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
             }
         }
     }

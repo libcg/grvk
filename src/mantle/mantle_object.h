@@ -1,9 +1,8 @@
 #ifndef GR_OBJECT_H_
 #define GR_OBJECT_H_
 
+#include "vulkan_loader.h"
 #include "mantle/mantle.h"
-#define VK_NO_PROTOTYPES
-#include "vulkan/vulkan.h"
 
 #define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
 
@@ -98,6 +97,7 @@ typedef struct _GrDescriptorSet {
 
 typedef struct _GrDevice {
     GrBaseObject grBaseObj;
+    VULKAN_DEVICE vkd;
     VkDevice device;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;

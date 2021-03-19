@@ -32,7 +32,7 @@ GR_RESULT grGetDeviceQueue(
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
-    vki.vkGetDeviceQueue(grDevice->device, queueIndex, queueId, &vkQueue);
+    VKD.vkGetDeviceQueue(grDevice->device, queueIndex, queueId, &vkQueue);
 
     // FIXME technically, this object should be created in advance so it doesn't get duplicated
     // when the application requests it multiple times
@@ -63,12 +63,12 @@ GR_RESULT grQueueSubmit(
 
     // TODO validate args
 
-    if (grFence != NULL) {
-        GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
 
+    if (grFence != NULL) {
         vkFence = grFence->fence;
 
-        res = vki.vkResetFences(grDevice->device, 1, &vkFence);
+        res = VKD.vkResetFences(grDevice->device, 1, &vkFence);
         if (res != VK_SUCCESS) {
             LOGE("vkResetFences failed (%d)\n", res);
             return getGrResult(res);
@@ -92,7 +92,7 @@ GR_RESULT grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
+    res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
     free(vkCommandBuffers);
 
     if (res != VK_SUCCESS) {
@@ -107,6 +107,7 @@ GR_RESULT grQueueWaitIdle(
 {
     LOGT("%p\n", queue);
     GrQueue* grQueue = (GrQueue*)queue;
+    GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
 
     if (grQueue == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -114,7 +115,7 @@ GR_RESULT grQueueWaitIdle(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    VkResult res = vki.vkQueueWaitIdle(grQueue->queue);
+    VkResult res = VKD.vkQueueWaitIdle(grQueue->queue);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueWaitIdle failed (%d)\n", res);
     }
@@ -134,7 +135,7 @@ GR_RESULT grDeviceWaitIdle(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    VkResult res = vki.vkDeviceWaitIdle(grDevice->device);
+    VkResult res = VKD.vkDeviceWaitIdle(grDevice->device);
     if (res != VK_SUCCESS) {
         LOGE("vkDeviceWaitIdle failed (%d)\n", res);
     }

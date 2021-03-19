@@ -36,7 +36,25 @@ typedef struct _VULKAN_INSTANCE {
     VULKAN_FN(vkGetPhysicalDeviceSparseImageFormatProperties);
     VULKAN_FN(vkGetPhysicalDeviceSparseImageFormatProperties2);
 
-    // Device functions
+#ifdef VK_KHR_surface
+    VULKAN_FN(vkDestroySurfaceKHR);
+    VULKAN_FN(vkGetPhysicalDeviceSurfaceSupportKHR);
+    VULKAN_FN(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
+    VULKAN_FN(vkGetPhysicalDeviceSurfaceFormatsKHR);
+    VULKAN_FN(vkGetPhysicalDeviceSurfacePresentModesKHR);
+#endif
+
+#ifdef VK_KHR_swapchain
+    VULKAN_FN(vkGetPhysicalDevicePresentRectanglesKHR);
+#endif
+
+#ifdef VK_KHR_win32_surface
+    VULKAN_FN(vkCreateWin32SurfaceKHR);
+    VULKAN_FN(vkGetPhysicalDeviceWin32PresentationSupportKHR);
+#endif
+} VULKAN_INSTANCE;
+
+typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkAllocateCommandBuffers);
     VULKAN_FN(vkAllocateDescriptorSets);
     VULKAN_FN(vkAllocateMemory);
@@ -164,6 +182,17 @@ typedef struct _VULKAN_INSTANCE {
     VULKAN_FN(vkUpdateDescriptorSetWithTemplate);
     VULKAN_FN(vkWaitForFences);
 
+#ifdef VK_KHR_swapchain
+    VULKAN_FN(vkCreateSwapchainKHR);
+    VULKAN_FN(vkDestroySwapchainKHR);
+    VULKAN_FN(vkGetSwapchainImagesKHR);
+    VULKAN_FN(vkAcquireNextImageKHR);
+    VULKAN_FN(vkQueuePresentKHR);
+    VULKAN_FN(vkGetDeviceGroupPresentCapabilitiesKHR);
+    VULKAN_FN(vkGetDeviceGroupSurfacePresentModesKHR);
+    VULKAN_FN(vkAcquireNextImage2KHR);
+#endif
+
 #ifdef VK_EXT_extended_dynamic_state
     VULKAN_FN(vkCmdBindVertexBuffers2EXT);
     VULKAN_FN(vkCmdSetCullModeEXT);
@@ -178,38 +207,21 @@ typedef struct _VULKAN_INSTANCE {
     VULKAN_FN(vkCmdSetStencilTestEnableEXT);
     VULKAN_FN(vkCmdSetViewportWithCountEXT);
 #endif
-
-#ifdef VK_KHR_surface
-    VULKAN_FN(vkDestroySurfaceKHR);
-    VULKAN_FN(vkGetPhysicalDeviceSurfaceSupportKHR);
-    VULKAN_FN(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
-    VULKAN_FN(vkGetPhysicalDeviceSurfaceFormatsKHR);
-    VULKAN_FN(vkGetPhysicalDeviceSurfacePresentModesKHR);
-#endif
-
-#ifdef VK_KHR_swapchain
-    VULKAN_FN(vkCreateSwapchainKHR);
-    VULKAN_FN(vkDestroySwapchainKHR);
-    VULKAN_FN(vkGetSwapchainImagesKHR);
-    VULKAN_FN(vkAcquireNextImageKHR);
-    VULKAN_FN(vkQueuePresentKHR);
-    VULKAN_FN(vkGetDeviceGroupPresentCapabilitiesKHR);
-    VULKAN_FN(vkGetDeviceGroupSurfacePresentModesKHR);
-    VULKAN_FN(vkGetPhysicalDevicePresentRectanglesKHR);
-    VULKAN_FN(vkAcquireNextImage2KHR);
-#endif
-
-#ifdef VK_KHR_win32_surface
-    VULKAN_FN(vkCreateWin32SurfaceKHR);
-    VULKAN_FN(vkGetPhysicalDeviceWin32PresentationSupportKHR);
-#endif
-} VULKAN_INSTANCE;
+} VULKAN_DEVICE;
 
 extern VULKAN_LIBRARY vkl;
 extern VULKAN_INSTANCE vki;
 extern VkInstance vk;
 
-void vulkanLoaderLibraryInit();
-void vulkanLoaderInstanceInit(VkInstance instance);
+void vulkanLoaderLibraryInit(
+    VULKAN_LIBRARY* vkl);
+
+void vulkanLoaderInstanceInit(
+    VULKAN_INSTANCE* vki,
+    VkInstance instance);
+
+void vulkanLoaderDeviceInit(
+    VULKAN_DEVICE* vkd,
+    VkDevice device);
 
 #endif // VULKAN_EXT_H_

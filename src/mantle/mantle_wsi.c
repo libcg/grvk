@@ -53,7 +53,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    res = vki.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &copyCmdBuf.commandBuffer);
+    res = VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &copyCmdBuf.commandBuffer);
     if (res != VK_SUCCESS) {
         LOGE("vkAllocateCommandBuffers failed (%d)\n", res);
     }
@@ -65,7 +65,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         .pInheritanceInfo = NULL
     };
 
-    res = vki.vkBeginCommandBuffer(copyCmdBuf.commandBuffer, &beginInfo);
+    res = VKD.vkBeginCommandBuffer(copyCmdBuf.commandBuffer, &beginInfo);
     if (res != VK_SUCCESS) {
         LOGE("vkBeginCommandBuffer failed (%d)\n", res);
     }
@@ -89,7 +89,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         }
     };
 
-    vki.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
+    VKD.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, 1, &preCopyBarrier);
@@ -113,7 +113,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         .dstOffsets[1] = { dstExtent.width, dstExtent.height, 1 },
     };
 
-    vki.vkCmdBlitImage(copyCmdBuf.commandBuffer,
+    VKD.vkCmdBlitImage(copyCmdBuf.commandBuffer,
                        srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                        dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                        1, &region, VK_FILTER_NEAREST);
@@ -137,12 +137,12 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         }
     };
 
-    vki.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
+    VKD.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, 1, &postCopyBarrier);
 
-    res = vki.vkEndCommandBuffer(copyCmdBuf.commandBuffer);
+    res = VKD.vkEndCommandBuffer(copyCmdBuf.commandBuffer);
     if (res != VK_SUCCESS) {
         LOGE("vkEndCommandBuffer failed (%d)\n", res);
     }
@@ -206,15 +206,15 @@ static void initSwapchain(
         .oldSwapchain = VK_NULL_HANDLE,
     };
 
-    res = vki.vkCreateSwapchainKHR(grDevice->device, &swapchainCreateInfo, NULL, &mSwapchain);
+    res = VKD.vkCreateSwapchainKHR(grDevice->device, &swapchainCreateInfo, NULL, &mSwapchain);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateSwapchainKHR failed (%d)\n", res);
         return;
     }
 
-    vki.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, NULL);
+    VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, NULL);
     mImages = malloc(sizeof(VkImage) * mImageCount);
-    vki.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, mImages);
+    VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, mImages);
 
     // Build copy command buffers for all image combinations
     for (int i = 0; i < mPresentableImageCount; i++) {
@@ -236,13 +236,13 @@ static void initSwapchain(
         .flags = 0,
     };
 
-    res = vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
+    res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateSemaphore failed (%d)\n", res);
         return;
     }
 
-    res = vki.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
+    res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateSemaphore failed (%d)\n", res);
         return;
@@ -283,14 +283,14 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    res = vki.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
+    res = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateImage failed (%d)\n", res);
         return getGrResult(res);
     }
 
     VkMemoryRequirements memoryRequirements;
-    vki.vkGetImageMemoryRequirements(grDevice->device, vkImage, &memoryRequirements);
+    VKD.vkGetImageMemoryRequirements(grDevice->device, vkImage, &memoryRequirements);
 
     const VkMemoryAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -299,18 +299,18 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .memoryTypeIndex = getMemoryTypeIndex(memoryRequirements.memoryTypeBits),
     };
 
-    res = vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkDeviceMemory);
+    res = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkDeviceMemory);
     if (res != VK_SUCCESS) {
         LOGE("vkAllocateMemory failed (%d)\n", res);
-        vki.vkDestroyImage(grDevice->device, vkImage, NULL);
+        VKD.vkDestroyImage(grDevice->device, vkImage, NULL);
         return getGrResult(res);
     }
 
-    res = vki.vkBindImageMemory(grDevice->device, vkImage, vkDeviceMemory, 0);
+    res = VKD.vkBindImageMemory(grDevice->device, vkImage, vkDeviceMemory, 0);
     if (res != VK_SUCCESS) {
         LOGE("vkBindImageMemory failed (%d)\n", res);
-        vki.vkFreeMemory(grDevice->device, vkDeviceMemory, NULL);
-        vki.vkDestroyImage(grDevice->device, vkImage, NULL);
+        VKD.vkFreeMemory(grDevice->device, vkDeviceMemory, NULL);
+        VKD.vkDestroyImage(grDevice->device, vkImage, NULL);
         return getGrResult(res);
     }
 
@@ -364,7 +364,7 @@ GR_RESULT grWsiWinQueuePresent(
 
     uint32_t vkImageIndex = 0;
 
-    vkRes = vki.vkAcquireNextImageKHR(grDevice->device, mSwapchain, UINT64_MAX,
+    vkRes = VKD.vkAcquireNextImageKHR(grDevice->device, mSwapchain, UINT64_MAX,
                                       mAcquireSemaphore, VK_NULL_HANDLE, &vkImageIndex);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkAcquireNextImageKHR failed (%d)\n", vkRes);
@@ -395,7 +395,7 @@ GR_RESULT grWsiWinQueuePresent(
         .pSignalSemaphores = &mCopySemaphore,
     };
 
-    vkRes = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkRes = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", vkRes);
         return getGrResult(vkRes);
@@ -412,7 +412,7 @@ GR_RESULT grWsiWinQueuePresent(
         .pResults = NULL,
     };
 
-    if (vki.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo) != VK_SUCCESS) {
+    if (VKD.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo) != VK_SUCCESS) {
         LOGE("vkQueuePresentKHR failed\n");
         return GR_ERROR_OUT_OF_MEMORY; // TODO use better error code
     }

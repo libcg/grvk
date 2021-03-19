@@ -36,7 +36,7 @@ GR_RESULT grCreateColorTargetView(
         }
     };
 
-    VkResult res = vki.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
+    VkResult res = VKD.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateImageView failed (%d)\n", res);
         return getGrResult(res);

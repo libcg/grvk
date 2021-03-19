@@ -112,7 +112,7 @@ GR_RESULT grAllocMemory(
             .memoryTypeIndex = pAllocInfo->heaps[i],
         };
 
-        vkRes = vki.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
+        vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
         if (vkRes == VK_SUCCESS) {
             break;
         } else if (vkRes == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
@@ -140,18 +140,18 @@ GR_RESULT grAllocMemory(
     };
 
     VkBuffer vkBuffer = VK_NULL_HANDLE;
-    vkRes = vki.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
+    vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateBuffer failed (%d)\n", vkRes);
-        vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
+        VKD.vkFreeMemory(grDevice->device, vkMemory, NULL);
         return getGrResult(vkRes);
     }
 
-    vkRes = vki.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0);
+    vkRes = VKD.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
-        vki.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
-        vki.vkFreeMemory(grDevice->device, vkMemory, NULL);
+        VKD.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
+        VKD.vkFreeMemory(grDevice->device, vkMemory, NULL);
         return getGrResult(vkRes);
     }
 
@@ -180,8 +180,8 @@ GR_RESULT grFreeMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
-    vki.vkDestroyBuffer(grDevice->device, grGpuMemory->buffer, NULL);
-    vki.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
+    VKD.vkDestroyBuffer(grDevice->device, grGpuMemory->buffer, NULL);
+    VKD.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
     free(grGpuMemory);
 
     return GR_SUCCESS;
@@ -207,7 +207,7 @@ GR_RESULT grMapMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
-    VkResult vkRes = vki.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
+    VkResult vkRes = VKD.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
                                      0, VK_WHOLE_SIZE, 0, ppData);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkMapMemory failed (%d)\n", vkRes);
@@ -230,7 +230,7 @@ GR_RESULT grUnmapMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
-    vki.vkUnmapMemory(grDevice->device, grGpuMemory->deviceMemory);
+    VKD.vkUnmapMemory(grDevice->device, grGpuMemory->deviceMemory);
 
     return GR_SUCCESS;
 }

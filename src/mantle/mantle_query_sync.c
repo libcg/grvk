@@ -20,7 +20,7 @@ GR_RESULT grCreateFence(
         .flags = 0,
     };
 
-    VkResult res = vki.vkCreateFence(grDevice->device, &createInfo, NULL, &vkFence);
+    VkResult res = VKD.vkCreateFence(grDevice->device, &createInfo, NULL, &vkFence);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateFence failed (%d)\n", res);
         return getGrResult(res);
@@ -51,7 +51,7 @@ GR_RESULT grGetFenceStatus(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grFence);
 
-    VkResult res = vki.vkGetFenceStatus(grDevice->device, grFence->fence);
+    VkResult res = VKD.vkGetFenceStatus(grDevice->device, grFence->fence);
     if (res != VK_SUCCESS && res != VK_NOT_READY) {
         LOGE("vkGetFenceStatus failed (%d)\n", res);
     }
@@ -92,7 +92,7 @@ GR_RESULT grWaitForFences(
         vkFences[i] = grFence->fence;
     }
 
-    VkResult res = vki.vkWaitForFences(grDevice->device, fenceCount, vkFences, waitAll, vkTimeout);
+    VkResult res = VKD.vkWaitForFences(grDevice->device, fenceCount, vkFences, waitAll, vkTimeout);
     free(vkFences);
 
     if (res != VK_SUCCESS && res != VK_TIMEOUT) {
@@ -133,7 +133,7 @@ GR_RESULT grCreateQueueSemaphore(
         .flags = 0,
     };
 
-    VkResult res = vki.vkCreateSemaphore(grDevice->device, &createInfo, NULL, &vkSem);
+    VkResult res = VKD.vkCreateSemaphore(grDevice->device, &createInfo, NULL, &vkSem);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateSemaphore failed (%d)\n", res);
         return getGrResult(res);
@@ -162,6 +162,8 @@ GR_RESULT grSignalQueueSemaphore(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+
     const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
@@ -174,7 +176,7 @@ GR_RESULT grSignalQueueSemaphore(
         .pSignalSemaphores = &grQueueSemaphore->semaphore,
     };
 
-    VkResult res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    VkResult res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", res);
     }
@@ -196,6 +198,8 @@ GR_RESULT grWaitQueueSemaphore(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+
     VkPipelineStageFlags stageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -209,7 +213,7 @@ GR_RESULT grWaitQueueSemaphore(
         .pSignalSemaphores = NULL,
     };
 
-    VkResult res = vki.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    VkResult res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", res);
     }
@@ -241,7 +245,7 @@ GR_RESULT grCreateEvent(
         .flags = 0,
     };
 
-    VkResult res = vki.vkCreateEvent(grDevice->device, &createInfo, NULL, &vkEvent);
+    VkResult res = VKD.vkCreateEvent(grDevice->device, &createInfo, NULL, &vkEvent);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateEvent failed (%d)\n", res);
         return getGrResult(res);
@@ -271,7 +275,7 @@ GR_RESULT grGetEventStatus(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grEvent);
 
-    VkResult res = vki.vkGetEventStatus(grDevice->device, grEvent->event);
+    VkResult res = VKD.vkGetEventStatus(grDevice->device, grEvent->event);
     if (res != VK_EVENT_SET && res != VK_EVENT_SET) {
         LOGE("vkGetEventStatus failed (%d)\n", res);
     }
@@ -293,7 +297,7 @@ GR_RESULT grSetEvent(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grEvent);
 
-    VkResult res = vki.vkSetEvent(grDevice->device, grEvent->event);
+    VkResult res = VKD.vkSetEvent(grDevice->device, grEvent->event);
     if (res != VK_SUCCESS) {
         LOGE("vkSetEvent failed (%d)\n", res);
     }
@@ -315,7 +319,7 @@ GR_RESULT grResetEvent(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grEvent);
 
-    VkResult res = vki.vkResetEvent(grDevice->device, grEvent->event);
+    VkResult res = VKD.vkResetEvent(grDevice->device, grEvent->event);
     if (res != VK_SUCCESS) {
         LOGE("vkResetEvent failed (%d)\n", res);
     }

@@ -12,6 +12,9 @@
 
 #define INVALID_QUEUE_INDEX (~0u)
 
+#define VKD \
+    (grDevice->vkd)
+
 #define MIN(a, b) \
     ((a) < (b) ? (a) : (b))
 

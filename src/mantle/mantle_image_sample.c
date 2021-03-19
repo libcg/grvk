@@ -105,7 +105,7 @@ GR_RESULT grCreateSampler(
         .unnormalizedCoordinates = VK_FALSE,
     };
 
-    VkResult res = vki.vkCreateSampler(grDevice->device, &createInfo, NULL, &vkSampler);
+    VkResult res = VKD.vkCreateSampler(grDevice->device, &createInfo, NULL, &vkSampler);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateSampler failed (%d)\n", res);
         return getGrResult(res);
