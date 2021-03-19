@@ -210,20 +210,25 @@ GR_VOID grCmdPrepareMemoryRegions(
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
+        const GrGpuMemory* grGpuMemory = (GrGpuMemory*)stateTransition->mem;
 
-        // TODO use buffer memory barrier
-        const VkMemoryBarrier memoryBarrier = {
-            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        const VkBufferMemoryBarrier bufferMemoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
             .pNext = NULL,
             .srcAccessMask = getVkAccessFlagsMemory(stateTransition->oldState),
             .dstAccessMask = getVkAccessFlagsMemory(stateTransition->newState),
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .buffer = grGpuMemory->buffer,
+            .offset = stateTransition->offset,
+            .size = stateTransition->regionSize > 0 ? stateTransition->regionSize : VK_WHOLE_SIZE,
         };
 
         // TODO batch
         VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                                  VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                                 0, 1, &memoryBarrier, 0, NULL, 0, NULL);
+                                 0, 0, NULL, 1, &bufferMemoryBarrier, 0, NULL);
     }
 }
 
