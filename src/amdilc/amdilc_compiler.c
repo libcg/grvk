@@ -246,6 +246,39 @@ static IlcSpvId emitVectorGrow(
     }
 }
 
+static void emitBinding(
+    IlcCompiler* compiler,
+    IlcSpvId bindingId,
+    IlcSpvWord ilId)
+{
+    unsigned descriptorSetIdx = 0;
+
+    switch (compiler->kernel->shaderType) {
+    case IL_SHADER_VERTEX:
+    case IL_SHADER_COMPUTE:
+        descriptorSetIdx = 0;
+        break;
+    case IL_SHADER_HULL:
+        descriptorSetIdx = 1;
+        break;
+    case IL_SHADER_DOMAIN:
+        descriptorSetIdx = 2;
+        break;
+    case IL_SHADER_GEOMETRY:
+        descriptorSetIdx = 3;
+        break;
+    case IL_SHADER_PIXEL:
+        descriptorSetIdx = 4;
+        break;
+    default:
+        assert(0);
+    }
+
+    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationDescriptorSet,
+                        1, &descriptorSetIdx);
+    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationBinding, 1, &ilId);
+}
+
 static const IlcRegister* addRegister(
     IlcCompiler* compiler,
     const IlcRegister* reg,
@@ -390,11 +423,7 @@ static const IlcSampler* findOrCreateSampler(
         IlcSpvId samplerId = ilcSpvPutVariable(compiler->module, pointerId,
                                                SpvStorageClassUniformConstant);
 
-        IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-        ilcSpvPutDecoration(compiler->module, samplerId, SpvDecorationDescriptorSet,
-                            1, &descriptorSetIdx);
-        IlcSpvWord bindingIdx = ilId;
-        ilcSpvPutDecoration(compiler->module, samplerId, SpvDecorationBinding, 1, &bindingIdx);
+        emitBinding(compiler, samplerId, ilId);
 
         const IlcSampler newSampler = {
             .id = samplerId,
@@ -959,11 +988,7 @@ static void emitResource(
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
 
-    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
-                        1, &descriptorSetIdx);
-    IlcSpvWord bindingIdx = id;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+    emitBinding(compiler, resourceId, id);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1025,12 +1050,7 @@ static void emitTypedUav(
                                             SpvStorageClassUniformConstant);
 
     ilcSpvPutName(compiler->module, imageId, "typedUav");
-
-    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
-                        1, &descriptorSetIdx);
-    IlcSpvWord bindingIdx = id;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+    emitBinding(compiler, resourceId, id);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1059,12 +1079,7 @@ static void emitStructuredSrv(
 
     ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
     ilcSpvPutName(compiler->module, imageId, "structSrv");
-
-    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
-                        1, &descriptorSetIdx);
-    IlcSpvWord bindingIdx = id;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+    emitBinding(compiler, resourceId, id);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1092,12 +1107,7 @@ static void emitStructuredLds(
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pArrayId, SpvStorageClassWorkgroup);
 
     ilcSpvPutName(compiler->module, arrayId, "structLds");
-
-    IlcSpvWord descriptorSetIdx = compiler->kernel->shaderType;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet,
-                        1, &descriptorSetIdx);
-    IlcSpvWord bindingIdx = id;
-    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &bindingIdx);
+    emitBinding(compiler, resourceId, id);
 
     const IlcResource resource = {
         .id = resourceId,
