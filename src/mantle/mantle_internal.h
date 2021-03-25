@@ -75,9 +75,6 @@ VkFrontFace getVkFrontFace(
 VkPrimitiveTopology getVkPrimitiveTopology(
     GR_PRIMITIVE_TOPOLOGY topology);
 
-VkDescriptorType getVkDescriptorType(
-    GR_DESCRIPTOR_SET_SLOT_TYPE slotObjectType);
-
 VkColorComponentFlags getVkColorComponentFlags(
     GR_UINT8 writeMask);
 

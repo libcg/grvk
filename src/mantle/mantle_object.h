@@ -34,6 +34,31 @@ typedef enum _GrObjectType {
     GR_OBJ_TYPE_VIEWPORT_STATE_OBJECT,
 } GrObjectType;
 
+typedef enum _DescriptorSetSlotType
+{
+    SLOT_TYPE_NONE,
+    SLOT_TYPE_SAMPLER,
+    SLOT_TYPE_IMAGE_VIEW,
+    SLOT_TYPE_MEMORY_VIEW,
+    SLOT_TYPE_NESTED,
+} DescriptorSetSlotType;
+
+typedef struct _DescriptorSetSlot
+{
+    DescriptorSetSlotType type;
+    union {
+        // TODO Image View
+        // TODO Sampler
+
+        // Memory View
+        struct {
+            VkBufferView vkBufferView;
+        } memoryView;
+
+        // TODO Nested
+    };
+} DescriptorSetSlot;
+
 typedef struct _GrDescriptorSet GrDescriptorSet;
 typedef struct _GrDevice GrDevice;
 typedef struct _GrPipeline GrPipeline;
@@ -89,10 +114,8 @@ typedef struct _GrDepthStencilStateObject {
 
 typedef struct _GrDescriptorSet {
     GrObject grObj;
-    VkDescriptorPool descriptorPool;
-    void* slots;
     unsigned slotCount;
-    VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
+    DescriptorSetSlot* slots;
 } GrDescriptorSet;
 
 typedef struct _GrDevice {
@@ -141,8 +164,11 @@ typedef struct _GrPhysicalGpu {
 typedef struct _GrPipeline {
     GrObject grObj;
     VkPipelineLayout pipelineLayout;
+    VkDescriptorPool descriptorPool;
+    VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
     VkPipeline pipeline;
     VkRenderPass renderPass;
+    GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {

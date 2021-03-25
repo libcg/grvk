@@ -45,6 +45,44 @@ static VkFramebuffer getVkFramebuffer(
     return framebuffer;
 }
 
+static void updateVkDescriptorSet(
+    const GrDevice* grDevice,
+    VkDescriptorSet vkDescriptorSet,
+    const GR_PIPELINE_SHADER* shaderInfo,
+    const GrDescriptorSet* grDescriptorSet)
+{
+    const GR_DESCRIPTOR_SET_MAPPING* mapping = &shaderInfo->descriptorSetMapping[0];
+
+    for (unsigned i = 0; i < mapping->descriptorCount; i++) {
+        const GR_DESCRIPTOR_SLOT_INFO* slotInfo = &mapping->pDescriptorInfo[i];
+        DescriptorSetSlot* slot = &grDescriptorSet->slots[i];
+
+        if (slotInfo->slotObjectType == GR_SLOT_UNUSED) {
+            continue;
+        } else if (slotInfo->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
+            LOGW("unhandled nested descriptor set\n");
+            continue;
+        }
+
+        // TODO handle more descriptor types
+        const VkWriteDescriptorSet writeDescriptorSet = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext = NULL,
+            .dstSet = vkDescriptorSet,
+            .dstBinding = slotInfo->shaderEntityIndex,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+            .pImageInfo = NULL,
+            .pBufferInfo = NULL,
+            .pTexelBufferView = &slot->memoryView.vkBufferView,
+        };
+
+        // TODO batch
+        VKD.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
+    }
+}
+
 static void initCmdBufferResources(
     GrCmdBuffer* grCmdBuffer)
 {
@@ -52,13 +90,16 @@ static void initCmdBufferResources(
     const GrPipeline* grPipeline = grCmdBuffer->grPipeline;
     VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
 
+    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+        updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], &grPipeline->shaderInfos[i],
+                              grCmdBuffer->grDescriptorSet);
+    }
+
     VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
+    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipelineLayout,
+                                0, MAX_STAGE_COUNT, grPipeline->descriptorSets, 0, NULL);
 
-    LOGW("HACK only one descriptor bound\n");
-    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint,
-                                grPipeline->pipelineLayout, 0, 1,
-                                grCmdBuffer->grDescriptorSet->descriptorSets, 0, NULL);
-
+    // TODO track
     VkFramebuffer framebuffer =
         getVkFramebuffer(grDevice, grPipeline->renderPass,
                          grCmdBuffer->attachmentCount, grCmdBuffer->attachments,

@@ -609,26 +609,6 @@ VkPrimitiveTopology getVkPrimitiveTopology(
     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 }
 
-VkDescriptorType getVkDescriptorType(
-    GR_DESCRIPTOR_SET_SLOT_TYPE slotObjectType)
-{
-    switch (slotObjectType) {
-    case GR_SLOT_UNUSED:
-        return 0; // Ignored
-    case GR_SLOT_SHADER_RESOURCE:
-        return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-    case GR_SLOT_SHADER_UAV:
-        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    case GR_SLOT_SHADER_SAMPLER:
-        return VK_DESCRIPTOR_TYPE_SAMPLER;
-    case GR_SLOT_NEXT_DESCRIPTOR_SET:
-        break; // Invalid
-    }
-
-    LOGW("unsupported slot object type 0x%x\n", slotObjectType);
-    return VK_DESCRIPTOR_TYPE_SAMPLER;
-}
-
 VkColorComponentFlags getVkColorComponentFlags(
     GR_UINT8 writeMask)
 {
