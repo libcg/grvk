@@ -138,6 +138,7 @@ typedef struct _GrEvent {
 typedef struct _GrFence {
     GrObject grObj;
     VkFence fence;
+    bool submitted;
 } GrFence;
 
 typedef struct _GrGpuMemory {

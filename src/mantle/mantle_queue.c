@@ -73,6 +73,8 @@ GR_RESULT grQueueSubmit(
             LOGE("vkResetFences failed (%d)\n", res);
             return getGrResult(res);
         }
+
+        grFence->submitted = true;
     }
 
     VkCommandBuffer* vkCommandBuffers = malloc(sizeof(VkCommandBuffer) * cmdBufferCount);

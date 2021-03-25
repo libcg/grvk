@@ -30,6 +30,7 @@ GR_RESULT grCreateFence(
     *grFence = (GrFence) {
         .grObj = { GR_OBJ_TYPE_FENCE, grDevice },
         .fence = vkFence,
+        .submitted = false,
     };
 
     *pFence = (GR_FENCE)grFence;
@@ -50,6 +51,10 @@ GR_RESULT grGetFenceStatus(
     }
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grFence);
+
+    if (!grFence->submitted) {
+        return GR_ERROR_UNAVAILABLE;
+    }
 
     VkResult res = VKD.vkGetFenceStatus(grDevice->device, grFence->fence);
     if (res != VK_SUCCESS && res != VK_NOT_READY) {
@@ -81,12 +86,15 @@ GR_RESULT grWaitForFences(
     }
 
     VkFence* vkFences = malloc(sizeof(VkFence) * fenceCount);
-    for (int i = 0; i < fenceCount; i++) {
+    for (unsigned i = 0; i < fenceCount; i++) {
         GrFence* grFence = (GrFence*)pFences[i];
 
         if (grFence == NULL) {
             free(vkFences);
             return GR_ERROR_INVALID_HANDLE;
+        } else if (!grFence->submitted) {
+            free(vkFences);
+            return GR_ERROR_UNAVAILABLE;
         }
 
         vkFences[i] = grFence->fence;
