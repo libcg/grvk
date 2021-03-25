@@ -278,9 +278,14 @@ GR_RESULT grCreateDevice(
         goto bail;
     }
 
+    const VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separateDsLayouts = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES,
+        .pNext = NULL,
+        .separateDepthStencilLayouts = VK_TRUE,
+    };
     const VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicState = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
-        .pNext = NULL,
+        .pNext = (void*)&separateDsLayouts,
         .extendedDynamicState = VK_TRUE,
     };
     const VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
