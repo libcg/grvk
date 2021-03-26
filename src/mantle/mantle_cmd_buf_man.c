@@ -44,8 +44,7 @@ GR_RESULT grCreateCommandBuffer(
         .grDescriptorSet = NULL,
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },
-        .minExtent2D = { 0, 0 },
-        .minLayerCount = 0,
+        .minExtent = { 0, 0, 0 },
         .hasActiveRenderPass = false,
         .isDirty = false,
     };

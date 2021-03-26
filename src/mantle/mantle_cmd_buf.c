@@ -20,8 +20,7 @@ static VkFramebuffer getVkFramebuffer(
     VkRenderPass renderPass,
     unsigned attachmentCount,
     const VkImageView* attachments,
-    VkExtent2D extent2D,
-    uint32_t layerCount)
+    VkExtent3D extent)
 {
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
 
@@ -32,9 +31,9 @@ static VkFramebuffer getVkFramebuffer(
         .renderPass = renderPass,
         .attachmentCount = attachmentCount,
         .pAttachments = attachments,
-        .width = extent2D.width,
-        .height = extent2D.height,
-        .layers = layerCount,
+        .width = extent.width,
+        .height = extent.height,
+        .layers = extent.depth,
     };
 
     if (VKD.vkCreateFramebuffer(grDevice->device, &framebufferCreateInfo, NULL,
@@ -104,7 +103,7 @@ static void initCmdBufferResources(
     VkFramebuffer framebuffer =
         getVkFramebuffer(grDevice, grPipeline->renderPass,
                          grCmdBuffer->attachmentCount, grCmdBuffer->attachments,
-                         grCmdBuffer->minExtent2D, grCmdBuffer->minLayerCount);
+                         grCmdBuffer->minExtent);
 
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -113,7 +112,7 @@ static void initCmdBufferResources(
         .framebuffer = framebuffer,
         .renderArea = (VkRect2D) {
             .offset = { 0, 0 },
-            .extent = grCmdBuffer->minExtent2D,
+            .extent = { grCmdBuffer->minExtent.width, grCmdBuffer->minExtent.height },
         },
         .clearValueCount = 0,
         .pClearValues = NULL,
@@ -289,27 +288,25 @@ GR_VOID grCmdBindTargets(
         LOGW("unhandled depth target\n");
     }
 
-    // Find minimum extent and layer count
-    grCmdBuffer->minExtent2D = (VkExtent2D) { UINT32_MAX, UINT32_MAX };
-    grCmdBuffer->minLayerCount = UINT32_MAX;
-
-    for (int i = 0; i < colorTargetCount; i++) {
+    // Find minimum extent
+    grCmdBuffer->minExtent = (VkExtent3D) { UINT32_MAX, UINT32_MAX, UINT32_MAX };
+    for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
         if (grColorTargetView != NULL) {
-            grCmdBuffer->minExtent2D.width = MIN(grCmdBuffer->minExtent2D.width,
-                                                 grColorTargetView->extent2D.width);
-            grCmdBuffer->minExtent2D.height = MIN(grCmdBuffer->minExtent2D.height,
-                                                  grColorTargetView->extent2D.height);
-            grCmdBuffer->minLayerCount = MIN(grCmdBuffer->minLayerCount,
-                                             grColorTargetView->layerCount);
+            grCmdBuffer->minExtent.width = MIN(grCmdBuffer->minExtent.width,
+                                               grColorTargetView->extent.width);
+            grCmdBuffer->minExtent.height = MIN(grCmdBuffer->minExtent.height,
+                                                grColorTargetView->extent.height);
+            grCmdBuffer->minExtent.depth = MIN(grCmdBuffer->minExtent.depth,
+                                               grColorTargetView->extent.depth);
         }
     }
 
     // Copy attachments
     grCmdBuffer->attachmentCount = 0;
 
-    for (int i = 0; i < colorTargetCount; i++) {
+    for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
         if (grColorTargetView != NULL) {

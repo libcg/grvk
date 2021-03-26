@@ -14,12 +14,22 @@ GR_RESULT grCreateColorTargetView(
 
     // TODO validate parameters
 
+    VkImageViewType imageViewType;
+    if (grImage->imageType == VK_IMAGE_TYPE_3D) {
+        imageViewType = VK_IMAGE_VIEW_TYPE_3D;
+    } else if (grImage->imageType == VK_IMAGE_TYPE_2D) {
+        imageViewType = grImage->isArrayed ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
+    } else {
+        LOGE("unexpected image type %d\n", grImage->imageType);
+        assert(false);
+    }
+
     const VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .image = grImage->image,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .viewType = imageViewType,
         .format = getVkFormat(pCreateInfo->format),
         .components = {
             .r = VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -46,8 +56,7 @@ GR_RESULT grCreateColorTargetView(
     *grColorTargetView = (GrColorTargetView) {
         .grObj = { GR_OBJ_TYPE_COLOR_TARGET_VIEW, grDevice },
         .imageView = vkImageView,
-        .extent2D = grImage->extent,
-        .layerCount = pCreateInfo->arraySize,
+        .extent = { grImage->extent.width, grImage->extent.height, pCreateInfo->arraySize },
     };
 
     *pView = (GR_COLOR_TARGET_VIEW)grColorTargetView;

@@ -81,8 +81,7 @@ typedef struct _GrCmdBuffer {
     GrDescriptorSet* grDescriptorSet;
     unsigned attachmentCount;
     VkImageView attachments[GR_MAX_COLOR_TARGETS + 1]; // Extra depth target
-    VkExtent2D minExtent2D;
-    uint32_t minLayerCount;
+    VkExtent3D minExtent;
     bool hasActiveRenderPass;
     bool isDirty;
 } GrCmdBuffer;
@@ -95,8 +94,7 @@ typedef struct _GrColorBlendStateObject {
 typedef struct _GrColorTargetView {
     GrObject grObj;
     VkImageView imageView;
-    VkExtent2D extent2D;
-    uint32_t layerCount;
+    VkExtent3D extent;
 } GrColorTargetView;
 
 typedef struct _GrDepthStencilStateObject {
@@ -150,7 +148,9 @@ typedef struct _GrGpuMemory {
 typedef struct _GrImage {
     GrObject grObj;
     VkImage image;
-    VkExtent2D extent;
+    VkExtent3D extent;
+    VkImageType imageType;
+    bool isArrayed;
 } GrImage;
 
 typedef struct _GrMsaaStateObject {

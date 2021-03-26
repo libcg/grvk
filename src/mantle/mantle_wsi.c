@@ -329,7 +329,9 @@ GR_RESULT grWsiWinCreatePresentableImage(
     *grImage = (GrImage) {
         .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
         .image = vkImage,
-        .extent = { createInfo.extent.width, createInfo.extent.height },
+        .extent = createInfo.extent,
+        .imageType = createInfo.imageType,
+        .isArrayed = false,
     };
 
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));

@@ -74,16 +74,6 @@ GR_RESULT grDestroyObject(
 
 // Image and Sample Functions
 
-
-GR_RESULT grCreateImage(
-    GR_DEVICE device,
-    const GR_IMAGE_CREATE_INFO* pCreateInfo,
-    GR_IMAGE* pImage)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grGetImageSubresourceInfo(
     GR_IMAGE image,
     const GR_IMAGE_SUBRESOURCE* pSubresource,

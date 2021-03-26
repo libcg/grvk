@@ -66,6 +66,102 @@ GR_RESULT grGetFormatInfo(
     return GR_SUCCESS;
 }
 
+GR_RESULT grCreateImage(
+    GR_DEVICE device,
+    const GR_IMAGE_CREATE_INFO* pCreateInfo,
+    GR_IMAGE* pImage)
+{
+    LOGT("%p %p %p\n", device, pCreateInfo, pImage);
+    GrDevice* grDevice = (GrDevice*)device;
+    VkImage vkImage = VK_NULL_HANDLE;
+
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pCreateInfo->imageType < GR_IMAGE_1D || pCreateInfo->imageType > GR_IMAGE_3D ||
+               pCreateInfo->tiling < GR_LINEAR_TILING || pCreateInfo->tiling > GR_OPTIMAL_TILING) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if ((pCreateInfo->imageType == GR_IMAGE_1D &&
+                (pCreateInfo->extent.height != 1 || pCreateInfo->extent.depth != 1)) ||
+               (pCreateInfo->imageType == GR_IMAGE_2D &&
+                (pCreateInfo->extent.depth != 1))) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if (0) {
+        // TODO check image dimensions for compressed formats
+        // TODO check number of samples for the given image type and format
+    } else if (pCreateInfo->samples > 1 &&
+               (pCreateInfo->usage &
+                (GR_IMAGE_USAGE_COLOR_TARGET | GR_IMAGE_USAGE_DEPTH_STENCIL)) == 0) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if (pCreateInfo->samples > 1 && pCreateInfo->mipLevels != 1) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if (pCreateInfo->arraySize == 0 ||
+               (pCreateInfo->imageType == GR_IMAGE_3D && pCreateInfo->arraySize != 1)) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if (pCreateInfo->mipLevels == 0) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if (pCreateInfo == NULL || pImage == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    } else if (0) {
+        // TODO check format
+        // TODO check invalid image creation flags or image usage flags
+    } else if ((pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET) != 0 &&
+               (pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL) != 0) {
+        return GR_ERROR_INVALID_FLAGS;
+    } else if (pCreateInfo->imageType == GR_IMAGE_1D &&
+               (pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET) != 0) {
+        return GR_ERROR_INVALID_FLAGS;
+    } else if (pCreateInfo->imageType != GR_IMAGE_2D &&
+               (pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL) != 0) {
+        return GR_ERROR_INVALID_FLAGS;
+    }
+
+    if (pCreateInfo->flags != 0) {
+        LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
+    }
+
+    const VkImageCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .imageType = getVkImageType(pCreateInfo->imageType),
+        .format = getVkFormat(pCreateInfo->format),
+        .extent = {
+            .width = pCreateInfo->extent.width,
+            .height = pCreateInfo->extent.height,
+            .depth = pCreateInfo->extent.depth,
+        },
+        .mipLevels = pCreateInfo->mipLevels,
+        .arrayLayers = pCreateInfo->arraySize,
+        .samples = getVkSampleCountFlagBits(pCreateInfo->samples),
+        .tiling = getVkImageTiling(pCreateInfo->tiling),
+        .usage  = getVkImageUsageFlags(pCreateInfo->usage),
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = NULL,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    VkResult res = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateImage failed (%d)\n", res);
+        return getGrResult(res);
+    }
+
+    GrImage* grImage = malloc(sizeof(GrImage));
+    *grImage = (GrImage) {
+        .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
+        .image = vkImage,
+        .extent = createInfo.extent,
+        .imageType = createInfo.imageType,
+        .isArrayed = createInfo.arrayLayers > 1,
+    };
+
+    *pImage = (GR_IMAGE)grImage;
+    return GR_SUCCESS;
+}
+
 GR_RESULT grCreateSampler(
     GR_DEVICE device,
     const GR_SAMPLER_CREATE_INFO* pCreateInfo,

@@ -278,6 +278,61 @@ VkImageLayout getVkImageLayout(
     return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
+VkImageTiling getVkImageTiling(
+    GR_IMAGE_TILING imageTiling)
+{
+    switch (imageTiling) {
+    case GR_LINEAR_TILING:
+        return VK_IMAGE_TILING_LINEAR;
+    case GR_OPTIMAL_TILING:
+        return VK_IMAGE_TILING_OPTIMAL;
+    default:
+        break;
+    }
+
+    LOGW("unsupported image tiling 0x%x\n", imageTiling);
+    return VK_IMAGE_TILING_LINEAR;
+}
+
+VkImageType getVkImageType(
+    GR_IMAGE_TYPE imageType)
+{
+    switch (imageType) {
+    case GR_IMAGE_1D:
+        return VK_IMAGE_TYPE_1D;
+    case GR_IMAGE_2D:
+        return VK_IMAGE_TYPE_2D;
+    case GR_IMAGE_3D:
+        return VK_IMAGE_TYPE_3D;
+    default:
+        break;
+    }
+
+    LOGW("unsupported image type 0x%x\n", imageType);
+    return VK_IMAGE_TYPE_2D;
+}
+
+VkImageUsageFlags getVkImageUsageFlags(
+    GR_IMAGE_USAGE_FLAGS imageUsageFlags)
+{
+    VkImageUsageFlags flags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    if (imageUsageFlags & GR_IMAGE_USAGE_SHADER_ACCESS_READ) {
+        flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    }
+    if (imageUsageFlags & GR_IMAGE_USAGE_SHADER_ACCESS_WRITE) {
+        flags |= VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+    if (imageUsageFlags & GR_IMAGE_USAGE_COLOR_TARGET) {
+        flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    }
+    if (imageUsageFlags & GR_IMAGE_USAGE_DEPTH_STENCIL) {
+        flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    }
+
+    return flags;
+}
+
 VkAccessFlags getVkAccessFlagsImage(
     GR_IMAGE_STATE imageState)
 {

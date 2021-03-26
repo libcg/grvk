@@ -36,6 +36,15 @@ VkFormat getVkFormat(
 VkImageLayout getVkImageLayout(
     GR_IMAGE_STATE imageState);
 
+VkImageTiling getVkImageTiling(
+    GR_IMAGE_TILING imageTiling);
+
+VkImageType getVkImageType(
+    GR_IMAGE_TYPE imageType);
+
+VkImageUsageFlags getVkImageUsageFlags(
+    GR_IMAGE_USAGE_FLAGS imageUsageFlags);
+
 VkAccessFlags getVkAccessFlagsImage(
     GR_IMAGE_STATE imageState);
 
