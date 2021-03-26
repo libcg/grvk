@@ -1,4 +1,5 @@
 #include "mantle_internal.h"
+#include "amdilc.h"
 
 static VkImageSubresourceRange getVkImageSubresourceRange(
     const GR_IMAGE_SUBRESOURCE_RANGE* range)
@@ -69,7 +70,7 @@ static void updateVkDescriptorSet(
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = NULL,
             .dstSet = vkDescriptorSet,
-            .dstBinding = slotInfo->shaderEntityIndex,
+            .dstBinding = ILC_BASE_RESOURCE_ID + slotInfo->shaderEntityIndex,
             .dstArrayElement = 0,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,

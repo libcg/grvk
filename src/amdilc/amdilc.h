@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#define ILC_BASE_RESOURCE_ID    (16) // Samplers use 0-15
+
 uint32_t* ilcCompileShader(
     unsigned* compiledSize,
     const void* code,

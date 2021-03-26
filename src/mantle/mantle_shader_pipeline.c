@@ -73,7 +73,8 @@ static void addBindingsFromDescriptorSetMapping(
 
         // FIXME figure out descriptorType from shader reflection
         (*bindings)[*bindingCount - 1] = (VkDescriptorSetLayoutBinding) {
-            .binding = info->shaderEntityIndex,
+            .binding = (info->slotObjectType != GR_SLOT_SHADER_SAMPLER ? ILC_BASE_RESOURCE_ID : 0) +
+                       info->shaderEntityIndex,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
             .descriptorCount = 1,
             .stageFlags = stage->flags,

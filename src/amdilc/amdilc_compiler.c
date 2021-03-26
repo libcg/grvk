@@ -988,7 +988,7 @@ static void emitResource(
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
 
-    emitBinding(compiler, resourceId, id);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1050,7 +1050,7 @@ static void emitTypedUav(
                                             SpvStorageClassUniformConstant);
 
     ilcSpvPutName(compiler->module, imageId, "typedUav");
-    emitBinding(compiler, resourceId, id);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1079,7 +1079,7 @@ static void emitStructuredSrv(
 
     ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
     ilcSpvPutName(compiler->module, imageId, "structSrv");
-    emitBinding(compiler, resourceId, id);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1107,7 +1107,7 @@ static void emitStructuredLds(
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pArrayId, SpvStorageClassWorkgroup);
 
     ilcSpvPutName(compiler->module, arrayId, "structLds");
-    emitBinding(compiler, resourceId, id);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
 
     const IlcResource resource = {
         .id = resourceId,
