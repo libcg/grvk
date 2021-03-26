@@ -1,6 +1,17 @@
 #include "mantle_internal.h"
 #include "amdilc.h"
 
+static VkImageSubresourceLayers getVkImageSubresourceLayers(
+    const GR_IMAGE_SUBRESOURCE* subresource)
+{
+    return (VkImageSubresourceLayers) {
+        .aspectMask = getVkImageAspectFlags(subresource->aspect),
+        .mipLevel = subresource->mipLevel,
+        .baseArrayLayer = subresource->arraySlice,
+        .layerCount = 1,
+    };
+}
+
 static VkImageSubresourceRange getVkImageSubresourceRange(
     const GR_IMAGE_SUBRESOURCE_RANGE* range)
 {
@@ -389,6 +400,40 @@ GR_VOID grCmdDrawIndexed(
 
     VKD.vkCmdDrawIndexed(grCmdBuffer->commandBuffer,
                          indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
+GR_VOID grCmdCopyImage(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_IMAGE srcImage,
+    GR_IMAGE destImage,
+    GR_UINT regionCount,
+    const GR_IMAGE_COPY* pRegions)
+{
+    LOGT("%p %p %p %u %p\n", cmdBuffer, srcImage, destImage, regionCount, pRegions);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrImage* grSrcImage = (GrImage*)srcImage;
+    GrImage* grDstImage = (GrImage*)destImage;
+
+    VkImageCopy* vkRegions = malloc(regionCount * sizeof(VkImageCopy));
+    for (unsigned i = 0; i < regionCount; i++) {
+        const GR_IMAGE_COPY* region = &pRegions[i];
+
+        vkRegions[i] = (VkImageCopy) {
+            .srcSubresource = getVkImageSubresourceLayers(&region->srcSubresource),
+            .srcOffset = { region->srcOffset.x, region->srcOffset.y, region->srcOffset.z },
+            .dstSubresource = getVkImageSubresourceLayers(&region->destSubresource),
+            .dstOffset = { region->destOffset.x, region->destOffset.y, region->destOffset.z },
+            .extent = { region->extent.width, region->extent.height, region->extent.depth },
+        };
+    }
+
+    VKD.vkCmdCopyImage(grCmdBuffer->commandBuffer,
+                       grSrcImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                       grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                       regionCount, vkRegions);
+
+    free(vkRegions);
 }
 
 GR_VOID grCmdClearColorImage(

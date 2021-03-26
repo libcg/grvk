@@ -278,6 +278,8 @@ VkImageLayout getVkImageLayout(
     GR_IMAGE_STATE imageState)
 {
     switch (imageState) {
+    case GR_IMAGE_STATE_DATA_TRANSFER:
+        return VK_IMAGE_LAYOUT_GENERAL; // Direction is unknown
     case GR_IMAGE_STATE_UNINITIALIZED:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:

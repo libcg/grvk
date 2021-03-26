@@ -276,16 +276,6 @@ GR_VOID grCmdCopyMemory(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdCopyImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE srcImage,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdCopyMemoryToImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY srcMem,
