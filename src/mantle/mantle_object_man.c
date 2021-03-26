@@ -66,6 +66,8 @@ GR_RESULT grBindObjectMemory(
 {
     LOGT("%p %p %llu\n", object, mem, offset);
     GrObject* grObject = (GrObject*)object;
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+    VkResult vkRes = VK_SUCCESS;
 
     if (grObject == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -73,13 +75,22 @@ GR_RESULT grBindObjectMemory(
 
     GrObjectType objType = GET_OBJ_TYPE(grObject);
 
-    if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
-        objType == GR_OBJ_TYPE_PIPELINE) {
+    if (objType == GR_OBJ_TYPE_IMAGE) {
+        GrImage* grImage = (GrImage*)grObject;
+        GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
+
+        vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
+                                      grGpuMemory->deviceMemory, offset);
+    } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
+               objType == GR_OBJ_TYPE_PIPELINE) {
         // Nothing to do
     } else {
         LOGW("unsupported object type %d\n", objType);
         return GR_ERROR_UNAVAILABLE;
     }
 
-    return GR_SUCCESS;
+    if (vkRes != VK_SUCCESS) {
+        LOGW("binding failed (%d)\n", objType);
+    }
+    return getGrResult(vkRes);
 }
