@@ -2,11 +2,6 @@
 #include "mantle_internal.h"
 
 typedef struct {
-    VkImage image;
-    VkExtent2D extent;
-} PresentableImage;
-
-typedef struct {
     VkImage dstImage;
     VkImage srcImage;
     VkCommandBuffer commandBuffer;
@@ -15,7 +10,7 @@ typedef struct {
 static VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 static VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 static unsigned mPresentableImageCount = 0;
-static PresentableImage* mPresentableImages;
+static GrImage** mPresentableImages;
 static unsigned mImageCount = 0;
 static VkImage* mImages;
 static unsigned mCopyCommandBufferCount = 0;
@@ -182,7 +177,7 @@ static void initSwapchain(
     // Get window dimensions
     RECT clientRect;
     GetClientRect(hwnd, &clientRect);
-    VkExtent2D imageExtent = { clientRect.right, clientRect.bottom };
+    const VkExtent2D imageExtent = { clientRect.right, clientRect.bottom };
 
     const VkSwapchainCreateInfoKHR swapchainCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -218,15 +213,19 @@ static void initSwapchain(
 
     // Build copy command buffers for all image combinations
     for (int i = 0; i < mPresentableImageCount; i++) {
-        const PresentableImage* presentImage = &mPresentableImages[i];
+        const GrImage* presentImage = mPresentableImages[i];
 
         for (int j = 0; j < mImageCount; j++) {
+            const VkExtent2D presentExtent = {
+                presentImage->extent.width, presentImage->extent.height
+            };
+
             mCopyCommandBufferCount++;
             mCopyCommandBuffers = realloc(mCopyCommandBuffers,
                                           sizeof(CopyCommandBuffer) * mCopyCommandBufferCount);
             mCopyCommandBuffers[mCopyCommandBufferCount - 1] =
                 buildCopyCommandBuffer(grDevice, mImages[j], imageExtent,
-                                       presentImage->image, presentImage->extent);
+                                       presentImage->image, presentExtent);
         }
     }
 
@@ -259,38 +258,34 @@ GR_RESULT grWsiWinCreatePresentableImage(
 {
     LOGT("%p %p %p %p\n", device, pCreateInfo, pImage, pMem);
     GrDevice* grDevice = (GrDevice*)device;
-    VkResult res;
-    VkImage vkImage = VK_NULL_HANDLE;
+    VkResult vkRes;
     VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
 
-    const VkImageCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .format = getVkFormat(pCreateInfo->format),
-        .extent = { pCreateInfo->extent.width, pCreateInfo->extent.height, 1 },
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                 VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices = NULL,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    };
-
-    res = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateImage failed (%d)\n", res);
-        return getGrResult(res);
+    if (pCreateInfo->flags) {
+        LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
     }
 
+    const GR_IMAGE_CREATE_INFO grImageCreateInfo = {
+        .imageType = GR_IMAGE_2D,
+        .format = pCreateInfo->format,
+        .extent = { pCreateInfo->extent.width, pCreateInfo->extent.height, 1 },
+        .mipLevels = 1,
+        .arraySize = 1,
+        .samples = 1,
+        .tiling = GR_OPTIMAL_TILING,
+        .usage = GR_IMAGE_USAGE_COLOR_TARGET,
+        .flags = 0,
+    };
+
+    GR_RESULT res = grCreateImage(device, &grImageCreateInfo, pImage);
+    if (res != GR_SUCCESS) {
+        return res;
+    }
+
+    GrImage* grImage = (GrImage*)*pImage;
+
     VkMemoryRequirements memoryRequirements;
-    VKD.vkGetImageMemoryRequirements(grDevice->device, vkImage, &memoryRequirements);
+    VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memoryRequirements);
 
     const VkMemoryAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -299,40 +294,23 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .memoryTypeIndex = getMemoryTypeIndex(memoryRequirements.memoryTypeBits),
     };
 
-    res = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkDeviceMemory);
-    if (res != VK_SUCCESS) {
-        LOGE("vkAllocateMemory failed (%d)\n", res);
-        VKD.vkDestroyImage(grDevice->device, vkImage, NULL);
-        return getGrResult(res);
+    vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkDeviceMemory);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkAllocateMemory failed (%d)\n", vkRes);
+        return getGrResult(vkRes);
     }
 
-    res = VKD.vkBindImageMemory(grDevice->device, vkImage, vkDeviceMemory, 0);
-    if (res != VK_SUCCESS) {
-        LOGE("vkBindImageMemory failed (%d)\n", res);
+    vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image, vkDeviceMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkBindImageMemory failed (%d)\n", vkRes);
         VKD.vkFreeMemory(grDevice->device, vkDeviceMemory, NULL);
-        VKD.vkDestroyImage(grDevice->device, vkImage, NULL);
-        return getGrResult(res);
+        return getGrResult(vkRes);
     }
-
-    const PresentableImage presentImage = {
-        .image = vkImage,
-        .extent = { pCreateInfo->extent.width, pCreateInfo->extent.height },
-    };
 
     // Keep track of presentable images to build copy command buffers in advance
     mPresentableImageCount++;
-    mPresentableImages = realloc(mPresentableImages,
-                                 sizeof(PresentableImage) * mPresentableImageCount);
-    mPresentableImages[mPresentableImageCount - 1] = presentImage;
-
-    GrImage* grImage = malloc(sizeof(GrImage));
-    *grImage = (GrImage) {
-        .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
-        .image = vkImage,
-        .extent = createInfo.extent,
-        .imageType = createInfo.imageType,
-        .isArrayed = false,
-    };
+    mPresentableImages = realloc(mPresentableImages, sizeof(GrImage*) * mPresentableImageCount);
+    mPresentableImages[mPresentableImageCount - 1] = grImage;
 
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
     *grGpuMemory = (GrGpuMemory) {
@@ -340,9 +318,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .deviceMemory = vkDeviceMemory,
     };
 
-    *pImage = (GR_IMAGE)grImage;
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
-
     return GR_SUCCESS;
 }
 
