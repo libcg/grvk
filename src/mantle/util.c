@@ -92,6 +92,26 @@ GR_FORMAT_FEATURE_FLAGS getGrFormatFeatureFlags(
     return featureFlags;
 }
 
+GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
+    VkMemoryRequirements vkMemReqs)
+{
+    GR_MEMORY_REQUIREMENTS memReqs = {
+        .size = vkMemReqs.size,
+        .alignment = vkMemReqs.alignment,
+        .heapCount = 0,
+        .heaps = {},
+    };
+
+    for (unsigned i = 0; i < GR_MAX_MEMORY_HEAPS; i++) {
+        if (vkMemReqs.memoryTypeBits & (1 << i)) {
+            memReqs.heaps[memReqs.heapCount] = i;
+            memReqs.heapCount++;
+        }
+    }
+
+    return memReqs;
+}
+
 VkFormat getVkFormat(
     GR_FORMAT format)
 {

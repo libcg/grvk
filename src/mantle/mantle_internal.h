@@ -30,6 +30,9 @@ GR_RESULT getGrResult(
 GR_FORMAT_FEATURE_FLAGS getGrFormatFeatureFlags(
     VkFormatFeatureFlags vkFeatureFlags);
 
+GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
+    VkMemoryRequirements vkMemReqs);
+
 VkFormat getVkFormat(
     GR_FORMAT format);
 

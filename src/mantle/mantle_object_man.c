@@ -21,7 +21,8 @@ GR_RESULT grGetObjectInfo(
 
     switch (infoType) {
     case GR_INFO_TYPE_MEMORY_REQUIREMENTS: {
-        GR_MEMORY_REQUIREMENTS* memReqs = (GR_MEMORY_REQUIREMENTS*)pData;
+        GR_MEMORY_REQUIREMENTS* grMemReqs = (GR_MEMORY_REQUIREMENTS*)pData;
+        VkMemoryRequirements memReqs;
 
         if (pData == NULL) {
             *pDataSize = sizeof(GR_MEMORY_REQUIREMENTS);
@@ -30,10 +31,17 @@ GR_RESULT grGetObjectInfo(
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
-        if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
-            objType == GR_OBJ_TYPE_PIPELINE) {
+        if (objType == GR_OBJ_TYPE_IMAGE) {
+            GrImage* grImage = (GrImage*)grBaseObject;
+            GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
+
+            VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
+
+            *grMemReqs = getGrMemoryRequirements(memReqs);
+        } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
+                   objType == GR_OBJ_TYPE_PIPELINE) {
             // No memory requirements
-            *memReqs = (GR_MEMORY_REQUIREMENTS) {
+            *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
                 .size = 0,
                 .alignment = 1,
                 .heapCount = 0,
