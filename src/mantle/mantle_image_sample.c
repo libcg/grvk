@@ -161,6 +161,52 @@ GR_RESULT grCreateImage(
     return GR_SUCCESS;
 }
 
+GR_RESULT grGetImageSubresourceInfo(
+    GR_IMAGE image,
+    const GR_IMAGE_SUBRESOURCE* pSubresource,
+    GR_ENUM infoType,
+    GR_SIZE* pDataSize,
+    GR_VOID* pData)
+{
+    LOGT("%p %p 0x%X %p %p\n", image, pSubresource, infoType, pDataSize, pData);
+    GrImage* grImage = (GrImage*)image;
+
+    if (grImage == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grImage) != GR_OBJ_TYPE_IMAGE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (infoType != GR_INFO_TYPE_SUBRESOURCE_LAYOUT) {
+        return GR_ERROR_INVALID_VALUE;
+    } else if (0) {
+        // TODO check subresource ID ordinal
+        return GR_ERROR_INVALID_ORDINAL;
+    } else if (pDataSize == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    } else if (pData != NULL && *pDataSize < sizeof(GR_SUBRESOURCE_LAYOUT)) {
+        return GR_ERROR_INVALID_MEMORY_SIZE;
+    }
+
+    if (pData == NULL) {
+        *pDataSize = sizeof(GR_SUBRESOURCE_LAYOUT);
+        return GR_SUCCESS;
+    }
+
+    GrDevice* grDevice = GET_OBJ_DEVICE(grImage);
+    VkImageSubresource subresource = getVkImageSubresource(*pSubresource);
+
+    VkSubresourceLayout subresourceLayout;
+    VKD.vkGetImageSubresourceLayout(grDevice->device, grImage->image, &subresource,
+                                    &subresourceLayout);
+
+    *(GR_SUBRESOURCE_LAYOUT*)pData = (GR_SUBRESOURCE_LAYOUT) {
+        .offset = subresourceLayout.offset,
+        .size = subresourceLayout.size,
+        .rowPitch = subresourceLayout.rowPitch,
+        .depthPitch = subresourceLayout.depthPitch,
+    };
+    return GR_SUCCESS;
+}
+
 GR_RESULT grCreateSampler(
     GR_DEVICE device,
     const GR_SAMPLER_CREATE_INFO* pCreateInfo,

@@ -829,6 +829,16 @@ VkBorderColor getVkBorderColor(
     return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 }
 
+VkImageSubresource getVkImageSubresource(
+    GR_IMAGE_SUBRESOURCE subresource)
+{
+    return (VkImageSubresource) {
+        .aspectMask = getVkImageAspectFlags(subresource.aspect),
+        .mipLevel = subresource.mipLevel,
+        .arrayLayer = subresource.arraySlice,
+    };
+}
+
 VkImageSubresourceLayers getVkImageSubresourceLayers(
     GR_IMAGE_SUBRESOURCE subresource)
 {

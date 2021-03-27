@@ -72,19 +72,6 @@ GR_RESULT grDestroyObject(
     return GR_UNSUPPORTED;
 }
 
-// Image and Sample Functions
-
-GR_RESULT grGetImageSubresourceInfo(
-    GR_IMAGE image,
-    const GR_IMAGE_SUBRESOURCE* pSubresource,
-    GR_ENUM infoType,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Image View Functions
 
 GR_RESULT grCreateDepthStencilView(
