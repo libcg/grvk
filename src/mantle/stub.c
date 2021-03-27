@@ -87,15 +87,6 @@ GR_RESULT grGetImageSubresourceInfo(
 
 // Image View Functions
 
-GR_RESULT grCreateImageView(
-    GR_DEVICE device,
-    const GR_IMAGE_VIEW_CREATE_INFO* pCreateInfo,
-    GR_IMAGE_VIEW* pView)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grCreateDepthStencilView(
     GR_DEVICE device,
     const GR_DEPTH_STENCIL_VIEW_CREATE_INFO* pCreateInfo,

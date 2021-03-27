@@ -539,6 +539,28 @@ VkCompareOp getVkCompareOp(
     return VK_COMPARE_OP_NEVER;
 }
 
+VkComponentSwizzle getVkComponentSwizzle(
+    GR_CHANNEL_SWIZZLE channelSwizzle)
+{
+    switch (channelSwizzle) {
+    case GR_CHANNEL_SWIZZLE_ZERO:
+        return VK_COMPONENT_SWIZZLE_ZERO;
+    case GR_CHANNEL_SWIZZLE_ONE:
+        return VK_COMPONENT_SWIZZLE_ONE;
+    case GR_CHANNEL_SWIZZLE_R:
+        return VK_COMPONENT_SWIZZLE_R;
+    case GR_CHANNEL_SWIZZLE_G:
+        return VK_COMPONENT_SWIZZLE_G;
+    case GR_CHANNEL_SWIZZLE_B:
+        return VK_COMPONENT_SWIZZLE_B;
+    case GR_CHANNEL_SWIZZLE_A:
+        return VK_COMPONENT_SWIZZLE_A;
+    }
+
+    LOGW("unsupported channel swizzle 0x%x\n", channelSwizzle);
+    return VK_COMPONENT_SWIZZLE_IDENTITY;
+}
+
 VkLogicOp getVkLogicOp(
     GR_LOGIC_OP logicOp)
 {
@@ -805,4 +827,29 @@ VkBorderColor getVkBorderColor(
 
     LOGW("unsupported border color type 0x%X\n", borderColorType);
     return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+}
+
+VkImageSubresourceLayers getVkImageSubresourceLayers(
+    GR_IMAGE_SUBRESOURCE subresource)
+{
+    return (VkImageSubresourceLayers) {
+        .aspectMask = getVkImageAspectFlags(subresource.aspect),
+        .mipLevel = subresource.mipLevel,
+        .baseArrayLayer = subresource.arraySlice,
+        .layerCount = 1,
+    };
+}
+
+VkImageSubresourceRange getVkImageSubresourceRange(
+    GR_IMAGE_SUBRESOURCE_RANGE subresourceRange)
+{
+    return (VkImageSubresourceRange) {
+        .aspectMask = getVkImageAspectFlags(subresourceRange.aspect),
+        .baseMipLevel = subresourceRange.baseMipLevel,
+        .levelCount = subresourceRange.mipLevels == GR_LAST_MIP_OR_SLICE ?
+                      VK_REMAINING_MIP_LEVELS : subresourceRange.mipLevels,
+        .baseArrayLayer = subresourceRange.baseArraySlice,
+        .layerCount = subresourceRange.arraySize == GR_LAST_MIP_OR_SLICE ?
+                      VK_REMAINING_ARRAY_LAYERS : subresourceRange.arraySize,
+    };
 }

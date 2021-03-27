@@ -69,6 +69,9 @@ VkBlendOp getVkBlendOp(
 VkCompareOp getVkCompareOp(
     GR_COMPARE_FUNC compareFunc);
 
+VkComponentSwizzle getVkComponentSwizzle(
+    GR_CHANNEL_SWIZZLE channelSwizzle);
+
 VkLogicOp getVkLogicOp(
     GR_LOGIC_OP logicOp);
 
@@ -107,5 +110,11 @@ VkSamplerAddressMode getVkSamplerAddressMode(
 
 VkBorderColor getVkBorderColor(
     GR_BORDER_COLOR_TYPE borderColorType);
+
+VkImageSubresourceLayers getVkImageSubresourceLayers(
+    GR_IMAGE_SUBRESOURCE subresource);
+
+VkImageSubresourceRange getVkImageSubresourceRange(
+    GR_IMAGE_SUBRESOURCE_RANGE subresourceRange);
 
 #endif // MANTLE_INTERNAL_H_

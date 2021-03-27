@@ -155,7 +155,6 @@ GR_RESULT grCreateImage(
         .image = vkImage,
         .extent = createInfo.extent,
         .imageType = createInfo.imageType,
-        .isArrayed = createInfo.arrayLayers > 1,
     };
 
     *pImage = (GR_IMAGE)grImage;

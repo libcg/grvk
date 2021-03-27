@@ -1,31 +1,6 @@
 #include "mantle_internal.h"
 #include "amdilc.h"
 
-static VkImageSubresourceLayers getVkImageSubresourceLayers(
-    const GR_IMAGE_SUBRESOURCE* subresource)
-{
-    return (VkImageSubresourceLayers) {
-        .aspectMask = getVkImageAspectFlags(subresource->aspect),
-        .mipLevel = subresource->mipLevel,
-        .baseArrayLayer = subresource->arraySlice,
-        .layerCount = 1,
-    };
-}
-
-static VkImageSubresourceRange getVkImageSubresourceRange(
-    const GR_IMAGE_SUBRESOURCE_RANGE* range)
-{
-    return (VkImageSubresourceRange) {
-        .aspectMask = getVkImageAspectFlags(range->aspect),
-        .baseMipLevel = range->baseMipLevel,
-        .levelCount = range->mipLevels == GR_LAST_MIP_OR_SLICE ?
-                      VK_REMAINING_MIP_LEVELS : range->mipLevels,
-        .baseArrayLayer = range->baseArraySlice,
-        .layerCount = range->arraySize == GR_LAST_MIP_OR_SLICE ?
-                      VK_REMAINING_ARRAY_LAYERS : range->arraySize,
-    };
-}
-
 static VkFramebuffer getVkFramebuffer(
     const GrDevice* grDevice,
     VkRenderPass renderPass,
@@ -338,7 +313,6 @@ GR_VOID grCmdPrepareImages(
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
-        const GR_IMAGE_SUBRESOURCE_RANGE* range = &stateTransition->subresourceRange;
         GrImage* grImage = (GrImage*)stateTransition->image;
 
         const VkImageMemoryBarrier imageMemoryBarrier = {
@@ -351,7 +325,7 @@ GR_VOID grCmdPrepareImages(
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = grImage->image,
-            .subresourceRange = getVkImageSubresourceRange(range),
+            .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange),
         };
 
         // TODO batch
@@ -420,9 +394,9 @@ GR_VOID grCmdCopyImage(
         const GR_IMAGE_COPY* region = &pRegions[i];
 
         vkRegions[i] = (VkImageCopy) {
-            .srcSubresource = getVkImageSubresourceLayers(&region->srcSubresource),
+            .srcSubresource = getVkImageSubresourceLayers(region->srcSubresource),
             .srcOffset = { region->srcOffset.x, region->srcOffset.y, region->srcOffset.z },
-            .dstSubresource = getVkImageSubresourceLayers(&region->destSubresource),
+            .dstSubresource = getVkImageSubresourceLayers(region->destSubresource),
             .dstOffset = { region->destOffset.x, region->destOffset.y, region->destOffset.z },
             .extent = { region->extent.width, region->extent.height, region->extent.depth },
         };
@@ -455,7 +429,7 @@ GR_VOID grCmdClearColorImage(
 
     VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
     for (int i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(&pRanges[i]);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i]);
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
@@ -484,7 +458,7 @@ GR_VOID grCmdClearColorImageRaw(
 
     VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
     for (int i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(&pRanges[i]);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i]);
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,

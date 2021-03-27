@@ -23,6 +23,7 @@ typedef enum _GrObjectType {
     GR_OBJ_TYPE_FENCE,
     GR_OBJ_TYPE_GPU_MEMORY,
     GR_OBJ_TYPE_IMAGE,
+    GR_OBJ_TYPE_IMAGE_VIEW,
     GR_OBJ_TYPE_MSAA_STATE_OBJECT,
     GR_OBJ_TYPE_PHYSICAL_GPU,
     GR_OBJ_TYPE_PIPELINE,
@@ -150,8 +151,12 @@ typedef struct _GrImage {
     VkImage image;
     VkExtent3D extent;
     VkImageType imageType;
-    bool isArrayed;
 } GrImage;
+
+typedef struct _GrImageView {
+    GrObject grObj;
+    VkImageView imageView;
+} GrImageView;
 
 typedef struct _GrMsaaStateObject {
     GrObject grObj;
