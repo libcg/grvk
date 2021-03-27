@@ -237,9 +237,9 @@ static VkRenderPass getVkRenderPass(
         if (hasDepth && hasStencil) {
             layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         } else if (hasDepth && !hasStencil) {
-            layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+            layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
         } else if (!hasDepth && hasStencil) {
-            layout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL;
+            layout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL;
         }
 
         descriptions[descriptionCount] = (VkAttachmentDescription) {
