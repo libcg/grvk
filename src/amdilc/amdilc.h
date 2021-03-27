@@ -3,11 +3,24 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
 
 #define ILC_BASE_RESOURCE_ID    (16) // Samplers use 0-15
 
-uint32_t* ilcCompileShader(
-    unsigned* compiledSize,
+typedef struct _IlcBinding {
+    uint32_t index;
+    VkDescriptorType descriptorType;
+} IlcBinding;
+
+typedef struct _IlcShader {
+    unsigned codeSize;
+    uint32_t* code;
+    unsigned bindingCount;
+    IlcBinding* bindings;
+} IlcShader;
+
+IlcShader ilcCompileShader(
     const void* code,
     unsigned size);
 

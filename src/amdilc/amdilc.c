@@ -112,8 +112,7 @@ static void dumpKernel(
     fclose(file);
 }
 
-uint32_t* ilcCompileShader(
-    unsigned* compiledSize,
+IlcShader ilcCompileShader(
     const void* code,
     unsigned size)
 {
@@ -129,15 +128,15 @@ uint32_t* ilcCompileShader(
         dumpKernel(kernel, name);
     }
 
-    uint32_t* compiledCode = ilcCompileKernel(compiledSize, kernel);
+    IlcShader shader = ilcCompileKernel(kernel);
 
     if (dump) {
-        dumpBuffer((uint8_t*)compiledCode, *compiledSize, name, "spv");
+        dumpBuffer((uint8_t*)shader.code, shader.codeSize, name, "spv");
     }
 
     freeKernel(kernel);
     free(kernel);
-    return compiledCode;
+    return shader;
 }
 
 void ilcDisassembleShader(

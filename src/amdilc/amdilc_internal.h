@@ -83,8 +83,7 @@ void ilcDumpKernel(
     FILE* file,
     const Kernel* kernel);
 
-uint32_t* ilcCompileKernel(
-    unsigned* size,
+IlcShader ilcCompileKernel(
     const Kernel* kernel);
 
 #endif // AMDILC_INTERNAL_H_

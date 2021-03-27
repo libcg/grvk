@@ -70,8 +70,10 @@ typedef struct {
 } IlcControlFlowBlock;
 
 typedef struct {
-    IlcSpvModule* module;
     const Kernel* kernel;
+    IlcSpvModule* module;
+    unsigned bindingCount;
+    IlcBinding* bindings;
     IlcSpvId entryPointId;
     IlcSpvId uintId;
     IlcSpvId uint4Id;
@@ -249,7 +251,8 @@ static IlcSpvId emitVectorGrow(
 static void emitBinding(
     IlcCompiler* compiler,
     IlcSpvId bindingId,
-    IlcSpvWord ilId)
+    IlcSpvWord ilId,
+    VkDescriptorType vkDescriptorType)
 {
     unsigned descriptorSetIdx = 0;
 
@@ -277,6 +280,13 @@ static void emitBinding(
     ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationDescriptorSet,
                         1, &descriptorSetIdx);
     ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationBinding, 1, &ilId);
+
+    compiler->bindingCount++;
+    compiler->bindings = realloc(compiler->bindings, compiler->bindingCount * sizeof(IlcBinding));
+    compiler->bindings[compiler->bindingCount - 1] = (IlcBinding) {
+        .index = ilId,
+        .descriptorType = vkDescriptorType,
+    };
 }
 
 static const IlcRegister* addRegister(
@@ -423,7 +433,7 @@ static const IlcSampler* findOrCreateSampler(
         IlcSpvId samplerId = ilcSpvPutVariable(compiler->module, pointerId,
                                                SpvStorageClassUniformConstant);
 
-        emitBinding(compiler, samplerId, ilId);
+        emitBinding(compiler, samplerId, ilId, VK_DESCRIPTOR_TYPE_SAMPLER);
 
         const IlcSampler newSampler = {
             .id = samplerId,
@@ -988,7 +998,9 @@ static void emitResource(
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
 
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
+                spvDim == SpvDimBuffer ?
+                VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1050,7 +1062,9 @@ static void emitTypedUav(
                                             SpvStorageClassUniformConstant);
 
     ilcSpvPutName(compiler->module, imageId, "typedUav");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
+                spvDim == SpvDimBuffer ?
+                VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1079,7 +1093,8 @@ static void emitStructuredSrv(
 
     ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
     ilcSpvPutName(compiler->module, imageId, "structSrv");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
+                VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -1107,7 +1122,6 @@ static void emitStructuredLds(
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pArrayId, SpvStorageClassWorkgroup);
 
     ilcSpvPutName(compiler->module, arrayId, "structLds");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id);
 
     const IlcResource resource = {
         .id = resourceId,
@@ -2449,8 +2463,7 @@ static void emitEntryPoint(
     free(interfaces);
 }
 
-uint32_t* ilcCompileKernel(
-    unsigned* size,
+IlcShader ilcCompileKernel(
     const Kernel* kernel)
 {
     IlcSpvModule module;
@@ -2463,8 +2476,10 @@ uint32_t* ilcCompileKernel(
     IlcSpvId boolId = ilcSpvPutBoolType(&module);
 
     IlcCompiler compiler = {
-        .module = &module,
         .kernel = kernel,
+        .module = &module,
+        .bindingCount = 0,
+        .bindings = NULL,
         .entryPointId = ilcSpvAllocId(&module),
         .uintId = uintId,
         .uint4Id = ilcSpvPutVectorType(&module, uintId, 4),
@@ -2499,6 +2514,10 @@ uint32_t* ilcCompileKernel(
     free(compiler.controlFlowBlocks);
     ilcSpvFinish(&module);
 
-    *size = sizeof(IlcSpvWord) * module.buffer[ID_MAIN].wordCount;
-    return module.buffer[ID_MAIN].words;
+    return (IlcShader) {
+        .codeSize = sizeof(IlcSpvWord) * module.buffer[ID_MAIN].wordCount,
+        .code = module.buffer[ID_MAIN].words,
+        .bindingCount = compiler.bindingCount,
+        .bindings = compiler.bindings,
+    };
 }

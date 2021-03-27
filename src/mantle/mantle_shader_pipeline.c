@@ -310,42 +310,36 @@ GR_RESULT grCreateShader(
     LOGT("%p %p %p\n", device, pCreateInfo, pShader);
     GrDevice* grDevice = (GrDevice*)device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
-    unsigned spirvCodeSize;
-    uint32_t* spirvCode;
 
     if ((pCreateInfo->flags & GR_SHADER_CREATE_ALLOW_RE_Z) != 0) {
         LOGW("unhandled Re-Z flag\n");
     }
 
-    if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
-        spirvCode = ilcCompileShader(&spirvCodeSize, pCreateInfo->pCode, pCreateInfo->codeSize);
-    } else {
-        spirvCodeSize = pCreateInfo->codeSize;
-        spirvCode = (uint32_t*)pCreateInfo->pCode;
-    }
+    IlcShader ilcShader = ilcCompileShader(pCreateInfo->pCode, pCreateInfo->codeSize);
 
     const VkShaderModuleCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .codeSize = spirvCodeSize,
-        .pCode = spirvCode,
+        .codeSize = ilcShader.codeSize,
+        .pCode = ilcShader.code,
     };
 
     VkResult res = VKD.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateShaderModule failed (%d)\n", res);
+        free(ilcShader.code);
         return getGrResult(res);
     }
 
-    if ((pCreateInfo->flags & GR_SHADER_CREATE_SPIRV) == 0) {
-        free(spirvCode);
-    }
+    free(ilcShader.code);
 
     GrShader* grShader = malloc(sizeof(GrShader));
     *grShader = (GrShader) {
         .grObj = { GR_OBJ_TYPE_SHADER, grDevice },
         .shaderModule = vkShaderModule,
+        .bindingCount = ilcShader.bindingCount,
+        .bindings = ilcShader.bindings,
     };
 
     *pShader = (GR_SHADER)grShader;

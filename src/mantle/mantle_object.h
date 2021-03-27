@@ -3,6 +3,7 @@
 
 #include "vulkan_loader.h"
 #include "mantle/mantle.h"
+#include "amdilc.h"
 
 #define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
 
@@ -200,6 +201,8 @@ typedef struct _GrSampler {
 typedef struct _GrShader {
     GrObject grObj;
     VkShaderModule shaderModule;
+    unsigned bindingCount;
+    IlcBinding* bindings;
 } GrShader;
 
 typedef struct _GrQueue {
