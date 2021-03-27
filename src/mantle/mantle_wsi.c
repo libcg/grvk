@@ -18,14 +18,6 @@ static CopyCommandBuffer* mCopyCommandBuffers = 0;
 static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
 
-static unsigned getMemoryTypeIndex(
-    uint32_t memoryTypeBits)
-{
-    // Index corresponds to the location of the LSB
-    // TODO support MSVC
-    return __builtin_ctz(memoryTypeBits);
-}
-
 static CopyCommandBuffer buildCopyCommandBuffer(
     const GrDevice* grDevice,
     VkImage dstImage,
@@ -257,9 +249,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     GR_GPU_MEMORY* pMem)
 {
     LOGT("%p %p %p %p\n", device, pCreateInfo, pImage, pMem);
-    GrDevice* grDevice = (GrDevice*)device;
-    VkResult vkRes;
-    VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
+    GR_RESULT res;
 
     if (pCreateInfo->flags) {
         LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
@@ -277,48 +267,49 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .flags = 0,
     };
 
-    GR_RESULT res = grCreateImage(device, &grImageCreateInfo, pImage);
+    res = grCreateImage(device, &grImageCreateInfo, pImage);
     if (res != GR_SUCCESS) {
         return res;
     }
 
-    GrImage* grImage = (GrImage*)*pImage;
-
-    VkMemoryRequirements memoryRequirements;
-    VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memoryRequirements);
-
-    const VkMemoryAllocateInfo allocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext = NULL,
-        .allocationSize = memoryRequirements.size,
-        .memoryTypeIndex = getMemoryTypeIndex(memoryRequirements.memoryTypeBits),
-    };
-
-    vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkDeviceMemory);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkAllocateMemory failed (%d)\n", vkRes);
-        return getGrResult(vkRes);
+    GR_MEMORY_REQUIREMENTS memReqs;
+    GR_SIZE memReqsSize = sizeof(memReqs);
+    res = grGetObjectInfo(*pImage, GR_INFO_TYPE_MEMORY_REQUIREMENTS, &memReqsSize, &memReqs);
+    if (res != GR_SUCCESS) {
+        // TODO cleanup
+        return res;
     }
 
-    vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image, vkDeviceMemory, 0);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkBindImageMemory failed (%d)\n", vkRes);
-        VKD.vkFreeMemory(grDevice->device, vkDeviceMemory, NULL);
-        return getGrResult(vkRes);
+    GR_MEMORY_ALLOC_INFO allocInfo = {
+        .size = memReqs.size,
+        .alignment = memReqs.alignment,
+        .flags = 0,
+        .heapCount = memReqs.heapCount,
+        .heaps = {},
+        .memPriority = GR_MEMORY_PRIORITY_HIGH,
+    };
+
+    for (unsigned i = 0; i < memReqs.heapCount; i++) {
+        allocInfo.heaps[i] = memReqs.heaps[i];
+    }
+
+    res = grAllocMemory(device, &allocInfo, pMem);
+    if (res != GR_SUCCESS) {
+        // TODO cleanup
+        return res;
+    }
+
+    res = grBindObjectMemory(*pImage, *pMem, 0);
+    if (res != GR_SUCCESS) {
+        // TODO cleanup
+        return res;
     }
 
     // Keep track of presentable images to build copy command buffers in advance
     mPresentableImageCount++;
     mPresentableImages = realloc(mPresentableImages, sizeof(GrImage*) * mPresentableImageCount);
-    mPresentableImages[mPresentableImageCount - 1] = grImage;
+    mPresentableImages[mPresentableImageCount - 1] = (GrImage*)*pImage;
 
-    GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
-    *grGpuMemory = (GrGpuMemory) {
-        .grObj = { GR_OBJ_TYPE_GPU_MEMORY, grDevice },
-        .deviceMemory = vkDeviceMemory,
-    };
-
-    *pMem = (GR_GPU_MEMORY)grGpuMemory;
     return GR_SUCCESS;
 }
 
