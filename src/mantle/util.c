@@ -280,6 +280,8 @@ VkImageLayout getVkImageLayout(
     switch (imageState) {
     case GR_IMAGE_STATE_DATA_TRANSFER:
         return VK_IMAGE_LAYOUT_GENERAL; // Direction is unknown
+    case GR_IMAGE_STATE_MULTI_SHADER_READ_ONLY:
+        return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     case GR_IMAGE_STATE_UNINITIALIZED:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
@@ -359,6 +361,13 @@ VkAccessFlags getVkAccessFlagsImage(
     GR_IMAGE_STATE imageState)
 {
     switch (imageState) {
+    case GR_IMAGE_STATE_DATA_TRANSFER:
+        return VK_ACCESS_TRANSFER_READ_BIT |
+               VK_ACCESS_TRANSFER_WRITE_BIT |
+               VK_ACCESS_HOST_READ_BIT |
+               VK_ACCESS_HOST_WRITE_BIT;
+    case GR_IMAGE_STATE_MULTI_SHADER_READ_ONLY:
+        return VK_ACCESS_SHADER_READ_BIT;
     case GR_IMAGE_STATE_UNINITIALIZED:
         return 0;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
@@ -391,14 +400,25 @@ VkAccessFlags getVkAccessFlagsMemory(
                VK_ACCESS_HOST_WRITE_BIT;
     case GR_MEMORY_STATE_GRAPHICS_SHADER_READ_ONLY:
     case GR_MEMORY_STATE_COMPUTE_SHADER_READ_ONLY:
-        return VK_ACCESS_SHADER_READ_BIT;
+        return VK_ACCESS_UNIFORM_READ_BIT |
+               VK_ACCESS_SHADER_READ_BIT;
     case GR_MEMORY_STATE_GRAPHICS_SHADER_WRITE_ONLY:
     case GR_MEMORY_STATE_COMPUTE_SHADER_WRITE_ONLY:
         return VK_ACCESS_SHADER_WRITE_BIT;
     case GR_MEMORY_STATE_GRAPHICS_SHADER_READ_WRITE:
     case GR_MEMORY_STATE_COMPUTE_SHADER_READ_WRITE:
-        return VK_ACCESS_SHADER_READ_BIT |
+        return VK_ACCESS_UNIFORM_READ_BIT |
+               VK_ACCESS_SHADER_READ_BIT |
                VK_ACCESS_SHADER_WRITE_BIT;
+    case GR_MEMORY_STATE_MULTI_USE_READ_ONLY:
+        return VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
+               VK_ACCESS_INDEX_READ_BIT |
+               VK_ACCESS_UNIFORM_READ_BIT |
+               VK_ACCESS_SHADER_READ_BIT;
+    case GR_MEMORY_STATE_INDEX_DATA:
+        return VK_ACCESS_INDEX_READ_BIT;
+    case GR_MEMORY_STATE_INDIRECT_ARG:
+        return VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
     default:
         break;
     }
@@ -427,6 +447,7 @@ VkSampleCountFlagBits getVkSampleCountFlagBits(
     GR_UINT samples)
 {
     switch (samples) {
+    case 0:
     case 1:
         return VK_SAMPLE_COUNT_1_BIT;
     case 2:
