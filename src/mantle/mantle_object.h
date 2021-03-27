@@ -143,6 +143,7 @@ typedef struct _GrFence {
 typedef struct _GrGpuMemory {
     GrObject grObj; // FIXME base object?
     VkDeviceMemory deviceMemory;
+    VkDeviceSize deviceSize;
     VkBuffer buffer;
 } GrGpuMemory;
 

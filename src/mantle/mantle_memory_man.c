@@ -128,38 +128,12 @@ GR_RESULT grAllocMemory(
         return GR_ERROR_OUT_OF_GPU_MEMORY;
     }
 
-    const VkBufferCreateInfo bufferCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .size = pAllocInfo->size,
-        .usage = VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, // FIXME incomplete
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices = NULL,
-    };
-
-    VkBuffer vkBuffer = VK_NULL_HANDLE;
-    vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkCreateBuffer failed (%d)\n", vkRes);
-        VKD.vkFreeMemory(grDevice->device, vkMemory, NULL);
-        return getGrResult(vkRes);
-    }
-
-    vkRes = VKD.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
-        VKD.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
-        VKD.vkFreeMemory(grDevice->device, vkMemory, NULL);
-        return getGrResult(vkRes);
-    }
-
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
     *grGpuMemory = (GrGpuMemory) {
         .grObj = { GR_OBJ_TYPE_GPU_MEMORY, grDevice },
         .deviceMemory = vkMemory,
-        .buffer = vkBuffer,
+        .deviceSize = pAllocInfo->size,
+        .buffer = VK_NULL_HANDLE, // Created on demand
     };
 
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
