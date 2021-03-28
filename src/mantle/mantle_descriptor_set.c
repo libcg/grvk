@@ -113,10 +113,7 @@ GR_VOID grAttachMemoryViewDescriptors(
         VkBufferView vkBufferView = VK_NULL_HANDLE;
         VkResult res;
 
-        if (grGpuMemory->buffer == VK_NULL_HANDLE) {
-            // Memory was allocated but no buffer is available, create one
-            grGpuMemoryBindBuffer(grGpuMemory);
-        }
+        grGpuMemoryBindBuffer(grGpuMemory);
 
         // Mantle doesn't have memory view objects, create a buffer view
         // FIXME what is info->state for?

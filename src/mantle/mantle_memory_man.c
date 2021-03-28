@@ -6,6 +6,11 @@ void grGpuMemoryBindBuffer(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
     VkResult vkRes;
 
+    if (grGpuMemory->buffer != VK_NULL_HANDLE) {
+        // Already bound
+        return;
+    }
+
     // TODO recreate the buffer for specific usages
     const VkBufferCreateInfo bufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,

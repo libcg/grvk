@@ -241,10 +241,7 @@ GR_VOID grCmdPrepareMemoryRegions(
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)stateTransition->mem;
 
-        if (grGpuMemory->buffer == VK_NULL_HANDLE) {
-            // Memory was allocated but no buffer is available, create one
-            grGpuMemoryBindBuffer(grGpuMemory);
-        }
+        grGpuMemoryBindBuffer(grGpuMemory);
 
         const VkBufferMemoryBarrier bufferMemoryBarrier = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -381,6 +378,39 @@ GR_VOID grCmdDrawIndexed(
 
     VKD.vkCmdDrawIndexed(grCmdBuffer->commandBuffer,
                          indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
+GR_VOID grCmdCopyMemory(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_GPU_MEMORY srcMem,
+    GR_GPU_MEMORY destMem,
+    GR_UINT regionCount,
+    const GR_MEMORY_COPY* pRegions)
+{
+    LOGT("%p %p %p %u %p\n", cmdBuffer, srcMem, destMem, regionCount, pRegions);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
+    GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
+
+    grGpuMemoryBindBuffer(grSrcGpuMemory);
+    grGpuMemoryBindBuffer(grDstGpuMemory);
+
+    VkBufferCopy* vkRegions = malloc(regionCount * sizeof(VkBufferCopy));
+    for (unsigned i = 0; i < regionCount; i++) {
+        const GR_MEMORY_COPY* region = &pRegions[i];
+
+        vkRegions[i] = (VkBufferCopy) {
+            .srcOffset = region->srcOffset,
+            .dstOffset = region->destOffset,
+            .size = region->copySize,
+        };
+    }
+
+    VKD.vkCmdCopyBuffer(grCmdBuffer->commandBuffer, grSrcGpuMemory->buffer, grDstGpuMemory->buffer,
+                        regionCount, vkRegions);
+
+    free(vkRegions);
 }
 
 GR_VOID grCmdCopyImage(
