@@ -42,8 +42,8 @@ GR_RESULT grGetObjectInfo(
                    objType == GR_OBJ_TYPE_PIPELINE) {
             // No memory requirements
             *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
-                .size = 0,
-                .alignment = 1,
+                .size = 4,
+                .alignment = 4,
                 .heapCount = 0,
             };
         } else {
