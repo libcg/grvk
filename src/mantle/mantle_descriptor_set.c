@@ -74,7 +74,7 @@ GR_VOID grAttachSamplerDescriptors(
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_SAMPLER,
-            .vkSampler = grSampler->sampler,
+            .sampler.vkSampler = grSampler->sampler,
         };
     }
 }
@@ -89,13 +89,18 @@ GR_VOID grAttachImageViewDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
-    LOGW("unhandled image view descriptors\n");
-
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
+        const GR_IMAGE_VIEW_ATTACH_INFO* info = &pImageViews[i];
+        const GrImageView* grImageView = (GrImageView*)info->view;
 
         clearDescriptorSetSlot(grDevice, slot);
-        // TODO implement
+
+        // FIXME what is info->state for?
+        *slot = (DescriptorSetSlot) {
+            .type = SLOT_TYPE_IMAGE_VIEW,
+            .imageView.vkImageView = grImageView->imageView,
+        };
     }
 }
 

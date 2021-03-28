@@ -107,19 +107,21 @@ static void updateVkDescriptorSet(
 
         if (binding->descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) {
             if (slot->type != SLOT_TYPE_SAMPLER) {
-                LOGE("unexpected slot type %d\n", slot->type);
+                LOGE("unexpected slot type %d for descriptor type %d\n",
+                     slot->type, binding->descriptorType);
                 assert(false);
             }
 
             imageInfo = (VkDescriptorImageInfo) {
-                .sampler = slot->vkSampler,
+                .sampler = slot->sampler.vkSampler,
                 .imageView = VK_NULL_HANDLE,
                 .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             };
             writeDescriptorSet.pImageInfo = &imageInfo;
         } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER) {
             if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
-                LOGE("unexpected slot type %d\n", slot->type);
+                LOGE("unexpected slot type %d for descriptor type %d\n",
+                     slot->type, binding->descriptorType);
                 assert(false);
             }
 

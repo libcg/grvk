@@ -53,16 +53,15 @@ typedef struct _DescriptorSetSlot
 {
     DescriptorSetSlotType type;
     union {
-        // TODO Image View
-        // Sampler
-        VkSampler vkSampler;
-
-        // Memory View
+        struct {
+            VkSampler vkSampler;
+        } sampler;
+        struct {
+            VkImageView vkImageView;
+        } imageView;
         struct {
             VkBufferView vkBufferView;
         } memoryView;
-
-        // Nested
         struct {
             const GrDescriptorSet* nextSet;
             unsigned slotOffset;
