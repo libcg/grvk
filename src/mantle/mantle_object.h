@@ -50,7 +50,8 @@ typedef struct _DescriptorSetSlot
     DescriptorSetSlotType type;
     union {
         // TODO Image View
-        // TODO Sampler
+        // Sampler
+        VkSampler vkSampler;
 
         // Memory View
         struct {

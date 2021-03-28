@@ -84,6 +84,7 @@ static void updateVkDescriptorSet(
             assert(false);
         }
 
+        VkDescriptorImageInfo imageInfo;
         VkWriteDescriptorSet writeDescriptorSet = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = NULL,
@@ -97,7 +98,19 @@ static void updateVkDescriptorSet(
             .pTexelBufferView = NULL, // Set below
         };
 
-        if (binding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER) {
+        if (binding->descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) {
+            if (slot->type != SLOT_TYPE_SAMPLER) {
+                LOGE("unexpected slot type %d\n", slot->type);
+                assert(false);
+            }
+
+            imageInfo = (VkDescriptorImageInfo) {
+                .sampler = slot->vkSampler,
+                .imageView = VK_NULL_HANDLE,
+                .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            };
+            writeDescriptorSet.pImageInfo = &imageInfo;
+        } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER) {
             if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
                 LOGE("unexpected slot type %d\n", slot->type);
                 assert(false);

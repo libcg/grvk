@@ -66,13 +66,16 @@ GR_VOID grAttachSamplerDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
-    LOGW("unhandled sampler descriptors\n");
-
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
+        const GrSampler* grSampler = (GrSampler*)pSamplers[i];
 
         clearDescriptorSetSlot(grDevice, slot);
-        // TODO implement
+
+        *slot = (DescriptorSetSlot) {
+            .type = SLOT_TYPE_SAMPLER,
+            .vkSampler = grSampler->sampler,
+        };
     }
 }
 
