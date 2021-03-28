@@ -219,4 +219,7 @@ typedef struct _GrViewportStateObject {
     unsigned scissorCount;
 } GrViewportStateObject;
 
+void grGpuMemoryBindBuffer(
+    GrGpuMemory* grGpuMemory);
+
 #endif // GR_OBJECT_H_

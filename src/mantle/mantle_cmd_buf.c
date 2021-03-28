@@ -113,49 +113,7 @@ static void initCmdBufferResources(
     grCmdBuffer->isDirty = false;
 }
 
-static VkBuffer getVkBuffer(
-    const GrDevice* grDevice,
-    VkDeviceMemory deviceMemory,
-    VkDeviceSize deviceSize)
-{
-    VkBuffer vkBuffer = VK_NULL_HANDLE;
-    VkResult vkRes;
 
-    // TODO recreate the buffer for specific usages
-    const VkBufferCreateInfo bufferCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .size = deviceSize,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                 VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
-                 VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT |
-                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
-                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                 VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 0,
-        .pQueueFamilyIndices = NULL,
-    };
-
-    vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkCreateBuffer failed (%d)\n", vkRes);
-        return VK_NULL_HANDLE;
-    }
-
-    vkRes = VKD.vkBindBufferMemory(grDevice->device, vkBuffer, deviceMemory, 0);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
-        VKD.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
-        return VK_NULL_HANDLE;
-    }
-
-    return vkBuffer;
-}
 
 // Command Buffer Building Functions
 
@@ -285,8 +243,7 @@ GR_VOID grCmdPrepareMemoryRegions(
 
         if (grGpuMemory->buffer == VK_NULL_HANDLE) {
             // Memory was allocated but no buffer is available, create one
-            grGpuMemory->buffer = getVkBuffer(grDevice, grGpuMemory->deviceMemory,
-                                              grGpuMemory->deviceSize);
+            grGpuMemoryBindBuffer(grGpuMemory);
         }
 
         const VkBufferMemoryBarrier bufferMemoryBarrier = {

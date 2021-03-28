@@ -1,5 +1,45 @@
 #include "mantle_internal.h"
 
+void grGpuMemoryBindBuffer(
+    GrGpuMemory* grGpuMemory)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
+    VkResult vkRes;
+
+    // TODO recreate the buffer for specific usages
+    const VkBufferCreateInfo bufferCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .size = grGpuMemory->deviceSize,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                 VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
+                 VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT |
+                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                 VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = NULL,
+    };
+
+    vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &grGpuMemory->buffer);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateBuffer failed (%d)\n", vkRes);
+        assert(false);
+    }
+
+    vkRes = VKD.vkBindBufferMemory(grDevice->device, grGpuMemory->buffer,
+                                   grGpuMemory->deviceMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
+        assert(false);
+    }
+}
+
 // Memory Management Functions
 
 GR_RESULT grGetMemoryHeapCount(

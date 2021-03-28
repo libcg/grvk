@@ -109,8 +109,14 @@ GR_VOID grAttachMemoryViewDescriptors(
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GR_MEMORY_VIEW_ATTACH_INFO* info = &pMemViews[i];
+        GrGpuMemory* grGpuMemory = (GrGpuMemory*)info->mem;
         VkBufferView vkBufferView = VK_NULL_HANDLE;
         VkResult res;
+
+        if (grGpuMemory->buffer == VK_NULL_HANDLE) {
+            // Memory was allocated but no buffer is available, create one
+            grGpuMemoryBindBuffer(grGpuMemory);
+        }
 
         // Mantle doesn't have memory view objects, create a buffer view
         // FIXME what is info->state for?
@@ -118,7 +124,7 @@ GR_VOID grAttachMemoryViewDescriptors(
             .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
-            .buffer = ((GrGpuMemory*)info->mem)->buffer,
+            .buffer = grGpuMemory->buffer,
             .format = getVkFormat(info->format),
             .offset = info->offset,
             .range = info->range,
