@@ -235,16 +235,6 @@ GR_VOID grCmdDispatchIndirect(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdCopyMemoryToImage(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY srcMem,
-    GR_IMAGE destImage,
-    GR_UINT regionCount,
-    const GR_MEMORY_IMAGE_COPY* pRegions)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdCopyImageToMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,

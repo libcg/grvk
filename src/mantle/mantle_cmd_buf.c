@@ -447,6 +447,46 @@ GR_VOID grCmdCopyImage(
     free(vkRegions);
 }
 
+GR_VOID grCmdCopyMemoryToImage(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_GPU_MEMORY srcMem,
+    GR_IMAGE destImage,
+    GR_UINT regionCount,
+    const GR_MEMORY_IMAGE_COPY* pRegions)
+{
+    LOGT("%p %p %p %u %p\n", cmdBuffer, srcMem, destImage, regionCount, pRegions);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
+    GrImage* grDstImage = (GrImage*)destImage;
+
+    grGpuMemoryBindBuffer(grSrcGpuMemory);
+
+    VkBufferImageCopy* vkRegions = malloc(regionCount * sizeof(VkBufferImageCopy));
+    for (unsigned i = 0; i < regionCount; i++) {
+        const GR_MEMORY_IMAGE_COPY* region = &pRegions[i];
+
+        vkRegions[i] = (VkBufferImageCopy) {
+            .bufferOffset = region->memOffset,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource = getVkImageSubresourceLayers(region->imageSubresource),
+            .imageOffset = { region->imageOffset.x, region->imageOffset.y, region->imageOffset.z },
+            .imageExtent = {
+                region->imageExtent.width,
+                region->imageExtent.height,
+                region->imageExtent.depth,
+            },
+        };
+    }
+
+    VKD.vkCmdCopyBufferToImage(grCmdBuffer->commandBuffer, grSrcGpuMemory->buffer,
+                               grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                               regionCount, vkRegions);
+
+    free(vkRegions);
+}
+
 GR_VOID grCmdClearColorImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
