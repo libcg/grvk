@@ -31,17 +31,14 @@ static VkFramebuffer getVkFramebuffer(
     return framebuffer;
 }
 
-static void updateVkDescriptorSet(
-    const GrDevice* grDevice,
-    VkDescriptorSet vkDescriptorSet,
-    const GR_PIPELINE_SHADER* shaderInfo,
-    const GrDescriptorSet* grDescriptorSet)
+static const DescriptorSetSlot* getDescriptorSetSlot(
+    const GrDescriptorSet* grDescriptorSet,
+    const GR_DESCRIPTOR_SET_MAPPING* mapping,
+    uint32_t bindingIndex)
 {
-    const GR_DESCRIPTOR_SET_MAPPING* mapping = &shaderInfo->descriptorSetMapping[0];
-
     for (unsigned i = 0; i < mapping->descriptorCount; i++) {
         const GR_DESCRIPTOR_SLOT_INFO* slotInfo = &mapping->pDescriptorInfo[i];
-        DescriptorSetSlot* slot = &grDescriptorSet->slots[i];
+        const DescriptorSetSlot* slot = &grDescriptorSet->slots[i];
 
         if (slotInfo->slotObjectType == GR_SLOT_UNUSED) {
             continue;
@@ -50,19 +47,67 @@ static void updateVkDescriptorSet(
             continue;
         }
 
-        // TODO handle more descriptor types
-        const VkWriteDescriptorSet writeDescriptorSet = {
+        uint32_t slotBinding = slotInfo->shaderEntityIndex;
+        if (slotInfo->slotObjectType != GR_SLOT_SHADER_SAMPLER) {
+            slotBinding += ILC_BASE_RESOURCE_ID;
+        }
+
+        if (slotBinding == bindingIndex) {
+            return slot;
+        }
+    }
+
+    return NULL;
+}
+
+static void updateVkDescriptorSet(
+    const GrDevice* grDevice,
+    VkDescriptorSet vkDescriptorSet,
+    const GR_PIPELINE_SHADER* shaderInfo,
+    const GrDescriptorSet* grDescriptorSet)
+{
+    const GrShader* grShader = (GrShader*)shaderInfo->shader;
+
+    if (grShader == NULL) {
+        // Nothing to update
+        return;
+    }
+
+    for (unsigned i = 0; i < grShader->bindingCount; i++) {
+        const IlcBinding* binding = &grShader->bindings[i];
+
+        const DescriptorSetSlot* slot = getDescriptorSetSlot(grDescriptorSet,
+                                                             &shaderInfo->descriptorSetMapping[0],
+                                                             binding->index);
+        if (slot == NULL) {
+            LOGE("can't find slot for binding %d\n", binding->index);
+            assert(false);
+        }
+
+        VkWriteDescriptorSet writeDescriptorSet = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = NULL,
             .dstSet = vkDescriptorSet,
-            .dstBinding = ILC_BASE_RESOURCE_ID + slotInfo->shaderEntityIndex,
+            .dstBinding = binding->index,
             .dstArrayElement = 0,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-            .pImageInfo = NULL,
-            .pBufferInfo = NULL,
-            .pTexelBufferView = &slot->memoryView.vkBufferView,
+            .descriptorType = binding->descriptorType,
+            .pImageInfo = NULL, // Set below
+            .pBufferInfo = NULL, // Set below
+            .pTexelBufferView = NULL, // Set below
         };
+
+        if (binding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER) {
+            if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
+                LOGE("unexpected slot type %d\n", slot->type);
+                assert(false);
+            }
+
+            writeDescriptorSet.pTexelBufferView = &slot->memoryView.vkBufferView;
+        } else {
+            LOGE("unhandled descriptor type %d\n", binding->descriptorType);
+            assert(false);
+        }
 
         // TODO batch
         VKD.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
