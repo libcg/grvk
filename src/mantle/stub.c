@@ -183,15 +183,6 @@ GR_RESULT grOpenPeerImage(
     return GR_UNSUPPORTED;
 }
 
-// Command Buffer Management Functions
-
-GR_RESULT grResetCommandBuffer(
-    GR_CMD_BUFFER cmdBuffer)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Command Buffer Building Functions
 
 GR_VOID grCmdBindDynamicMemoryView(

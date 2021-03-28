@@ -12,6 +12,8 @@ GR_RESULT grCreateCommandBuffer(
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
 
+    // TODO check params
+
     if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
         vkCommandPool = grDevice->universalCommandPool;
     } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
@@ -62,6 +64,8 @@ GR_RESULT grBeginCommandBuffer(
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     VkCommandBufferUsageFlags vkUsageFlags = 0;
 
+    // TODO check params
+
     if ((flags & GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT) != 0) {
         vkUsageFlags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     }
@@ -89,6 +93,8 @@ GR_RESULT grEndCommandBuffer(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
+    // TODO check params
+
     if (grCmdBuffer->hasActiveRenderPass) {
         VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
     }
@@ -96,6 +102,30 @@ GR_RESULT grEndCommandBuffer(
     VkResult res = VKD.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
     if (res != VK_SUCCESS) {
         LOGE("vkEndCommandBuffer failed (%d)\n", res);
+        return getGrResult(res);
+    }
+
+    return GR_SUCCESS;
+}
+
+GR_RESULT grResetCommandBuffer(
+    GR_CMD_BUFFER cmdBuffer)
+{
+    LOGT("%p\n", cmdBuffer);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+
+    if (grCmdBuffer == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grCmdBuffer) != GR_OBJ_TYPE_COMMAND_BUFFER) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    VkResult res = VKD.vkResetCommandBuffer(grCmdBuffer->commandBuffer,
+                                            VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+    if (res != VK_SUCCESS) {
+        LOGE("vkResetCommandBuffer failed (%d)\n", res);
         return getGrResult(res);
     }
 
