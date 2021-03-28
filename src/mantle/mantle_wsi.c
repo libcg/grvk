@@ -263,7 +263,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .arraySize = 1,
         .samples = 1,
         .tiling = GR_OPTIMAL_TILING,
-        .usage = GR_IMAGE_USAGE_COLOR_TARGET,
+        .usage = pCreateInfo->usage,
         .flags = 0,
     };
 
