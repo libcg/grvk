@@ -33,6 +33,7 @@ static VkFramebuffer getVkFramebuffer(
 
 static const DescriptorSetSlot* getDescriptorSetSlot(
     const GrDescriptorSet* grDescriptorSet,
+    unsigned slotOffset,
     const GR_DESCRIPTOR_SET_MAPPING* mapping,
     uint32_t bindingIndex)
 {
@@ -43,8 +44,13 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
         if (slotInfo->slotObjectType == GR_SLOT_UNUSED) {
             continue;
         } else if (slotInfo->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-            LOGW("unhandled nested descriptor set\n");
-            continue;
+            if (slot->type != SLOT_TYPE_NESTED) {
+                LOGE("unexpected slot type %d (should be nested)\n", slot->type);
+                assert(false);
+            }
+
+            return getDescriptorSetSlot(slot->nested.nextSet, slot->nested.slotOffset,
+                                        slotInfo->pNextLevelSet, bindingIndex);
         }
 
         uint32_t slotBinding = slotInfo->shaderEntityIndex;
@@ -76,7 +82,7 @@ static void updateVkDescriptorSet(
     for (unsigned i = 0; i < grShader->bindingCount; i++) {
         const IlcBinding* binding = &grShader->bindings[i];
 
-        const DescriptorSetSlot* slot = getDescriptorSetSlot(grDescriptorSet,
+        const DescriptorSetSlot* slot = getDescriptorSetSlot(grDescriptorSet, 0,
                                                              &shaderInfo->descriptorSetMapping[0],
                                                              binding->index);
         if (slot == NULL) {

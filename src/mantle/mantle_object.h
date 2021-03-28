@@ -45,6 +45,10 @@ typedef enum _DescriptorSetSlotType
     SLOT_TYPE_NESTED,
 } DescriptorSetSlotType;
 
+typedef struct _GrDescriptorSet GrDescriptorSet;
+typedef struct _GrDevice GrDevice;
+typedef struct _GrPipeline GrPipeline;
+
 typedef struct _DescriptorSetSlot
 {
     DescriptorSetSlotType type;
@@ -58,13 +62,13 @@ typedef struct _DescriptorSetSlot
             VkBufferView vkBufferView;
         } memoryView;
 
-        // TODO Nested
+        // Nested
+        struct {
+            const GrDescriptorSet* nextSet;
+            unsigned slotOffset;
+        } nested;
     };
 } DescriptorSetSlot;
-
-typedef struct _GrDescriptorSet GrDescriptorSet;
-typedef struct _GrDevice GrDevice;
-typedef struct _GrPipeline GrPipeline;
 
 // Base object
 typedef struct _GrBaseObject {

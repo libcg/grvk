@@ -154,13 +154,19 @@ GR_VOID grAttachNestedDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
-    LOGW("unhandled nested descriptors\n");
-
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
+        const GR_DESCRIPTOR_SET_ATTACH_INFO* info = &pNestedDescriptorSets[i];
 
         clearDescriptorSetSlot(grDevice, slot);
-        // TODO implement
+
+        *slot = (DescriptorSetSlot) {
+            .type = SLOT_TYPE_NESTED,
+            .nested = {
+                .nextSet = (GrDescriptorSet*)info->descriptorSet,
+                .slotOffset = info->slotOffset,
+            },
+        };
     }
 }
 
