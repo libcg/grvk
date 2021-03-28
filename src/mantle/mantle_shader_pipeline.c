@@ -156,19 +156,47 @@ static VkDescriptorPool getVkDescriptorPool(
 {
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
-    // FIXME use shader reflection to enumerate all descriptor types
-    const VkDescriptorPoolSize uniformTexelBufferPoolSize = {
-        .type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-        .descriptorCount = 16 * MAX_STAGE_COUNT, // FIXME count from mapping
-    };
+    // Count descriptor types from shader bindings in all stages
+    unsigned descriptorTypeCounts[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1] = { 0 };
+    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+        const GrShader* grShader = (GrShader*)stages[i].shader->shader;
+
+        if (grShader != NULL) {
+            for (unsigned j = 0; j < grShader->bindingCount; j++) {
+                const IlcBinding* binding = &grShader->bindings[j];
+
+                if (binding->descriptorType >= COUNT_OF(descriptorTypeCounts)) {
+                    LOGE("unexpected descriptor type %d\n", binding->descriptorType);
+                    assert(false);
+                }
+
+                descriptorTypeCounts[binding->descriptorType]++;
+            }
+        }
+    }
+
+    // Create pool sizes
+    unsigned descriptorPoolSizeCount = 0;
+    VkDescriptorPoolSize* descriptorPoolSizes = NULL;
+    for (unsigned i = 0; i < COUNT_OF(descriptorTypeCounts); i++) {
+        if (descriptorTypeCounts[i] > 0) {
+            descriptorPoolSizeCount++;
+            descriptorPoolSizes = realloc(descriptorPoolSizes,
+                                          descriptorPoolSizeCount * sizeof(VkDescriptorPoolSize));
+            descriptorPoolSizes[descriptorPoolSizeCount - 1] = (VkDescriptorPoolSize) {
+                .type = i,
+                .descriptorCount = descriptorTypeCounts[i],
+            };
+        }
+    }
 
     const VkDescriptorPoolCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .maxSets = MAX_STAGE_COUNT, // TODO optimize
-        .poolSizeCount = 1,
-        .pPoolSizes = &uniformTexelBufferPoolSize,
+        .poolSizeCount = descriptorPoolSizeCount,
+        .pPoolSizes = descriptorPoolSizes,
     };
 
     VkResult res = VKD.vkCreateDescriptorPool(grDevice->device, &createInfo, NULL, &descriptorPool);
@@ -176,6 +204,7 @@ static VkDescriptorPool getVkDescriptorPool(
         LOGE("vkCreateDescriptorPool failed (%d)\n", res);
     }
 
+    free(descriptorPoolSizes);
     return descriptorPool;
 }
 
