@@ -50,39 +50,6 @@ static void copyPipelineShader(
     dst->dynamicMemoryViewMapping = src->dynamicMemoryViewMapping;
 }
 
-static void addBindingsFromDescriptorSetMapping(
-    unsigned* bindingCount,
-    VkDescriptorSetLayoutBinding** bindings,
-    const Stage* stage,
-    const GR_DESCRIPTOR_SET_MAPPING* mapping)
-{
-    for (unsigned i = 0; i < mapping->descriptorCount; i++) {
-        const GR_DESCRIPTOR_SLOT_INFO* info = &mapping->pDescriptorInfo[i];
-
-        if (info->slotObjectType == GR_SLOT_UNUSED) {
-            // Skip over
-            continue;
-        } else if (info->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-            // Go one level deeper
-            addBindingsFromDescriptorSetMapping(bindingCount, bindings, stage, info->pNextLevelSet);
-            continue;
-        }
-
-        (*bindingCount)++;
-        *bindings = realloc(*bindings, *bindingCount * sizeof(VkDescriptorSetLayoutBinding));
-
-        // FIXME figure out descriptorType from shader reflection
-        (*bindings)[*bindingCount - 1] = (VkDescriptorSetLayoutBinding) {
-            .binding = (info->slotObjectType != GR_SLOT_SHADER_SAMPLER ? ILC_BASE_RESOURCE_ID : 0) +
-                       info->shaderEntityIndex,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = stage->flags,
-            .pImmutableSamplers = NULL,
-        };
-    }
-}
-
 static VkDescriptorSetLayout getVkDescriptorSetLayout(
     const GrDevice* grDevice,
     const Stage* stage)
@@ -92,20 +59,22 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
     VkDescriptorSetLayoutBinding* bindings = NULL;
 
     if (stage->shader->shader != GR_NULL_HANDLE) {
-        for (unsigned i = 1; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-            const GR_DESCRIPTOR_SET_MAPPING* mapping = &stage->shader->descriptorSetMapping[i];
+        const GrShader* grShader = stage->shader->shader;
 
-            if (mapping->descriptorCount > 0) {
-                LOGW("multiple descriptor sets per stage is not supported\n");
-                break;
-            }
+        bindingCount = grShader->bindingCount;
+        bindings = malloc(bindingCount * sizeof(VkDescriptorSetLayoutBinding));
+
+        for (unsigned i = 0; i < grShader->bindingCount; i++) {
+            const IlcBinding* binding = &grShader->bindings[i];
+
+            bindings[i] = (VkDescriptorSetLayoutBinding) {
+                .binding = binding->index,
+                .descriptorType = binding->descriptorType,
+                .descriptorCount = 1,
+                .stageFlags = stage->flags,
+                .pImmutableSamplers = NULL,
+            };
         }
-
-        // TODO handle all descriptor sets
-        const GR_DESCRIPTOR_SET_MAPPING* mapping = &stage->shader->descriptorSetMapping[0];
-
-        // Mapping can be recursive
-        addBindingsFromDescriptorSetMapping(&bindingCount, &bindings, stage, mapping);
     }
 
     const VkDescriptorSetLayoutCreateInfo createInfo = {
