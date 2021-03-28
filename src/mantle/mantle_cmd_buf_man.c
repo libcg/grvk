@@ -44,6 +44,7 @@ GR_RESULT grCreateCommandBuffer(
         .commandBuffer = vkCommandBuffer,
         .grPipeline = NULL,
         .grDescriptorSet = NULL,
+        .slotOffset = 0,
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },
         .minExtent = { 0, 0, 0 },

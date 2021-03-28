@@ -39,7 +39,7 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
 {
     for (unsigned i = 0; i < mapping->descriptorCount; i++) {
         const GR_DESCRIPTOR_SLOT_INFO* slotInfo = &mapping->pDescriptorInfo[i];
-        const DescriptorSetSlot* slot = &grDescriptorSet->slots[i];
+        const DescriptorSetSlot* slot = &grDescriptorSet->slots[slotOffset + i];
 
         if (slotInfo->slotObjectType == GR_SLOT_UNUSED) {
             continue;
@@ -69,6 +69,7 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
 static void updateVkDescriptorSet(
     const GrDevice* grDevice,
     VkDescriptorSet vkDescriptorSet,
+    unsigned slotOffset,
     const GR_PIPELINE_SHADER* shaderInfo,
     const GrDescriptorSet* grDescriptorSet)
 {
@@ -82,7 +83,7 @@ static void updateVkDescriptorSet(
     for (unsigned i = 0; i < grShader->bindingCount; i++) {
         const IlcBinding* binding = &grShader->bindings[i];
 
-        const DescriptorSetSlot* slot = getDescriptorSetSlot(grDescriptorSet, 0,
+        const DescriptorSetSlot* slot = getDescriptorSetSlot(grDescriptorSet, slotOffset,
                                                              &shaderInfo->descriptorSetMapping[0],
                                                              binding->index);
         if (slot == NULL) {
@@ -141,8 +142,8 @@ static void initCmdBufferResources(
     VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
 
     for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
-        updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], &grPipeline->shaderInfos[i],
-                              grCmdBuffer->grDescriptorSet);
+        updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], grCmdBuffer->slotOffset,
+                              &grPipeline->shaderInfos[i], grCmdBuffer->grDescriptorSet);
     }
 
     VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
@@ -284,11 +285,10 @@ GR_VOID grCmdBindDescriptorSet(
         LOGW("unsupported bind point 0x%x\n", pipelineBindPoint);
     } else if (index != 0) {
         LOGW("unsupported index %u\n", index);
-    } else if (slotOffset != 0) {
-        LOGW("unsupported slot offset %u\n", slotOffset);
     }
 
     grCmdBuffer->grDescriptorSet = grDescriptorSet;
+    grCmdBuffer->slotOffset = slotOffset;
     grCmdBuffer->isDirty = true;
 }
 
