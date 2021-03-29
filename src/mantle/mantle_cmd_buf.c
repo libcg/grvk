@@ -389,7 +389,7 @@ GR_VOID grCmdBindTargets(
     LOGT("%p %u %p %p\n", cmdBuffer, colorTargetCount, pColorTargets, pDepthTarget);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
-    if (pDepthTarget != NULL) {
+    if (pDepthTarget != NULL && pDepthTarget->view != GR_NULL_HANDLE) {
         LOGW("unhandled depth target\n");
     }
 
