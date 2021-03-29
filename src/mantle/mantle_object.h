@@ -86,6 +86,7 @@ typedef struct _GrCmdBuffer {
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
     unsigned slotOffset;
+    VkBufferView dynamicBufferView;
     unsigned attachmentCount;
     VkImageView attachments[GR_MAX_COLOR_TARGETS + 1]; // Extra depth target
     VkExtent3D minExtent;

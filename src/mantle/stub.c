@@ -185,14 +185,6 @@ GR_RESULT grOpenPeerImage(
 
 // Command Buffer Building Functions
 
-GR_VOID grCmdBindDynamicMemoryView(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM pipelineBindPoint,
-    const GR_MEMORY_VIEW_ATTACH_INFO* pMemView)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdBindIndexData(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,

@@ -71,9 +71,15 @@ static void updateVkDescriptorSet(
     VkDescriptorSet vkDescriptorSet,
     unsigned slotOffset,
     const GR_PIPELINE_SHADER* shaderInfo,
-    const GrDescriptorSet* grDescriptorSet)
+    const GrDescriptorSet* grDescriptorSet,
+    VkBufferView dynamicBufferView)
 {
     const GrShader* grShader = (GrShader*)shaderInfo->shader;
+    const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping = &shaderInfo->dynamicMemoryViewMapping;
+    const DescriptorSetSlot dynamicMemoryViewSlot = {
+        .type = SLOT_TYPE_MEMORY_VIEW,
+        .memoryView.vkBufferView = dynamicBufferView,
+    };
 
     if (grShader == NULL) {
         // Nothing to update
@@ -82,10 +88,16 @@ static void updateVkDescriptorSet(
 
     for (unsigned i = 0; i < grShader->bindingCount; i++) {
         const IlcBinding* binding = &grShader->bindings[i];
+        const DescriptorSetSlot* slot;
 
-        const DescriptorSetSlot* slot = getDescriptorSetSlot(grDescriptorSet, slotOffset,
-                                                             &shaderInfo->descriptorSetMapping[0],
-                                                             binding->index);
+        if (dynamicMapping->slotObjectType != GR_SLOT_UNUSED &&
+            (binding->index == (ILC_BASE_RESOURCE_ID + dynamicMapping->shaderEntityIndex))) {
+            slot = &dynamicMemoryViewSlot;
+        } else {
+            slot = getDescriptorSetSlot(grDescriptorSet, slotOffset,
+                                        &shaderInfo->descriptorSetMapping[0], binding->index);
+        }
+
         if (slot == NULL) {
             LOGE("can't find slot for binding %d\n", binding->index);
             assert(false);
@@ -145,7 +157,8 @@ static void initCmdBufferResources(
 
     for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
         updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], grCmdBuffer->slotOffset,
-                              &grPipeline->shaderInfos[i], grCmdBuffer->grDescriptorSet);
+                              &grPipeline->shaderInfos[i], grCmdBuffer->grDescriptorSet,
+                              grCmdBuffer->dynamicBufferView);
     }
 
     VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
@@ -292,6 +305,42 @@ GR_VOID grCmdBindDescriptorSet(
     grCmdBuffer->grDescriptorSet = grDescriptorSet;
     grCmdBuffer->slotOffset = slotOffset;
     grCmdBuffer->isDirty = true;
+}
+
+GR_VOID grCmdBindDynamicMemoryView(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM pipelineBindPoint,
+    const GR_MEMORY_VIEW_ATTACH_INFO* pMemView)
+{
+    LOGT("%p 0x%X %p\n", cmdBuffer, pipelineBindPoint, pMemView);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
+
+    if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
+        LOGW("unsupported bind point 0x%x\n", pipelineBindPoint);
+    }
+
+    if (grCmdBuffer->dynamicBufferView != VK_NULL_HANDLE) {
+        VKD.vkDestroyBufferView(grDevice->device, grCmdBuffer->dynamicBufferView, NULL);
+    }
+
+    // FIXME what is pMemView->state for?
+    const VkBufferViewCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .buffer = grGpuMemory->buffer,
+        .format = getVkFormat(pMemView->format),
+        .offset = pMemView->offset,
+        .range = pMemView->range,
+    };
+
+    VkResult vkRes = VKD.vkCreateBufferView(grDevice->device, &createInfo, NULL,
+                                            &grCmdBuffer->dynamicBufferView);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateBufferView failed (%d)\n", vkRes);
+    }
 }
 
 GR_VOID grCmdPrepareMemoryRegions(

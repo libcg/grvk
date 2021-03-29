@@ -45,6 +45,7 @@ GR_RESULT grCreateCommandBuffer(
         .grPipeline = NULL,
         .grDescriptorSet = NULL,
         .slotOffset = 0,
+        .dynamicBufferView = VK_NULL_HANDLE,
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },
         .minExtent = { 0, 0, 0 },

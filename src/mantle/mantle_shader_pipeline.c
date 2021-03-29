@@ -389,11 +389,6 @@ GR_RESULT grCreateGraphicsPipeline(
             LOGW("link-time constant buffers are not implemented\n");
         }
 
-        if (stage->shader->dynamicMemoryViewMapping.slotObjectType != GR_SLOT_UNUSED) {
-            // TODO implement
-            LOGW("dynamic memory view mapping is not implemented\n");
-        }
-
         GrShader* grShader = (GrShader*)stage->shader->shader;
 
         shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
