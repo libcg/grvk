@@ -1,6 +1,6 @@
 #include "mantle_internal.h"
 
-bool isMsaaSupported(
+static bool isMsaaSupported(
     VkPhysicalDevice physicalDevice,
     VkFormat format,
     VkImageTiling tiling)
@@ -17,6 +17,45 @@ bool isMsaaSupported(
     }
 
     return formatProps.sampleCounts > VK_SAMPLE_COUNT_1_BIT;
+}
+
+// Internal Functions
+
+void grImageTransitionToDataTransferState(
+    GrImage* grImage)
+{
+    GR_DEVICE device = (GR_DEVICE)GET_OBJ_DEVICE(grImage);
+
+    const GR_CMD_BUFFER_CREATE_INFO cmdBufferCreateInfo = {
+        .queueType = GR_QUEUE_UNIVERSAL,
+        .flags = 0,
+    };
+
+    GR_CMD_BUFFER cmdBuffer = GR_NULL_HANDLE;
+    grCreateCommandBuffer(device, &cmdBufferCreateInfo, &cmdBuffer);
+
+    grBeginCommandBuffer(cmdBuffer, 0);
+    const GR_IMAGE_STATE_TRANSITION imageStateTransition = {
+        .image = (GR_IMAGE)grImage,
+        .oldState = GR_IMAGE_STATE_UNINITIALIZED,
+        .newState = GR_IMAGE_STATE_DATA_TRANSFER,
+        .subresourceRange = {
+            .aspect = GR_IMAGE_ASPECT_COLOR,
+            .baseMipLevel = 0,
+            .mipLevels = GR_LAST_MIP_OR_SLICE,
+            .baseArraySlice = 0,
+            .arraySize = GR_LAST_MIP_OR_SLICE,
+        },
+    };
+    grCmdPrepareImages(cmdBuffer, 1, &imageStateTransition);
+    grEndCommandBuffer(cmdBuffer);
+
+    GR_QUEUE queue = GR_NULL_HANDLE;
+    grGetDeviceQueue(device, GR_QUEUE_UNIVERSAL, 0, &queue);
+    grQueueSubmit(queue, 1, &cmdBuffer, 0, NULL, GR_NULL_HANDLE);
+    grQueueWaitIdle(queue);
+
+    grDestroyObject(cmdBuffer);
 }
 
 // Image and Sample Functions
@@ -140,7 +179,7 @@ GR_RESULT grCreateImage(
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = NULL,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .initialLayout = getVkImageLayout(GR_IMAGE_STATE_UNINITIALIZED),
     };
 
     VkResult res = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
@@ -149,12 +188,16 @@ GR_RESULT grCreateImage(
         return getGrResult(res);
     }
 
+    // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
+    //               to be in the [...] GR_IMAGE_STATE_DATA_TRANSFER state."
     GrImage* grImage = malloc(sizeof(GrImage));
     *grImage = (GrImage) {
         .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
         .image = vkImage,
         .extent = createInfo.extent,
         .imageType = createInfo.imageType,
+        .needInitialDataTransferState = !(pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET) &&
+                                        !(pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL),
     };
 
     *pImage = (GR_IMAGE)grImage;

@@ -81,6 +81,13 @@ GR_RESULT grBindObjectMemory(
 
         vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
                                       grGpuMemory->deviceMemory, offset);
+
+        // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
+        //               to be in the [...] GR_IMAGE_STATE_DATA_TRANSFER state."
+        if (grImage->needInitialDataTransferState) {
+            grImageTransitionToDataTransferState(grImage);
+            grImage->needInitialDataTransferState = false;
+        }
     } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
                objType == GR_OBJ_TYPE_PIPELINE) {
         // Nothing to do

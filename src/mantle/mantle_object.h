@@ -159,6 +159,7 @@ typedef struct _GrImage {
     VkImage image;
     VkExtent3D extent;
     VkImageType imageType;
+    bool needInitialDataTransferState;
 } GrImage;
 
 typedef struct _GrImageView {
@@ -224,6 +225,9 @@ typedef struct _GrViewportStateObject {
     VkRect2D* scissors;
     unsigned scissorCount;
 } GrViewportStateObject;
+
+void grImageTransitionToDataTransferState(
+    GrImage* grImage);
 
 void grGpuMemoryBindBuffer(
     GrGpuMemory* grGpuMemory);
