@@ -113,6 +113,7 @@ GR_RESULT grCreateImage(
     LOGT("%p %p %p\n", device, pCreateInfo, pImage);
     GrDevice* grDevice = (GrDevice*)device;
     VkImage vkImage = VK_NULL_HANDLE;
+    VkResult vkRes;
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -182,10 +183,24 @@ GR_RESULT grCreateImage(
         .initialLayout = getVkImageLayout(GR_IMAGE_STATE_UNINITIALIZED),
     };
 
-    VkResult res = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateImage failed (%d)\n", res);
-        return getGrResult(res);
+    VkImageFormatProperties imageFormatProperties;
+    vkRes = vki.vkGetPhysicalDeviceImageFormatProperties(grDevice->physicalDevice,
+                                                         createInfo.format, createInfo.imageType,
+                                                         createInfo.tiling, createInfo.usage,
+                                                         createInfo.flags, &imageFormatProperties);
+    if (vkRes == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+        LOGW("unsupported format 0x%X for image type 0x%X, tiling 0x%X and usage 0x%X\n",
+             pCreateInfo->format, pCreateInfo->imageType, pCreateInfo->tiling, pCreateInfo->usage);
+        return GR_ERROR_INVALID_FORMAT;
+    } else if (vkRes != VK_SUCCESS) {
+        LOGE("vkGetPhysicalDeviceImageFormatProperties failed (%d)\n", vkRes);
+        return getGrResult(vkRes);
+    }
+
+    vkRes = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateImage failed (%d)\n", vkRes);
+        return getGrResult(vkRes);
     }
 
     // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
