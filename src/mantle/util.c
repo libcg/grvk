@@ -305,7 +305,7 @@ VkImageLayout getVkImageLayout(
         return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
-    LOGW("unsupported image state 0x%x\n", imageState);
+    LOGW("unsupported image state 0x%X\n", imageState);
     return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
@@ -321,7 +321,7 @@ VkImageTiling getVkImageTiling(
         break;
     }
 
-    LOGW("unsupported image tiling 0x%x\n", imageTiling);
+    LOGW("unsupported image tiling 0x%X\n", imageTiling);
     return VK_IMAGE_TILING_LINEAR;
 }
 
@@ -339,7 +339,7 @@ VkImageType getVkImageType(
         break;
     }
 
-    LOGW("unsupported image type 0x%x\n", imageType);
+    LOGW("unsupported image type 0x%X\n", imageType);
     return VK_IMAGE_TYPE_2D;
 }
 
@@ -401,7 +401,7 @@ VkAccessFlags getVkAccessFlagsImage(
         return VK_ACCESS_TRANSFER_READ_BIT;
     }
 
-    LOGW("unsupported image state 0x%x\n", imageState);
+    LOGW("unsupported image state 0x%X\n", imageState);
     return 0;
 }
 
@@ -439,7 +439,7 @@ VkAccessFlags getVkAccessFlagsMemory(
         break;
     }
 
-    LOGW("unsupported memory state 0x%x\n", memoryState);
+    LOGW("unsupported memory state 0x%X\n", memoryState);
     return 0;
 }
 
@@ -455,7 +455,7 @@ VkImageAspectFlags getVkImageAspectFlags(
         return VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    LOGW("unsupported image aspect 0x%x\n", imageAspect);
+    LOGW("unsupported image aspect 0x%X\n", imageAspect);
     return 0;
 }
 
@@ -526,7 +526,7 @@ VkBlendFactor getVkBlendFactor(
         return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
     }
 
-    LOGW("unsupported blend factor 0x%x\n", blend);
+    LOGW("unsupported blend factor 0x%X\n", blend);
     return VK_BLEND_FACTOR_ZERO;
 }
 
@@ -546,7 +546,7 @@ VkBlendOp getVkBlendOp(
         return VK_BLEND_OP_MAX;
     }
 
-    LOGW("unsupported blend func 0x%x\n", blendFunc);
+    LOGW("unsupported blend func 0x%X\n", blendFunc);
     return VK_BLEND_OP_ADD;
 }
 
@@ -572,7 +572,7 @@ VkCompareOp getVkCompareOp(
         return VK_COMPARE_OP_ALWAYS;
     }
 
-    LOGW("unsupported compare func 0x%x\n", compareFunc);
+    LOGW("unsupported compare func 0x%X\n", compareFunc);
     return VK_COMPARE_OP_NEVER;
 }
 
@@ -594,7 +594,7 @@ VkComponentSwizzle getVkComponentSwizzle(
         return VK_COMPONENT_SWIZZLE_A;
     }
 
-    LOGW("unsupported channel swizzle 0x%x\n", channelSwizzle);
+    LOGW("unsupported channel swizzle 0x%X\n", channelSwizzle);
     return VK_COMPONENT_SWIZZLE_IDENTITY;
 }
 
@@ -608,7 +608,7 @@ VkIndexType getVkIndexType(
         return VK_INDEX_TYPE_UINT32;
     }
 
-    LOGW("unsupported index type 0x%x\n", indexType);
+    LOGW("unsupported index type 0x%X\n", indexType);
     return VK_INDEX_TYPE_UINT16;
 }
 
@@ -650,7 +650,7 @@ VkLogicOp getVkLogicOp(
         return VK_LOGIC_OP_SET;
     }
 
-    LOGW("unsupported logic op 0x%x\n", logicOp);
+    LOGW("unsupported logic op 0x%X\n", logicOp);
     return VK_LOGIC_OP_COPY;
 }
 
@@ -676,7 +676,7 @@ VkStencilOp getVkStencilOp(
         return VK_STENCIL_OP_DECREMENT_AND_WRAP;
     }
 
-    LOGW("unsupported stencil op 0x%x\n", stencilOp);
+    LOGW("unsupported stencil op 0x%X\n", stencilOp);
     return VK_STENCIL_OP_KEEP;
 }
 
@@ -690,7 +690,7 @@ VkPolygonMode getVkPolygonMode(
         return VK_POLYGON_MODE_LINE;
     }
 
-    LOGW("unsupported fill mode 0x%x\n", fillMode);
+    LOGW("unsupported fill mode 0x%X\n", fillMode);
     return VK_POLYGON_MODE_FILL;
 }
 
@@ -706,7 +706,7 @@ VkCullModeFlags getVkCullModeFlags(
         return VK_CULL_MODE_BACK_BIT;
     }
 
-    LOGW("unsupported cull mode 0x%x\n", cullMode);
+    LOGW("unsupported cull mode 0x%X\n", cullMode);
     return VK_CULL_MODE_NONE;
 }
 
@@ -720,7 +720,7 @@ VkFrontFace getVkFrontFace(
         return VK_FRONT_FACE_CLOCKWISE;
     }
 
-    LOGW("unsupported face orientation 0x%x\n", frontFace);
+    LOGW("unsupported face orientation 0x%X\n", frontFace);
     return VK_FRONT_FACE_COUNTER_CLOCKWISE;
 }
 
@@ -755,7 +755,7 @@ VkPrimitiveTopology getVkPrimitiveTopology(
         return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
     }
 
-    LOGW("unsupported topology 0x%x\n", topology);
+    LOGW("unsupported topology 0x%X\n", topology);
     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 }
 
@@ -798,7 +798,7 @@ VkPipelineBindPoint getVkPipelineBindPoint(
         return VK_PIPELINE_BIND_POINT_GRAPHICS;
     }
 
-    LOGW("unsupported pipeline bind point 0x%x\n", bindPoint);
+    LOGW("unsupported pipeline bind point 0x%X\n", bindPoint);
     return GR_PIPELINE_BIND_POINT_GRAPHICS;
 }
 

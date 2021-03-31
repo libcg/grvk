@@ -207,7 +207,7 @@ GR_VOID grCmdBindPipeline(
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        LOGW("unsupported bind point 0x%x\n", pipelineBindPoint);
+        LOGW("unsupported bind point 0x%X\n", pipelineBindPoint);
     }
 
     grCmdBuffer->grPipeline = grPipeline;
@@ -297,7 +297,7 @@ GR_VOID grCmdBindDescriptorSet(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        LOGW("unsupported bind point 0x%x\n", pipelineBindPoint);
+        LOGW("unsupported bind point 0x%X\n", pipelineBindPoint);
     } else if (index != 0) {
         LOGW("unsupported index %u\n", index);
     }
@@ -318,7 +318,7 @@ GR_VOID grCmdBindDynamicMemoryView(
     const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        LOGW("unsupported bind point 0x%x\n", pipelineBindPoint);
+        LOGW("unsupported bind point 0x%X\n", pipelineBindPoint);
     }
 
     if (grCmdBuffer->dynamicBufferView != VK_NULL_HANDLE) {

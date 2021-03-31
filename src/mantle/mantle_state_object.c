@@ -68,7 +68,7 @@ GR_RESULT grCreateRasterState(
     // TODO validate args
 
     if (pCreateInfo->fillMode != GR_FILL_SOLID) {
-        LOGW("fill mode 0x%x is not supported\n", pCreateInfo->fillMode);
+        LOGW("fill mode 0x%X is not supported\n", pCreateInfo->fillMode);
     }
 
     GrRasterStateObject* grRasterStateObject = malloc(sizeof(GrRasterStateObject));
@@ -106,7 +106,7 @@ GR_RESULT grCreateColorBlendState(
              target->srcBlendAlpha != GR_BLEND_ONE ||
              target->destBlendAlpha != GR_BLEND_ONE ||
              target->blendFuncAlpha != GR_BLEND_FUNC_ADD)) {
-            LOGW("unsupported blend settings 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+            LOGW("unsupported blend settings 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X\n",
                  target->srcBlendColor, target->destBlendColor, target->blendFuncColor,
                  target->srcBlendAlpha, target->destBlendAlpha, target->blendFuncAlpha);
         }
