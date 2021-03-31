@@ -130,7 +130,8 @@ GR_VOID grAttachMemoryViewDescriptors(
             .pNext = NULL,
             .flags = 0,
             .buffer = grGpuMemory->buffer,
-            .format = getVkFormat(info->format),
+            .format = info->format.channelFormat == GR_CH_FMT_UNDEFINED ?
+                      VK_FORMAT_R32G32B32A32_SFLOAT : getVkFormat(info->format),
             .offset = info->offset,
             .range = info->range,
         };

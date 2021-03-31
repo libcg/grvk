@@ -331,7 +331,8 @@ GR_VOID grCmdBindDynamicMemoryView(
         .pNext = NULL,
         .flags = 0,
         .buffer = grGpuMemory->buffer,
-        .format = getVkFormat(pMemView->format),
+        .format = pMemView->format.channelFormat == GR_CH_FMT_UNDEFINED ?
+                  VK_FORMAT_R32G32B32A32_SFLOAT : getVkFormat(pMemView->format),
         .offset = pMemView->offset,
         .range = pMemView->range,
     };
