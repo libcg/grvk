@@ -181,12 +181,13 @@ typedef struct _GrPhysicalGpu {
 
 typedef struct _GrPipeline {
     GrObject grObj;
+    VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
     VkDescriptorPool descriptorPool;
+    unsigned stageCount;
     VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
-    VkPipeline pipeline;
-    VkRenderPass renderPass;
     GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
+    VkRenderPass renderPass;
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {

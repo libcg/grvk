@@ -96,6 +96,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
 static VkPipelineLayout getVkPipelineLayout(
     const GrDevice* grDevice,
+    unsigned stageCount,
     const Stage* stages,
     const VkDescriptorSetLayout* descriptorSetLayouts)
 {
@@ -105,7 +106,7 @@ static VkPipelineLayout getVkPipelineLayout(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .setLayoutCount = MAX_STAGE_COUNT,
+        .setLayoutCount = stageCount,
         .pSetLayouts = descriptorSetLayouts,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = NULL,
@@ -121,13 +122,14 @@ static VkPipelineLayout getVkPipelineLayout(
 
 static VkDescriptorPool getVkDescriptorPool(
     const GrDevice* grDevice,
+    unsigned stageCount,
     const Stage* stages)
 {
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
     // Count descriptor types from shader bindings in all stages
     unsigned descriptorTypeCounts[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1] = { 0 };
-    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+    for (unsigned i = 0; i < stageCount; i++) {
         const GrShader* grShader = (GrShader*)stages[i].shader->shader;
 
         if (grShader != NULL) {
@@ -163,7 +165,7 @@ static VkDescriptorPool getVkDescriptorPool(
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .maxSets = MAX_STAGE_COUNT, // TODO optimize
+        .maxSets = stageCount, // TODO optimize
         .poolSizeCount = descriptorPoolSizeCount,
         .pPoolSizes = descriptorPoolSizes,
     };
@@ -375,9 +377,9 @@ GR_RESULT grCreateGraphicsPipeline(
     };
 
     unsigned stageCount = 0;
-    VkPipelineShaderStageCreateInfo shaderStageCreateInfo[MAX_STAGE_COUNT];
+    VkPipelineShaderStageCreateInfo shaderStageCreateInfo[COUNT_OF(stages)];
 
-    for (int i = 0; i < MAX_STAGE_COUNT; i++) {
+    for (int i = 0; i < COUNT_OF(stages); i++) {
         Stage* stage = &stages[i];
 
         if (stage->shader->shader == GR_NULL_HANDLE) {
@@ -575,7 +577,7 @@ GR_RESULT grCreateGraphicsPipeline(
     };
 
     // Create one descriptor set layout per stage
-    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+    for (unsigned i = 0; i < COUNT_OF(stages); i++) {
         descriptorSetLayouts[i] = getVkDescriptorSetLayout(grDevice, &stages[i]);
         if (descriptorSetLayouts[i] == VK_NULL_HANDLE) {
             res = GR_ERROR_OUT_OF_MEMORY;
@@ -583,13 +585,13 @@ GR_RESULT grCreateGraphicsPipeline(
         }
     }
 
-    pipelineLayout = getVkPipelineLayout(grDevice, stages, descriptorSetLayouts);
+    pipelineLayout = getVkPipelineLayout(grDevice, COUNT_OF(stages), stages, descriptorSetLayouts);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
     }
 
-    descriptorPool = getVkDescriptorPool(grDevice, stages);
+    descriptorPool = getVkDescriptorPool(grDevice, COUNT_OF(stages), stages);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
@@ -599,7 +601,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = NULL,
         .descriptorPool = descriptorPool,
-        .descriptorSetCount = MAX_STAGE_COUNT,
+        .descriptorSetCount = COUNT_OF(descriptorSetLayouts),
         .pSetLayouts = descriptorSetLayouts,
     };
 
@@ -637,7 +639,7 @@ GR_RESULT grCreateGraphicsPipeline(
         .renderPass = renderPass,
         .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE,
-        .basePipelineIndex = -1,
+        .basePipelineIndex = 0,
     };
 
     vkRes = VKD.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
@@ -651,12 +653,13 @@ GR_RESULT grCreateGraphicsPipeline(
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
+        .pipeline = vkPipeline,
         .pipelineLayout = pipelineLayout,
         .descriptorPool = descriptorPool,
+        .stageCount = COUNT_OF(stages),
         .descriptorSets = {},
-        .pipeline = vkPipeline,
-        .renderPass = renderPass,
         .shaderInfos = {},
+        .renderPass = renderPass,
     };
 
     for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
@@ -668,10 +671,123 @@ GR_RESULT grCreateGraphicsPipeline(
     return GR_SUCCESS;
 
 bail:
-    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+    for (unsigned i = 0; i < COUNT_OF(descriptorSetLayouts); i++) {
         VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayouts[i], NULL);
     }
     // Descriptor sets are freed through vkDestroyDescriptorPool
+    VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
+    VKD.vkDestroyDescriptorPool(grDevice->device, descriptorPool, NULL);
+    return res;
+}
+
+GR_RESULT grCreateComputePipeline(
+    GR_DEVICE device,
+    const GR_COMPUTE_PIPELINE_CREATE_INFO* pCreateInfo,
+    GR_PIPELINE* pPipeline)
+{
+    LOGT("%p %p %p\n", device, pCreateInfo, pPipeline);
+    GrDevice* grDevice = (GrDevice*)device;
+    GR_RESULT res = GR_SUCCESS;
+    VkResult vkRes;
+    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+
+    // TODO validate parameters
+
+    Stage stage = { &pCreateInfo->cs, VK_SHADER_STAGE_COMPUTE_BIT };
+
+    if (stage.shader->linkConstBufferCount > 0) {
+        // TODO implement
+        LOGW("link-time constant buffers are not implemented\n");
+    }
+
+    GrShader* grShader = (GrShader*)stage.shader->shader;
+
+    const VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .stage = stage.flags,
+        .module = grShader->shaderModule,
+        .pName = "main",
+        .pSpecializationInfo = NULL,
+    };
+
+    descriptorSetLayout = getVkDescriptorSetLayout(grDevice, &stage);
+    if (descriptorSetLayout == VK_NULL_HANDLE) {
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
+    }
+
+    pipelineLayout = getVkPipelineLayout(grDevice, 1, &stage, &descriptorSetLayout);
+    if (pipelineLayout == VK_NULL_HANDLE) {
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
+    }
+
+    descriptorPool = getVkDescriptorPool(grDevice, 1, &stage);
+    if (pipelineLayout == VK_NULL_HANDLE) {
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
+    }
+
+    const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = NULL,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &descriptorSetLayout,
+    };
+
+    vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo, &descriptorSet);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
+        res = getGrResult(vkRes);
+        goto bail;
+    }
+
+    const VkComputePipelineCreateInfo pipelineCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
+                 VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
+        .stage = shaderStageCreateInfo,
+        .layout = pipelineLayout,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0,
+    };
+
+    vkRes = VKD.vkCreateComputePipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
+                                         NULL, &vkPipeline);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateComputePipelines failed (%d)\n", vkRes);
+        res = getGrResult(vkRes);
+        goto bail;
+    }
+
+    GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
+    *grPipeline = (GrPipeline) {
+        .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
+        .pipeline = vkPipeline,
+        .pipelineLayout = pipelineLayout,
+        .descriptorPool = descriptorPool,
+        .stageCount = 1,
+        .descriptorSets = { descriptorSet },
+        .shaderInfos = {},
+        .renderPass = VK_NULL_HANDLE,
+    };
+
+    copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
+
+    *pPipeline = (GR_PIPELINE)grPipeline;
+    return GR_SUCCESS;
+
+bail:
+    VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayout, NULL);
+    // Descriptor set is freed through vkDestroyDescriptorPool
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
     VKD.vkDestroyDescriptorPool(grDevice->device, descriptorPool, NULL);
     return res;
