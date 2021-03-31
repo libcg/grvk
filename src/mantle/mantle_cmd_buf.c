@@ -2,8 +2,8 @@
 #include "amdilc.h"
 
 typedef enum _DirtyFlags {
-    FLAG_DIRTY_DESCRIPTOR_SETS,
-    FLAG_DIRTY_RENDER_PASS,
+    FLAG_DIRTY_DESCRIPTOR_SETS = 1,
+    FLAG_DIRTY_RENDER_PASS = 2,
 } DirtyFlags;
 
 static VkFramebuffer getVkFramebuffer(
