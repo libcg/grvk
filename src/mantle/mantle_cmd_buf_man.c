@@ -42,15 +42,15 @@ GR_RESULT grCreateCommandBuffer(
     *grCmdBuffer = (GrCmdBuffer) {
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandBuffer = vkCommandBuffer,
+        .dirtyFlags = 0,
         .grPipeline = NULL,
         .grDescriptorSet = NULL,
         .slotOffset = 0,
         .dynamicBufferView = VK_NULL_HANDLE,
+        .framebuffer = VK_NULL_HANDLE,
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },
         .minExtent = { 0, 0, 0 },
-        .hasActiveRenderPass = false,
-        .isDirty = false,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;
@@ -99,6 +99,7 @@ GR_RESULT grEndCommandBuffer(
 
     if (grCmdBuffer->hasActiveRenderPass) {
         VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
+        grCmdBuffer->hasActiveRenderPass = false;
     }
 
     VkResult res = VKD.vkEndCommandBuffer(grCmdBuffer->commandBuffer);

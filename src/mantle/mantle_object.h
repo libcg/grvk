@@ -83,15 +83,18 @@ typedef struct _GrObject {
 typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandBuffer commandBuffer;
+    unsigned dirtyFlags;
+    // Descriptor sets
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSet;
     unsigned slotOffset;
     VkBufferView dynamicBufferView;
+    // Render pass
+    VkFramebuffer framebuffer;
     unsigned attachmentCount;
     VkImageView attachments[GR_MAX_COLOR_TARGETS + 1]; // Extra depth target
     VkExtent3D minExtent;
     bool hasActiveRenderPass;
-    bool isDirty;
 } GrCmdBuffer;
 
 typedef struct _GrColorBlendStateObject {

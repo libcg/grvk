@@ -1,6 +1,11 @@
 #include "mantle_internal.h"
 #include "amdilc.h"
 
+typedef enum _DirtyFlags {
+    FLAG_DIRTY_DESCRIPTOR_SETS,
+    FLAG_DIRTY_RENDER_PASS,
+} DirtyFlags;
+
 static VkFramebuffer getVkFramebuffer(
     const GrDevice* grDevice,
     VkRenderPass renderPass,
@@ -148,52 +153,50 @@ static void updateVkDescriptorSet(
     }
 }
 
-static void initCmdBufferResources(
+static void grCmdBufferUpdateResources(
     GrCmdBuffer* grCmdBuffer)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     const GrPipeline* grPipeline = grCmdBuffer->grPipeline;
-    VkPipelineBindPoint bindPoint = getVkPipelineBindPoint(GR_PIPELINE_BIND_POINT_GRAPHICS);
 
-    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
-        updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], grCmdBuffer->slotOffset,
-                              &grPipeline->shaderInfos[i], grCmdBuffer->grDescriptorSet,
-                              grCmdBuffer->dynamicBufferView);
+    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SETS) {
+        for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+            updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], grCmdBuffer->slotOffset,
+                                  &grPipeline->shaderInfos[i], grCmdBuffer->grDescriptorSet,
+                                  grCmdBuffer->dynamicBufferView);
+        }
     }
 
-    VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipeline);
-    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipelineLayout,
-                                0, MAX_STAGE_COUNT, grPipeline->descriptorSets, 0, NULL);
+    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_RENDER_PASS) {
+        VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffer, NULL);
+        grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, grPipeline->renderPass,
+                                                    grCmdBuffer->attachmentCount,
+                                                    grCmdBuffer->attachments,
+                                                    grCmdBuffer->minExtent);
 
-    // TODO track
-    VkFramebuffer framebuffer =
-        getVkFramebuffer(grDevice, grPipeline->renderPass,
-                         grCmdBuffer->attachmentCount, grCmdBuffer->attachments,
-                         grCmdBuffer->minExtent);
+        const VkRenderPassBeginInfo beginInfo = {
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .pNext = NULL,
+            .renderPass = grPipeline->renderPass,
+            .framebuffer = grCmdBuffer->framebuffer,
+            .renderArea = (VkRect2D) {
+                .offset = { 0, 0 },
+                .extent = { grCmdBuffer->minExtent.width, grCmdBuffer->minExtent.height },
+            },
+            .clearValueCount = 0,
+            .pClearValues = NULL,
+        };
 
-    const VkRenderPassBeginInfo beginInfo = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .pNext = NULL,
-        .renderPass = grPipeline->renderPass,
-        .framebuffer = framebuffer,
-        .renderArea = (VkRect2D) {
-            .offset = { 0, 0 },
-            .extent = { grCmdBuffer->minExtent.width, grCmdBuffer->minExtent.height },
-        },
-        .clearValueCount = 0,
-        .pClearValues = NULL,
-    };
-
-    if (grCmdBuffer->hasActiveRenderPass) {
-        VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
+        if (grCmdBuffer->hasActiveRenderPass) {
+            VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
+        }
+        VKD.vkCmdBeginRenderPass(grCmdBuffer->commandBuffer, &beginInfo,
+                                 VK_SUBPASS_CONTENTS_INLINE);
+        grCmdBuffer->hasActiveRenderPass = true;
     }
-    VKD.vkCmdBeginRenderPass(grCmdBuffer->commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    grCmdBuffer->hasActiveRenderPass = true;
 
-    grCmdBuffer->isDirty = false;
+    grCmdBuffer->dirtyFlags = 0;
 }
-
-
 
 // Command Buffer Building Functions
 
@@ -204,14 +207,20 @@ GR_VOID grCmdBindPipeline(
 {
     LOGT("%p 0x%X %p\n", cmdBuffer, pipelineBindPoint, pipeline);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
 
     if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
         LOGW("unsupported bind point 0x%X\n", pipelineBindPoint);
     }
 
+    VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
+    VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
+    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
+                                0, MAX_STAGE_COUNT, grPipeline->descriptorSets, 0, NULL);
+
     grCmdBuffer->grPipeline = grPipeline;
-    grCmdBuffer->isDirty = true;
+    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS | FLAG_DIRTY_RENDER_PASS;
 }
 
 GR_VOID grCmdBindStateObject(
@@ -304,7 +313,7 @@ GR_VOID grCmdBindDescriptorSet(
 
     grCmdBuffer->grDescriptorSet = grDescriptorSet;
     grCmdBuffer->slotOffset = slotOffset;
-    grCmdBuffer->isDirty = true;
+    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
 }
 
 GR_VOID grCmdBindDynamicMemoryView(
@@ -342,6 +351,8 @@ GR_VOID grCmdBindDynamicMemoryView(
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateBufferView failed (%d)\n", vkRes);
     }
+
+    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
 }
 
 GR_VOID grCmdBindIndexData(
@@ -426,7 +437,6 @@ GR_VOID grCmdBindTargets(
 
     // Copy attachments
     grCmdBuffer->attachmentCount = 0;
-
     for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
@@ -435,6 +445,8 @@ GR_VOID grCmdBindTargets(
             grCmdBuffer->attachmentCount++;
         }
     }
+
+    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_RENDER_PASS;
 }
 
 GR_VOID grCmdPrepareImages(
@@ -482,8 +494,8 @@ GR_VOID grCmdDraw(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    if (grCmdBuffer->isDirty) {
-        initCmdBufferResources(grCmdBuffer);
+    if (grCmdBuffer->dirtyFlags != 0) {
+        grCmdBufferUpdateResources(grCmdBuffer);
     }
 
     VKD.vkCmdDraw(grCmdBuffer->commandBuffer,
@@ -503,8 +515,8 @@ GR_VOID grCmdDrawIndexed(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    if (grCmdBuffer->isDirty) {
-        initCmdBufferResources(grCmdBuffer);
+    if (grCmdBuffer->dirtyFlags != 0) {
+        grCmdBufferUpdateResources(grCmdBuffer);
     }
 
     VKD.vkCmdDrawIndexed(grCmdBuffer->commandBuffer,
