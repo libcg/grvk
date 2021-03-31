@@ -72,6 +72,9 @@ VkCompareOp getVkCompareOp(
 VkComponentSwizzle getVkComponentSwizzle(
     GR_CHANNEL_SWIZZLE channelSwizzle);
 
+VkIndexType getVkIndexType(
+    GR_INDEX_TYPE indexType);
+
 VkLogicOp getVkLogicOp(
     GR_LOGIC_OP logicOp);
 

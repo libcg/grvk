@@ -598,6 +598,20 @@ VkComponentSwizzle getVkComponentSwizzle(
     return VK_COMPONENT_SWIZZLE_IDENTITY;
 }
 
+VkIndexType getVkIndexType(
+    GR_INDEX_TYPE indexType)
+{
+    switch (indexType) {
+    case GR_INDEX_16:
+        return VK_INDEX_TYPE_UINT16;
+    case GR_INDEX_32:
+        return VK_INDEX_TYPE_UINT32;
+    }
+
+    LOGW("unsupported index type 0x%x\n", indexType);
+    return VK_INDEX_TYPE_UINT16;
+}
+
 VkLogicOp getVkLogicOp(
     GR_LOGIC_OP logicOp)
 {

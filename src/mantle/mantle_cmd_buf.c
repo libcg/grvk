@@ -344,6 +344,21 @@ GR_VOID grCmdBindDynamicMemoryView(
     }
 }
 
+GR_VOID grCmdBindIndexData(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_GPU_MEMORY mem,
+    GR_GPU_SIZE offset,
+    GR_ENUM indexType)
+{
+    LOGT("%p %p %u 0x%X\n", cmdBuffer, mem, offset, indexType);
+    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+
+    VKD.vkCmdBindIndexBuffer(grCmdBuffer->commandBuffer, grGpuMemory->buffer, offset,
+                             getVkIndexType(indexType));
+}
+
 GR_VOID grCmdPrepareMemoryRegions(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT transitionCount,
