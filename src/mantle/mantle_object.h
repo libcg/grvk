@@ -58,6 +58,7 @@ typedef struct _DescriptorSetSlot
         } sampler;
         struct {
             VkImageView vkImageView;
+            VkImageLayout vkImageLayout;
         } imageView;
         struct {
             VkBufferView vkBufferView;

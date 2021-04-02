@@ -96,10 +96,12 @@ GR_VOID grAttachImageViewDescriptors(
 
         clearDescriptorSetSlot(grDevice, slot);
 
-        // FIXME what is info->state for?
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_IMAGE_VIEW,
-            .imageView.vkImageView = grImageView->imageView,
+            .imageView = {
+                .vkImageView = grImageView->imageView,
+                .vkImageLayout = getVkImageLayout(info->state),
+            },
         };
     }
 }
