@@ -5,7 +5,8 @@ static void clearDescriptorSetSlot(
     DescriptorSetSlot* slot)
 {
     if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
-        VKD.vkDestroyBufferView(grDevice->device, slot->memoryView.vkBufferView, NULL);
+        // FIXME track references
+        //VKD.vkDestroyBufferView(grDevice->device, slot->memoryView.vkBufferView, NULL);
     }
 
     slot->type = SLOT_TYPE_NONE;

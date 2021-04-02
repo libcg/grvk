@@ -398,8 +398,9 @@ GR_VOID grCmdBindDynamicMemoryView(
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
 
     if (grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView != VK_NULL_HANDLE) {
-        VKD.vkDestroyBufferView(grDevice->device,
-                                grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView, NULL);
+        // FIXME track references
+        //VKD.vkDestroyBufferView(grDevice->device,
+        //                        grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView, NULL);
     }
 
     // FIXME what is pMemView->state for?
