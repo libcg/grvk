@@ -2,8 +2,9 @@
 #include "amdilc.h"
 
 typedef enum _DirtyFlags {
-    FLAG_DIRTY_DESCRIPTOR_SETS = 1,
-    FLAG_DIRTY_RENDER_PASS = 2,
+    FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS = 1,
+    FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS = 2,
+    FLAG_DIRTY_RENDER_PASS = 4,
 } DirtyFlags;
 
 static VkFramebuffer getVkFramebuffer(
@@ -176,21 +177,39 @@ static void updateVkDescriptorSet(
     }
 }
 
+static void grCmdBufferUpdateDescriptorSets(
+    GrCmdBuffer* grCmdBuffer,
+    VkPipelineBindPoint bindPoint)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+    const GrDescriptorSet* grDescriptorSet = grCmdBuffer->bindPoint[bindPoint].grDescriptorSet;
+    unsigned slotOffset = grCmdBuffer->bindPoint[bindPoint].slotOffset;
+    VkBufferView dynamicBufferView = grCmdBuffer->bindPoint[bindPoint].dynamicBufferView;
+
+    for (unsigned i = 0; i < grPipeline->stageCount; i++) {
+        updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], slotOffset,
+                              &grPipeline->shaderInfos[i], grDescriptorSet, dynamicBufferView);
+    }
+}
+
 static void grCmdBufferUpdateResources(
     GrCmdBuffer* grCmdBuffer)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    const GrPipeline* grPipeline = grCmdBuffer->grPipeline;
 
-    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SETS) {
-        for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
-            updateVkDescriptorSet(grDevice, grPipeline->descriptorSets[i], grCmdBuffer->slotOffset,
-                                  &grPipeline->shaderInfos[i], grCmdBuffer->grDescriptorSet,
-                                  grCmdBuffer->dynamicBufferView);
-        }
+    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS) {
+        grCmdBufferUpdateDescriptorSets(grCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
+    }
+
+    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS) {
+        grCmdBufferUpdateDescriptorSets(grCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
     }
 
     if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_RENDER_PASS) {
+        const GrPipeline* grPipeline =
+            grCmdBuffer->bindPoint[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
+
         // FIXME track references
         //VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffer, NULL);
 
@@ -234,18 +253,18 @@ GR_VOID grCmdBindPipeline(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
-
-    if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        LOGW("unsupported bind point 0x%X\n", pipelineBindPoint);
-    }
-
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
+
     VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
     VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
-                                0, MAX_STAGE_COUNT, grPipeline->descriptorSets, 0, NULL);
+                                0, grPipeline->stageCount, grPipeline->descriptorSets, 0, NULL);
 
-    grCmdBuffer->grPipeline = grPipeline;
-    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS | FLAG_DIRTY_RENDER_PASS;
+    grCmdBuffer->bindPoint[vkBindPoint].grPipeline = grPipeline;
+    if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS | FLAG_DIRTY_RENDER_PASS;
+    } else {
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
+    }
 }
 
 GR_VOID grCmdBindStateObject(
@@ -329,16 +348,19 @@ GR_VOID grCmdBindDescriptorSet(
     LOGT("%p 0x%X %u %p %u\n", cmdBuffer, pipelineBindPoint, index,  descriptorSet, slotOffset);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
+    VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
 
-    if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        LOGW("unsupported bind point 0x%X\n", pipelineBindPoint);
-    } else if (index != 0) {
+    if (index != 0) {
         LOGW("unsupported index %u\n", index);
     }
 
-    grCmdBuffer->grDescriptorSet = grDescriptorSet;
-    grCmdBuffer->slotOffset = slotOffset;
-    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+    grCmdBuffer->bindPoint[vkBindPoint].grDescriptorSet = grDescriptorSet;
+    grCmdBuffer->bindPoint[vkBindPoint].slotOffset = slotOffset;
+    if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS;
+    } else {
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
+    }
 }
 
 GR_VOID grCmdBindDynamicMemoryView(
@@ -350,13 +372,11 @@ GR_VOID grCmdBindDynamicMemoryView(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
+    VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
 
-    if (pipelineBindPoint != GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        LOGW("unsupported bind point 0x%X\n", pipelineBindPoint);
-    }
-
-    if (grCmdBuffer->dynamicBufferView != VK_NULL_HANDLE) {
-        VKD.vkDestroyBufferView(grDevice->device, grCmdBuffer->dynamicBufferView, NULL);
+    if (grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView != VK_NULL_HANDLE) {
+        VKD.vkDestroyBufferView(grDevice->device,
+                                grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView, NULL);
     }
 
     // FIXME what is pMemView->state for?
@@ -372,12 +392,16 @@ GR_VOID grCmdBindDynamicMemoryView(
     };
 
     VkResult vkRes = VKD.vkCreateBufferView(grDevice->device, &createInfo, NULL,
-                                            &grCmdBuffer->dynamicBufferView);
+                                            &grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateBufferView failed (%d)\n", vkRes);
     }
 
-    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+    if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS;
+    } else {
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
+    }
 }
 
 GR_VOID grCmdBindIndexData(

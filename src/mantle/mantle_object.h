@@ -85,11 +85,13 @@ typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandBuffer commandBuffer;
     unsigned dirtyFlags;
-    // Descriptor sets
-    GrPipeline* grPipeline;
-    GrDescriptorSet* grDescriptorSet;
-    unsigned slotOffset;
-    VkBufferView dynamicBufferView;
+    // Graphics and compute bind points
+    struct {
+        GrPipeline* grPipeline;
+        GrDescriptorSet* grDescriptorSet;
+        unsigned slotOffset;
+        VkBufferView dynamicBufferView;
+    } bindPoint[2];
     // Render pass
     VkFramebuffer framebuffer;
     unsigned attachmentCount;
