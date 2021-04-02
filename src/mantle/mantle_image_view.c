@@ -120,7 +120,11 @@ GR_RESULT grCreateColorTargetView(
     *grColorTargetView = (GrColorTargetView) {
         .grObj = { GR_OBJ_TYPE_COLOR_TARGET_VIEW, grDevice },
         .imageView = vkImageView,
-        .extent = { grImage->extent.width, grImage->extent.height, pCreateInfo->arraySize },
+        .extent = {
+            grImage->extent.width >> pCreateInfo->mipLevel,
+            grImage->extent.height >> pCreateInfo->mipLevel,
+            pCreateInfo->arraySize,
+        },
     };
 
     *pView = (GR_COLOR_TARGET_VIEW)grColorTargetView;
