@@ -222,13 +222,13 @@ static VkRenderPass getVkRenderPass(
                        VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
         colorReferences[colorReferenceCount] = (VkAttachmentReference) {
             .attachment = descriptionCount,
-            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
         descriptionCount++;
@@ -246,15 +246,6 @@ static VkRenderPass getVkRenderPass(
                           dbTarget->format.channelFormat == GR_CH_FMT_R16G8 ||
                           dbTarget->format.channelFormat == GR_CH_FMT_R32G8;
 
-        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (hasDepth && hasStencil) {
-            layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        } else if (hasDepth && !hasStencil) {
-            layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
-        } else if (!hasDepth && hasStencil) {
-            layout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL;
-        }
-
         descriptions[descriptionCount] = (VkAttachmentDescription) {
             .flags = 0,
             .format = dbVkFormat,
@@ -265,13 +256,13 @@ static VkRenderPass getVkRenderPass(
                              VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = hasStencil ?
                              VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = layout,
-            .finalLayout = layout,
+            .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
         depthStencilReference = (VkAttachmentReference) {
             .attachment = descriptionCount,
-            .layout = layout,
+            .layout = VK_IMAGE_LAYOUT_GENERAL,
         };
 
         descriptionCount++;
