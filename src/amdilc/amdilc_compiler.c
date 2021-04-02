@@ -1084,8 +1084,8 @@ static void emitStructuredSrv(
 {
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->uintId, SpvDimBuffer,
-                                          0, 0, 0, 1, SpvImageFormatR32ui);
+    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, SpvDimBuffer,
+                                          0, 0, 0, 1, SpvImageFormatR32f);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -1099,7 +1099,7 @@ static void emitStructuredSrv(
     const IlcResource resource = {
         .id = resourceId,
         .typeId = imageId,
-        .texelTypeId = compiler->uint4Id,
+        .texelTypeId = compiler->float4Id,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
