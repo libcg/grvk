@@ -14,6 +14,7 @@ static GrImage** mPresentableImages;
 static unsigned mImageCount = 0;
 static VkImage* mImages;
 static unsigned mCopyCommandBufferCount = 0;
+static VkCommandPool mCommandPool = VK_NULL_HANDLE;
 static CopyCommandBuffer* mCopyCommandBuffers = 0;
 static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
@@ -35,7 +36,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
     const VkCommandBufferAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .pNext = NULL,
-        .commandPool = grDevice->universalCommandPool,
+        .commandPool = mCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
@@ -202,6 +203,19 @@ static void initSwapchain(
     VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, NULL);
     mImages = malloc(sizeof(VkImage) * mImageCount);
     VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, mImages);
+
+    const VkCommandPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .queueFamilyIndex = grDevice->universalQueueIndex,
+    };
+
+    res = VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &mCommandPool);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateCommandPool failed (%d)\n", res);
+        return;
+    }
 
     // Build copy command buffers for all image combinations
     for (int i = 0; i < mPresentableImageCount; i++) {

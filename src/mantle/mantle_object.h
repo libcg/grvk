@@ -83,6 +83,7 @@ typedef struct _GrObject {
 
 typedef struct _GrCmdBuffer {
     GrObject grObj;
+    VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
     unsigned dirtyFlags;
     // Graphics and compute bind points
@@ -137,9 +138,7 @@ typedef struct _GrDevice {
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;
     unsigned universalQueueIndex;
-    VkCommandPool universalCommandPool;
     unsigned computeQueueIndex;
-    VkCommandPool computeCommandPool;
 } GrDevice;
 
 typedef struct _GrEvent {

@@ -9,19 +9,24 @@ GR_RESULT grCreateCommandBuffer(
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pCmdBuffer);
     GrDevice* grDevice = (GrDevice*)device;
+    VkResult vkRes;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
 
     // TODO check params
 
-    if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
-        vkCommandPool = grDevice->universalCommandPool;
-    } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
-        vkCommandPool = grDevice->computeCommandPool;
-    }
+    const VkCommandPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = pCreateInfo->queueType == GR_QUEUE_UNIVERSAL ?
+                            grDevice->universalQueueIndex : grDevice->computeQueueIndex,
+    };
 
-    if (vkCommandPool == VK_NULL_HANDLE) {
-        return GR_ERROR_INVALID_QUEUE_TYPE;
+    vkRes = VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &vkCommandPool);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateCommandPool failed (%d)\n", vkRes);
+        return getGrResult(vkRes);
     }
 
     const VkCommandBufferAllocateInfo allocateInfo = {
@@ -32,15 +37,16 @@ GR_RESULT grCreateCommandBuffer(
         .commandBufferCount = 1,
     };
 
-    VkResult res = VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &vkCommandBuffer);
-    if (res != VK_SUCCESS) {
-        LOGE("vkAllocateCommandBuffers failed (%d)\n", res);
-        return getGrResult(res);
+    vkRes = VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &vkCommandBuffer);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkAllocateCommandBuffers failed (%d)\n", vkRes);
+        return getGrResult(vkRes);
     }
 
     GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
     *grCmdBuffer = (GrCmdBuffer) {
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
+        .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
         .dirtyFlags = 0,
         .bindPoint = {

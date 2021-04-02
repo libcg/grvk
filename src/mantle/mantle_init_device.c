@@ -183,12 +183,8 @@ GR_RESULT grCreateDevice(
     VkDevice vkDevice = VK_NULL_HANDLE;
     unsigned universalQueueIndex = INVALID_QUEUE_INDEX;
     unsigned universalQueueCount = 0;
-    bool universalQueueRequested = false;
-    VkCommandPool universalCommandPool = VK_NULL_HANDLE;
     unsigned computeQueueIndex = INVALID_QUEUE_INDEX;
     unsigned computeQueueCount = 0;
-    bool computeQueueRequested = false;
-    VkCommandPool computeCommandPool = VK_NULL_HANDLE;
 
     VkPhysicalDeviceProperties physicalDeviceProps;
     vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
@@ -266,12 +262,6 @@ GR_RESULT grCreateDevice(
             .queueCount = requestedQueue->queueCount,
             .pQueuePriorities = queuePriorities,
         };
-
-        if (requestedQueue->queueType == GR_QUEUE_UNIVERSAL) {
-            universalQueueRequested = true;
-        } else if (requestedQueue->queueType == GR_QUEUE_COMPUTE) {
-            computeQueueRequested = true;
-        }
     }
 
     if (res != GR_SUCCESS) {
@@ -353,37 +343,6 @@ GR_RESULT grCreateDevice(
 
     vulkanLoaderDeviceInit(&vkd, vkDevice);
 
-    if (universalQueueRequested && universalQueueIndex != INVALID_QUEUE_INDEX) {
-        const VkCommandPoolCreateInfo poolCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .pNext = NULL,
-            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .queueFamilyIndex = universalQueueIndex,
-        };
-
-        vkRes = vkd.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL, &universalCommandPool);
-        if (vkRes != VK_SUCCESS) {
-            LOGE("vkCreateCommandPool failed (%d)\n", vkRes);
-            res = GR_ERROR_INITIALIZATION_FAILED;
-            goto bail;
-        }
-    }
-    if (computeQueueRequested && computeQueueIndex != INVALID_QUEUE_INDEX) {
-        const VkCommandPoolCreateInfo poolCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .pNext = NULL,
-            .flags = 0,
-            .queueFamilyIndex = computeQueueIndex,
-        };
-
-        vkRes = vkd.vkCreateCommandPool(vkDevice, &poolCreateInfo, NULL, &computeCommandPool);
-        if (vkRes != VK_SUCCESS) {
-            LOGE("vkCreateCommandPool failed (%d)\n", vkRes);
-            res = GR_ERROR_INITIALIZATION_FAILED;
-            goto bail;
-        }
-    }
-
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vki.vkGetPhysicalDeviceMemoryProperties(grPhysicalGpu->physicalDevice, &memoryProperties);
 
@@ -395,9 +354,7 @@ GR_RESULT grCreateDevice(
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
         .universalQueueIndex = universalQueueIndex,
-        .universalCommandPool = universalCommandPool,
         .computeQueueIndex = computeQueueIndex,
-        .computeCommandPool = computeCommandPool,
     };
 
     *pDevice = (GR_DEVICE)grDevice;
@@ -409,15 +366,7 @@ bail:
     free(queueCreateInfos);
 
     if (res != GR_SUCCESS) {
-        if (universalCommandPool != VK_NULL_HANDLE) {
-            vkd.vkDestroyCommandPool(vkDevice, universalCommandPool, NULL);
-        }
-        if (computeCommandPool != VK_NULL_HANDLE) {
-            vkd.vkDestroyCommandPool(vkDevice, computeCommandPool, NULL);
-        }
-        if (vkDevice != VK_NULL_HANDLE) {
-            vkd.vkDestroyDevice(vkDevice, NULL);
-        }
+        vkd.vkDestroyDevice(vkDevice, NULL);
     }
 
     return res;
@@ -435,12 +384,6 @@ GR_RESULT grDestroyDevice(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    if (grDevice->universalCommandPool != VK_NULL_HANDLE) {
-        VKD.vkDestroyCommandPool(grDevice->device, grDevice->universalCommandPool, NULL);
-    }
-    if (grDevice->computeCommandPool != VK_NULL_HANDLE) {
-        VKD.vkDestroyCommandPool(grDevice->device, grDevice->computeCommandPool, NULL);
-    }
     VKD.vkDestroyDevice(grDevice->device, NULL);
     free(grDevice);
 
