@@ -56,16 +56,21 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 {
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     unsigned bindingCount = 0;
+    VkDescriptorBindingFlags* bindingFlags = NULL;
     VkDescriptorSetLayoutBinding* bindings = NULL;
 
     if (stage->shader->shader != GR_NULL_HANDLE) {
         const GrShader* grShader = stage->shader->shader;
 
         bindingCount = grShader->bindingCount;
+        bindingFlags = malloc(bindingCount * sizeof(VkDescriptorBindingFlags));
         bindings = malloc(bindingCount * sizeof(VkDescriptorSetLayoutBinding));
 
         for (unsigned i = 0; i < grShader->bindingCount; i++) {
             const IlcBinding* binding = &grShader->bindings[i];
+
+            bindingFlags[i] = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT |
+                              VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
 
             bindings[i] = (VkDescriptorSetLayoutBinding) {
                 .binding = binding->index,
@@ -77,10 +82,17 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         }
     }
 
+    const VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+        .pNext = NULL,
+        .bindingCount = bindingCount,
+        .pBindingFlags = bindingFlags,
+    };
+
     const VkDescriptorSetLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
+        .pNext = &bindingFlagsCreateInfo,
+        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
         .bindingCount = bindingCount,
         .pBindings = bindings,
     };
@@ -90,6 +102,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
     }
 
+    free(bindingFlags);
     free(bindings);
     return layout;
 }
@@ -164,7 +177,7 @@ static VkDescriptorPool getVkDescriptorPool(
     const VkDescriptorPoolCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
-        .flags = 0,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
         .maxSets = stageCount, // TODO optimize
         .poolSizeCount = descriptorPoolSizeCount,
         .pPoolSizes = descriptorPoolSizes,

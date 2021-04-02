@@ -294,6 +294,18 @@ GR_RESULT grCreateDevice(
         .shaderDemoteToHelperInvocation = VK_TRUE,
     };
 
+    const VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+        .pNext = (void*)&demoteToHelperInvocation,
+        .descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
+        .descriptorBindingStorageImageUpdateAfterBind = VK_TRUE,
+        .descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingUpdateUnusedWhilePending = VK_TRUE,
+    };
+
     const VkPhysicalDeviceFeatures deviceFeatures = {
         .geometryShader = VK_TRUE,
         .tessellationShader = VK_TRUE,
@@ -313,7 +325,7 @@ GR_RESULT grCreateDevice(
 
     const VkDeviceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &demoteToHelperInvocation,
+        .pNext = &descriptorIndexingFeatures,
         .flags = 0,
         .queueCreateInfoCount = pCreateInfo->queueRecordCount,
         .pQueueCreateInfos = queueCreateInfos,
