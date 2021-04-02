@@ -49,13 +49,21 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
         if (slotInfo->slotObjectType == GR_SLOT_UNUSED) {
             continue;
         } else if (slotInfo->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-            if (slot->type != SLOT_TYPE_NESTED) {
+            if (slot->type == SLOT_TYPE_NONE) {
+                continue;
+            } else if (slot->type != SLOT_TYPE_NESTED) {
                 LOGE("unexpected slot type %d (should be nested)\n", slot->type);
                 assert(false);
             }
 
-            return getDescriptorSetSlot(slot->nested.nextSet, slot->nested.slotOffset,
-                                        slotInfo->pNextLevelSet, bindingIndex);
+            const DescriptorSetSlot* nestedSlot =
+                getDescriptorSetSlot(slot->nested.nextSet, slot->nested.slotOffset,
+                                     slotInfo->pNextLevelSet, bindingIndex);
+            if (nestedSlot != NULL) {
+                return nestedSlot;
+            } else {
+                continue;
+            }
         }
 
         uint32_t slotBinding = slotInfo->shaderEntityIndex;
