@@ -70,12 +70,15 @@ GR_RESULT grBeginCommandBuffer(
     LOGT("%p 0x%X\n", cmdBuffer, flags);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    VkCommandBufferUsageFlags vkUsageFlags = 0;
 
     // TODO check params
 
+    VkCommandBufferUsageFlags vkUsageFlags = 0;
     if ((flags & GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT) != 0) {
         vkUsageFlags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    } else {
+        // XX: it's not clear if Mantle actually allows simultaneous usage
+        vkUsageFlags |= VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     }
 
     const VkCommandBufferBeginInfo beginInfo = {
