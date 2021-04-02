@@ -572,6 +572,23 @@ GR_VOID grCmdDrawIndexed(
                          indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
+GR_VOID grCmdDispatch(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_UINT x,
+    GR_UINT y,
+    GR_UINT z)
+{
+    LOGT("%p %u %u %u\n", cmdBuffer, x, y, z);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    if (grCmdBuffer->dirtyFlags != 0) {
+        grCmdBufferUpdateResources(grCmdBuffer);
+    }
+
+    VKD.vkCmdDispatch(grCmdBuffer->commandBuffer, x, y, z);
+}
+
 GR_VOID grCmdCopyMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY srcMem,

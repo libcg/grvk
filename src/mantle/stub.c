@@ -192,15 +192,6 @@ GR_VOID grCmdDrawIndexedIndirect(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdDispatch(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_UINT x,
-    GR_UINT y,
-    GR_UINT z)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdDispatchIndirect(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,
