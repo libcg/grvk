@@ -4,7 +4,7 @@
 typedef enum _DirtyFlags {
     FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS = 1,
     FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS = 2,
-    FLAG_DIRTY_RENDER_PASS = 4,
+    FLAG_DIRTY_FRAMEBUFFER = 4,
 } DirtyFlags;
 
 static VkFramebuffer getVkFramebuffer(
@@ -177,6 +177,47 @@ static void updateVkDescriptorSet(
     }
 }
 
+static void grCmdBufferBeginRenderPass(
+    GrCmdBuffer* grCmdBuffer)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrPipeline* grPipeline =
+        grCmdBuffer->bindPoint[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
+
+    if (grCmdBuffer->hasActiveRenderPass) {
+        return;
+    }
+
+    const VkRenderPassBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = NULL,
+        .renderPass = grPipeline->renderPass,
+        .framebuffer = grCmdBuffer->framebuffer,
+        .renderArea = (VkRect2D) {
+            .offset = { 0, 0 },
+            .extent = { grCmdBuffer->minExtent.width, grCmdBuffer->minExtent.height },
+        },
+        .clearValueCount = 0,
+        .pClearValues = NULL,
+    };
+
+    VKD.vkCmdBeginRenderPass(grCmdBuffer->commandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    grCmdBuffer->hasActiveRenderPass = true;
+}
+
+void grCmdBufferEndRenderPass(
+    GrCmdBuffer* grCmdBuffer)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    if (!grCmdBuffer->hasActiveRenderPass) {
+        return;
+    }
+
+    VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
+    grCmdBuffer->hasActiveRenderPass = false;
+}
+
 static void grCmdBufferUpdateDescriptorSets(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint bindPoint)
@@ -206,9 +247,11 @@ static void grCmdBufferUpdateResources(
         grCmdBufferUpdateDescriptorSets(grCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
     }
 
-    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_RENDER_PASS) {
+    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_FRAMEBUFFER) {
         const GrPipeline* grPipeline =
             grCmdBuffer->bindPoint[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
+
+        grCmdBufferEndRenderPass(grCmdBuffer);
 
         // FIXME track references
         //VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffer, NULL);
@@ -217,26 +260,6 @@ static void grCmdBufferUpdateResources(
                                                     grCmdBuffer->attachmentCount,
                                                     grCmdBuffer->attachments,
                                                     grCmdBuffer->minExtent);
-
-        const VkRenderPassBeginInfo beginInfo = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .pNext = NULL,
-            .renderPass = grPipeline->renderPass,
-            .framebuffer = grCmdBuffer->framebuffer,
-            .renderArea = (VkRect2D) {
-                .offset = { 0, 0 },
-                .extent = { grCmdBuffer->minExtent.width, grCmdBuffer->minExtent.height },
-            },
-            .clearValueCount = 0,
-            .pClearValues = NULL,
-        };
-
-        if (grCmdBuffer->hasActiveRenderPass) {
-            VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
-        }
-        VKD.vkCmdBeginRenderPass(grCmdBuffer->commandBuffer, &beginInfo,
-                                 VK_SUBPASS_CONTENTS_INLINE);
-        grCmdBuffer->hasActiveRenderPass = true;
     }
 
     grCmdBuffer->dirtyFlags = 0;
@@ -261,7 +284,7 @@ GR_VOID grCmdBindPipeline(
 
     grCmdBuffer->bindPoint[vkBindPoint].grPipeline = grPipeline;
     if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS | FLAG_DIRTY_RENDER_PASS;
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS | FLAG_DIRTY_FRAMEBUFFER;
     } else {
         grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
     }
@@ -425,8 +448,10 @@ GR_VOID grCmdPrepareMemoryRegions(
     const GR_MEMORY_STATE_TRANSITION* pStateTransitions)
 {
     LOGT("%p %u %p\n", cmdBuffer, transitionCount, pStateTransitions);
-    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
@@ -495,7 +520,7 @@ GR_VOID grCmdBindTargets(
         }
     }
 
-    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_RENDER_PASS;
+    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
 }
 
 GR_VOID grCmdPrepareImages(
@@ -504,8 +529,10 @@ GR_VOID grCmdPrepareImages(
     const GR_IMAGE_STATE_TRANSITION* pStateTransitions)
 {
     LOGT("%p %u %p\n", cmdBuffer, transitionCount, pStateTransitions);
-    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     for (int i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
@@ -541,11 +568,13 @@ GR_VOID grCmdDraw(
 {
     LOGT("%p %u %u %u %u\n", cmdBuffer, firstVertex, vertexCount, firstInstance, instanceCount);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
     if (grCmdBuffer->dirtyFlags != 0) {
         grCmdBufferUpdateResources(grCmdBuffer);
     }
+
+    grCmdBufferBeginRenderPass(grCmdBuffer);
 
     VKD.vkCmdDraw(grCmdBuffer->commandBuffer,
                   vertexCount, instanceCount, firstVertex, firstInstance);
@@ -562,11 +591,13 @@ GR_VOID grCmdDrawIndexed(
     LOGT("%p %u %u %d %u %u\n",
          cmdBuffer, firstIndex, indexCount, vertexOffset, firstInstance, instanceCount);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
     if (grCmdBuffer->dirtyFlags != 0) {
         grCmdBufferUpdateResources(grCmdBuffer);
     }
+
+    grCmdBufferBeginRenderPass(grCmdBuffer);
 
     VKD.vkCmdDrawIndexed(grCmdBuffer->commandBuffer,
                          indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
@@ -580,11 +611,13 @@ GR_VOID grCmdDispatch(
 {
     LOGT("%p %u %u %u\n", cmdBuffer, x, y, z);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
     if (grCmdBuffer->dirtyFlags != 0) {
         grCmdBufferUpdateResources(grCmdBuffer);
     }
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdDispatch(grCmdBuffer->commandBuffer, x, y, z);
 }
@@ -598,10 +631,11 @@ GR_VOID grCmdCopyMemory(
 {
     LOGT("%p %p %p %u %p\n", cmdBuffer, srcMem, destMem, regionCount, pRegions);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
+    grCmdBufferEndRenderPass(grCmdBuffer);
     grGpuMemoryBindBuffer(grSrcGpuMemory);
     grGpuMemoryBindBuffer(grDstGpuMemory);
 
@@ -631,9 +665,11 @@ GR_VOID grCmdCopyImage(
 {
     LOGT("%p %p %p %u %p\n", cmdBuffer, srcImage, destImage, regionCount, pRegions);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grSrcImage = (GrImage*)srcImage;
     GrImage* grDstImage = (GrImage*)destImage;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     VkImageCopy* vkRegions = malloc(regionCount * sizeof(VkImageCopy));
     for (unsigned i = 0; i < regionCount; i++) {
@@ -665,10 +701,11 @@ GR_VOID grCmdCopyMemoryToImage(
 {
     LOGT("%p %p %p %u %p\n", cmdBuffer, srcMem, destImage, regionCount, pRegions);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
     GrImage* grDstImage = (GrImage*)destImage;
 
+    grCmdBufferEndRenderPass(grCmdBuffer);
     grGpuMemoryBindBuffer(grSrcGpuMemory);
 
     VkBufferImageCopy* vkRegions = malloc(regionCount * sizeof(VkBufferImageCopy));
@@ -706,8 +743,10 @@ GR_VOID grCmdClearColorImage(
     LOGT("%p %p %g %g %g %g %u %p\n",
          cmdBuffer, image, color[0], color[1], color[2], color[3], rangeCount, pRanges);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     const VkClearColorValue vkColor = {
         .float32 = { color[0], color[1], color[2], color[3] },
@@ -735,8 +774,10 @@ GR_VOID grCmdClearColorImageRaw(
     LOGT("%p %p %u %u %u %u %u %p\n",
          cmdBuffer, image, color[0], color[1], color[2], color[3], rangeCount, pRanges);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     const VkClearColorValue vkColor = {
         .uint32 = { color[0], color[1], color[2], color[3] },
@@ -760,8 +801,10 @@ GR_VOID grCmdSetEvent(
 {
     LOGT("%p %p\n", cmdBuffer, event);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrEvent* grEvent = (GrEvent*)event;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdSetEvent(grCmdBuffer->commandBuffer, grEvent->event,
                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
@@ -773,8 +816,10 @@ GR_VOID grCmdResetEvent(
 {
     LOGT("%p %p\n", cmdBuffer, event);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrEvent* grEvent = (GrEvent*)event;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdResetEvent(grCmdBuffer->commandBuffer, grEvent->event,
                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);

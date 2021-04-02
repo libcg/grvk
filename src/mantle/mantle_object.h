@@ -232,6 +232,9 @@ typedef struct _GrViewportStateObject {
     unsigned scissorCount;
 } GrViewportStateObject;
 
+void grCmdBufferEndRenderPass(
+    GrCmdBuffer* grCmdBuffer);
+
 void grImageTransitionToDataTransferState(
     GrImage* grImage);
 

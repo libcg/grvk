@@ -57,6 +57,7 @@ GR_RESULT grCreateCommandBuffer(
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },
         .minExtent = { 0, 0, 0 },
+        .hasActiveRenderPass = false,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;
@@ -106,10 +107,7 @@ GR_RESULT grEndCommandBuffer(
 
     // TODO check params
 
-    if (grCmdBuffer->hasActiveRenderPass) {
-        VKD.vkCmdEndRenderPass(grCmdBuffer->commandBuffer);
-        grCmdBuffer->hasActiveRenderPass = false;
-    }
+    grCmdBufferEndRenderPass(grCmdBuffer);
 
     VkResult res = VKD.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
     if (res != VK_SUCCESS) {
