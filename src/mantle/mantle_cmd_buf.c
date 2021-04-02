@@ -191,7 +191,9 @@ static void grCmdBufferUpdateResources(
     }
 
     if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_RENDER_PASS) {
-        VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffer, NULL);
+        // FIXME track references
+        //VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffer, NULL);
+
         grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, grPipeline->renderPass,
                                                     grCmdBuffer->attachmentCount,
                                                     grCmdBuffer->attachments,
