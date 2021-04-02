@@ -72,17 +72,6 @@ GR_RESULT grDestroyObject(
     return GR_UNSUPPORTED;
 }
 
-// Image View Functions
-
-GR_RESULT grCreateDepthStencilView(
-    GR_DEVICE device,
-    const GR_DEPTH_STENCIL_VIEW_CREATE_INFO* pCreateInfo,
-    GR_DEPTH_STENCIL_VIEW* pView)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Shader and Pipeline Functions
 
 GR_RESULT grStorePipeline(

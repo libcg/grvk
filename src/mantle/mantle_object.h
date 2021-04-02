@@ -18,6 +18,7 @@ typedef enum _GrObjectType {
     GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT,
     GR_OBJ_TYPE_COLOR_TARGET_VIEW,
     GR_OBJ_TYPE_DEPTH_STENCIL_STATE_OBJECT,
+    GR_OBJ_TYPE_DEPTH_STENCIL_VIEW,
     GR_OBJ_TYPE_DESCRIPTOR_SET,
     GR_OBJ_TYPE_DEVICE,
     GR_OBJ_TYPE_EVENT,
@@ -125,6 +126,12 @@ typedef struct _GrDepthStencilStateObject {
     float maxDepthBounds;
 } GrDepthStencilStateObject;
 
+typedef struct _GrDepthStencilView {
+    GrObject grObj;
+    VkImageView imageView;
+    VkExtent3D extent;
+} GrDepthStencilView;
+
 typedef struct _GrDescriptorSet {
     GrObject grObj;
     unsigned slotCount;
@@ -162,8 +169,9 @@ typedef struct _GrGpuMemory {
 typedef struct _GrImage {
     GrObject grObj;
     VkImage image;
-    VkExtent3D extent;
     VkImageType imageType;
+    VkExtent3D extent;
+    VkFormat format;
     bool needInitialDataTransferState;
 } GrImage;
 

@@ -208,8 +208,9 @@ GR_RESULT grCreateImage(
     *grImage = (GrImage) {
         .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
         .image = vkImage,
-        .extent = createInfo.extent,
         .imageType = createInfo.imageType,
+        .extent = createInfo.extent,
+        .format = createInfo.format,
         .needInitialDataTransferState = !(pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET) &&
                                         !(pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL),
     };
