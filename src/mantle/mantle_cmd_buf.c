@@ -481,7 +481,6 @@ GR_VOID grCmdPrepareMemoryRegions(
 }
 
 // FIXME what are target states for?
-// TODO handle depth target
 GR_VOID grCmdBindTargets(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT colorTargetCount,
@@ -491,9 +490,7 @@ GR_VOID grCmdBindTargets(
     LOGT("%p %u %p %p\n", cmdBuffer, colorTargetCount, pColorTargets, pDepthTarget);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
 
-    if (pDepthTarget != NULL && pDepthTarget->view != GR_NULL_HANDLE) {
-        LOGW("unhandled depth target\n");
-    }
+    assert(colorTargetCount <= GR_MAX_COLOR_TARGETS);
 
     // Find minimum extent
     grCmdBuffer->minExtent = (VkExtent3D) { UINT32_MAX, UINT32_MAX, UINT32_MAX };
@@ -509,6 +506,18 @@ GR_VOID grCmdBindTargets(
                                                grColorTargetView->extent.depth);
         }
     }
+    if (pDepthTarget != NULL) {
+        const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
+
+        if (grDepthStencilView != NULL) {
+            grCmdBuffer->minExtent.width = MIN(grCmdBuffer->minExtent.width,
+                                               grDepthStencilView->extent.width);
+            grCmdBuffer->minExtent.height = MIN(grCmdBuffer->minExtent.height,
+                                                grDepthStencilView->extent.height);
+            grCmdBuffer->minExtent.depth = MIN(grCmdBuffer->minExtent.depth,
+                                               grDepthStencilView->extent.depth);
+        }
+    }
 
     // Copy attachments
     grCmdBuffer->attachmentCount = 0;
@@ -517,6 +526,14 @@ GR_VOID grCmdBindTargets(
 
         if (grColorTargetView != NULL) {
             grCmdBuffer->attachments[grCmdBuffer->attachmentCount] = grColorTargetView->imageView;
+            grCmdBuffer->attachmentCount++;
+        }
+    }
+    if (pDepthTarget != NULL) {
+        const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
+
+        if (grDepthStencilView != NULL) {
+            grCmdBuffer->attachments[grCmdBuffer->attachmentCount] = grDepthStencilView->imageView;
             grCmdBuffer->attachmentCount++;
         }
     }
