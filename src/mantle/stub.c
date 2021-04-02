@@ -223,17 +223,6 @@ GR_VOID grCmdFillMemory(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdClearDepthStencil(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_IMAGE image,
-    GR_FLOAT depth,
-    GR_UINT8 stencil,
-    GR_UINT rangeCount,
-    const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdMemoryAtomic(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,

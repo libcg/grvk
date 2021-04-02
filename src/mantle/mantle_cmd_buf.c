@@ -851,6 +851,38 @@ GR_VOID grCmdClearColorImageRaw(
     free(vkRanges);
 }
 
+GR_VOID grCmdClearDepthStencil(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_IMAGE image,
+    GR_FLOAT depth,
+    GR_UINT8 stencil,
+    GR_UINT rangeCount,
+    const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
+{
+    LOGT("%p %p %g %u %u %p\n", cmdBuffer, image, depth, stencil, rangeCount, pRanges);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrImage* grImage = (GrImage*)image;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    const VkClearDepthStencilValue depthStencilValue = {
+        .depth = depth,
+        .stencil = stencil,
+    };
+
+    VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
+    for (int i = 0; i < rangeCount; i++) {
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i]);
+    }
+
+    VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,
+                                    getVkImageLayout(GR_IMAGE_STATE_CLEAR), &depthStencilValue,
+                                    rangeCount, vkRanges);
+
+    free(vkRanges);
+}
+
 GR_VOID grCmdSetEvent(
     GR_CMD_BUFFER cmdBuffer,
     GR_EVENT event)
