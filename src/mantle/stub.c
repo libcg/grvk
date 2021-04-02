@@ -165,22 +165,6 @@ GR_RESULT grOpenPeerImage(
 
 // Command Buffer Building Functions
 
-GR_VOID grCmdDrawIndirect(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY mem,
-    GR_GPU_SIZE offset)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID grCmdDrawIndexedIndirect(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY mem,
-    GR_GPU_SIZE offset)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdDispatchIndirect(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,

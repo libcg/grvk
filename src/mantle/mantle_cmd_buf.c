@@ -621,6 +621,44 @@ GR_VOID grCmdDrawIndexed(
                          indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
+GR_VOID grCmdDrawIndirect(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_GPU_MEMORY mem,
+    GR_GPU_SIZE offset)
+{
+    LOGT("%p %p %u\n", cmdBuffer, mem, offset);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+
+    if (grCmdBuffer->dirtyFlags != 0) {
+        grCmdBufferUpdateResources(grCmdBuffer);
+    }
+
+    grCmdBufferBeginRenderPass(grCmdBuffer);
+
+    VKD.vkCmdDrawIndirect(grCmdBuffer->commandBuffer, grGpuMemory->buffer, offset, 1, 0);
+}
+
+GR_VOID grCmdDrawIndexedIndirect(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_GPU_MEMORY mem,
+    GR_GPU_SIZE offset)
+{
+    LOGT("%p %p %u\n", cmdBuffer, mem, offset);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+
+    if (grCmdBuffer->dirtyFlags != 0) {
+        grCmdBufferUpdateResources(grCmdBuffer);
+    }
+
+    grCmdBufferBeginRenderPass(grCmdBuffer);
+
+    VKD.vkCmdDrawIndexedIndirect(grCmdBuffer->commandBuffer, grGpuMemory->buffer, offset, 1, 0);
+}
+
 GR_VOID grCmdDispatch(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT x,
