@@ -213,16 +213,6 @@ GR_VOID grCmdUpdateMemory(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdFillMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset,
-    GR_GPU_SIZE fillSize,
-    GR_UINT32 data)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdMemoryAtomic(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,

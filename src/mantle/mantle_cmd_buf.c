@@ -789,6 +789,25 @@ GR_VOID grCmdCopyMemoryToImage(
     free(vkRegions);
 }
 
+GR_VOID grCmdFillMemory(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_GPU_MEMORY destMem,
+    GR_GPU_SIZE destOffset,
+    GR_GPU_SIZE fillSize,
+    GR_UINT32 data)
+{
+    LOGT("%p %p %u %u %u\n", cmdBuffer, destMem, destOffset, fillSize, data);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grDstGpuMemory);
+
+    VKD.vkCmdFillBuffer(grCmdBuffer->commandBuffer, grDstGpuMemory->buffer, destOffset,
+                        fillSize, data);
+}
+
 GR_VOID grCmdClearColorImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
