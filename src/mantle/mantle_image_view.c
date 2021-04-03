@@ -123,8 +123,8 @@ GR_RESULT grCreateColorTargetView(
         .grObj = { GR_OBJ_TYPE_COLOR_TARGET_VIEW, grDevice },
         .imageView = vkImageView,
         .extent = {
-            grImage->extent.width >> pCreateInfo->mipLevel,
-            grImage->extent.height >> pCreateInfo->mipLevel,
+            MAX(grImage->extent.width >> pCreateInfo->mipLevel, 1),
+            MAX(grImage->extent.height >> pCreateInfo->mipLevel, 1),
             pCreateInfo->arraySize,
         },
     };
@@ -194,8 +194,8 @@ GR_RESULT grCreateDepthStencilView(
         .grObj = { GR_OBJ_TYPE_DEPTH_STENCIL_VIEW, grDevice },
         .imageView = vkImageView,
         .extent = {
-            grImage->extent.width >> pCreateInfo->mipLevel,
-            grImage->extent.height >> pCreateInfo->mipLevel,
+            MAX(grImage->extent.width >> pCreateInfo->mipLevel, 1),
+            MAX(grImage->extent.height >> pCreateInfo->mipLevel, 1),
             pCreateInfo->arraySize,
         },
     };

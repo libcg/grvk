@@ -18,6 +18,9 @@
 #define MIN(a, b) \
     ((a) < (b) ? (a) : (b))
 
+#define MAX(a, b) \
+    ((a) > (b) ? (a) : (b))
+
 #define COUNT_OF(array) \
     (sizeof(array) / sizeof((array)[0]))
 
