@@ -133,15 +133,13 @@ static VkPipelineLayout getVkPipelineLayout(
     return layout;
 }
 
-static VkDescriptorPool getVkDescriptorPool(
-    const GrDevice* grDevice,
+static void updateDescriptorTypeCounts(
+    unsigned descriptorTypeCountSize,
+    unsigned* descriptorTypeCounts,
     unsigned stageCount,
     const Stage* stages)
 {
-    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-
     // Count descriptor types from shader bindings in all stages
-    unsigned descriptorTypeCounts[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1] = { 0 };
     for (unsigned i = 0; i < stageCount; i++) {
         const GrShader* grShader = (GrShader*)stages[i].shader->shader;
 
@@ -149,7 +147,7 @@ static VkDescriptorPool getVkDescriptorPool(
             for (unsigned j = 0; j < grShader->bindingCount; j++) {
                 const IlcBinding* binding = &grShader->bindings[j];
 
-                if (binding->descriptorType >= COUNT_OF(descriptorTypeCounts)) {
+                if (binding->descriptorType >= descriptorTypeCountSize) {
                     LOGE("unexpected descriptor type %d\n", binding->descriptorType);
                     assert(false);
                 }
@@ -158,38 +156,6 @@ static VkDescriptorPool getVkDescriptorPool(
             }
         }
     }
-
-    // Create pool sizes
-    unsigned descriptorPoolSizeCount = 0;
-    VkDescriptorPoolSize* descriptorPoolSizes = NULL;
-    for (unsigned i = 0; i < COUNT_OF(descriptorTypeCounts); i++) {
-        if (descriptorTypeCounts[i] > 0) {
-            descriptorPoolSizeCount++;
-            descriptorPoolSizes = realloc(descriptorPoolSizes,
-                                          descriptorPoolSizeCount * sizeof(VkDescriptorPoolSize));
-            descriptorPoolSizes[descriptorPoolSizeCount - 1] = (VkDescriptorPoolSize) {
-                .type = i,
-                .descriptorCount = descriptorTypeCounts[i],
-            };
-        }
-    }
-
-    const VkDescriptorPoolCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .pNext = NULL,
-        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-        .maxSets = stageCount, // TODO optimize
-        .poolSizeCount = descriptorPoolSizeCount,
-        .pPoolSizes = descriptorPoolSizes,
-    };
-
-    VkResult res = VKD.vkCreateDescriptorPool(grDevice->device, &createInfo, NULL, &descriptorPool);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateDescriptorPool failed (%d)\n", res);
-    }
-
-    free(descriptorPoolSizes);
-    return descriptorPool;
 }
 
 static VkRenderPass getVkRenderPass(
@@ -360,9 +326,7 @@ GR_RESULT grCreateGraphicsPipeline(
     GR_RESULT res = GR_SUCCESS;
     VkResult vkRes;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
-    VkDescriptorSet descriptorSets[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     VkRenderPass renderPass = VK_NULL_HANDLE;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
@@ -595,27 +559,6 @@ GR_RESULT grCreateGraphicsPipeline(
         goto bail;
     }
 
-    descriptorPool = getVkDescriptorPool(grDevice, COUNT_OF(stages), stages);
-    if (pipelineLayout == VK_NULL_HANDLE) {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
-    }
-
-    const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .pNext = NULL,
-        .descriptorPool = descriptorPool,
-        .descriptorSetCount = COUNT_OF(descriptorSetLayouts),
-        .pSetLayouts = descriptorSetLayouts,
-    };
-
-    vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo, descriptorSets);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
-        res = getGrResult(vkRes);
-        goto bail;
-    }
-
     renderPass = getVkRenderPass(grDevice, pCreateInfo->cbState.target, &pCreateInfo->dbState);
     if (renderPass == VK_NULL_HANDLE)
     {
@@ -659,15 +602,17 @@ GR_RESULT grCreateGraphicsPipeline(
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .pipeline = vkPipeline,
         .pipelineLayout = pipelineLayout,
-        .descriptorPool = descriptorPool,
-        .stageCount = COUNT_OF(stages),
-        .descriptorSets = {},
-        .shaderInfos = {},
         .renderPass = renderPass,
+        .descriptorTypeCounts = { 0 },
+        .stageCount = COUNT_OF(stages),
+        .descriptorSetLayouts = {},
+        .shaderInfos = {}
     };
 
-    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
-        grPipeline->descriptorSets[i] = descriptorSets[i];
+    updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
+                               grPipeline->descriptorTypeCounts, COUNT_OF(stages), stages);
+    for (unsigned i = 0; i < COUNT_OF(stages); i++) {
+        grPipeline->descriptorSetLayouts[i] = descriptorSetLayouts[i];
         copyPipelineShader(&grPipeline->shaderInfos[i], stages[i].shader);
     }
 
@@ -678,9 +623,7 @@ bail:
     for (unsigned i = 0; i < COUNT_OF(descriptorSetLayouts); i++) {
         VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayouts[i], NULL);
     }
-    // Descriptor sets are freed through vkDestroyDescriptorPool
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
-    VKD.vkDestroyDescriptorPool(grDevice->device, descriptorPool, NULL);
     return res;
 }
 
@@ -694,9 +637,7 @@ GR_RESULT grCreateComputePipeline(
     GR_RESULT res = GR_SUCCESS;
     VkResult vkRes;
     VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
     // TODO validate parameters
@@ -732,27 +673,6 @@ GR_RESULT grCreateComputePipeline(
         goto bail;
     }
 
-    descriptorPool = getVkDescriptorPool(grDevice, 1, &stage);
-    if (pipelineLayout == VK_NULL_HANDLE) {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
-    }
-
-    const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .pNext = NULL,
-        .descriptorPool = descriptorPool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &descriptorSetLayout,
-    };
-
-    vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo, &descriptorSet);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
-        res = getGrResult(vkRes);
-        goto bail;
-    }
-
     const VkComputePipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext = NULL,
@@ -777,13 +697,15 @@ GR_RESULT grCreateComputePipeline(
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .pipeline = vkPipeline,
         .pipelineLayout = pipelineLayout,
-        .descriptorPool = descriptorPool,
-        .stageCount = 1,
-        .descriptorSets = { descriptorSet },
-        .shaderInfos = {},
         .renderPass = VK_NULL_HANDLE,
+        .descriptorTypeCounts = { 0 },
+        .stageCount = 1,
+        .descriptorSetLayouts = { descriptorSetLayout },
+        .shaderInfos = {},
     };
 
+    updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
+                               grPipeline->descriptorTypeCounts, 1, &stage);
     copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
 
     *pPipeline = (GR_PIPELINE)grPipeline;
@@ -791,8 +713,6 @@ GR_RESULT grCreateComputePipeline(
 
 bail:
     VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayout, NULL);
-    // Descriptor set is freed through vkDestroyDescriptorPool
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
-    VKD.vkDestroyDescriptorPool(grDevice->device, descriptorPool, NULL);
     return res;
 }

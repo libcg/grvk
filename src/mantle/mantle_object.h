@@ -93,6 +93,8 @@ typedef struct _GrCmdBuffer {
         GrDescriptorSet* grDescriptorSet;
         unsigned slotOffset;
         VkBufferView dynamicBufferView;
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
     } bindPoint[2];
     // Render pass
     VkFramebuffer framebuffer;
@@ -193,11 +195,11 @@ typedef struct _GrPipeline {
     GrObject grObj;
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
-    VkDescriptorPool descriptorPool;
-    unsigned stageCount;
-    VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
-    GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
     VkRenderPass renderPass;
+    unsigned descriptorTypeCounts[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1];
+    unsigned stageCount;
+    VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
+    GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
