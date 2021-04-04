@@ -233,16 +233,41 @@ void ilcSpvPutExtension(
     putString(buffer, name);
 }
 
+void ilcSpvPutSource(
+    IlcSpvModule* module,
+    IlcSpvId nameId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_DEBUG];
+
+    putInstr(buffer, SpvOpSource, 4);
+    putWord(buffer, SpvSourceLanguageUnknown);
+    putWord(buffer, 0x1002);
+    putWord(buffer, nameId);
+}
+
 void ilcSpvPutName(
     IlcSpvModule* module,
     IlcSpvId target,
     const char* name)
 {
-    IlcSpvBuffer* buffer = &module->buffer[ID_NAMES];
+    IlcSpvBuffer* buffer = &module->buffer[ID_DEBUG];
 
     putInstr(buffer, SpvOpName, 2 + strlenw(name));
     putWord(buffer, target);
     putString(buffer, name);
+}
+
+IlcSpvId ilcSpvPutString(
+    IlcSpvModule* module,
+    const char* string)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_DEBUG];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpString, 2 + strlenw(string));
+    putWord(buffer, id);
+    putString(buffer, string);
+    return id;
 }
 
 void ilcSpvPutEntryPoint(

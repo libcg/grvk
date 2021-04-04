@@ -2464,11 +2464,15 @@ static void emitEntryPoint(
 }
 
 IlcShader ilcCompileKernel(
-    const Kernel* kernel)
+    const Kernel* kernel,
+    const char* name)
 {
     IlcSpvModule module;
 
     ilcSpvInit(&module);
+
+    IlcSpvId nameId = ilcSpvPutString(&module, name);
+    ilcSpvPutSource(&module, nameId);
 
     IlcSpvId uintId = ilcSpvPutIntType(&module, false);
     IlcSpvId intId = ilcSpvPutIntType(&module, true);

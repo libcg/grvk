@@ -14,7 +14,7 @@ typedef enum {
     ID_MEMORY_MODEL,
     ID_ENTRY_POINTS,
     ID_EXEC_MODES,
-    ID_NAMES,
+    ID_DEBUG,
     ID_DECORATIONS,
     ID_TYPES,
     ID_CONSTANTS,
@@ -51,10 +51,18 @@ void ilcSpvPutExtension(
     IlcSpvModule* module,
     const char* name);
 
+void ilcSpvPutSource(
+    IlcSpvModule* module,
+    IlcSpvId nameId);
+
 void ilcSpvPutName(
     IlcSpvModule* module,
     IlcSpvId target,
     const char* name);
+
+IlcSpvId ilcSpvPutString(
+    IlcSpvModule* module,
+    const char* string);
 
 void ilcSpvPutEntryPoint(
     IlcSpvModule* module,

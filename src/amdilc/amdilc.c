@@ -128,7 +128,7 @@ IlcShader ilcCompileShader(
         dumpKernel(kernel, name);
     }
 
-    IlcShader shader = ilcCompileKernel(kernel);
+    IlcShader shader = ilcCompileKernel(kernel, name);
 
     if (dump) {
         dumpBuffer((uint8_t*)shader.code, shader.codeSize, name, "spv");
