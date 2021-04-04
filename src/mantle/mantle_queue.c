@@ -1,4 +1,9 @@
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include "mantle_internal.h"
+
+static CRITICAL_SECTION mMemRefMutex;
+static bool mMemRefMutexInit = false;
 
 static unsigned getVkQueueFamilyIndex(
     GrDevice* grDevice,
@@ -13,6 +18,88 @@ static unsigned getVkQueueFamilyIndex(
 
     LOGE("invalid queue type %d\n", queueType);
     return INVALID_QUEUE_INDEX;
+}
+
+static void prepareImages(
+    const GrQueue* grQueue,
+    unsigned imageCount,
+    GrImage** images,
+    GR_IMAGE_STATE newState)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+    GR_IMAGE_STATE_TRANSITION* stateTransitions =
+        malloc(imageCount * sizeof(GR_IMAGE_STATE_TRANSITION));
+
+    for (unsigned i = 0; i < imageCount; i++) {
+        stateTransitions[i] = (GR_IMAGE_STATE_TRANSITION) {
+            .image = (GR_IMAGE)images[i],
+            .oldState = GR_IMAGE_STATE_UNINITIALIZED,
+            .newState = newState,
+            .subresourceRange = {
+                .aspect = GR_IMAGE_ASPECT_COLOR,
+                .baseMipLevel = 0,
+                .mipLevels = GR_LAST_MIP_OR_SLICE,
+                .baseArraySlice = 0,
+                .arraySize = GR_LAST_MIP_OR_SLICE,
+            },
+        };
+    }
+
+    const GR_CMD_BUFFER_CREATE_INFO cmdBufferCreateInfo = {
+        .queueType = GR_QUEUE_UNIVERSAL,
+        .flags = 0,
+    };
+
+    // TODO create cmd buffer in advance
+    GR_CMD_BUFFER cmdBuffer = GR_NULL_HANDLE;
+    grCreateCommandBuffer((GR_DEVICE)grDevice, &cmdBufferCreateInfo, &cmdBuffer);
+
+    grBeginCommandBuffer(cmdBuffer, GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT);
+    grCmdPrepareImages(cmdBuffer, imageCount, stateTransitions);
+    grEndCommandBuffer(cmdBuffer);
+
+    grQueueSubmit((GR_QUEUE)grQueue, 1, &cmdBuffer, 0, NULL, GR_NULL_HANDLE);
+    grQueueWaitIdle((GR_QUEUE)grQueue); // TODO use a fence, or better, a semaphore...
+
+    grDestroyObject(cmdBuffer);
+    free(stateTransitions);
+}
+
+static void checkMemoryReferences(
+    const GrQueue* grQueue,
+    unsigned memRefCount,
+    const GR_MEMORY_REF* memRefs)
+{
+    unsigned imageCount = 0;
+    GrImage** images = NULL;
+
+    // Check if image references need implicit data transfer state transition
+    for (unsigned i = 0; i < memRefCount; i++) {
+        GrGpuMemory* grGpuMemory = (GrGpuMemory*)memRefs[i].mem;
+
+        for (unsigned j = 0; j < grGpuMemory->boundObjectCount; j++) {
+            GrObject* grBoundObject = grGpuMemory->boundObjects[j];
+
+            if (grBoundObject->grObjType == GR_OBJ_TYPE_IMAGE) {
+                GrImage* grImage = (GrImage*)grBoundObject;
+
+                if (grImage->needInitialDataTransferState) {
+                    imageCount++;
+                    images = realloc(images, imageCount * sizeof(GrImage*));
+                    images[imageCount - 1] = grImage;
+
+                    grImage->needInitialDataTransferState = false;
+                }
+            }
+        }
+    }
+
+    // Perform data transfer state transition
+    if (imageCount > 0) {
+        prepareImages(grQueue, imageCount, images, GR_IMAGE_STATE_DATA_TRANSFER);
+    }
+
+    free(images);
 }
 
 // Queue Functions
@@ -43,6 +130,11 @@ GR_RESULT grGetDeviceQueue(
         .queueIndex = queueIndex,
     };
 
+    if (!mMemRefMutexInit) {
+        InitializeCriticalSectionAndSpinCount(&mMemRefMutex, 0);
+        mMemRefMutexInit = true;
+    }
+
     *pQueue = (GR_QUEUE)grQueue;
     return GR_SUCCESS;
 }
@@ -64,6 +156,10 @@ GR_RESULT grQueueSubmit(
     // TODO validate args
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+
+    EnterCriticalSection(&mMemRefMutex);
+    checkMemoryReferences(grQueue, memRefCount, pMemRefs);
+    LeaveCriticalSection(&mMemRefMutex);
 
     if (grFence != NULL) {
         vkFence = grFence->fence;

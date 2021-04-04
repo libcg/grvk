@@ -166,6 +166,8 @@ typedef struct _GrGpuMemory {
     VkDeviceMemory deviceMemory;
     VkDeviceSize deviceSize;
     VkBuffer buffer;
+    unsigned boundObjectCount;
+    GrObject** boundObjects;
 } GrGpuMemory;
 
 typedef struct _GrImage {
@@ -244,9 +246,6 @@ typedef struct _GrViewportStateObject {
 
 void grCmdBufferEndRenderPass(
     GrCmdBuffer* grCmdBuffer);
-
-void grImageTransitionToDataTransferState(
-    GrImage* grImage);
 
 void grGpuMemoryBindBuffer(
     GrGpuMemory* grGpuMemory);

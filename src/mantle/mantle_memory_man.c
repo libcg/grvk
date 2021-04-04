@@ -179,6 +179,8 @@ GR_RESULT grAllocMemory(
         .deviceMemory = vkMemory,
         .deviceSize = pAllocInfo->size,
         .buffer = VK_NULL_HANDLE, // Created on demand
+        .boundObjectCount = 0,
+        .boundObjects = NULL,
     };
 
     *pMem = (GR_GPU_MEMORY)grGpuMemory;

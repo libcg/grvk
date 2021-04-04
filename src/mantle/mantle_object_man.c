@@ -81,13 +81,6 @@ GR_RESULT grBindObjectMemory(
 
         vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
                                       grGpuMemory->deviceMemory, offset);
-
-        // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
-        //               to be in the [...] GR_IMAGE_STATE_DATA_TRANSFER state."
-        if (grImage->needInitialDataTransferState) {
-            grImageTransitionToDataTransferState(grImage);
-            grImage->needInitialDataTransferState = false;
-        }
     } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
                objType == GR_OBJ_TYPE_PIPELINE) {
         // Nothing to do
@@ -95,6 +88,11 @@ GR_RESULT grBindObjectMemory(
         LOGW("unsupported object type %d\n", objType);
         return GR_ERROR_UNAVAILABLE;
     }
+
+    grGpuMemory->boundObjectCount++;
+    grGpuMemory->boundObjects = realloc(grGpuMemory->boundObjects,
+                                        grGpuMemory->boundObjectCount * sizeof(GrObject*));
+    grGpuMemory->boundObjects[grGpuMemory->boundObjectCount - 1] = grObject;
 
     if (vkRes != VK_SUCCESS) {
         LOGW("binding failed (%d)\n", objType);
