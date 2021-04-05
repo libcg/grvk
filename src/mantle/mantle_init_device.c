@@ -296,6 +296,7 @@ GR_RESULT grCreateDevice(
     };
 
     const VkPhysicalDeviceFeatures deviceFeatures = {
+        .imageCubeArray = VK_TRUE,
         .geometryShader = VK_TRUE,
         .tessellationShader = VK_TRUE,
         .dualSrcBlend = VK_TRUE,
