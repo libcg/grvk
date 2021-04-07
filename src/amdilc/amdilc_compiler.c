@@ -2166,9 +2166,36 @@ static void emitStructuredSrvLoad(
     };
     IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
 
+    // Read up to four components based on the destination mask
+    // Only the first component of each image fetch is valid
+    IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
                                            wordAddrId);
+
+    for (unsigned i = 1; i < 4; i++) {
+        if (dst->component[i] == IL_MODCOMP_NOWRITE) {
+            break;
+        }
+
+        // Increment address
+        const IlcSpvId incrementIds[] = { wordAddrId, oneId };
+        wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, incrementIds);
+
+        IlcSpvId fetch2Id = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
+                                                wordAddrId);
+
+        // Merge fetch components
+        const IlcSpvWord components[] = {
+            0,
+            i == 1 ? 4 : 1,
+            i == 2 ? 4 : 2,
+            i == 3 ? 4 : 3,
+        };
+        fetchId = ilcSpvPutVectorShuffle(compiler->module, resource->texelTypeId, fetchId, fetch2Id,
+                                         4, components);
+    }
+
     storeDestination(compiler, dst, fetchId, resource->texelTypeId);
 }
 
