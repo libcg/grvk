@@ -149,6 +149,7 @@ GR_RESULT grAllocMemory(
     VkDeviceMemory vkMemory = VK_NULL_HANDLE;
 
     // Try to allocate from the best heap
+    vkRes = VK_ERROR_UNKNOWN;
     for (int i = 0; i < pAllocInfo->heapCount; i++) {
         const VkMemoryAllocateInfo allocateInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,

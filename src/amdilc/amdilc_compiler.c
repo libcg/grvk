@@ -197,7 +197,7 @@ static IlcSpvId emitVectorTrim(
 {
     assert(1 <= (offset + count) && (offset + count) <= 4);
 
-    IlcSpvId baseTypeId;
+    IlcSpvId baseTypeId = 0;
     if (typeId == compiler->float4Id) {
         baseTypeId = compiler->floatId;
     } else if (typeId == compiler->uint4Id) {
@@ -970,7 +970,7 @@ static void emitResource(
 
     IlcSpvId sampledTypeId = 0;
     IlcSpvId texelTypeId = 0;
-    SpvImageFormat spvImageFormat;
+    SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
     if (fmtx == IL_ELEMENTFORMAT_FLOAT && fmty == IL_ELEMENTFORMAT_FLOAT &&
         fmtz == IL_ELEMENTFORMAT_FLOAT && fmtw == IL_ELEMENTFORMAT_FLOAT) {
         sampledTypeId = compiler->floatId;
@@ -1018,9 +1018,9 @@ static void emitTypedUav(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    uint16_t id;
-    uint8_t fmtx;
-    uint8_t type;
+    uint16_t id = 0;
+    uint8_t fmtx = 0;
+    uint8_t type = 0;
 
     if (instr->opcode == IL_OP_DCL_UAV) {
         id = GET_BITS(instr->control, 0, 3);
@@ -1039,7 +1039,7 @@ static void emitTypedUav(
     SpvDim spvDim = getSpvDimension(compiler, type, false);
 
     IlcSpvId sampledTypeId = 0;
-    SpvImageFormat spvImageFormat;
+    SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
     if (fmtx == IL_ELEMENTFORMAT_SINT) {
         sampledTypeId = compiler->intId;
         spvImageFormat = SpvImageFormatR32i;
@@ -1888,7 +1888,7 @@ static void emitSample(
     }
 
     unsigned dimCount = getResourceDimensionCount(resource->ilType);
-    IlcSpvWord sampleOp;
+    IlcSpvWord sampleOp = 0;
     IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
                                        compiler->float4Id);
     SpvImageOperandsMask operandsMask = 0;

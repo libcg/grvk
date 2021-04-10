@@ -16,7 +16,7 @@ GR_RESULT grCreateImageView(
     GrImage* grImage = (GrImage*)pCreateInfo->image;
 
     bool isArrayed = pCreateInfo->subresourceRange.arraySize > 1;
-    VkImageViewType imageViewType;
+    VkImageViewType imageViewType = 0;
     if (pCreateInfo->viewType == GR_IMAGE_VIEW_1D) {
         imageViewType = isArrayed ? VK_IMAGE_VIEW_TYPE_1D_ARRAY : VK_IMAGE_VIEW_TYPE_1D;
     } else if (pCreateInfo->viewType == GR_IMAGE_VIEW_2D) {
@@ -87,7 +87,7 @@ GR_RESULT grCreateColorTargetView(
     GrImage* grImage = (GrImage*)pCreateInfo->image;
 
     bool isArrayed = pCreateInfo->arraySize > 1;
-    VkImageViewType imageViewType;
+    VkImageViewType imageViewType = 0;
     if (grImage->imageType == VK_IMAGE_TYPE_2D) {
         imageViewType = isArrayed ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
     } else if (grImage->imageType == VK_IMAGE_TYPE_3D) {
@@ -158,7 +158,7 @@ GR_RESULT grCreateDepthStencilView(
     GrImage* grImage = (GrImage*)pCreateInfo->image;
 
     bool isArrayed = pCreateInfo->arraySize > 1;
-    VkImageViewType imageViewType;
+    VkImageViewType imageViewType = 0;
     if (grImage->imageType == VK_IMAGE_TYPE_2D) {
         imageViewType = isArrayed ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
     } else if (grImage->imageType == VK_IMAGE_TYPE_3D) {
