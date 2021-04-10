@@ -24,6 +24,9 @@
 #define COUNT_OF(array) \
     (sizeof(array) / sizeof((array)[0]))
 
+#define OFFSET_OF(struct, member) \
+    (size_t)(&((struct*)0)->member)
+
 GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
     VkPhysicalDeviceType type);
 

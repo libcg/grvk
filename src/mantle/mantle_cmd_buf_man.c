@@ -1,5 +1,12 @@
 #include "mantle_internal.h"
 
+static void grCmdBufferResetState(
+    GrCmdBuffer* grCmdBuffer)
+{
+    unsigned stateOffset = OFFSET_OF(GrCmdBuffer, dirtyFlags);
+    memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
+}
+
 // Command Buffer Management Functions
 
 GR_RESULT grCreateCommandBuffer(
@@ -95,6 +102,8 @@ GR_RESULT grBeginCommandBuffer(
         return getGrResult(res);
     }
 
+    grCmdBufferResetState(grCmdBuffer);
+
     return GR_SUCCESS;
 }
 
@@ -138,6 +147,8 @@ GR_RESULT grResetCommandBuffer(
         LOGE("vkResetCommandBuffer failed (%d)\n", res);
         return getGrResult(res);
     }
+
+    grCmdBufferResetState(grCmdBuffer);
 
     return GR_SUCCESS;
 }

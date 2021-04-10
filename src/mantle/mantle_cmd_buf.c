@@ -559,52 +559,55 @@ GR_VOID grCmdBindTargets(
     assert(colorTargetCount <= GR_MAX_COLOR_TARGETS);
 
     // Find minimum extent
-    grCmdBuffer->minExtent = (VkExtent3D) { UINT32_MAX, UINT32_MAX, UINT32_MAX };
+    VkExtent3D minExtent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
     for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
         if (grColorTargetView != NULL) {
-            grCmdBuffer->minExtent.width = MIN(grCmdBuffer->minExtent.width,
-                                               grColorTargetView->extent.width);
-            grCmdBuffer->minExtent.height = MIN(grCmdBuffer->minExtent.height,
-                                                grColorTargetView->extent.height);
-            grCmdBuffer->minExtent.depth = MIN(grCmdBuffer->minExtent.depth,
-                                               grColorTargetView->extent.depth);
+            minExtent.width = MIN(minExtent.width, grColorTargetView->extent.width);
+            minExtent.height = MIN(minExtent.height, grColorTargetView->extent.height);
+            minExtent.depth = MIN(minExtent.depth, grColorTargetView->extent.depth);
         }
     }
     if (pDepthTarget != NULL) {
         const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
 
         if (grDepthStencilView != NULL) {
-            grCmdBuffer->minExtent.width = MIN(grCmdBuffer->minExtent.width,
-                                               grDepthStencilView->extent.width);
-            grCmdBuffer->minExtent.height = MIN(grCmdBuffer->minExtent.height,
-                                                grDepthStencilView->extent.height);
-            grCmdBuffer->minExtent.depth = MIN(grCmdBuffer->minExtent.depth,
-                                               grDepthStencilView->extent.depth);
+            minExtent.width = MIN(minExtent.width, grDepthStencilView->extent.width);
+            minExtent.height = MIN(minExtent.height, grDepthStencilView->extent.height);
+            minExtent.depth = MIN(minExtent.depth, grDepthStencilView->extent.depth);
         }
     }
 
     // Copy attachments
-    grCmdBuffer->attachmentCount = 0;
+    unsigned attachmentCount = 0;
+    VkImageView attachments[COUNT_OF(grCmdBuffer->attachments)];
     for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
         if (grColorTargetView != NULL) {
-            grCmdBuffer->attachments[grCmdBuffer->attachmentCount] = grColorTargetView->imageView;
-            grCmdBuffer->attachmentCount++;
+            attachments[attachmentCount] = grColorTargetView->imageView;
+            attachmentCount++;
         }
     }
     if (pDepthTarget != NULL) {
         const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
 
         if (grDepthStencilView != NULL) {
-            grCmdBuffer->attachments[grCmdBuffer->attachmentCount] = grDepthStencilView->imageView;
-            grCmdBuffer->attachmentCount++;
+            attachments[attachmentCount] = grDepthStencilView->imageView;
+            attachmentCount++;
         }
     }
 
-    grCmdBuffer->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
+    if (memcmp(&minExtent, &grCmdBuffer->minExtent, sizeof(minExtent)) != 0 ||
+        attachmentCount != grCmdBuffer->attachmentCount ||
+        memcmp(attachments, grCmdBuffer->attachments, attachmentCount * sizeof(VkImageView)) != 0) {
+        // Targets have changed
+        grCmdBuffer->minExtent = minExtent;
+        grCmdBuffer->attachmentCount = attachmentCount;
+        memcpy(grCmdBuffer->attachments, attachments, attachmentCount * sizeof(VkImageView));
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
+    }
 }
 
 GR_VOID grCmdPrepareImages(
