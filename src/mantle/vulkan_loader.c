@@ -172,6 +172,7 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetBufferMemoryRequirements);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetBufferMemoryRequirements2);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetDeviceMemoryCommitment);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkGetBufferDeviceAddress);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetDeviceQueue);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetEventStatus);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetFenceStatus);
@@ -224,5 +225,9 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetStencilOpEXT);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetStencilTestEnableEXT);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetViewportWithCountEXT);
+#endif
+
+#ifdef VK_KHR_push_descriptor
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdPushDescriptorSetKHR);
 #endif
 }

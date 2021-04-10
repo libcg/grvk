@@ -120,6 +120,25 @@ static IlcSpvId putType(
     return id;
 }
 
+static IlcSpvId putTypeConstant(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    unsigned argCount,
+    const IlcSpvWord* args)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_TYPES];
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, op, 3 + argCount);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    for (int i = 0; i < argCount; i++) {
+        putWord(buffer, args[i]);
+    }
+
+    return id;
+}
+
 static IlcSpvId putConstant(
     IlcSpvModule* module,
     SpvOp op,
@@ -204,8 +223,10 @@ void ilcSpvInit(
     }
 
     ilcSpvPutCapability(module, SpvCapabilityShader);
+    ilcSpvPutCapability(module, SpvCapabilityInt64);
+    ilcSpvPutCapability(module, SpvCapabilityPhysicalStorageBufferAddresses);
     putExtInstImport(module, module->glsl450ImportId, "GLSL.std.450");
-    putMemoryModel(module, SpvAddressingModelLogical, SpvMemoryModelGLSL450);
+    putMemoryModel(module, SpvAddressingModelPhysicalStorageBuffer64, SpvMemoryModelGLSL450);
 }
 
 void ilcSpvFinish(
@@ -340,9 +361,10 @@ IlcSpvId ilcSpvPutBoolType(
 
 IlcSpvId ilcSpvPutIntType(
     IlcSpvModule* module,
+    unsigned bitCount,
     bool isSigned)
 {
-    const IlcSpvWord args[2] = { 32, isSigned };
+    const IlcSpvWord args[2] = { bitCount, isSigned };
 
     return putType(module, SpvOpTypeInt, 2, args, false, false);
 }
@@ -455,6 +477,24 @@ IlcSpvId ilcSpvPutFunctionType(
     return id;
 }
 
+void ilcSpvPutForwardPointerType(
+    IlcSpvModule* module,
+    IlcSpvId typeId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_TYPES];
+    putInstr(buffer, SpvOpTypeForwardPointer, 3);
+    putWord(buffer, typeId);
+    putWord(buffer, SpvStorageClassPhysicalStorageBuffer);
+}
+
+IlcSpvId ilcSpvPutTypeConstant(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord literal)
+{
+    return putTypeConstant(module, SpvOpConstant, resultTypeId, 1, &literal);
+}
+
 IlcSpvId ilcSpvPutConstant(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
@@ -531,18 +571,43 @@ IlcSpvId ilcSpvPutImageTexelPointer(
     return id;
 }
 
+IlcSpvId ilcSpvPutAccessChain(
+    IlcSpvModule* module,
+    IlcSpvId structureTypeId,
+    IlcSpvId srcId,
+    IlcSpvId argCount,
+    const IlcSpvId* args)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpAccessChain, 4 + argCount);
+    putWord(buffer, structureTypeId);
+    putWord(buffer, id);
+    putWord(buffer, srcId);
+    for (unsigned i = 0; i < argCount; ++i) {
+        putWord(buffer, args[i]);
+    }
+    return id;
+}
+
 IlcSpvId ilcSpvPutLoad(
     IlcSpvModule* module,
     IlcSpvId typeId,
-    IlcSpvId pointerId)
+    IlcSpvId pointerId,
+    IlcSpvId operandCount,
+    const IlcSpvId* args)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, SpvOpLoad, 4);
+    putInstr(buffer, SpvOpLoad, 4 + operandCount);
     putWord(buffer, typeId);
     putWord(buffer, id);
     putWord(buffer, pointerId);
+
+    for (unsigned i = 0; i < operandCount; ++i) {
+        putWord(buffer, args[i]);
+    }
     return id;
 }
 
@@ -556,26 +621,6 @@ void ilcSpvPutStore(
     putInstr(buffer, SpvOpStore, 3);
     putWord(buffer, pointerId);
     putWord(buffer, objectId);
-}
-
-IlcSpvId ilcSpvPutAccessChain(
-    IlcSpvModule* module,
-    IlcSpvId resultTypeId,
-    IlcSpvId baseId,
-    unsigned indexIdCount,
-    const IlcSpvId* indexIds)
-{
-    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
-
-    IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, SpvOpAccessChain, 4 + indexIdCount);
-    putWord(buffer, resultTypeId);
-    putWord(buffer, id);
-    putWord(buffer, baseId);
-    for (unsigned i = 0; i < indexIdCount; i++) {
-        putWord(buffer, indexIds[i]);
-    }
-    return id;
 }
 
 void ilcSpvPutDecoration(
@@ -849,6 +894,36 @@ IlcSpvId ilcSpvPutBitcast(
 
     IlcSpvId id = ilcSpvAllocId(module);
     putInstr(buffer, SpvOpBitcast, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, operandId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutConvertUToPtr(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpConvertUToPtr, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, operandId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutUConvert(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpUConvert, 4);
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, operandId);

@@ -3,147 +3,8 @@
 
 typedef struct _Stage {
     const GR_PIPELINE_SHADER* shader;
-    const VkShaderStageFlagBits flags;
+    VkShaderStageFlagBits flags;
 } Stage;
-
-static void copyDescriptorSetMapping(
-    GR_DESCRIPTOR_SET_MAPPING* dst,
-    const GR_DESCRIPTOR_SET_MAPPING* src);
-
-static void copyDescriptorSlotInfo(
-    GR_DESCRIPTOR_SLOT_INFO* dst,
-    const GR_DESCRIPTOR_SLOT_INFO* src)
-{
-    dst->slotObjectType = src->slotObjectType;
-    if (src->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-        // Go down one level...
-        dst->pNextLevelSet = malloc(sizeof(GR_DESCRIPTOR_SET_MAPPING));
-        copyDescriptorSetMapping((GR_DESCRIPTOR_SET_MAPPING*)dst->pNextLevelSet,
-                                 src->pNextLevelSet);
-    } else {
-        dst->shaderEntityIndex = src->shaderEntityIndex;
-    }
-}
-
-static void copyDescriptorSetMapping(
-    GR_DESCRIPTOR_SET_MAPPING* dst,
-    const GR_DESCRIPTOR_SET_MAPPING* src)
-{
-    dst->descriptorCount = src->descriptorCount;
-    dst->pDescriptorInfo = malloc(src->descriptorCount * sizeof(GR_DESCRIPTOR_SLOT_INFO));
-    for (unsigned i = 0; i < src->descriptorCount; i++) {
-        copyDescriptorSlotInfo((GR_DESCRIPTOR_SLOT_INFO*)&dst->pDescriptorInfo[i],
-                               &src->pDescriptorInfo[i]);
-    }
-}
-
-static void copyPipelineShader(
-    GR_PIPELINE_SHADER* dst,
-    const GR_PIPELINE_SHADER* src)
-{
-    dst->shader = src->shader;
-    for (unsigned i = 0; i < COUNT_OF(dst->descriptorSetMapping); i++) {
-        copyDescriptorSetMapping(&dst->descriptorSetMapping[i], &src->descriptorSetMapping[i]);
-    }
-    dst->linkConstBufferCount = 0; // Ignored
-    dst->pLinkConstBufferInfo = NULL; // Ignored
-    dst->dynamicMemoryViewMapping = src->dynamicMemoryViewMapping;
-}
-
-static VkDescriptorSetLayout getVkDescriptorSetLayout(
-    const GrDevice* grDevice,
-    const Stage* stage)
-{
-    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-    unsigned bindingCount = 0;
-    VkDescriptorSetLayoutBinding* bindings = NULL;
-
-    if (stage->shader->shader != GR_NULL_HANDLE) {
-        const GrShader* grShader = stage->shader->shader;
-
-        bindingCount = grShader->bindingCount;
-        bindings = malloc(bindingCount * sizeof(VkDescriptorSetLayoutBinding));
-
-        for (unsigned i = 0; i < grShader->bindingCount; i++) {
-            const IlcBinding* binding = &grShader->bindings[i];
-
-            bindings[i] = (VkDescriptorSetLayoutBinding) {
-                .binding = binding->index,
-                .descriptorType = binding->descriptorType,
-                .descriptorCount = 1,
-                .stageFlags = stage->flags,
-                .pImmutableSamplers = NULL,
-            };
-        }
-    }
-
-    const VkDescriptorSetLayoutCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .bindingCount = bindingCount,
-        .pBindings = bindings,
-    };
-
-    VkResult res = VKD.vkCreateDescriptorSetLayout(grDevice->device, &createInfo, NULL, &layout);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
-    }
-
-    free(bindings);
-    return layout;
-}
-
-static VkPipelineLayout getVkPipelineLayout(
-    const GrDevice* grDevice,
-    unsigned stageCount,
-    const Stage* stages,
-    const VkDescriptorSetLayout* descriptorSetLayouts)
-{
-    VkPipelineLayout layout = VK_NULL_HANDLE;
-
-    const VkPipelineLayoutCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .setLayoutCount = stageCount,
-        .pSetLayouts = descriptorSetLayouts,
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges = NULL,
-    };
-
-    VkResult res = VKD.vkCreatePipelineLayout(grDevice->device, &createInfo, NULL, &layout);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreatePipelineLayout failed (%d)\n", res);
-    }
-
-    return layout;
-}
-
-static void updateDescriptorTypeCounts(
-    unsigned descriptorTypeCountSize,
-    unsigned* descriptorTypeCounts,
-    unsigned stageCount,
-    const Stage* stages)
-{
-    // Count descriptor types from shader bindings in all stages
-    for (unsigned i = 0; i < stageCount; i++) {
-        const GrShader* grShader = (GrShader*)stages[i].shader->shader;
-
-        if (grShader != NULL) {
-            for (unsigned j = 0; j < grShader->bindingCount; j++) {
-                const IlcBinding* binding = &grShader->bindings[j];
-
-                if (binding->descriptorType >= descriptorTypeCountSize) {
-                    LOGE("unexpected descriptor type %d\n", binding->descriptorType);
-                    assert(false);
-                }
-
-                descriptorTypeCounts[binding->descriptorType]++;
-            }
-        }
-    }
-}
 
 static VkRenderPass getVkRenderPass(
     const GrDevice* grDevice,
@@ -490,39 +351,36 @@ GR_RESULT grCreateShader(
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pShader);
     GrDevice* grDevice = (GrDevice*)device;
-    VkShaderModule vkShaderModule = VK_NULL_HANDLE;
-
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    }
+    if (grDevice->grBaseObj.grObjType != GR_OBJ_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+    if (pCreateInfo == NULL || pShader == NULL || pCreateInfo->pCode == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
     if ((pCreateInfo->flags & GR_SHADER_CREATE_ALLOW_RE_Z) != 0) {
         LOGW("unhandled Re-Z flag\n");
     }
-
-    IlcShader ilcShader = ilcCompileShader(pCreateInfo->pCode, pCreateInfo->codeSize);
-
-    const VkShaderModuleCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .codeSize = ilcShader.codeSize,
-        .pCode = ilcShader.code,
-    };
-
-    VkResult res = VKD.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateShaderModule failed (%d)\n", res);
-        free(ilcShader.code);
-        return getGrResult(res);
+    GrShader* grShader = malloc(sizeof(GrShader));
+    if (grShader == NULL) {
+        return GR_ERROR_OUT_OF_MEMORY;
     }
 
-    free(ilcShader.code);
+    uint32_t* codeCopy = (uint32_t*)malloc(pCreateInfo->codeSize);
 
-    GrShader* grShader = malloc(sizeof(GrShader));
+    if (codeCopy == NULL) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
+    memcpy(codeCopy, pCreateInfo->pCode, pCreateInfo->codeSize);
+
     *grShader = (GrShader) {
         .grObj = { GR_OBJ_TYPE_SHADER, grDevice },
-        .shaderModule = vkShaderModule,
-        .bindingCount = ilcShader.bindingCount,
-        .bindings = ilcShader.bindings,
+        .code = codeCopy,
+        .codeSize = pCreateInfo->codeSize,
     };
-
     *pShader = (GR_SHADER)grShader;
     return GR_SUCCESS;
 }
@@ -535,8 +393,6 @@ GR_RESULT grCreateGraphicsPipeline(
     LOGT("%p %p %p\n", device, pCreateInfo, pPipeline);
     GrDevice* grDevice = (GrDevice*)device;
     GR_RESULT res = GR_SUCCESS;
-    VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
-    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkRenderPass renderPass = VK_NULL_HANDLE;
 
     // TODO validate parameters
@@ -570,19 +426,40 @@ GR_RESULT grCreateGraphicsPipeline(
 
         GrShader* grShader = (GrShader*)stage->shader->shader;
 
+        IlcShader ilcShader = ilcCompileShader(grShader->code, grShader->codeSize, stage->shader);
+        if (ilcShader.code == NULL) {
+            res = GR_ERROR_OUT_OF_MEMORY;
+            goto bail;
+        }
+        LOGT("shader compiled\n");
+        const VkShaderModuleCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .codeSize = ilcShader.codeSize,
+            .pCode = ilcShader.code
+        };
+        // idk whether to free spirvCode in case if shader compiles correctly
+        VkShaderModule module;
+        VkResult vkRes = VKD.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &module);
+        free(ilcShader.code);
+        if (vkRes != VK_SUCCESS) {
+            res = getGrResult(vkRes);
+            goto bail;
+        }
         shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
             .stage = stage->flags,
-            .module = grShader->shaderModule,
+            .module = module,
             .pName = "main",
             .pSpecializationInfo = NULL,
         };
 
         stageCount++;
     }
-
+    LOGT("shaders compiled successfuly\n");
     // TODO implement
     if (pCreateInfo->cbState.dualSourceBlendEnable) {
         LOGW("dual source blend is not implemented\n");
@@ -626,21 +503,6 @@ GR_RESULT grCreateGraphicsPipeline(
     memcpy(pipelineCreateInfo->colorWriteMasks, colorWriteMasks,
            GR_MAX_COLOR_TARGETS * sizeof(VkColorComponentFlags));
 
-    // Create one descriptor set layout per stage
-    for (unsigned i = 0; i < COUNT_OF(stages); i++) {
-        descriptorSetLayouts[i] = getVkDescriptorSetLayout(grDevice, &stages[i]);
-        if (descriptorSetLayouts[i] == VK_NULL_HANDLE) {
-            res = GR_ERROR_OUT_OF_MEMORY;
-            goto bail;
-        }
-    }
-
-    pipelineLayout = getVkPipelineLayout(grDevice, COUNT_OF(stages), stages, descriptorSetLayouts);
-    if (pipelineLayout == VK_NULL_HANDLE) {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
-    }
-
     renderPass = getVkRenderPass(grDevice, pCreateInfo->cbState.target, &pCreateInfo->dbState);
     if (renderPass == VK_NULL_HANDLE)
     {
@@ -649,36 +511,28 @@ GR_RESULT grCreateGraphicsPipeline(
     }
 
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
+    if (grPipeline == NULL) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .createInfo = pipelineCreateInfo,
         .pipelineSlotCount = 0,
         .pipelineSlots = NULL,
         .pipelineSlotsMutex = { 0 }, // Initialized below
-        .pipelineLayout = pipelineLayout,
+        .pipelineLayout = grDevice->pipelineLayouts.graphicsPipelineLayout,
         .renderPass = renderPass,
-        .descriptorTypeCounts = { 0 }, // Initialized below
-        .stageCount = COUNT_OF(stages),
-        .descriptorSetLayouts = { 0 }, // Initialized below
-        .shaderInfos = { { 0 } }, // Initialized below
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
-    updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
-                               grPipeline->descriptorTypeCounts, COUNT_OF(stages), stages);
-    for (unsigned i = 0; i < COUNT_OF(stages); i++) {
-        grPipeline->descriptorSetLayouts[i] = descriptorSetLayouts[i];
-        copyPipelineShader(&grPipeline->shaderInfos[i], stages[i].shader);
-    }
 
     *pPipeline = (GR_PIPELINE)grPipeline;
     return GR_SUCCESS;
 
 bail:
-    for (unsigned i = 0; i < COUNT_OF(descriptorSetLayouts); i++) {
-        VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayouts[i], NULL);
+    if (renderPass != VK_NULL_HANDLE) {
+        VKD.vkDestroyRenderPass(grDevice->device, renderPass, NULL);
     }
-    VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
     return res;
 }
 
@@ -691,8 +545,6 @@ GR_RESULT grCreateComputePipeline(
     GrDevice* grDevice = (GrDevice*)device;
     GR_RESULT res = GR_SUCCESS;
     VkResult vkRes;
-    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
     // TODO validate parameters
@@ -706,27 +558,36 @@ GR_RESULT grCreateComputePipeline(
 
     GrShader* grShader = (GrShader*)stage.shader->shader;
 
+    IlcShader ilcShader = ilcCompileShader(grShader->code, grShader->codeSize, stage.shader);
+    if (ilcShader.code == NULL) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+    const VkShaderModuleCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .codeSize = ilcShader.codeSize,
+        .pCode = ilcShader.code
+    };
+    // idk whether to free spirvCode in case if shader compiles correctly
+    VkShaderModule module = VK_NULL_HANDLE;
+    vkRes = VKD.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &module);
+
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateShaderModule failed\n");
+        res = getGrResult(vkRes);
+        goto bail;
+    }
+
     const VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .stage = stage.flags,
-        .module = grShader->shaderModule,
+        .module = module,
         .pName = "main",
         .pSpecializationInfo = NULL,
     };
-
-    descriptorSetLayout = getVkDescriptorSetLayout(grDevice, &stage);
-    if (descriptorSetLayout == VK_NULL_HANDLE) {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
-    }
-
-    pipelineLayout = getVkPipelineLayout(grDevice, 1, &stage, &descriptorSetLayout);
-    if (pipelineLayout == VK_NULL_HANDLE) {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
-    }
 
     const VkComputePipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
@@ -734,11 +595,10 @@ GR_RESULT grCreateComputePipeline(
         .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
                  VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
         .stage = shaderStageCreateInfo,
-        .layout = pipelineLayout,
+        .layout = grDevice->pipelineLayouts.computePipelineLayout,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = 0,
     };
-
     vkRes = VKD.vkCreateComputePipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
                                          NULL, &vkPipeline);
     if (vkRes != VK_SUCCESS) {
@@ -748,36 +608,48 @@ GR_RESULT grCreateComputePipeline(
     }
 
     PipelineSlot* pipelineSlot = malloc(sizeof(PipelineSlot));
+    if (pipelineSlot == NULL) {
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
+    }
     *pipelineSlot = (PipelineSlot) {
         .pipeline = vkPipeline,
         .grColorBlendState = NULL,
     };
 
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
+    if (grPipeline == NULL) {
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
+    }
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .createInfo = NULL,
         .pipelineSlotCount = 1,
         .pipelineSlots = pipelineSlot,
         .pipelineSlotsMutex = { 0 }, // Initialized below
-        .pipelineLayout = pipelineLayout,
+        .pipelineLayout = grDevice->pipelineLayouts.computePipelineLayout,
         .renderPass = VK_NULL_HANDLE,
-        .descriptorTypeCounts = { 0 }, // Initialized below
-        .stageCount = 1,
-        .descriptorSetLayouts = { descriptorSetLayout },
-        .shaderInfos = { { 0 } }, // Initialized below
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
-    updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
-                               grPipeline->descriptorTypeCounts, 1, &stage);
-    copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
 
     *pPipeline = (GR_PIPELINE)grPipeline;
+    VKD.vkDestroyShaderModule(grDevice->device, module, NULL);
     return GR_SUCCESS;
 
 bail:
-    VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayout, NULL);
-    VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
+    if (ilcShader.code != NULL) {
+        free(ilcShader.code);
+    }
+    if (pipelineSlot != NULL) {
+        free(pipelineSlot);
+    }
+    if (grPipeline != NULL) {
+        free(grPipeline);
+    }
+    if (module != VK_NULL_HANDLE) {
+        VKD.vkDestroyShaderModule(grDevice->device, module, NULL);
+    }
     return res;
 }

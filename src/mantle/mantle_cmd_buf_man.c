@@ -79,13 +79,19 @@ GR_RESULT grCreateCommandBuffer(
     }
 
     GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
+    if (grCmdBuffer == NULL) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
     *grCmdBuffer = (GrCmdBuffer) {
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
         .dirtyFlags = 0,
         .isBuilding = false,
-        .bindPoint = { { 0 }, { 0 } },
+        .bindPoint = {
+            { NULL, {NULL, NULL}, {0, 0}, {}},
+            { NULL, {NULL, NULL}, {0, 0}, {}},
+        },
         .framebuffer = VK_NULL_HANDLE,
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },

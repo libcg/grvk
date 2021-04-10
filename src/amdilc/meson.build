@@ -3,7 +3,7 @@ amdilc_src = [
   'amdilc_compiler.c',
   'amdilc_decoder.c',
   'amdilc_dump.c',
-  'amdilc_spirv.c',
+  'amdilc_spirv.c'
 ]
 
 amdilc_lib = static_library('amdilc', amdilc_src,

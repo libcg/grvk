@@ -114,7 +114,8 @@ static void dumpKernel(
 
 IlcShader ilcCompileShader(
     const void* code,
-    unsigned size)
+    unsigned size,
+    const GR_PIPELINE_SHADER* mappings)
 {
     char name[NAME_LEN];
     getShaderName(name, NAME_LEN, code, size);
@@ -128,7 +129,7 @@ IlcShader ilcCompileShader(
         dumpKernel(kernel, name);
     }
 
-    IlcShader shader = ilcCompileKernel(kernel, name);
+    IlcShader shader = ilcCompileKernel(kernel, name, mappings);
 
     if (dump) {
         dumpBuffer((uint8_t*)shader.code, shader.codeSize, name, "spv");

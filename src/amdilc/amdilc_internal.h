@@ -85,6 +85,7 @@ void ilcDumpKernel(
 
 IlcShader ilcCompileKernel(
     const Kernel* kernel,
-    const char* name);
+    const char* name,
+    const GR_PIPELINE_SHADER* mappings);
 
 #endif // AMDILC_INTERNAL_H_

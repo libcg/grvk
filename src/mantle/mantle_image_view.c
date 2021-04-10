@@ -94,6 +94,7 @@ GR_RESULT grCreateImageView(
     *grImageView = (GrImageView) {
         .grObj = { GR_OBJ_TYPE_IMAGE_VIEW, grDevice },
         .imageView = vkImageView,
+        .usage = grImage->usage,
     };
 
     *pView = (GR_IMAGE_VIEW)grImageView;
