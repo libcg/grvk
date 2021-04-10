@@ -181,7 +181,10 @@ GR_RESULT grAllocMemory(
         .buffer = VK_NULL_HANDLE, // Created on demand
         .boundObjectCount = 0,
         .boundObjects = NULL,
+        .boundObjectsMutex = {},
     };
+
+    InitializeCriticalSectionAndSpinCount(&grGpuMemory->boundObjectsMutex, 0);
 
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
     return GR_SUCCESS;

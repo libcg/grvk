@@ -1,5 +1,3 @@
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include "mantle_internal.h"
 
 static CRITICAL_SECTION mMemRefMutex;
@@ -77,6 +75,7 @@ static void checkMemoryReferences(
     for (unsigned i = 0; i < memRefCount; i++) {
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)memRefs[i].mem;
 
+        EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
         for (unsigned j = 0; j < grGpuMemory->boundObjectCount; j++) {
             GrObject* grBoundObject = grGpuMemory->boundObjects[j];
 
@@ -92,6 +91,7 @@ static void checkMemoryReferences(
                 }
             }
         }
+        LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
     }
 
     // Perform data transfer state transition

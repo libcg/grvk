@@ -89,10 +89,12 @@ GR_RESULT grBindObjectMemory(
         return GR_ERROR_UNAVAILABLE;
     }
 
+    EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
     grGpuMemory->boundObjectCount++;
     grGpuMemory->boundObjects = realloc(grGpuMemory->boundObjects,
                                         grGpuMemory->boundObjectCount * sizeof(GrObject*));
     grGpuMemory->boundObjects[grGpuMemory->boundObjectCount - 1] = grObject;
+    LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
 
     if (vkRes != VK_SUCCESS) {
         LOGW("binding failed (%d)\n", objType);
