@@ -2,6 +2,53 @@
 
 // Generic API Object Management functions
 
+GR_RESULT grDestroyObject(
+    GR_OBJECT object)
+{
+    LOGT("%p\n", object);
+    GrObject* grObject = (GrObject*)object;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
+
+    if (grObject == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    }
+
+    switch (grObject->grObjType) {
+    case GR_OBJ_TYPE_COMMAND_BUFFER: {
+        GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)grObject;
+
+        for (unsigned i = 0; i < COUNT_OF(grCmdBuffer->bindPoint); i++) {
+            VKD.vkDestroyDescriptorPool(grDevice->device,
+                                        grCmdBuffer->bindPoint[i].descriptorPool, NULL);
+            VKD.vkDestroyBufferView(grDevice->device,
+                                    grCmdBuffer->bindPoint[i].dynamicBufferView, NULL);
+        }
+        VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
+    }   break;
+    case GR_OBJ_TYPE_COLOR_TARGET_VIEW: {
+        GrColorTargetView* grColorTargetView = (GrColorTargetView*)grObject;
+
+        VKD.vkDestroyImageView(grDevice->device, grColorTargetView->imageView, NULL);
+    }   break;
+    case GR_OBJ_TYPE_IMAGE: {
+        GrImage* grImage = (GrImage*)grObject;
+
+        VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
+    }   break;
+    case GR_OBJ_TYPE_IMAGE_VIEW: {
+        GrImageView* grImageView = (GrImageView*)grObject;
+
+        VKD.vkDestroyImageView(grDevice->device, grImageView->imageView, NULL);
+    }   break;
+    default:
+        LOGW("unsupported object type %u\n", grObject->grObjType);
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    free(grObject);
+    return GR_SUCCESS;
+}
+
 GR_RESULT grGetObjectInfo(
     GR_BASE_OBJECT object,
     GR_ENUM infoType,

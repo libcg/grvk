@@ -63,15 +63,6 @@ GR_RESULT grPinSystemMemory(
     return GR_UNSUPPORTED;
 }
 
-// Generic API Object Management functions
-
-GR_RESULT grDestroyObject(
-    GR_OBJECT object)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Shader and Pipeline Functions
 
 GR_RESULT grStorePipeline(
