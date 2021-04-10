@@ -40,6 +40,29 @@ GR_RESULT grCreateImageView(
         LOGW("unhandled minLod %g\n", pCreateInfo->minLod);
     }
 
+    bool isStorageImage = (grImage->usage & VK_IMAGE_USAGE_STORAGE_BIT) != 0;
+    bool useIdentity = false;
+
+    if (isStorageImage) {
+        if (pCreateInfo->channels.r == GR_CHANNEL_SWIZZLE_R &&
+            pCreateInfo->channels.g == GR_CHANNEL_SWIZZLE_ZERO &&
+            pCreateInfo->channels.b == GR_CHANNEL_SWIZZLE_ZERO &&
+            pCreateInfo->channels.a == GR_CHANNEL_SWIZZLE_ZERO &&
+            (grImage->format == VK_FORMAT_R8_UNORM || grImage->format == VK_FORMAT_R32_UINT)) {
+            useIdentity = true;
+        } else if (pCreateInfo->channels.r != GR_CHANNEL_SWIZZLE_R ||
+                   pCreateInfo->channels.g != GR_CHANNEL_SWIZZLE_G ||
+                   pCreateInfo->channels.b != GR_CHANNEL_SWIZZLE_B ||
+                   pCreateInfo->channels.a != GR_CHANNEL_SWIZZLE_A) {
+            LOGW("non-identity swizzle %u.%u.%u.%u for storage image %u\n",
+                 getVkComponentSwizzle(pCreateInfo->channels.r),
+                 getVkComponentSwizzle(pCreateInfo->channels.g),
+                 getVkComponentSwizzle(pCreateInfo->channels.b),
+                 getVkComponentSwizzle(pCreateInfo->channels.a),
+                 grImage->format);
+        }
+    }
+
     const VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
@@ -48,10 +71,14 @@ GR_RESULT grCreateImageView(
         .viewType = imageViewType,
         .format = getVkFormat(pCreateInfo->format),
         .components = {
-            .r = getVkComponentSwizzle(pCreateInfo->channels.r),
-            .g = getVkComponentSwizzle(pCreateInfo->channels.g),
-            .b = getVkComponentSwizzle(pCreateInfo->channels.b),
-            .a = getVkComponentSwizzle(pCreateInfo->channels.a),
+            .r = useIdentity ? VK_COMPONENT_SWIZZLE_IDENTITY :
+                               getVkComponentSwizzle(pCreateInfo->channels.r),
+            .g = useIdentity ? VK_COMPONENT_SWIZZLE_IDENTITY :
+                               getVkComponentSwizzle(pCreateInfo->channels.g),
+            .b = useIdentity ? VK_COMPONENT_SWIZZLE_IDENTITY :
+                               getVkComponentSwizzle(pCreateInfo->channels.b),
+            .a = useIdentity ? VK_COMPONENT_SWIZZLE_IDENTITY :
+                               getVkComponentSwizzle(pCreateInfo->channels.a),
         },
         .subresourceRange = getVkImageSubresourceRange(pCreateInfo->subresourceRange,
                                                        pCreateInfo->viewType == GR_IMAGE_VIEW_CUBE),

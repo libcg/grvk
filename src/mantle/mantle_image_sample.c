@@ -178,6 +178,7 @@ GR_RESULT grCreateImage(
         .imageType = createInfo.imageType,
         .extent = createInfo.extent,
         .format = createInfo.format,
+        .usage = createInfo.usage,
         .needInitialDataTransferState = !(pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET) &&
                                         !(pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL),
         .isCube = isCube,

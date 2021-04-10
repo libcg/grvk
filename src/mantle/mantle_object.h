@@ -179,6 +179,7 @@ typedef struct _GrImage {
     VkImageType imageType;
     VkExtent3D extent;
     VkFormat format;
+    VkImageUsageFlags usage;
     bool needInitialDataTransferState;
     bool isCube;
 } GrImage;
