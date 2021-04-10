@@ -118,6 +118,12 @@ GR_RESULT grCreateImage(
         return GR_ERROR_INVALID_FLAGS;
     }
 
+    bool isCube = pCreateInfo->imageType == GR_IMAGE_2D &&
+                  pCreateInfo->extent.width == pCreateInfo->extent.height &&
+                  pCreateInfo->extent.depth == 1 &&
+                  pCreateInfo->arraySize % 6 == 0 &&
+                  pCreateInfo->samples == 1;
+
     if (pCreateInfo->flags != 0) {
         LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
     }
@@ -125,7 +131,7 @@ GR_RESULT grCreateImage(
     const VkImageCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = NULL,
-        .flags = 0,
+        .flags = isCube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0,
         .imageType = getVkImageType(pCreateInfo->imageType),
         .format = getVkFormat(pCreateInfo->format),
         .extent = {
@@ -174,6 +180,7 @@ GR_RESULT grCreateImage(
         .format = createInfo.format,
         .needInitialDataTransferState = !(pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET) &&
                                         !(pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL),
+        .isCube = isCube,
     };
 
     *pImage = (GR_IMAGE)grImage;

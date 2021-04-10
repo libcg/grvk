@@ -180,6 +180,7 @@ typedef struct _GrImage {
     VkExtent3D extent;
     VkFormat format;
     bool needInitialDataTransferState;
+    bool isCube;
 } GrImage;
 
 typedef struct _GrImageView {

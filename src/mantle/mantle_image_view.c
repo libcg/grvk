@@ -30,6 +30,12 @@ GR_RESULT grCreateImageView(
         assert(false);
     }
 
+    if (grImage->isCube && pCreateInfo->viewType != GR_IMAGE_VIEW_CUBE) {
+        // There's a mismatch between Vulkan and Mantle ImageSubresourceRange for cubemap layers.
+        // See getVkImageSubresourceRange() and its usage.
+        LOGW("non-cube image view created for cube image %p\n", grImage);
+    }
+
     if (pCreateInfo->minLod != 0.f) {
         LOGW("unhandled minLod %g\n", pCreateInfo->minLod);
     }
@@ -47,7 +53,8 @@ GR_RESULT grCreateImageView(
             .b = getVkComponentSwizzle(pCreateInfo->channels.b),
             .a = getVkComponentSwizzle(pCreateInfo->channels.a),
         },
-        .subresourceRange = getVkImageSubresourceRange(pCreateInfo->subresourceRange),
+        .subresourceRange = getVkImageSubresourceRange(pCreateInfo->subresourceRange,
+                                                       pCreateInfo->viewType == GR_IMAGE_VIEW_CUBE),
     };
 
     VkResult res = VKD.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
@@ -88,6 +95,10 @@ GR_RESULT grCreateColorTargetView(
     } else {
         LOGE("unexpected image type 0x%X\n", grImage->imageType);
         assert(false);
+    }
+
+    if (grImage->isCube) {
+        LOGW("color target view created for cube image %p\n", grImage);
     }
 
     const VkImageViewCreateInfo createInfo = {
@@ -155,6 +166,10 @@ GR_RESULT grCreateDepthStencilView(
     } else {
         LOGE("unexpected image type 0x%X\n", grImage->imageType);
         assert(false);
+    }
+
+    if (grImage->isCube) {
+        LOGW("depth stencil view created for cube image %p\n", grImage);
     }
 
     if (pCreateInfo->flags != 0) {

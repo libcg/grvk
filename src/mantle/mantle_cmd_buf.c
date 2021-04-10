@@ -632,7 +632,8 @@ GR_VOID grCmdPrepareImages(
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = grImage->image,
-            .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange),
+            .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange,
+                                                           grImage->isCube),
         };
 
         // TODO batch
@@ -895,7 +896,7 @@ GR_VOID grCmdClearColorImage(
 
     VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
     for (int i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i]);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->isCube);
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
@@ -926,7 +927,7 @@ GR_VOID grCmdClearColorImageRaw(
 
     VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
     for (int i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i]);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->isCube);
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
@@ -958,7 +959,7 @@ GR_VOID grCmdClearDepthStencil(
 
     VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
     for (int i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i]);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->isCube);
     }
 
     VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,

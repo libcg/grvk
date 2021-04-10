@@ -916,15 +916,18 @@ VkImageSubresourceLayers getVkImageSubresourceLayers(
 }
 
 VkImageSubresourceRange getVkImageSubresourceRange(
-    GR_IMAGE_SUBRESOURCE_RANGE subresourceRange)
+    GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
+    bool isCubemap)
 {
+    unsigned layerFactor = isCubemap ? 6 : 1;
+
     return (VkImageSubresourceRange) {
         .aspectMask = getVkImageAspectFlags(subresourceRange.aspect),
         .baseMipLevel = subresourceRange.baseMipLevel,
         .levelCount = subresourceRange.mipLevels == GR_LAST_MIP_OR_SLICE ?
                       VK_REMAINING_MIP_LEVELS : subresourceRange.mipLevels,
-        .baseArrayLayer = subresourceRange.baseArraySlice,
+        .baseArrayLayer = subresourceRange.baseArraySlice * layerFactor,
         .layerCount = subresourceRange.arraySize == GR_LAST_MIP_OR_SLICE ?
-                      VK_REMAINING_ARRAY_LAYERS : subresourceRange.arraySize,
+                      VK_REMAINING_ARRAY_LAYERS : subresourceRange.arraySize * layerFactor,
     };
 }
