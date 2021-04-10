@@ -176,6 +176,20 @@ GR_RESULT grCreateDepthStencilView(
         LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
     }
 
+    VkImageAspectFlags aspectMask = 0;
+    switch (grImage->format) {
+    case VK_FORMAT_D16_UNORM:
+    case VK_FORMAT_D32_SFLOAT:
+        aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        break;
+    case VK_FORMAT_S8_UINT:
+        aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+        break;
+    default:
+        aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        break;
+    }
+
     const VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
@@ -190,7 +204,7 @@ GR_RESULT grCreateDepthStencilView(
             .a = VK_COMPONENT_SWIZZLE_IDENTITY,
         },
         .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+            .aspectMask = aspectMask,
             .baseMipLevel = pCreateInfo->mipLevel,
             .levelCount = 1,
             .baseArrayLayer = pCreateInfo->baseArraySlice,
