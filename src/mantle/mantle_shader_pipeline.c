@@ -512,7 +512,9 @@ GR_RESULT grCreateGraphicsPipeline(
 
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     if (grPipeline == NULL) {
-        return GR_ERROR_OUT_OF_MEMORY;
+        LOGE("failed to allocate memory for GrPipeline\n");
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
     }
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
@@ -530,6 +532,11 @@ GR_RESULT grCreateGraphicsPipeline(
     return GR_SUCCESS;
 
 bail:
+    for (unsigned i = 0; i < stageCount;++i) {
+        if (shaderStageCreateInfo[i].module != VK_NULL_HANDLE) {
+            VKD.vkDestroyShaderModule(grDevice->device, shaderStageCreateInfo[i].module, NULL);
+        }
+    }
     if (renderPass != VK_NULL_HANDLE) {
         VKD.vkDestroyRenderPass(grDevice->device, renderPass, NULL);
     }

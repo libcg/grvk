@@ -126,23 +126,24 @@ static VkDescriptorSet allocateDynamicBindingSet(GrCmdBuffer* grCmdBuffer, VkPip
 pool_allocation:
     LOGT("Allocating a new descriptor pool for dynamic binding for buffer %p\n", grCmdBuffer);
     // TODO: make "vector" more efficient
+    grCmdBuffer->descriptorPoolCount++;
     grCmdBuffer->descriptorPools = (VkDescriptorPool*)realloc(grCmdBuffer->descriptorPools, sizeof(VkDescriptorPool) * grCmdBuffer->descriptorPoolCount);
-    const unsigned dynamicDescriptorCount = 128;
+
     const VkDescriptorPoolSize poolSizes[2] = {
         {
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-            .descriptorCount = dynamicDescriptorCount,
+            .descriptorCount = SETS_PER_POOL,
         },
         {
             .type = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
-            .descriptorCount = dynamicDescriptorCount,
+            .descriptorCount = SETS_PER_POOL,
         }
     };
     const VkDescriptorPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .maxSets = dynamicDescriptorCount,
+        .maxSets = SETS_PER_POOL,
         .poolSizeCount = 2,
         .pPoolSizes = poolSizes,
     };
@@ -152,7 +153,7 @@ pool_allocation:
         LOGE("vkCreateDescriptorPool for dynamic binding failed\n");
         assert(false);
     }
-    grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount++] = tempPool;
+    grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] = tempPool;
     allocInfo.descriptorPool = tempPool;
     if (VKD.vkAllocateDescriptorSets(grDevice->device, &allocInfo, &outSet) != VK_SUCCESS) {
         LOGE("vkAllocateDescriptorSets failed for created descriptor pool\n");
