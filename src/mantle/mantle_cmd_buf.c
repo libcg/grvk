@@ -264,7 +264,30 @@ static void grCmdBufferUpdateDescriptorSets(
     VkPipelineBindPoint bindPoint)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    const GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+    GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+    VkResult vkRes;
+
+    // FIXME track references
+    // VKD.vkDestroyDescriptorPool(grDevice->device,
+    //                             grCmdBuffer->bindPoint[bindPoint].descriptorPool, NULL);
+    grCmdBuffer->bindPoint[bindPoint].descriptorPool =
+        getVkDescriptorPool(grDevice, grPipeline->stageCount,
+                            COUNT_OF(grPipeline->descriptorTypeCounts),
+                            grPipeline->descriptorTypeCounts);
+
+    const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = NULL,
+        .descriptorPool = grCmdBuffer->bindPoint[bindPoint].descriptorPool,
+        .descriptorSetCount = grPipeline->stageCount, // TODO optimize
+        .pSetLayouts = grPipeline->descriptorSetLayouts,
+    };
+
+    vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo,
+                                         grCmdBuffer->bindPoint[bindPoint].descriptorSets);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
+    }
 
     for (unsigned i = 0; i < grPipeline->stageCount; i++) {
         updateVkDescriptorSet(grDevice,
@@ -274,6 +297,10 @@ static void grCmdBufferUpdateDescriptorSets(
                               grCmdBuffer->bindPoint[bindPoint].grDescriptorSet,
                               grCmdBuffer->bindPoint[bindPoint].dynamicBufferView);
     }
+
+    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipelineLayout,
+                                0, grPipeline->stageCount,
+                                grCmdBuffer->bindPoint[bindPoint].descriptorSets, 0, NULL);
 }
 
 static void grCmdBufferUpdateResources(
@@ -318,37 +345,12 @@ GR_VOID grCmdBindPipeline(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
-    VkResult vkRes;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
 
-    // FIXME track references
-    // VKD.vkDestroyDescriptorPool(grDevice->device,
-    //                             grCmdBuffer->bindPoint[vkBindPoint].descriptorPool, NULL);
-    grCmdBuffer->bindPoint[vkBindPoint].descriptorPool =
-        getVkDescriptorPool(grDevice, grPipeline->stageCount,
-                            COUNT_OF(grPipeline->descriptorTypeCounts),
-                            grPipeline->descriptorTypeCounts);
-
-    const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .pNext = NULL,
-        .descriptorPool = grCmdBuffer->bindPoint[vkBindPoint].descriptorPool,
-        .descriptorSetCount = grPipeline->stageCount, // TODO optimize
-        .pSetLayouts = grPipeline->descriptorSetLayouts,
-    };
-
-    vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo,
-                                         grCmdBuffer->bindPoint[vkBindPoint].descriptorSets);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
-    }
-
     VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
-    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
-                                0, grPipeline->stageCount,
-                                grCmdBuffer->bindPoint[vkBindPoint].descriptorSets, 0, NULL);
 
     grCmdBuffer->bindPoint[vkBindPoint].grPipeline = grPipeline;
+
     if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
         grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS | FLAG_DIRTY_FRAMEBUFFER;
     } else {
