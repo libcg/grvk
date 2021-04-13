@@ -355,6 +355,10 @@ GR_VOID grCmdBindPipeline(
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
 
+    if (grPipeline == grCmdBuffer->bindPoint[vkBindPoint].grPipeline) {
+        return;
+    }
+
     VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
 
     grCmdBuffer->bindPoint[vkBindPoint].grPipeline = grPipeline;
