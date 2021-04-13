@@ -267,13 +267,18 @@ static void grCmdBufferUpdateDescriptorSets(
     GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
     VkResult vkRes;
 
-    // FIXME track references
-    // VKD.vkDestroyDescriptorPool(grDevice->device,
-    //                             grCmdBuffer->bindPoint[bindPoint].descriptorPool, NULL);
     grCmdBuffer->bindPoint[bindPoint].descriptorPool =
         getVkDescriptorPool(grDevice, grPipeline->stageCount,
                             COUNT_OF(grPipeline->descriptorTypeCounts),
                             grPipeline->descriptorTypeCounts);
+
+    // Track descriptor pool
+    grCmdBuffer->descriptorPoolCount++;
+    grCmdBuffer->descriptorPools = realloc(grCmdBuffer->descriptorPools,
+                                           grCmdBuffer->descriptorPoolCount *
+                                           sizeof(VkDescriptorPool));
+    grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] =
+        grCmdBuffer->bindPoint[bindPoint].descriptorPool;
 
     const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -322,13 +327,16 @@ static void grCmdBufferUpdateResources(
 
         grCmdBufferEndRenderPass(grCmdBuffer);
 
-        // FIXME track references
-        //VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffer, NULL);
-
         grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, grPipeline->renderPass,
                                                     grCmdBuffer->attachmentCount,
                                                     grCmdBuffer->attachments,
                                                     grCmdBuffer->minExtent);
+
+        // Track framebuffer
+        grCmdBuffer->framebufferCount++;
+        grCmdBuffer->framebuffers = realloc(grCmdBuffer->framebuffers,
+                                            grCmdBuffer->framebufferCount * sizeof(VkFramebuffer));
+        grCmdBuffer->framebuffers[grCmdBuffer->framebufferCount - 1] = grCmdBuffer->framebuffer;
     }
 
     grCmdBuffer->dirtyFlags = 0;
@@ -465,12 +473,6 @@ GR_VOID grCmdBindDynamicMemoryView(
     const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
 
-    if (grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView != VK_NULL_HANDLE) {
-        // FIXME track references
-        //VKD.vkDestroyBufferView(grDevice->device,
-        //                        grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView, NULL);
-    }
-
     // FIXME what is pMemView->state for?
     const VkBufferViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
@@ -488,6 +490,13 @@ GR_VOID grCmdBindDynamicMemoryView(
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateBufferView failed (%d)\n", vkRes);
     }
+
+    // Track buffer view
+    grCmdBuffer->bufferViewCount++;
+    grCmdBuffer->bufferViews = realloc(grCmdBuffer->bufferViews,
+                                       grCmdBuffer->bufferViewCount * sizeof(VkBufferView));
+    grCmdBuffer->bufferViews[grCmdBuffer->bufferViewCount - 1] =
+        grCmdBuffer->bindPoint[vkBindPoint].dynamicBufferView;
 
     if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
         grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS;

@@ -104,6 +104,13 @@ typedef struct _GrCmdBuffer {
     VkImageView attachments[GR_MAX_COLOR_TARGETS + 1]; // Extra depth target
     VkExtent3D minExtent;
     bool hasActiveRenderPass;
+    // Resource tracking
+    unsigned descriptorPoolCount;
+    VkDescriptorPool* descriptorPools;
+    unsigned framebufferCount;
+    VkFramebuffer* framebuffers;
+    unsigned bufferViewCount;
+    VkBufferView* bufferViews;
 } GrCmdBuffer;
 
 typedef struct _GrColorBlendStateObject {

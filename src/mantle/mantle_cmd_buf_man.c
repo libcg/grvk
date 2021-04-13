@@ -3,6 +3,23 @@
 static void grCmdBufferResetState(
     GrCmdBuffer* grCmdBuffer)
 {
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    // Free up tracked resources
+    for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
+        VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
+    }
+    for (unsigned i = 0; i < grCmdBuffer->framebufferCount; i++) {
+        VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffers[i], NULL);
+    }
+    for (unsigned i = 0; i < grCmdBuffer->bufferViewCount; i++) {
+        VKD.vkDestroyBufferView(grDevice->device, grCmdBuffer->bufferViews[i], NULL);
+    }
+    free(grCmdBuffer->descriptorPools);
+    free(grCmdBuffer->framebuffers);
+    free(grCmdBuffer->bufferViews);
+
+    // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, dirtyFlags);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
 }
@@ -65,6 +82,12 @@ GR_RESULT grCreateCommandBuffer(
         .attachments = { VK_NULL_HANDLE },
         .minExtent = { 0, 0, 0 },
         .hasActiveRenderPass = false,
+        .descriptorPoolCount = 0,
+        .descriptorPools = NULL,
+        .framebufferCount = 0,
+        .framebuffers = NULL,
+        .bufferViewCount = 0,
+        .bufferViews = NULL,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;
