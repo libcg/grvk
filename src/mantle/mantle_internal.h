@@ -15,11 +15,20 @@
 #define VKD \
     (grDevice->vkd)
 
+#define CEILDIV(a, b) \
+    (((a) + (b) - 1) / (b))
+
 #define MIN(a, b) \
     ((a) < (b) ? (a) : (b))
 
 #define MAX(a, b) \
     ((a) > (b) ? (a) : (b))
+
+#define MIP(a, b) \
+    MAX((a) >> (b), 1)
+
+#define ALIGN(a, b) \
+    (((a) + (b) - 1) & -(b))
 
 #define COUNT_OF(array) \
     (sizeof(array) / sizeof((array)[0]))
@@ -41,6 +50,12 @@ GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
 
 VkFormat getVkFormat(
     GR_FORMAT format);
+
+unsigned getVkFormatTexelSize(
+    VkFormat vkFormat);
+
+unsigned getVkFormatTileSize(
+    VkFormat vkFormat);
 
 VkImageLayout getVkImageLayout(
     GR_IMAGE_STATE imageState);

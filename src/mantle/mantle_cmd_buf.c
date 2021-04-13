@@ -812,25 +812,67 @@ GR_VOID grCmdCopyImage(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    VkImageCopy* vkRegions = malloc(regionCount * sizeof(VkImageCopy));
-    for (unsigned i = 0; i < regionCount; i++) {
-        const GR_IMAGE_COPY* region = &pRegions[i];
+    if (grSrcImage->image != VK_NULL_HANDLE) {
+        VkImageCopy* vkRegions = malloc(regionCount * sizeof(VkImageCopy));
+        for (unsigned i = 0; i < regionCount; i++) {
+            const GR_IMAGE_COPY* region = &pRegions[i];
 
-        vkRegions[i] = (VkImageCopy) {
-            .srcSubresource = getVkImageSubresourceLayers(region->srcSubresource),
-            .srcOffset = { region->srcOffset.x, region->srcOffset.y, region->srcOffset.z },
-            .dstSubresource = getVkImageSubresourceLayers(region->destSubresource),
-            .dstOffset = { region->destOffset.x, region->destOffset.y, region->destOffset.z },
-            .extent = { region->extent.width, region->extent.height, region->extent.depth },
-        };
+            vkRegions[i] = (VkImageCopy) {
+                .srcSubresource = getVkImageSubresourceLayers(region->srcSubresource),
+                .srcOffset = { region->srcOffset.x, region->srcOffset.y, region->srcOffset.z },
+                .dstSubresource = getVkImageSubresourceLayers(region->destSubresource),
+                .dstOffset = { region->destOffset.x, region->destOffset.y, region->destOffset.z },
+                .extent = { region->extent.width, region->extent.height, region->extent.depth },
+            };
+        }
+
+        VKD.vkCmdCopyImage(grCmdBuffer->commandBuffer,
+                           grSrcImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                           grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                           regionCount, vkRegions);
+
+        free(vkRegions);
+    } else {
+        VkBufferImageCopy* vkRegions = malloc(regionCount * sizeof(VkBufferImageCopy));
+        for (unsigned i = 0; i < regionCount; i++) {
+            const GR_IMAGE_COPY* region = &pRegions[i];
+
+            if (region->srcSubresource.aspect != GR_IMAGE_ASPECT_COLOR) {
+                LOGW("unhandled non-color aspect 0x%X\n", region->srcSubresource.aspect);
+            }
+            if (region->srcOffset.x != 0 || region->srcOffset.y != 0 || region->srcOffset.z != 0) {
+                LOGW("unhandled region offset %u %u %u for buffer\n",
+                     region->srcOffset.x, region->srcOffset.y, region->srcOffset.z);
+            }
+
+            vkRegions[i] = (VkBufferImageCopy) {
+                .bufferOffset = grImageGetBufferOffset(grSrcImage->extent, grSrcImage->format,
+                                                       region->srcSubresource.arraySlice,
+                                                       grSrcImage->arrayLayers,
+                                                       region->srcSubresource.mipLevel),
+                .bufferRowLength = 0,
+                .bufferImageHeight = 0,
+                .imageSubresource = getVkImageSubresourceLayers(region->destSubresource),
+                .imageOffset = {
+                    region->destOffset.x,
+                    region->destOffset.y,
+                    region->destOffset.z,
+                },
+                .imageExtent = {
+                    region->extent.width,
+                    region->extent.height,
+                    region->extent.depth,
+                },
+            };
+        }
+
+        VKD.vkCmdCopyBufferToImage(grCmdBuffer->commandBuffer,
+                                   grSrcImage->buffer, grDstImage->image,
+                                   getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                                   regionCount, vkRegions);
+
+        free(vkRegions);
     }
-
-    VKD.vkCmdCopyImage(grCmdBuffer->commandBuffer,
-                       grSrcImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
-                       grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
-                       regionCount, vkRegions);
-
-    free(vkRegions);
 }
 
 GR_VOID grCmdCopyMemoryToImage(

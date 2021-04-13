@@ -29,6 +29,7 @@ GR_RESULT grDestroyObject(
         GrImage* grImage = (GrImage*)grObject;
 
         VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
+        VKD.vkDestroyBuffer(grDevice->device, grImage->buffer, NULL);
     }   break;
     case GR_OBJ_TYPE_IMAGE_VIEW: {
         GrImageView* grImageView = (GrImageView*)grObject;
@@ -77,7 +78,11 @@ GR_RESULT grGetObjectInfo(
             GrImage* grImage = (GrImage*)grBaseObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
 
-            VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
+            if (grImage->image != VK_NULL_HANDLE) {
+                VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
+            } else {
+                VKD.vkGetBufferMemoryRequirements(grDevice->device, grImage->buffer, &memReqs);
+            }
 
             *grMemReqs = getGrMemoryRequirements(memReqs);
         } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
@@ -121,8 +126,13 @@ GR_RESULT grBindObjectMemory(
         GrImage* grImage = (GrImage*)grObject;
         GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
-        vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
-                                      grGpuMemory->deviceMemory, offset);
+        if (grImage->image != VK_NULL_HANDLE) {
+            vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
+                                          grGpuMemory->deviceMemory, offset);
+        } else {
+            vkRes = VKD.vkBindBufferMemory(grDevice->device, grImage->buffer,
+                                           grGpuMemory->deviceMemory, offset);
+        }
     } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
                objType == GR_OBJ_TYPE_PIPELINE) {
         // Nothing to do

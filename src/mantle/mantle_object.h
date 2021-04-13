@@ -183,8 +183,10 @@ typedef struct _GrGpuMemory {
 typedef struct _GrImage {
     GrObject grObj;
     VkImage image;
+    VkBuffer buffer;
     VkImageType imageType;
     VkExtent3D extent;
+    unsigned arrayLayers;
     VkFormat format;
     VkImageUsageFlags usage;
     bool needInitialDataTransferState;
@@ -261,6 +263,23 @@ void grCmdBufferEndRenderPass(
 
 void grCmdBufferResetState(
     GrCmdBuffer* grCmdBuffer);
+
+unsigned grImageGetBufferOffset(
+    VkExtent3D extent,
+    VkFormat format,
+    unsigned arraySlice,
+    unsigned arraySize,
+    unsigned mipLevel);
+
+unsigned grImageGetBufferRowPitch(
+    VkExtent3D extent,
+    VkFormat format,
+    unsigned mipLevel);
+
+unsigned grImageGetBufferDepthPitch(
+    VkExtent3D extent,
+    VkFormat format,
+    unsigned mipLevel);
 
 void grGpuMemoryBindBuffer(
     GrGpuMemory* grGpuMemory);
