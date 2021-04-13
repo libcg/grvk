@@ -164,12 +164,9 @@ GR_RESULT grResetCommandBuffer(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    // FIXME unfortunate but necessary workaround for Star Swarm which attempts to reset
-    // a command buffer in use and free related resources, while the game boots.
-    static int count = 0;
-    if (count < 10) {
-        VKD.vkDeviceWaitIdle(grDevice->device);
-    }
+    // FIXME FIXME FIXME unfortunate but necessary workaround for Star Swarm which attempts to
+    // reset a command buffer in use and free related resources...
+    VKD.vkDeviceWaitIdle(grDevice->device);
 
     VkResult res = VKD.vkResetCommandBuffer(grCmdBuffer->commandBuffer,
                                             VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
