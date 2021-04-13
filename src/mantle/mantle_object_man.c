@@ -17,13 +17,8 @@ GR_RESULT grDestroyObject(
     case GR_OBJ_TYPE_COMMAND_BUFFER: {
         GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)grObject;
 
-        for (unsigned i = 0; i < COUNT_OF(grCmdBuffer->bindPoint); i++) {
-            VKD.vkDestroyDescriptorPool(grDevice->device,
-                                        grCmdBuffer->bindPoint[i].descriptorPool, NULL);
-            VKD.vkDestroyBufferView(grDevice->device,
-                                    grCmdBuffer->bindPoint[i].dynamicBufferView, NULL);
-        }
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
+        grCmdBufferResetState(grCmdBuffer);
     }   break;
     case GR_OBJ_TYPE_COLOR_TARGET_VIEW: {
         GrColorTargetView* grColorTargetView = (GrColorTargetView*)grObject;

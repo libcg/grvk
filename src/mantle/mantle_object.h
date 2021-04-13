@@ -259,6 +259,9 @@ typedef struct _GrViewportStateObject {
 void grCmdBufferEndRenderPass(
     GrCmdBuffer* grCmdBuffer);
 
+void grCmdBufferResetState(
+    GrCmdBuffer* grCmdBuffer);
+
 void grGpuMemoryBindBuffer(
     GrGpuMemory* grGpuMemory);
 

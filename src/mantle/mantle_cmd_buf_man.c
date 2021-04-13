@@ -1,6 +1,6 @@
 #include "mantle_internal.h"
 
-static void grCmdBufferResetState(
+void grCmdBufferResetState(
     GrCmdBuffer* grCmdBuffer)
 {
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
