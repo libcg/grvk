@@ -469,8 +469,8 @@ GR_RESULT grCreateGraphicsPipeline(
             // TODO implement blend settings
             attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
                 .blendEnable = VK_TRUE,
-                .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-                .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+                .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
                 .colorBlendOp = VK_BLEND_OP_ADD,
                 .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
                 .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
