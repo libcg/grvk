@@ -63,7 +63,7 @@ static VkDescriptorPool getVkDescriptorPool(
     const VkDescriptorPoolCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
-        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+        .flags = 0,
         .maxSets = stageCount, // TODO optimize
         .poolSizeCount = descriptorPoolSizeCount,
         .pPoolSizes = descriptorPoolSizes,
