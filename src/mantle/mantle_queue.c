@@ -174,8 +174,11 @@ GR_RESULT grQueueSubmit(
     }
 
     VkCommandBuffer* vkCommandBuffers = malloc(sizeof(VkCommandBuffer) * cmdBufferCount);
-    for (int i = 0; i < cmdBufferCount; i++) {
-        vkCommandBuffers[i] = ((GrCmdBuffer*)pCmdBuffers[i])->commandBuffer;
+    for (unsigned i = 0; i < cmdBufferCount; i++) {
+        GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)pCmdBuffers[i];
+
+        grCmdBuffer->submitFence = grFence;
+        vkCommandBuffers[i] = grCmdBuffer->commandBuffer;
     }
 
     const VkSubmitInfo submitInfo = {

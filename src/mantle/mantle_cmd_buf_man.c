@@ -85,6 +85,7 @@ GR_RESULT grCreateCommandBuffer(
         .framebuffers = NULL,
         .bufferViewCount = 0,
         .bufferViews = NULL,
+        .submitFence = NULL,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;
@@ -161,9 +162,11 @@ GR_RESULT grResetCommandBuffer(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    // FIXME FIXME FIXME unfortunate but necessary workaround for Star Swarm which attempts to
-    // reset a command buffer in use and free related resources...
-    VKD.vkDeviceWaitIdle(grDevice->device);
+    // HACK: Star Swarm attempts to reset a command buffer in use and free related resources...
+    // Wait for the submit fence ourselves to work around that issue.
+    if (grCmdBuffer->submitFence != NULL) {
+        grWaitForFences((GR_DEVICE)grDevice, 1, (GR_FENCE*)&grCmdBuffer->submitFence, true, 1.0f);
+    }
 
     VkResult res = VKD.vkResetCommandBuffer(grCmdBuffer->commandBuffer,
                                             VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);

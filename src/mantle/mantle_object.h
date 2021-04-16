@@ -50,6 +50,7 @@ typedef enum _DescriptorSetSlotType
 
 typedef struct _GrDescriptorSet GrDescriptorSet;
 typedef struct _GrDevice GrDevice;
+typedef struct _GrFence GrFence;
 typedef struct _GrPipeline GrPipeline;
 
 typedef struct _DescriptorSetSlot
@@ -114,6 +115,7 @@ typedef struct _GrCmdBuffer {
     VkFramebuffer* framebuffers;
     unsigned bufferViewCount;
     VkBufferView* bufferViews;
+    GrFence* submitFence;
 } GrCmdBuffer;
 
 typedef struct _GrColorBlendStateObject {
