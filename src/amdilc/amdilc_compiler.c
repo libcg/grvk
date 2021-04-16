@@ -1042,13 +1042,13 @@ static void emitTypedUav(
     SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
     if (fmtx == IL_ELEMENTFORMAT_SINT) {
         sampledTypeId = compiler->intId;
-        spvImageFormat = SpvImageFormatR32i;
+        spvImageFormat = SpvImageFormatRgba32i;
     } else if (fmtx == IL_ELEMENTFORMAT_UINT) {
         sampledTypeId = compiler->uintId;
-        spvImageFormat = SpvImageFormatR32ui;
+        spvImageFormat = SpvImageFormatRgba32ui;
     } else if (fmtx == IL_ELEMENTFORMAT_FLOAT) {
         sampledTypeId = compiler->floatId;
-        spvImageFormat = SpvImageFormatR32f;
+        spvImageFormat = SpvImageFormatRgba32f;
     } else {
         LOGE("unhandled format %d\n", fmtx);
         assert(false);
