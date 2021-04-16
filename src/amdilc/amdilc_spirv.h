@@ -123,6 +123,16 @@ IlcSpvId ilcSpvPutArrayType(
     IlcSpvId typeId,
     IlcSpvId lengthId);
 
+IlcSpvId ilcSpvPutRuntimeArrayType(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    bool unique);
+
+IlcSpvId ilcSpvPutStructType(
+    IlcSpvModule* module,
+    unsigned memberTypeIdCount,
+    const IlcSpvId* memberTypeId);
+
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,
     IlcSpvWord storageClass,
@@ -181,11 +191,20 @@ IlcSpvId ilcSpvPutAccessChain(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId baseId,
-    IlcSpvId indexId);
+    unsigned indexIdCount,
+    const IlcSpvId* indexIds);
 
 void ilcSpvPutDecoration(
     IlcSpvModule* module,
     IlcSpvId target,
+    IlcSpvWord decoration,
+    unsigned argCount,
+    const IlcSpvWord* args);
+
+void ilcSpvPutMemberDecoration(
+    IlcSpvModule* module,
+    IlcSpvId structureTypeId,
+    IlcSpvWord member,
     IlcSpvWord decoration,
     unsigned argCount,
     const IlcSpvWord* args);

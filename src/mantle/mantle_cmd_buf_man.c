@@ -73,10 +73,7 @@ GR_RESULT grCreateCommandBuffer(
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
         .dirtyFlags = 0,
-        .bindPoint = {
-            { NULL, NULL, 0, VK_NULL_HANDLE},
-            { NULL, NULL, 0, VK_NULL_HANDLE},
-        },
+        .bindPoint = { { 0 }, { 0 } },
         .framebuffer = VK_NULL_HANDLE,
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },

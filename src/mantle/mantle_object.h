@@ -65,6 +65,9 @@ typedef struct _DescriptorSetSlot
         } imageView;
         struct {
             VkBufferView vkBufferView;
+            VkBuffer vkBuffer;
+            VkDeviceSize offset;
+            VkDeviceSize range;
         } memoryView;
         struct {
             const GrDescriptorSet* nextSet;
@@ -94,7 +97,7 @@ typedef struct _GrCmdBuffer {
         GrPipeline* grPipeline;
         GrDescriptorSet* grDescriptorSet;
         unsigned slotOffset;
-        VkBufferView dynamicBufferView;
+        DescriptorSetSlot dynamicMemoryView;
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
     } bindPoint[2];

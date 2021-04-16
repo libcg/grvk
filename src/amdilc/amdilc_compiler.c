@@ -518,7 +518,7 @@ static IlcSpvId loadSource(
             const IlcSpvId addIds[] = { indexId, relId };
             indexId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
         }
-        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, indexId);
+        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
     }
 
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
@@ -638,7 +638,7 @@ static void storeDestination(
         IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
                                                   reg->typeId);
         IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, dst->immediate);
-        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, indexId);
+        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
     }
 
     if (dst->shiftScale != IL_SHIFT_NONE) {
@@ -1084,22 +1084,27 @@ static void emitStructuredSrv(
 {
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
-    IlcSpvId imageId = ilcSpvPutImageType(compiler->module, compiler->floatId, SpvDimBuffer,
-                                          0, 0, 0, 1, SpvImageFormatR32f);
-    IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
-                                             imageId);
-    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
-                                            SpvStorageClassUniformConstant);
+    IlcSpvId arrayId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->floatId, true);
+    IlcSpvId structId = ilcSpvPutStructType(compiler->module, 1, &arrayId);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                              structId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pointerId,
+                                            SpvStorageClassStorageBuffer);
 
-    ilcSpvPutCapability(compiler->module, SpvCapabilitySampledBuffer);
-    ilcSpvPutName(compiler->module, imageId, "structSrv");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
-                VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER);
+    IlcSpvWord arrayStride = sizeof(float);
+    IlcSpvWord memberOffset = 0;
+    ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationArrayStride, 1, &arrayStride);
+    ilcSpvPutDecoration(compiler->module, structId, SpvDecorationBlock, 0, NULL);
+    ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset, 1, &memberOffset);
+    ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationNonWritable, 0, NULL);
+
+    ilcSpvPutName(compiler->module, arrayId, "structSrv");
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     const IlcResource resource = {
         .id = resourceId,
-        .typeId = imageId,
-        .texelTypeId = compiler->float4Id,
+        .typeId = arrayId,
+        .texelTypeId = compiler->floatId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
@@ -1983,7 +1988,7 @@ static void emitLdsLoadVec(
         }
 
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
-                                              wordAddrId);
+                                              1, &wordAddrId);
         componentIds[i] = ilcSpvPutLoad(compiler->module, resource->texelTypeId, ptrId);
     }
 
@@ -2040,7 +2045,7 @@ static void emitLdsStoreVec(
         }
 
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
-                                              wordAddrId);
+                                              1, &wordAddrId);
         IlcSpvId componentId = emitVectorTrim(compiler, dataId, compiler->uint4Id, i, 1);
         ilcSpvPutStore(compiler->module, ptrId, componentId);
     }
@@ -2167,36 +2172,34 @@ static void emitStructuredSrvLoad(
     IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
 
     // Read up to four components based on the destination mask
-    // Only the first component of each image fetch is valid
+    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
     IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
-    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
-                                           wordAddrId);
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                              resource->texelTypeId);
+    IlcSpvId fZeroId = ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL);
+    IlcSpvWord constituents[] = { fZeroId, fZeroId, fZeroId, fZeroId };
 
-    for (unsigned i = 1; i < 4; i++) {
+    for (unsigned i = 0; i < 4; i++) {
         if (dst->component[i] == IL_MODCOMP_NOWRITE) {
             break;
         }
 
-        // Increment address
-        const IlcSpvId incrementIds[] = { wordAddrId, oneId };
-        wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, incrementIds);
+        if (i > 0) {
+            // Increment address
+            const IlcSpvId incrementIds[] = { wordAddrId, oneId };
+            wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId,
+                                      2, incrementIds);
+        }
 
-        IlcSpvId fetch2Id = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
-                                                wordAddrId);
-
-        // Merge fetch components
-        const IlcSpvWord components[] = {
-            0,
-            i == 1 ? 4 : 1,
-            i == 2 ? 4 : 2,
-            i == 3 ? 4 : 3,
-        };
-        fetchId = ilcSpvPutVectorShuffle(compiler->module, resource->texelTypeId, fetchId, fetch2Id,
-                                         4, components);
+        const IlcSpvId indexIds[] = { zeroId, wordAddrId };
+        IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
+                                              2, indexIds);
+        constituents[i] = ilcSpvPutLoad(compiler->module, resource->texelTypeId, ptrId);
     }
 
-    storeDestination(compiler, dst, fetchId, resource->texelTypeId);
+    IlcSpvId loadId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id,
+                                                  4, constituents);
+    storeDestination(compiler, dst, loadId, compiler->float4Id);
 }
 
 static void emitImplicitInput(

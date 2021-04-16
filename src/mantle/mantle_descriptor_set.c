@@ -127,6 +127,7 @@ GR_VOID grAttachMemoryViewDescriptors(
         grGpuMemoryBindBuffer(grGpuMemory);
 
         // Mantle doesn't have memory view objects, create a buffer view
+        // TODO defer creation
         // FIXME what is info->state for?
         const VkBufferViewCreateInfo createInfo = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
@@ -148,7 +149,12 @@ GR_VOID grAttachMemoryViewDescriptors(
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_MEMORY_VIEW,
-            .memoryView.vkBufferView = vkBufferView,
+            .memoryView = {
+                .vkBufferView = vkBufferView,
+                .vkBuffer = grGpuMemory->buffer,
+                .offset = info->offset,
+                .range = info->range,
+            },
         };
     }
 }
