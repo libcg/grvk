@@ -64,8 +64,8 @@ typedef struct _DescriptorSetSlot
             VkImageLayout vkImageLayout;
         } imageView;
         struct {
-            VkBufferView vkBufferView;
             VkBuffer vkBuffer;
+            VkFormat vkFormat;
             VkDeviceSize offset;
             VkDeviceSize range;
         } memoryView;

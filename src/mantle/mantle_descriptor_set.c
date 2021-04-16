@@ -121,37 +121,15 @@ GR_VOID grAttachMemoryViewDescriptors(
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GR_MEMORY_VIEW_ATTACH_INFO* info = &pMemViews[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)info->mem;
-        VkBufferView vkBufferView = VK_NULL_HANDLE;
-        VkResult res;
 
         grGpuMemoryBindBuffer(grGpuMemory);
-
-        // Mantle doesn't have memory view objects, create a buffer view
-        // TODO defer creation
-        // FIXME what is info->state for?
-        const VkBufferViewCreateInfo createInfo = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
-            .pNext = NULL,
-            .flags = 0,
-            .buffer = grGpuMemory->buffer,
-            .format = info->format.channelFormat == GR_CH_FMT_UNDEFINED ?
-                      VK_FORMAT_R32_SFLOAT : getVkFormat(info->format),
-            .offset = info->offset,
-            .range = info->range,
-        };
-
-        res = VKD.vkCreateBufferView(grDevice->device, &createInfo, NULL, &vkBufferView);
-        if (res != VK_SUCCESS) {
-            LOGE("vkCreateBufferView failed (%d)\n", res);
-        }
-
         clearDescriptorSetSlot(grDevice, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_MEMORY_VIEW,
             .memoryView = {
-                .vkBufferView = vkBufferView,
                 .vkBuffer = grGpuMemory->buffer,
+                .vkFormat = getVkFormat(info->format),
                 .offset = info->offset,
                 .range = info->range,
             },

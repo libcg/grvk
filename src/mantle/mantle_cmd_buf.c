@@ -123,6 +123,7 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
 
 static void updateVkDescriptorSet(
     const GrDevice* grDevice,
+    GrCmdBuffer* grCmdBuffer,
     VkDescriptorSet vkDescriptorSet,
     unsigned slotOffset,
     const GR_PIPELINE_SHADER* shaderInfo,
@@ -131,6 +132,7 @@ static void updateVkDescriptorSet(
 {
     const GrShader* grShader = (GrShader*)shaderInfo->shader;
     const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping = &shaderInfo->dynamicMemoryViewMapping;
+    VkResult vkRes;
 
     if (grShader == NULL) {
         // Nothing to update
@@ -156,6 +158,7 @@ static void updateVkDescriptorSet(
 
         VkDescriptorImageInfo imageInfo;
         VkDescriptorBufferInfo bufferInfo;
+        VkBufferView bufferView = VK_NULL_HANDLE;
         VkWriteDescriptorSet writeDescriptorSet = {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = NULL,
@@ -204,7 +207,28 @@ static void updateVkDescriptorSet(
                 assert(false);
             }
 
-            writeDescriptorSet.pTexelBufferView = &slot->memoryView.vkBufferView;
+            const VkBufferViewCreateInfo createInfo = {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .buffer = slot->memoryView.vkBuffer,
+                .format = slot->memoryView.vkFormat,
+                .offset = slot->memoryView.offset,
+                .range = slot->memoryView.range,
+            };
+
+            vkRes = VKD.vkCreateBufferView(grDevice->device, &createInfo, NULL, &bufferView);
+            if (vkRes != VK_SUCCESS) {
+                LOGE("vkCreateBufferView failed (%d)\n", vkRes);
+            }
+
+            // Track buffer view
+            grCmdBuffer->bufferViewCount++;
+            grCmdBuffer->bufferViews = realloc(grCmdBuffer->bufferViews,
+                                               grCmdBuffer->bufferViewCount * sizeof(VkBufferView));
+            grCmdBuffer->bufferViews[grCmdBuffer->bufferViewCount - 1] = bufferView;
+
+            writeDescriptorSet.pTexelBufferView = &bufferView;
         } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) {
             if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
                 LOGE("unexpected slot type %d for descriptor type %d\n",
@@ -305,7 +329,7 @@ static void grCmdBufferUpdateDescriptorSets(
     }
 
     for (unsigned i = 0; i < grPipeline->stageCount; i++) {
-        updateVkDescriptorSet(grDevice,
+        updateVkDescriptorSet(grDevice, grCmdBuffer,
                               grCmdBuffer->bindPoint[bindPoint].descriptorSets[i],
                               grCmdBuffer->bindPoint[bindPoint].slotOffset,
                               &grPipeline->shaderInfos[i],
@@ -483,39 +507,16 @@ GR_VOID grCmdBindDynamicMemoryView(
 {
     LOGT("%p 0x%X %p\n", cmdBuffer, pipelineBindPoint, pMemView);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
-    VkBufferView vkBufferView = VK_NULL_HANDLE;
 
     // FIXME what is pMemView->state for?
-    const VkBufferViewCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .buffer = grGpuMemory->buffer,
-        .format = pMemView->format.channelFormat == GR_CH_FMT_UNDEFINED ?
-                  VK_FORMAT_R32_SFLOAT : getVkFormat(pMemView->format),
-        .offset = pMemView->offset,
-        .range = pMemView->range,
-    };
-
-    VkResult vkRes = VKD.vkCreateBufferView(grDevice->device, &createInfo, NULL, &vkBufferView);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkCreateBufferView failed (%d)\n", vkRes);
-    }
-
-    // Track buffer view
-    grCmdBuffer->bufferViewCount++;
-    grCmdBuffer->bufferViews = realloc(grCmdBuffer->bufferViews,
-                                       grCmdBuffer->bufferViewCount * sizeof(VkBufferView));
-    grCmdBuffer->bufferViews[grCmdBuffer->bufferViewCount - 1] = vkBufferView;
 
     grCmdBuffer->bindPoint[vkBindPoint].dynamicMemoryView = (DescriptorSetSlot) {
         .type = SLOT_TYPE_MEMORY_VIEW,
         .memoryView = {
-            .vkBufferView = vkBufferView,
             .vkBuffer = grGpuMemory->buffer,
+            .vkFormat = getVkFormat(pMemView->format),
             .offset = pMemView->offset,
             .range = pMemView->range,
         },
