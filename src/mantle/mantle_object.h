@@ -48,10 +48,14 @@ typedef enum _DescriptorSetSlotType
     SLOT_TYPE_NESTED,
 } DescriptorSetSlotType;
 
+typedef struct _GrColorBlendStateObject GrColorBlendStateObject;
+typedef struct _GrDepthStencilStateObject GrDepthStencilStateObject;
 typedef struct _GrDescriptorSet GrDescriptorSet;
 typedef struct _GrDevice GrDevice;
 typedef struct _GrFence GrFence;
 typedef struct _GrPipeline GrPipeline;
+typedef struct _GrRasterStateObject GrRasterStateObject;
+typedef struct _GrViewportStateObject GrViewportStateObject;
 
 typedef struct _DescriptorSetSlot
 {
@@ -76,6 +80,26 @@ typedef struct _DescriptorSetSlot
         } nested;
     };
 } DescriptorSetSlot;
+
+typedef struct _PipelineCreateInfo
+{
+    VkPipelineCreateFlags createFlags;
+    unsigned stageCount;
+    VkPipelineShaderStageCreateInfo stageCreateInfos[MAX_STAGE_COUNT];
+    VkPrimitiveTopology topology;
+    uint32_t patchControlPoints;
+    bool depthClipEnable;
+    bool alphaToCoverageEnable;
+    bool logicOpEnable;
+    VkLogicOp logicOp;
+    VkColorComponentFlags colorWriteMasks[GR_MAX_COLOR_TARGETS];
+} PipelineCreateInfo;
+
+typedef struct _PipelineSlot
+{
+    VkPipeline pipeline;
+    const GrColorBlendStateObject* grColorBlendState;
+} PipelineSlot;
 
 // Base object
 typedef struct _GrBaseObject {
@@ -102,6 +126,11 @@ typedef struct _GrCmdBuffer {
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
     } bindPoint[2];
+    // Graphics dynamic state
+    GrViewportStateObject* grViewportState;
+    GrRasterStateObject* grRasterState;
+    GrDepthStencilStateObject* grDepthStencilState;
+    GrColorBlendStateObject* grColorBlendState;
     // Render pass
     VkFramebuffer framebuffer;
     unsigned attachmentCount;
@@ -120,6 +149,7 @@ typedef struct _GrCmdBuffer {
 
 typedef struct _GrColorBlendStateObject {
     GrObject grObj;
+    VkPipelineColorBlendAttachmentState states[GR_MAX_COLOR_TARGETS];
     float blendConstants[4];
 } GrColorBlendStateObject;
 
@@ -214,7 +244,10 @@ typedef struct _GrPhysicalGpu {
 
 typedef struct _GrPipeline {
     GrObject grObj;
-    VkPipeline pipeline;
+    PipelineCreateInfo* createInfo;
+    unsigned pipelineSlotCount;
+    PipelineSlot* pipelineSlots;
+    CRITICAL_SECTION pipelineSlotsMutex;
     VkPipelineLayout pipelineLayout;
     VkRenderPass renderPass;
     unsigned descriptorTypeCounts[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1];
@@ -288,5 +321,9 @@ unsigned grImageGetBufferDepthPitch(
 
 void grGpuMemoryBindBuffer(
     GrGpuMemory* grGpuMemory);
+
+VkPipeline grPipelineFindOrCreateVkPipeline(
+    GrPipeline* grPipeline,
+    const GrColorBlendStateObject* grColorBlendState);
 
 #endif // GR_OBJECT_H_

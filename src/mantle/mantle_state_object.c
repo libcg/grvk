@@ -96,32 +96,45 @@ GR_RESULT grCreateColorBlendState(
 
     // TODO validate args
 
-    for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
-        const GR_COLOR_TARGET_BLEND_STATE* target = &pCreateInfo->target[i];
-
-        if (target->blendEnable &&
-            (target->srcBlendColor != GR_BLEND_SRC_ALPHA ||
-             target->destBlendColor != GR_BLEND_ONE_MINUS_SRC_ALPHA ||
-             target->blendFuncColor != GR_BLEND_FUNC_ADD ||
-             target->srcBlendAlpha != GR_BLEND_ONE ||
-             target->destBlendAlpha != GR_BLEND_ONE ||
-             target->blendFuncAlpha != GR_BLEND_FUNC_ADD)) {
-            LOGW("unsupported blend settings 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X\n",
-                 target->srcBlendColor, target->destBlendColor, target->blendFuncColor,
-                 target->srcBlendAlpha, target->destBlendAlpha, target->blendFuncAlpha);
-        }
-    }
-
     GrColorBlendStateObject* grColorBlendStateObject =
         malloc(sizeof(GrColorBlendStateObject));
 
     *grColorBlendStateObject = (GrColorBlendStateObject) {
         .grObj = { GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT, grDevice },
+        .states = {}, // Initialized below
         .blendConstants = {
             pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
             pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
         },
     };
+
+    for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+        const GR_COLOR_TARGET_BLEND_STATE* blendState = &pCreateInfo->target[i];
+
+        if (blendState->blendEnable) {
+            grColorBlendStateObject->states[i] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = VK_TRUE,
+                .srcColorBlendFactor = getVkBlendFactor(blendState->srcBlendColor),
+                .dstColorBlendFactor = getVkBlendFactor(blendState->destBlendColor),
+                .colorBlendOp = getVkBlendOp(blendState->blendFuncColor),
+                .srcAlphaBlendFactor = getVkBlendFactor(blendState->srcBlendAlpha),
+                .dstAlphaBlendFactor = getVkBlendFactor(blendState->destBlendAlpha),
+                .alphaBlendOp = getVkBlendOp(blendState->blendFuncAlpha),
+                .colorWriteMask = 0, // Defined at pipeline creation
+            };
+        } else {
+            grColorBlendStateObject->states[i] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = VK_FALSE,
+                .srcColorBlendFactor = 0, // Ignored
+                .dstColorBlendFactor = 0, // Ignored
+                .colorBlendOp = 0, // Ignored
+                .srcAlphaBlendFactor = 0, // Ignored
+                .dstAlphaBlendFactor = 0, // Ignored
+                .alphaBlendOp = 0, // Ignored
+                .colorWriteMask = 0, // Defined at pipeline creation
+            };
+        }
+    }
 
     *pState = (GR_COLOR_BLEND_STATE_OBJECT)grColorBlendStateObject;
     return GR_SUCCESS;

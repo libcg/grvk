@@ -5,6 +5,7 @@ typedef enum _DirtyFlags {
     FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS = 1,
     FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS = 2,
     FLAG_DIRTY_FRAMEBUFFER = 4,
+    FLAG_DIRTY_PIPELINE = 8,
 } DirtyFlags;
 
 static VkFramebuffer getVkFramebuffer(
@@ -346,6 +347,8 @@ static void grCmdBufferUpdateResources(
     GrCmdBuffer* grCmdBuffer)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrPipeline* grGraphicsPipeline =
+        grCmdBuffer->bindPoint[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
 
     if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS) {
         grCmdBufferUpdateDescriptorSets(grCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -356,12 +359,9 @@ static void grCmdBufferUpdateResources(
     }
 
     if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_FRAMEBUFFER) {
-        const GrPipeline* grPipeline =
-            grCmdBuffer->bindPoint[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
-
         grCmdBufferEndRenderPass(grCmdBuffer);
 
-        grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, grPipeline->renderPass,
+        grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, grGraphicsPipeline->renderPass,
                                                     grCmdBuffer->attachmentCount,
                                                     grCmdBuffer->attachments,
                                                     grCmdBuffer->minExtent);
@@ -371,6 +371,14 @@ static void grCmdBufferUpdateResources(
         grCmdBuffer->framebuffers = realloc(grCmdBuffer->framebuffers,
                                             grCmdBuffer->framebufferCount * sizeof(VkFramebuffer));
         grCmdBuffer->framebuffers[grCmdBuffer->framebufferCount - 1] = grCmdBuffer->framebuffer;
+    }
+
+    if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_PIPELINE) {
+        VkPipeline vkPipeline =
+            grPipelineFindOrCreateVkPipeline(grGraphicsPipeline, grCmdBuffer->grColorBlendState);
+
+        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer,
+                              VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline);
     }
 
     grCmdBuffer->dirtyFlags = 0;
@@ -393,13 +401,17 @@ GR_VOID grCmdBindPipeline(
         return;
     }
 
-    VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
-
     grCmdBuffer->bindPoint[vkBindPoint].grPipeline = grPipeline;
 
     if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS | FLAG_DIRTY_FRAMEBUFFER;
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS |
+                                   FLAG_DIRTY_FRAMEBUFFER |
+                                   FLAG_DIRTY_PIPELINE;
     } else {
+        // Pipeline creation isn't deferred for compute, bind now
+        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
+                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL));
+
         grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
     }
 }
@@ -412,25 +424,38 @@ GR_VOID grCmdBindStateObject(
     LOGT("%p 0x%X %p\n", cmdBuffer, stateBindPoint, state);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    GrViewportStateObject* viewportState = (GrViewportStateObject*)state;
-    GrRasterStateObject* rasterState = (GrRasterStateObject*)state;
-    GrDepthStencilStateObject* depthStencilState = (GrDepthStencilStateObject*)state;
-    GrColorBlendStateObject* colorBlendState = (GrColorBlendStateObject*)state;
 
     switch ((GR_STATE_BIND_POINT)stateBindPoint) {
-    case GR_STATE_BIND_VIEWPORT:
+    case GR_STATE_BIND_VIEWPORT: {
+        GrViewportStateObject* viewportState = (GrViewportStateObject*)state;
+        if (viewportState == grCmdBuffer->grViewportState) {
+            break;
+        }
+
         VKD.vkCmdSetViewportWithCountEXT(grCmdBuffer->commandBuffer,
                                          viewportState->viewportCount, viewportState->viewports);
         VKD.vkCmdSetScissorWithCountEXT(grCmdBuffer->commandBuffer, viewportState->scissorCount,
                                         viewportState->scissors);
-        break;
-    case GR_STATE_BIND_RASTER:
+        grCmdBuffer->grViewportState = viewportState;
+    }   break;
+    case GR_STATE_BIND_RASTER: {
+        GrRasterStateObject* rasterState = (GrRasterStateObject*)state;
+        if (rasterState == grCmdBuffer->grRasterState) {
+            break;
+        }
+
         VKD.vkCmdSetCullModeEXT(grCmdBuffer->commandBuffer, rasterState->cullMode);
         VKD.vkCmdSetFrontFaceEXT(grCmdBuffer->commandBuffer, rasterState->frontFace);
         VKD.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
-        break;
-    case GR_STATE_BIND_DEPTH_STENCIL:
+        grCmdBuffer->grRasterState = rasterState;
+    }   break;
+    case GR_STATE_BIND_DEPTH_STENCIL: {
+        GrDepthStencilStateObject* depthStencilState = (GrDepthStencilStateObject*)state;
+        if (depthStencilState == grCmdBuffer->grDepthStencilState) {
+            break;
+        }
+
         VKD.vkCmdSetDepthTestEnableEXT(grCmdBuffer->commandBuffer,
                                        depthStencilState->depthTestEnable);
         VKD.vkCmdSetDepthWriteEnableEXT(grCmdBuffer->commandBuffer,
@@ -465,10 +490,18 @@ GR_VOID grCmdBindStateObject(
                                      depthStencilState->back.reference);
         VKD.vkCmdSetDepthBounds(grCmdBuffer->commandBuffer,
                                 depthStencilState->minDepthBounds, depthStencilState->maxDepthBounds);
-        break;
-    case GR_STATE_BIND_COLOR_BLEND:
+        grCmdBuffer->grDepthStencilState = depthStencilState;
+    }   break;
+    case GR_STATE_BIND_COLOR_BLEND: {
+        GrColorBlendStateObject* colorBlendState = (GrColorBlendStateObject*)state;
+        if (colorBlendState == grCmdBuffer->grColorBlendState) {
+            break;
+        }
+
         VKD.vkCmdSetBlendConstants(grCmdBuffer->commandBuffer, colorBlendState->blendConstants);
-        break;
+        grCmdBuffer->grColorBlendState = colorBlendState;
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_PIPELINE;
+    }   break;
     case GR_STATE_BIND_MSAA:
         // TODO
         break;

@@ -257,6 +257,230 @@ static VkRenderPass getVkRenderPass(
     return renderPass;
 }
 
+static VkPipeline getVkPipeline(
+    const GrPipeline* grPipeline,
+    const GrColorBlendStateObject* grColorBlendState)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
+    const PipelineCreateInfo* createInfo = grPipeline->createInfo;
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+    VkResult vkRes;
+
+    const VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = NULL,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = NULL,
+    };
+
+    const VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .topology = createInfo->topology,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+
+    // Ignored if no tessellation shaders are present
+    const VkPipelineTessellationStateCreateInfo tessellationStateCreateInfo =  {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .patchControlPoints = createInfo->patchControlPoints,
+    };
+
+    const VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .viewportCount = 0, // Dynamic state
+        .pViewports = NULL, // Dynamic state
+        .scissorCount = 0, // Dynamic state
+        .pScissors = NULL, // Dynamic state
+    };
+
+    const VkPipelineRasterizationDepthClipStateCreateInfoEXT depthClipStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .flags = 0,
+        .depthClipEnable = createInfo->depthClipEnable,
+    };
+
+    const VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pNext = &depthClipStateCreateInfo,
+        .flags = 0,
+        .depthClampEnable = VK_TRUE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL, // TODO implement polygon modes
+        .cullMode = 0, // Dynamic state
+        .frontFace = 0, // Dynamic state
+        .depthBiasEnable = VK_TRUE,
+        .depthBiasConstantFactor = 0.f, // Dynamic state
+        .depthBiasClamp = 0.f, // Dynamic state
+        .depthBiasSlopeFactor = 0.f, // Dynamic state
+        .lineWidth = 1.f,
+    };
+
+    const VkPipelineMultisampleStateCreateInfo msaaStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT, // TODO implement MSAA
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 0.f,
+        .pSampleMask = NULL, // TODO implement MSAA
+        .alphaToCoverageEnable = createInfo->alphaToCoverageEnable,
+        .alphaToOneEnable = VK_FALSE,
+    };
+
+    const VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .depthTestEnable = 0, // Dynamic state
+        .depthWriteEnable = 0, // Dynamic state
+        .depthCompareOp = 0, // Dynamic state
+        .depthBoundsTestEnable = 0, // Dynamic state
+        .stencilTestEnable = 0, // Dynamic state
+        .front = { 0 }, // Dynamic state
+        .back = { 0 }, // Dynamic state
+        .minDepthBounds = 0.f, // Dynamic state
+        .maxDepthBounds = 0.f, // Dynamic state
+    };
+
+    unsigned attachmentCount = 0;
+    VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
+
+    for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+        const VkPipelineColorBlendAttachmentState* blendState = &grColorBlendState->states[i];
+        VkColorComponentFlags colorWriteMask = createInfo->colorWriteMasks[i];
+
+        if (colorWriteMask == ~0u) {
+            continue;
+        }
+
+        attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
+            .blendEnable = blendState->blendEnable,
+            .srcColorBlendFactor = blendState->srcColorBlendFactor,
+            .dstColorBlendFactor = blendState->dstColorBlendFactor,
+            .colorBlendOp = blendState->colorBlendOp,
+            .srcAlphaBlendFactor = blendState->srcAlphaBlendFactor,
+            .dstAlphaBlendFactor = blendState->dstAlphaBlendFactor,
+            .alphaBlendOp = blendState->alphaBlendOp,
+            .colorWriteMask = colorWriteMask,
+        };
+        attachmentCount++;
+    }
+
+    const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .logicOpEnable = createInfo->logicOpEnable,
+        .logicOp = createInfo->logicOp,
+        .attachmentCount = attachmentCount,
+        .pAttachments = attachments,
+        .blendConstants = { 0.f }, // Dynamic state
+    };
+
+    const VkDynamicState dynamicStates[] = {
+        VK_DYNAMIC_STATE_DEPTH_BIAS,
+        VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+        VK_DYNAMIC_STATE_DEPTH_BOUNDS,
+        VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+        VK_DYNAMIC_STATE_CULL_MODE_EXT,
+        VK_DYNAMIC_STATE_FRONT_FACE_EXT,
+        VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT,
+        VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT,
+        VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT,
+        VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT,
+        VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT,
+        VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT,
+        VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT,
+        VK_DYNAMIC_STATE_STENCIL_OP_EXT,
+    };
+
+    const VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .dynamicStateCount = COUNT_OF(dynamicStates),
+        .pDynamicStates = dynamicStates,
+    };
+
+    const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = createInfo->createFlags,
+        .stageCount = createInfo->stageCount,
+        .pStages = createInfo->stageCreateInfos,
+        .pVertexInputState = &vertexInputStateCreateInfo,
+        .pInputAssemblyState = &inputAssemblyStateCreateInfo,
+        .pTessellationState = &tessellationStateCreateInfo,
+        .pViewportState = &viewportStateCreateInfo,
+        .pRasterizationState = &rasterizationStateCreateInfo,
+        .pMultisampleState = &msaaStateCreateInfo,
+        .pDepthStencilState = &depthStencilStateCreateInfo,
+        .pColorBlendState = &colorBlendStateCreateInfo,
+        .pDynamicState = &dynamicStateCreateInfo,
+        .layout = grPipeline->pipelineLayout,
+        .renderPass = grPipeline->renderPass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0,
+    };
+
+    vkRes = VKD.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
+                                          NULL, &vkPipeline);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateGraphicsPipelines failed (%d)\n", vkRes);
+    }
+
+    return vkPipeline;
+}
+
+// Exported Functions
+
+VkPipeline grPipelineFindOrCreateVkPipeline(
+    GrPipeline* grPipeline,
+    const GrColorBlendStateObject* grColorBlendState)
+{
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+
+    EnterCriticalSection(&grPipeline->pipelineSlotsMutex);
+
+    for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
+        const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
+
+        if (grColorBlendState == slot->grColorBlendState) {
+            vkPipeline = slot->pipeline;
+            break;
+        }
+    }
+
+    if (vkPipeline == VK_NULL_HANDLE) {
+        vkPipeline = getVkPipeline(grPipeline, grColorBlendState);
+
+        grPipeline->pipelineSlotCount++;
+        grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,
+                                            grPipeline->pipelineSlotCount * sizeof(PipelineSlot));
+        grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1] = (PipelineSlot) {
+            .pipeline = vkPipeline,
+            .grColorBlendState = grColorBlendState,
+        };
+    }
+
+    LeaveCriticalSection(&grPipeline->pipelineSlotsMutex);
+
+    return vkPipeline;
+}
+
 // Shader and Pipeline Functions
 
 GR_RESULT grCreateShader(
@@ -311,11 +535,9 @@ GR_RESULT grCreateGraphicsPipeline(
     LOGT("%p %p %p\n", device, pCreateInfo, pPipeline);
     GrDevice* grDevice = (GrDevice*)device;
     GR_RESULT res = GR_SUCCESS;
-    VkResult vkRes;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkRenderPass renderPass = VK_NULL_HANDLE;
-    VkPipeline vkPipeline = VK_NULL_HANDLE;
 
     // TODO validate parameters
 
@@ -361,99 +583,13 @@ GR_RESULT grCreateGraphicsPipeline(
         stageCount++;
     }
 
-    const VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .vertexBindingDescriptionCount = 0,
-        .pVertexBindingDescriptions = NULL,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions = NULL,
-    };
-
-    const VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .topology = getVkPrimitiveTopology(pCreateInfo->iaState.topology),
-        .primitiveRestartEnable = VK_FALSE,
-    };
-
-    // Ignored if no tessellation shaders are present
-    const VkPipelineTessellationStateCreateInfo tessellationStateCreateInfo =  {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
-    };
-
-    const VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .viewportCount = 0, // Dynamic state
-        .pViewports = NULL, // Dynamic state
-        .scissorCount = 0, // Dynamic state
-        .pScissors = NULL, // Dynamic state
-    };
-
-    const VkPipelineRasterizationDepthClipStateCreateInfoEXT depthClipStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT,
-        .pNext = NULL,
-        .flags = 0,
-        .depthClipEnable = pCreateInfo->rsState.depthClipEnable,
-    };
-
-    const VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .pNext = &depthClipStateCreateInfo,
-        .flags = 0,
-        .depthClampEnable = VK_TRUE,
-        .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = VK_POLYGON_MODE_FILL, // TODO implement wireframe
-        .cullMode = 0, // Dynamic state
-        .frontFace = 0, // Dynamic state
-        .depthBiasEnable = VK_TRUE,
-        .depthBiasConstantFactor = 0.f, // Dynamic state
-        .depthBiasClamp = 0.f, // Dynamic state
-        .depthBiasSlopeFactor = 0.f, // Dynamic state
-        .lineWidth = 1.f,
-    };
-
-    const VkPipelineMultisampleStateCreateInfo msaaStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT, // TODO implement MSAA
-        .sampleShadingEnable = VK_FALSE,
-        .minSampleShading = 0.f,
-        .pSampleMask = NULL, // TODO implement MSAA
-        .alphaToCoverageEnable = pCreateInfo->cbState.alphaToCoverageEnable ? VK_TRUE : VK_FALSE,
-        .alphaToOneEnable = VK_FALSE,
-    };
-
-    const VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .depthTestEnable = 0, // Dynamic state
-        .depthWriteEnable = 0, // Dynamic state
-        .depthCompareOp = 0, // Dynamic state
-        .depthBoundsTestEnable = 0, // Dynamic state
-        .stencilTestEnable = 0, // Dynamic state
-        .front = { 0 }, // Dynamic state
-        .back = { 0 }, // Dynamic state
-        .minDepthBounds = 0.f, // Dynamic state
-        .maxDepthBounds = 0.f, // Dynamic state
-    };
-
     // TODO implement
     if (pCreateInfo->cbState.dualSourceBlendEnable) {
         LOGW("dual source blend is not implemented\n");
     }
 
     unsigned attachmentCount = 0;
-    VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
+    VkColorComponentFlags colorWriteMasks[GR_MAX_COLOR_TARGETS];
 
     for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_PIPELINE_CB_TARGET_STATE* target = &pCreateInfo->cbState.target[i];
@@ -462,74 +598,33 @@ GR_RESULT grCreateGraphicsPipeline(
             target->format.channelFormat == GR_CH_FMT_UNDEFINED &&
             target->format.numericFormat == GR_NUM_FMT_UNDEFINED &&
             target->channelWriteMask == 0) {
-            continue;
-        }
-
-        if (target->blendEnable) {
-            // TODO implement blend settings
-            attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
-                .blendEnable = VK_TRUE,
-                .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
-                .dstColorBlendFactor = VK_BLEND_FACTOR_ONE,
-                .colorBlendOp = VK_BLEND_OP_ADD,
-                .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                .alphaBlendOp = VK_BLEND_OP_ADD,
-                .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
-            };
+            colorWriteMasks[attachmentCount] = ~0u;
         } else {
-            attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
-                .blendEnable = VK_FALSE,
-                .srcColorBlendFactor = 0, // Ignored
-                .dstColorBlendFactor = 0, // Ignored
-                .colorBlendOp = 0, // Ignored
-                .srcAlphaBlendFactor = 0, // Ignored
-                .dstAlphaBlendFactor = 0, // Ignored
-                .alphaBlendOp = 0, // Ignored
-                .colorWriteMask = getVkColorComponentFlags(target->channelWriteMask),
-            };
+            colorWriteMasks[attachmentCount] = getVkColorComponentFlags(target->channelWriteMask);
         }
 
         attachmentCount++;
     }
 
-    const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
+    PipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(PipelineCreateInfo));
+    *pipelineCreateInfo = (PipelineCreateInfo) {
+        .createFlags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
+                       VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
+        .stageCount = stageCount,
+        .stageCreateInfos = {}, // Initialized below
+        .topology = getVkPrimitiveTopology(pCreateInfo->iaState.topology),
+        .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
+        .depthClipEnable = !!pCreateInfo->rsState.depthClipEnable,
+        .alphaToCoverageEnable = !!pCreateInfo->cbState.alphaToCoverageEnable,
         .logicOpEnable = pCreateInfo->cbState.logicOp != GR_LOGIC_OP_COPY,
         .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
-        .attachmentCount = attachmentCount,
-        .pAttachments = attachments,
-        .blendConstants = { 0.f }, // Dynamic state
+        .colorWriteMasks = {}, // Initialized below
     };
 
-    const VkDynamicState dynamicStates[] = {
-        VK_DYNAMIC_STATE_DEPTH_BIAS,
-        VK_DYNAMIC_STATE_BLEND_CONSTANTS,
-        VK_DYNAMIC_STATE_DEPTH_BOUNDS,
-        VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
-        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
-        VK_DYNAMIC_STATE_STENCIL_REFERENCE,
-        VK_DYNAMIC_STATE_CULL_MODE_EXT,
-        VK_DYNAMIC_STATE_FRONT_FACE_EXT,
-        VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT,
-        VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT,
-        VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT,
-        VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT,
-        VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT,
-        VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT,
-        VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT,
-        VK_DYNAMIC_STATE_STENCIL_OP_EXT,
-    };
-
-    const VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .dynamicStateCount = COUNT_OF(dynamicStates),
-        .pDynamicStates = dynamicStates,
-    };
+    memcpy(pipelineCreateInfo->stageCreateInfos, shaderStageCreateInfo,
+           stageCount * sizeof(VkPipelineShaderStageCreateInfo));
+    memcpy(pipelineCreateInfo->colorWriteMasks, colorWriteMasks,
+           GR_MAX_COLOR_TARGETS * sizeof(VkColorComponentFlags));
 
     // Create one descriptor set layout per stage
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
@@ -553,49 +648,22 @@ GR_RESULT grCreateGraphicsPipeline(
         goto bail;
     }
 
-    const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
-                 VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
-        .stageCount = stageCount,
-        .pStages = shaderStageCreateInfo,
-        .pVertexInputState = &vertexInputStateCreateInfo,
-        .pInputAssemblyState = &inputAssemblyStateCreateInfo,
-        .pTessellationState = &tessellationStateCreateInfo,
-        .pViewportState = &viewportStateCreateInfo,
-        .pRasterizationState = &rasterizationStateCreateInfo,
-        .pMultisampleState = &msaaStateCreateInfo,
-        .pDepthStencilState = &depthStencilStateCreateInfo,
-        .pColorBlendState = &colorBlendStateCreateInfo,
-        .pDynamicState = &dynamicStateCreateInfo,
-        .layout = pipelineLayout,
-        .renderPass = renderPass,
-        .subpass = 0,
-        .basePipelineHandle = VK_NULL_HANDLE,
-        .basePipelineIndex = 0,
-    };
-
-    vkRes = VKD.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
-                                          NULL, &vkPipeline);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkCreateGraphicsPipelines failed (%d)\n", vkRes);
-        res = getGrResult(vkRes);
-        goto bail;
-    }
-
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
-        .pipeline = vkPipeline,
+        .createInfo = pipelineCreateInfo,
+        .pipelineSlotCount = 0,
+        .pipelineSlots = NULL,
+        .pipelineSlotsMutex = {}, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPass = renderPass,
-        .descriptorTypeCounts = { 0 },
+        .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = COUNT_OF(stages),
-        .descriptorSetLayouts = {},
-        .shaderInfos = {}
+        .descriptorSetLayouts = {}, // Initialized below
+        .shaderInfos = {}, // Initialized below
     };
 
+    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
                                grPipeline->descriptorTypeCounts, COUNT_OF(stages), stages);
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
@@ -679,18 +747,28 @@ GR_RESULT grCreateComputePipeline(
         goto bail;
     }
 
+    PipelineSlot* pipelineSlot = malloc(sizeof(PipelineSlot));
+    *pipelineSlot = (PipelineSlot) {
+        .pipeline = vkPipeline,
+        .grColorBlendState = NULL,
+    };
+
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
-        .pipeline = vkPipeline,
+        .createInfo = NULL,
+        .pipelineSlotCount = 1,
+        .pipelineSlots = pipelineSlot,
+        .pipelineSlotsMutex = {}, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPass = VK_NULL_HANDLE,
-        .descriptorTypeCounts = { 0 },
+        .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = 1,
         .descriptorSetLayouts = { descriptorSetLayout },
-        .shaderInfos = {},
+        .shaderInfos = {}, // Initialized below
     };
 
+    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
                                grPipeline->descriptorTypeCounts, 1, &stage);
     copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
