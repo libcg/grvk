@@ -4,21 +4,6 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "logger.h"
 
-// Extension Discovery Functions
-
-GR_RESULT grGetExtensionSupport(
-    GR_PHYSICAL_GPU gpu,
-    const GR_CHAR* pExtName)
-{
-    LOGW("STUB\n");
-
-    if (strcmp(pExtName, "GR_WSI_WINDOWS") == 0) {
-        return GR_SUCCESS;
-    }
-
-    return GR_UNSUPPORTED;
-}
-
 // Queue Functions
 
 GR_RESULT grQueueSetGlobalMemReferences(
