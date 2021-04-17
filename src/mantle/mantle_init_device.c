@@ -135,8 +135,8 @@ GR_RESULT grGetGpuInfo(
 
         GR_PHYSICAL_GPU_PROPERTIES* gpuProps = (GR_PHYSICAL_GPU_PROPERTIES*)pData;
         *gpuProps = (GR_PHYSICAL_GPU_PROPERTIES) {
-            .apiVersion = 0,
-            .driverVersion = physicalDeviceProps.driverVersion,
+            .apiVersion = 0x18000,
+            .driverVersion = UINT32_MAX,
             .vendorId = physicalDeviceProps.vendorID,
             .deviceId = physicalDeviceProps.deviceID,
             .gpuType = getGrPhysicalGpuType(physicalDeviceProps.deviceType),
