@@ -127,7 +127,8 @@ GR_RESULT grGetGpuInfo(
 
     if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PROPERTIES) {
         if (pData == NULL) {
-            return sizeof(GR_PHYSICAL_GPU_PROPERTIES);
+            *pDataSize = sizeof(GR_PHYSICAL_GPU_PROPERTIES);
+            return GR_SUCCESS;
         }
 
         VkPhysicalDeviceProperties physicalDeviceProps;
@@ -150,10 +151,10 @@ GR_RESULT grGetGpuInfo(
             .multiColorTargetClears = false,
         };
         strncpy(gpuProps->gpuName, physicalDeviceProps.deviceName, GR_MAX_PHYSICAL_GPU_NAME);
-        return GR_SUCCESS;
     } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PERFORMANCE) {
         if (pData == NULL) {
-            return sizeof(GR_PHYSICAL_GPU_PERFORMANCE);
+            *pDataSize = sizeof(GR_PHYSICAL_GPU_PERFORMANCE);
+            return GR_SUCCESS;
         }
 
         *(GR_PHYSICAL_GPU_PERFORMANCE*)pData = (GR_PHYSICAL_GPU_PERFORMANCE) {
@@ -163,11 +164,12 @@ GR_RESULT grGetGpuInfo(
             .primsPerClock = 1.f,
             .pixelsPerClock = 1.f,
         };
-        return GR_SUCCESS;
+    } else {
+        LOGE("unsupported info type 0x%X\n", infoType);
+        return GR_ERROR_INVALID_VALUE;
     }
 
-    LOGE("unsupported info type 0x%X\n", infoType);
-    return GR_ERROR_INVALID_VALUE;
+    return GR_SUCCESS;
 }
 
 GR_RESULT grCreateDevice(
