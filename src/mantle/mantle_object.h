@@ -37,6 +37,7 @@ typedef enum _GrObjectType {
     GR_OBJ_TYPE_SHADER,
     GR_OBJ_TYPE_QUEUE,
     GR_OBJ_TYPE_VIEWPORT_STATE_OBJECT,
+    GR_OBJ_TYPE_WSI_WIN_DISPLAY,
 } GrObjectType;
 
 typedef enum _DescriptorSetSlotType
@@ -295,6 +296,10 @@ typedef struct _GrViewportStateObject {
     VkRect2D* scissors;
     unsigned scissorCount;
 } GrViewportStateObject;
+
+typedef struct _GrWsiWinDisplay {
+    GrObject grObj;
+} GrWsiWinDisplay;
 
 void grCmdBufferEndRenderPass(
     GrCmdBuffer* grCmdBuffer);

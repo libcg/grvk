@@ -343,15 +343,6 @@ GR_VOID GR_STDCALL grCmdDbgMarkerEnd(
 
 // WSI Functions
 
-GR_RESULT grWsiWinGetDisplays(
-    GR_DEVICE device,
-    GR_UINT* pDisplayCount,
-    GR_WSI_WIN_DISPLAY* pDisplayList)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grWsiWinGetDisplayModeList(
     GR_WSI_WIN_DISPLAY display,
     GR_UINT* pDisplayModeCount,

@@ -256,6 +256,48 @@ static void initSwapchain(
 
 // Functions
 
+GR_RESULT grWsiWinGetDisplays(
+    GR_DEVICE device,
+    GR_UINT* pDisplayCount,
+    GR_WSI_WIN_DISPLAY* pDisplayList)
+{
+    LOGT("%p %p %p\n", device, pDisplayCount, pDisplayList);
+    GrDevice* grDevice = (GrDevice*)device;
+    unsigned attachedDisplayCount = 1;
+
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pDisplayCount == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    } else if (pDisplayList != NULL && *pDisplayCount < attachedDisplayCount) {
+        return GR_ERROR_INVALID_MEMORY_SIZE;
+    }
+
+    LOGW("semi-stub\n"); // TODO finish
+
+    if (pDisplayList == NULL) {
+        *pDisplayCount = 1;
+        return GR_SUCCESS;
+    }
+
+    unsigned displayCount = MIN(attachedDisplayCount, *pDisplayCount);
+
+    for (unsigned i = 0; i < displayCount; i++) {
+        GrWsiWinDisplay* grWsiWinDisplay = malloc(sizeof(GrWsiWinDisplay));
+
+        *grWsiWinDisplay = (GrWsiWinDisplay) {
+            .grObj = { GR_OBJ_TYPE_WSI_WIN_DISPLAY, grDevice },
+        };
+
+        pDisplayList[i] = (GR_WSI_WIN_DISPLAY)grWsiWinDisplay;
+    }
+
+    *pDisplayCount = displayCount;
+    return GR_SUCCESS;
+}
+
 GR_RESULT grWsiWinCreatePresentableImage(
     GR_DEVICE device,
     const GR_WSI_WIN_PRESENTABLE_IMAGE_CREATE_INFO* pCreateInfo,
