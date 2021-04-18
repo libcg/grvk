@@ -352,14 +352,6 @@ GR_RESULT grWsiWinGetDisplayModeList(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWsiWinTakeFullscreenOwnership(
-    GR_WSI_WIN_DISPLAY display,
-    GR_IMAGE image)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grWsiWinReleaseFullscreenOwnership(
     GR_WSI_WIN_DISPLAY display)
 {
