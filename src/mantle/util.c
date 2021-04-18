@@ -99,7 +99,7 @@ GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
         .size = vkMemReqs.size,
         .alignment = vkMemReqs.alignment,
         .heapCount = 0,
-        .heaps = {},
+        .heaps = { 0 }, // Initialized below
     };
 
     for (unsigned i = 0; i < GR_MAX_MEMORY_HEAPS; i++) {

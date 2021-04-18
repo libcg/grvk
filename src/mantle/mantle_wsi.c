@@ -358,7 +358,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
         .alignment = memReqs.alignment,
         .flags = 0,
         .heapCount = memReqs.heapCount,
-        .heaps = {},
+        .heaps = { 0 }, // Initialized below
         .memPriority = GR_MEMORY_PRIORITY_HIGH,
     };
 

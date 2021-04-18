@@ -101,7 +101,7 @@ GR_RESULT grCreateColorBlendState(
 
     *grColorBlendStateObject = (GrColorBlendStateObject) {
         .grObj = { GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT, grDevice },
-        .states = {}, // Initialized below
+        .states = { { 0 } }, // Initialized below
         .blendConstants = {
             pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
             pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],

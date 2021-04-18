@@ -611,14 +611,14 @@ GR_RESULT grCreateGraphicsPipeline(
         .createFlags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
                        VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
         .stageCount = stageCount,
-        .stageCreateInfos = {}, // Initialized below
+        .stageCreateInfos = { { 0 } }, // Initialized below
         .topology = getVkPrimitiveTopology(pCreateInfo->iaState.topology),
         .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
         .depthClipEnable = !!pCreateInfo->rsState.depthClipEnable,
         .alphaToCoverageEnable = !!pCreateInfo->cbState.alphaToCoverageEnable,
         .logicOpEnable = pCreateInfo->cbState.logicOp != GR_LOGIC_OP_COPY,
         .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
-        .colorWriteMasks = {}, // Initialized below
+        .colorWriteMasks = { 0 }, // Initialized below
     };
 
     memcpy(pipelineCreateInfo->stageCreateInfos, shaderStageCreateInfo,
@@ -654,13 +654,13 @@ GR_RESULT grCreateGraphicsPipeline(
         .createInfo = pipelineCreateInfo,
         .pipelineSlotCount = 0,
         .pipelineSlots = NULL,
-        .pipelineSlotsMutex = {}, // Initialized below
+        .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPass = renderPass,
         .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = COUNT_OF(stages),
-        .descriptorSetLayouts = {}, // Initialized below
-        .shaderInfos = {}, // Initialized below
+        .descriptorSetLayouts = { 0 }, // Initialized below
+        .shaderInfos = { { 0 } }, // Initialized below
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
@@ -759,13 +759,13 @@ GR_RESULT grCreateComputePipeline(
         .createInfo = NULL,
         .pipelineSlotCount = 1,
         .pipelineSlots = pipelineSlot,
-        .pipelineSlotsMutex = {}, // Initialized below
+        .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPass = VK_NULL_HANDLE,
         .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = 1,
         .descriptorSetLayouts = { descriptorSetLayout },
-        .shaderInfos = {}, // Initialized below
+        .shaderInfos = { { 0 } }, // Initialized below
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
