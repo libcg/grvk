@@ -30,7 +30,7 @@ cd build.w64
 ninja
 ```
 
-`mantle32.dll`/`mantle64.dll` will be generated.
+`mantle32.dll`/`mantle64.dll`/`mantleaxl32.dll`/`mantleaxl64.dll` will be generated.
 
 ## Usage
 
