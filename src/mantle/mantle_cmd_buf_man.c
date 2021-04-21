@@ -194,7 +194,7 @@ GR_RESULT grResetCommandBuffer(
     // HACK: Star Swarm attempts to reset a command buffer in use and free related resources...
     // Wait for the submit fence ourselves to work around that issue.
     if (grCmdBuffer->submitFence != NULL) {
-        grWaitForFences((GR_DEVICE)grDevice, 1, (GR_FENCE*)&grCmdBuffer->submitFence, true, 1.0f);
+        grWaitForFences((GR_DEVICE)grDevice, 1, (GR_FENCE*)&grCmdBuffer->submitFence, true, 10.0f);
     }
 
     VkResult res = VKD.vkResetCommandBuffer(grCmdBuffer->commandBuffer,
