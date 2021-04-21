@@ -588,13 +588,14 @@ GR_VOID grCmdPrepareMemoryRegions(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    for (int i = 0; i < transitionCount; i++) {
+    VkBufferMemoryBarrier* barriers = malloc(transitionCount * sizeof(VkBufferMemoryBarrier));
+    for (unsigned i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)stateTransition->mem;
 
         grGpuMemoryBindBuffer(grGpuMemory);
 
-        const VkBufferMemoryBarrier bufferMemoryBarrier = {
+        barriers[i] = (VkBufferMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
             .pNext = NULL,
             .srcAccessMask = getVkAccessFlagsMemory(stateTransition->oldState),
@@ -605,13 +606,13 @@ GR_VOID grCmdPrepareMemoryRegions(
             .offset = stateTransition->offset,
             .size = stateTransition->regionSize > 0 ? stateTransition->regionSize : VK_WHOLE_SIZE,
         };
-
-        // TODO batch
-        VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                                 0, 0, NULL, 1, &bufferMemoryBarrier, 0, NULL);
     }
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             0, 0, NULL, transitionCount, barriers, 0, NULL);
+    free(barriers);
 }
 
 // FIXME what are target states for?
@@ -689,11 +690,12 @@ GR_VOID grCmdPrepareImages(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    for (int i = 0; i < transitionCount; i++) {
+    VkImageMemoryBarrier* barriers = malloc(transitionCount * sizeof(VkImageMemoryBarrier));
+    for (unsigned i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
 
-        const VkImageMemoryBarrier imageMemoryBarrier = {
+        barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = NULL,
             .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState),
@@ -706,13 +708,13 @@ GR_VOID grCmdPrepareImages(
             .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange,
                                                            grImage->isCube),
         };
-
-        // TODO batch
-        VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                                 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier);
     }
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             0, 0, NULL, 0, NULL, transitionCount, barriers);
+    free(barriers);
 }
 
 GR_VOID grCmdDraw(
