@@ -118,6 +118,7 @@ typedef struct _GrCmdBuffer {
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
     unsigned dirtyFlags;
+    bool isBuilding;
     // Graphics and compute bind points
     struct {
         GrPipeline* grPipeline;
