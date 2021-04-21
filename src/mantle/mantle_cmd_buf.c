@@ -140,6 +140,13 @@ static void updateVkDescriptorSet(
         return;
     }
 
+    VkDescriptorImageInfo* imageInfos = malloc(grShader->bindingCount *
+                                               sizeof(VkDescriptorImageInfo));
+    VkDescriptorBufferInfo* bufferInfos = malloc(grShader->bindingCount *
+                                                 sizeof(VkDescriptorBufferInfo));
+    VkBufferView* bufferViews = malloc(grShader->bindingCount * sizeof(VkBufferView));
+    VkWriteDescriptorSet* writes = malloc(grShader->bindingCount * sizeof(VkWriteDescriptorSet));
+
     for (unsigned i = 0; i < grShader->bindingCount; i++) {
         const IlcBinding* binding = &grShader->bindings[i];
         const DescriptorSetSlot* slot;
@@ -157,10 +164,7 @@ static void updateVkDescriptorSet(
             assert(false);
         }
 
-        VkDescriptorImageInfo imageInfo;
-        VkDescriptorBufferInfo bufferInfo;
-        VkBufferView bufferView = VK_NULL_HANDLE;
-        VkWriteDescriptorSet writeDescriptorSet = {
+        writes[i] = (VkWriteDescriptorSet) {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = NULL,
             .dstSet = vkDescriptorSet,
@@ -180,12 +184,12 @@ static void updateVkDescriptorSet(
                 assert(false);
             }
 
-            imageInfo = (VkDescriptorImageInfo) {
+            imageInfos[i] = (VkDescriptorImageInfo) {
                 .sampler = slot->sampler.vkSampler,
                 .imageView = VK_NULL_HANDLE,
                 .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             };
-            writeDescriptorSet.pImageInfo = &imageInfo;
+            writes[i].pImageInfo = &imageInfos[i];
         } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
                    binding->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
             if (slot->type != SLOT_TYPE_IMAGE_VIEW) {
@@ -194,12 +198,12 @@ static void updateVkDescriptorSet(
                 assert(false);
             }
 
-            imageInfo = (VkDescriptorImageInfo) {
+            imageInfos[i] = (VkDescriptorImageInfo) {
                 .sampler = VK_NULL_HANDLE,
                 .imageView = slot->imageView.vkImageView,
                 .imageLayout = slot->imageView.vkImageLayout,
             };
-            writeDescriptorSet.pImageInfo = &imageInfo;
+            writes[i].pImageInfo = &imageInfos[i];
         } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
                    binding->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER) {
             if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
@@ -207,6 +211,8 @@ static void updateVkDescriptorSet(
                      slot->type, binding->descriptorType);
                 assert(false);
             }
+
+            VkBufferView bufferView = VK_NULL_HANDLE;
 
             const VkBufferViewCreateInfo createInfo = {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
@@ -229,7 +235,8 @@ static void updateVkDescriptorSet(
                                                grCmdBuffer->bufferViewCount * sizeof(VkBufferView));
             grCmdBuffer->bufferViews[grCmdBuffer->bufferViewCount - 1] = bufferView;
 
-            writeDescriptorSet.pTexelBufferView = &bufferView;
+            bufferViews[i] = bufferView;
+            writes[i].pTexelBufferView = &bufferViews[i];
         } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) {
             if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
                 LOGE("unexpected slot type %d for descriptor type %d\n",
@@ -237,20 +244,24 @@ static void updateVkDescriptorSet(
                 assert(false);
             }
 
-            bufferInfo = (VkDescriptorBufferInfo) {
+            bufferInfos[i] = (VkDescriptorBufferInfo) {
                 .buffer = slot->memoryView.vkBuffer,
                 .offset = slot->memoryView.offset,
                 .range = slot->memoryView.range,
             };
-            writeDescriptorSet.pBufferInfo = &bufferInfo;
+            writes[i].pBufferInfo = &bufferInfos[i];
         } else {
             LOGE("unhandled descriptor type %d\n", binding->descriptorType);
             assert(false);
         }
-
-        // TODO batch
-        VKD.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
     }
+
+    VKD.vkUpdateDescriptorSets(grDevice->device, grShader->bindingCount, writes, 0, NULL);
+
+    free(imageInfos);
+    free(bufferInfos);
+    free(bufferViews);
+    free(writes);
 }
 
 static void grCmdBufferBeginRenderPass(
