@@ -23,6 +23,9 @@
 #define DYNAMIC_MEMORY_RESOURCE_BINDING (0)
 #define DYNAMIC_MEMORY_UAV_BINDING (1)
 #define DYNAMIC_MEMORY_STRUCT_BUFFER_BINDING (2)
+// TODO: move this to options
+#define DESCRIPTOR_TABLE_SIZE (8192)
+
 typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
@@ -540,7 +543,7 @@ static const IlcSampler* findOrCreateSampler(
 
     if (sampler == NULL) {
         if (compiler->samplerId == 0) {
-            IlcSpvId counterId = ilcSpvPutTypeConstant(compiler->module, compiler->uintId, 10240);
+            IlcSpvId counterId = ilcSpvPutTypeConstant(compiler->module, compiler->uintId, DESCRIPTOR_TABLE_SIZE);
             compiler->samplerId = ilcSpvPutSamplerType(compiler->module);
             compiler->samplerPtrId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant, compiler->samplerId);
             IlcSpvId samplerRepoArrayType = ilcSpvPutArrayType(compiler->module, compiler->samplerId, counterId);
@@ -1228,7 +1231,7 @@ static const IlcResource* createBufferResource(
         else {
             IlcSpvWord descriptorSetIndex = 0;
             IlcSpvWord descriptorSetBinding = TABLE_STORAGE_BUFFER;
-            IlcSpvId counterId = ilcSpvPutTypeConstant(compiler->module, compiler->uintId, 10240);
+            IlcSpvId counterId = ilcSpvPutTypeConstant(compiler->module, compiler->uintId, DESCRIPTOR_TABLE_SIZE);
 
             IlcSpvId imageRepoArrayType = ilcSpvPutArrayType(compiler->module, structId, counterId);
             IlcSpvId pImageRepoArrayType = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer, imageRepoArrayType);
@@ -1337,7 +1340,7 @@ static const IlcResource* createResource(
             else {
                 descriptorSetBinding = isUav ? TABLE_STORAGE_IMAGE : TABLE_SAMPLED_IMAGE;
             }
-            IlcSpvId counterId = ilcSpvPutTypeConstant(compiler->module, compiler->uintId, 10240);
+            IlcSpvId counterId = ilcSpvPutTypeConstant(compiler->module, compiler->uintId, DESCRIPTOR_TABLE_SIZE);
             // unless sampled type is float, don't define an additional depth type
             if (!isUav && sampledTypeId == compiler->floatId) {
                 depthImageId = ilcSpvPutImageType(compiler->module, sampledTypeId, dim,

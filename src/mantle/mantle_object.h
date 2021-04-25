@@ -189,11 +189,11 @@ typedef struct _GrGlobalDescriptorSet {
     VkDescriptorPool descriptorPool;
     VkDescriptorSet descriptorTable;
     bool* samplers;
-    bool* samplerPtr;
+    unsigned samplerIndex;
     bool* bufferViews;
-    bool* bufferViewPtr;
+    unsigned bufferViewIndex;
     bool* images;
-    bool* imagePtr;
+    unsigned imageIndex;
     unsigned descriptorCount;
 } GrGlobalDescriptorSet;
 

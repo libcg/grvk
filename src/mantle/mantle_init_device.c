@@ -442,7 +442,7 @@ GR_RESULT grCreateDevice(
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vki.vkGetPhysicalDeviceMemoryProperties(grPhysicalGpu->physicalDevice, &memoryProperties);
 
-    unsigned descriptorCount = 10240;
+    unsigned descriptorCount = 8192;
     const VkDescriptorSetLayoutBinding globalLayoutBindings[] = {
         {
             .binding = 0,
@@ -679,11 +679,11 @@ GR_RESULT grCreateDevice(
             .descriptorPool = globalPool,
             .descriptorTable = globalDescSet,
             .samplers = descriptorHandleBuffer,
-            .samplerPtr = descriptorHandleBuffer,
+            .samplerIndex = 0,
             .bufferViews = descriptorHandleBuffer + descriptorCount,
-            .bufferViewPtr = descriptorHandleBuffer + descriptorCount,//TODO: support mutable descriptors
+            .bufferViewIndex = 0,//TODO: support mutable descriptors
             .images = descriptorHandleBuffer + 2 * descriptorCount,
-            .imagePtr = descriptorHandleBuffer + 2 * descriptorCount,
+            .imageIndex = 0,
             .descriptorCount = descriptorCount,
         },
         .pipelineLayouts = globalPipelineLayouts,

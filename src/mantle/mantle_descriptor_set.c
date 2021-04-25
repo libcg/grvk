@@ -64,6 +64,11 @@ GR_RESULT grCreateDescriptorSet(
     }
     DescriptorSetSlot* slots = malloc(sizeof(DescriptorSetSlot) * pCreateInfo->slots);
     DescriptorSetSlot* tempSlots = malloc(sizeof(DescriptorSetSlot) * pCreateInfo->slots);
+    if (slots == NULL || tempSlots == NULL) {
+        LOGE("descriptor set slot array allocation failed\n");
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
+    }
     memset(slots, 0, sizeof(DescriptorSetSlot) * pCreateInfo->slots);
     memset(tempSlots, 0, sizeof(DescriptorSetSlot) * pCreateInfo->slots);
 
@@ -97,6 +102,12 @@ bail:
     if (grDescriptorSet != NULL) {
         free(grDescriptorSet);
     }
+    if (slots != NULL) {
+        free(slots);
+    }
+    if (tempSlots != NULL) {
+        free(tempSlots);
+    }
     if (buffer != VK_NULL_HANDLE) {
         VKD.vkDestroyBuffer(grDevice->device, buffer, NULL);
     }
@@ -108,52 +119,38 @@ bail:
 
 static unsigned allocateRealDescriptorSet(GrGlobalDescriptorSet* descriptorSet, DescriptorSetSlot* slot)
 {
-    //TODO: make this atomic or locked at least
     unsigned index = 0xFFFFFFFF;
+    unsigned descriptorCount = descriptorSet->descriptorCount;
+    unsigned retryCount = 0;
     if (slot->type == SLOT_TYPE_IMAGE_VIEW) {
-        bool* currentPtr = descriptorSet->imagePtr;
         do {
-            if (!*descriptorSet->imagePtr) {
-                index = descriptorSet->imagePtr - descriptorSet->images;
-                *descriptorSet->imagePtr = true;
+            unsigned currentIndex = __atomic_add_fetch(&descriptorSet->imageIndex, 1, __ATOMIC_ACQ_REL) & (descriptorCount - 1);
+            __atomic_and_fetch(&descriptorSet->imageIndex, descriptorCount - 1, __ATOMIC_RELAXED);
+            if (!__atomic_exchange_1(&descriptorSet->images[currentIndex], true, __ATOMIC_ACQ_REL)) {
+                index = currentIndex;
             }
-            if (descriptorSet->imagePtr >= descriptorSet->images + descriptorSet->descriptorCount) {
-                descriptorSet->imagePtr = descriptorSet->images;
-            }
-            else {
-                descriptorSet->imagePtr++;
-            }
-        } while (currentPtr != descriptorSet->imagePtr && index == 0xFFFFFFFF);
+            retryCount++;
+        } while (retryCount < descriptorCount && index == 0xFFFFFFFF);
     }
     else if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
-        bool* currentPtr = descriptorSet->bufferViewPtr;
         do {
-            if (!*descriptorSet->bufferViewPtr) {
-                index = descriptorSet->bufferViewPtr - descriptorSet->bufferViews;
-                *descriptorSet->bufferViewPtr = true;
+            unsigned currentIndex = __atomic_add_fetch(&descriptorSet->bufferViewIndex, 1, __ATOMIC_ACQ_REL) & (descriptorCount - 1);
+            __atomic_and_fetch(&descriptorSet->bufferViewIndex, descriptorCount - 1, __ATOMIC_RELAXED);
+            if (!__atomic_exchange_1(&descriptorSet->bufferViews[currentIndex], true, __ATOMIC_ACQ_REL)) {
+                index = currentIndex;
             }
-            if (descriptorSet->bufferViewPtr >= descriptorSet->bufferViews + descriptorSet->descriptorCount) {
-                descriptorSet->bufferViewPtr = descriptorSet->bufferViews;
-            }
-            else {
-                descriptorSet->bufferViewPtr++;
-            }
-        } while (currentPtr != descriptorSet->bufferViewPtr && index == 0xFFFFFFFF);
+            retryCount++;
+        } while (retryCount < descriptorCount && index == 0xFFFFFFFF);
     }
     else if (slot->type == SLOT_TYPE_SAMPLER) {
-        bool* currentPtr = descriptorSet->samplerPtr;
         do {
-            if (!*descriptorSet->samplerPtr) {
-                index = descriptorSet->samplerPtr - descriptorSet->samplers;
-                *descriptorSet->samplerPtr = true;
+            unsigned currentIndex = __atomic_add_fetch(&descriptorSet->samplerIndex, 1, __ATOMIC_ACQ_REL) & (descriptorCount - 1);
+            __atomic_and_fetch(&descriptorSet->samplerIndex, descriptorCount - 1, __ATOMIC_RELAXED);
+            if (!__atomic_exchange_1(&descriptorSet->samplers[currentIndex], true, __ATOMIC_ACQ_REL)) {
+                index = currentIndex;
             }
-            if (descriptorSet->samplerPtr >= descriptorSet->samplers + descriptorSet->descriptorCount) {
-                descriptorSet->samplerPtr = descriptorSet->samplers;
-            }
-            else {
-                descriptorSet->samplerPtr++;
-            }
-        } while (currentPtr != descriptorSet->samplerPtr && index == 0xFFFFFFFF);
+            retryCount++;
+        } while (retryCount < descriptorCount && index == 0xFFFFFFFF);
     }
     return index;//idk
 }
@@ -184,48 +181,47 @@ GR_VOID grEndDescriptorSetUpdate(
     for (int j = 0; j < grDescriptorSet->slotCount; j++) {
         DescriptorSetSlot* slot = &((DescriptorSetSlot*)grDescriptorSet->slots)[j];
         DescriptorSetSlot* tempSlot = &((DescriptorSetSlot*)grDescriptorSet->tempSlots)[j];
-        bool freeExistingSlot = false;
-        bool allocSlot = false;
         if (tempSlot->type != slot->type) {
             // allocate descriptor set anyway
-            freeExistingSlot = (slot->type != SLOT_TYPE_NESTED && slot->type != SLOT_TYPE_NONE);
-            allocSlot = (tempSlot->type != SLOT_TYPE_NESTED && tempSlot->type != SLOT_TYPE_NONE);
-        }
+            bool freeExistingSlot = (slot->type != SLOT_TYPE_NESTED && slot->type != SLOT_TYPE_NONE);
+            bool allocSlot = (tempSlot->type != SLOT_TYPE_NESTED && tempSlot->type != SLOT_TYPE_NONE);
 
-        if (freeExistingSlot) {
-            switch (slot->type) {
-            case SLOT_TYPE_IMAGE_VIEW:
-                grDescriptorSet->grObj.grDevice->globalDescriptorSet.images[slot->realDescriptorIndex] = false;
-                slot->imageView = VK_NULL_HANDLE;
-                break;
-            case SLOT_TYPE_MEMORY_VIEW:
-                if (slot->bufferView != VK_NULL_HANDLE) {
-                    VKD.vkDestroyBufferView(grDescriptorSet->grObj.grDevice->device, slot->bufferView, NULL);
-                    slot->bufferView = VK_NULL_HANDLE;
-                    slot->bufferViewCreateInfo.buffer = VK_NULL_HANDLE;
+            if (freeExistingSlot) {
+                switch (slot->type) {
+                case SLOT_TYPE_IMAGE_VIEW:
+                    __atomic_store_1(&grDescriptorSet->grObj.grDevice->globalDescriptorSet.images[slot->realDescriptorIndex], false, __ATOMIC_RELEASE);
+                    slot->imageView = VK_NULL_HANDLE;
+                    break;
+                case SLOT_TYPE_MEMORY_VIEW:
+                    if (slot->bufferView != VK_NULL_HANDLE) {
+                        VKD.vkDestroyBufferView(grDescriptorSet->grObj.grDevice->device, slot->bufferView, NULL);
+                        slot->bufferView = VK_NULL_HANDLE;
+                        slot->bufferViewCreateInfo.buffer = VK_NULL_HANDLE;
+                    }
+                    __atomic_store_1(&grDescriptorSet->grObj.grDevice->globalDescriptorSet.bufferViews[slot->realDescriptorIndex], false, __ATOMIC_RELEASE);
+                    break;
+                case SLOT_TYPE_SAMPLER:
+                    __atomic_store_1(&grDescriptorSet->grObj.grDevice->globalDescriptorSet.samplers[slot->realDescriptorIndex], false, __ATOMIC_RELEASE);
+                    slot->sampler = VK_NULL_HANDLE;
+                    break;
+                default:
+                    break;
                 }
-                grDescriptorSet->grObj.grDevice->globalDescriptorSet.bufferViews[slot->realDescriptorIndex] = false;
-                break;
-            case SLOT_TYPE_SAMPLER:
-                grDescriptorSet->grObj.grDevice->globalDescriptorSet.samplers[slot->realDescriptorIndex] = false;
-                slot->sampler = VK_NULL_HANDLE;
-                break;
-            default:
-                break;
+            }
+            slot->nestedDescriptorSet = 0;
+            slot->type = tempSlot->type;
+            if (allocSlot) {
+                slot->realDescriptorIndex = allocateRealDescriptorSet(&grDescriptorSet->grObj.grDevice->globalDescriptorSet, slot);
+                assert(slot->realDescriptorIndex < grDescriptorSet->grObj.grDevice->globalDescriptorSet.descriptorCount);
+                descriptorSetHostBuffer[j] = (uint64_t)slot->realDescriptorIndex;
             }
         }
 
-        slot->type = tempSlot->type;
-        if (allocSlot) {
-            slot->realDescriptorIndex = allocateRealDescriptorSet(&grDescriptorSet->grObj.grDevice->globalDescriptorSet, slot);
-            descriptorSetHostBuffer[j] = (uint64_t)slot->realDescriptorIndex;
-        }
         if (slot->type == SLOT_TYPE_NESTED) {
             slot->nestedDescriptorSet = tempSlot->nestedDescriptorSet;
             descriptorSetHostBuffer[j] = slot->nestedDescriptorSet;
         }
         else if (slot->type == SLOT_TYPE_IMAGE_VIEW) {
-            slot->nestedDescriptorSet = 0;
             //update descriptor set
             if (slot->imageView != tempSlot->imageView || slot->imageLayout != tempSlot->imageLayout) {
                 imageInfos[imageInfoCount] = (VkDescriptorImageInfo) {
@@ -269,7 +265,6 @@ GR_VOID grEndDescriptorSetUpdate(
             slot->imageUsage = tempSlot->imageUsage;
         }
         else if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
-            slot->nestedDescriptorSet = 0;
             if (slot->bufferView == VK_NULL_HANDLE || memcmp(&slot->bufferViewCreateInfo, &tempSlot->bufferViewCreateInfo, sizeof(VkBufferViewCreateInfo)) != 0) {
                 if (slot->bufferView != VK_NULL_HANDLE) {
                     VKD.vkDestroyBufferView(grDescriptorSet->grObj.grDevice->device, slot->bufferView, NULL);
@@ -332,27 +327,28 @@ GR_VOID grEndDescriptorSetUpdate(
             }
         }
         else if (slot->type == SLOT_TYPE_SAMPLER) {
-            slot->nestedDescriptorSet = 0;
-            imageInfos[imageInfoCount] = (VkDescriptorImageInfo) {
-                .sampler = tempSlot->sampler,
-                .imageView = VK_NULL_HANDLE,
-                .imageLayout = VK_NULL_HANDLE,
-            };
-            writeDescriptorSet[writeCount++] = (VkWriteDescriptorSet) {
+            if (slot->sampler != tempSlot->sampler) {
+                imageInfos[imageInfoCount] = (VkDescriptorImageInfo) {
+                    .sampler = tempSlot->sampler,
+                    .imageView = VK_NULL_HANDLE,
+                    .imageLayout = VK_NULL_HANDLE,
+                };
+                writeDescriptorSet[writeCount++] = (VkWriteDescriptorSet) {
 
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .pNext = NULL,
-                .dstSet = grDescriptorSet->grObj.grDevice->globalDescriptorSet.descriptorTable,
-                .dstBinding = TABLE_SAMPLER,
-                .dstArrayElement = slot->realDescriptorIndex,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-                .pImageInfo = &imageInfos[imageInfoCount],
-                .pBufferInfo = NULL,
-                .pTexelBufferView = NULL,
-            };
-            imageInfoCount++;
-            slot->sampler = tempSlot->sampler;
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .pNext = NULL,
+                    .dstSet = grDescriptorSet->grObj.grDevice->globalDescriptorSet.descriptorTable,
+                    .dstBinding = TABLE_SAMPLER,
+                    .dstArrayElement = slot->realDescriptorIndex,
+                    .descriptorCount = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                    .pImageInfo = &imageInfos[imageInfoCount],
+                    .pBufferInfo = NULL,
+                    .pTexelBufferView = NULL,
+                };
+                imageInfoCount++;
+                slot->sampler = tempSlot->sampler;
+            }
         }
     }
 
