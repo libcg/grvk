@@ -97,24 +97,28 @@ GR_RESULT grGetMemoryHeapInfo(
 
     VkMemoryPropertyFlags flags = grDevice->memoryProperties.memoryTypes[heapId].propertyFlags;
     uint32_t vkHeapIndex = grDevice->memoryProperties.memoryTypes[heapId].heapIndex;
+    bool deviceLocal = (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
+    bool hostVisible = (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+    bool hostCoherent = (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+    bool hostCached = (flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0;
 
+    // https://www.basnieuwenhuizen.nl/the-catastrophe-of-reading-from-vram/
+    // https://gpuopen.com/learn/vulkan-device-memory/
     *(GR_MEMORY_HEAP_PROPERTIES*)pData = (GR_MEMORY_HEAP_PROPERTIES) {
-        .heapMemoryType = (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0 ?
-                          GR_HEAP_MEMORY_LOCAL : GR_HEAP_MEMORY_REMOTE,
+        .heapMemoryType = deviceLocal ? GR_HEAP_MEMORY_LOCAL : GR_HEAP_MEMORY_REMOTE,
         .heapSize = grDevice->memoryProperties.memoryHeaps[vkHeapIndex].size,
         .pageSize = 4096, // FIXME guessed
-        .flags = ((flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 ?
-                  GR_MEMORY_HEAP_CPU_VISIBLE : 0) |
-                 ((flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0 ?
-                  GR_MEMORY_HEAP_CPU_GPU_COHERENT : 0) |
-                 ((flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) == 0 ?
-                  GR_MEMORY_HEAP_CPU_UNCACHED : 0),
-        .gpuReadPerfRating = 1.f, // TODO
-        .gpuWritePerfRating = 1.f, // TODO
-        .cpuReadPerfRating = (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 ?
-                             1.f : 0.f, // TODO
-        .cpuWritePerfRating = (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0 ?
-                              1.f : 0.f, // TODO
+        .flags = (hostVisible ? GR_MEMORY_HEAP_CPU_VISIBLE : 0) |
+                 (hostCoherent ? GR_MEMORY_HEAP_CPU_GPU_COHERENT : 0) |
+                 (!hostCached ? GR_MEMORY_HEAP_CPU_UNCACHED : 0),
+        .gpuReadPerfRating = 10.0f + 1000.0f * deviceLocal, // FIXME
+        .gpuWritePerfRating = 10.0f + 1000.0f * deviceLocal, // FIXME
+        // Mantle spec: "For heaps inaccessible by the CPU, the read and write performance rating
+        //               of the CPU is reported as zero"
+        .cpuReadPerfRating = !hostVisible ? 0.0f :
+                             (1.0f + (100.0f * !deviceLocal) + (10000.0f * hostCached)),
+        .cpuWritePerfRating = !hostVisible ? 0.0f :
+                              (10000.0f + (1000.0f * !deviceLocal) + (7000.0f * hostCached)),
     };
 
     return GR_SUCCESS;
