@@ -1,6 +1,8 @@
 #include "mantle_internal.h"
 #include "amdilc.h"
 
+#define SETS_PER_POOL   (32)
+
 typedef enum _DirtyFlags {
     FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS = 1,
     FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS = 2,
@@ -42,7 +44,7 @@ static VkDescriptorPool getVkDescriptorPool(
     const GrDevice* grDevice,
     unsigned stageCount,
     unsigned descriptorTypeCountSize,
-    unsigned* descriptorTypeCounts)
+    const unsigned* descriptorTypeCounts)
 {
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
@@ -56,7 +58,7 @@ static VkDescriptorPool getVkDescriptorPool(
                                           descriptorPoolSizeCount * sizeof(VkDescriptorPoolSize));
             descriptorPoolSizes[descriptorPoolSizeCount - 1] = (VkDescriptorPoolSize) {
                 .type = i,
-                .descriptorCount = descriptorTypeCounts[i],
+                .descriptorCount = SETS_PER_POOL * descriptorTypeCounts[i],
             };
         }
     }
@@ -65,7 +67,7 @@ static VkDescriptorPool getVkDescriptorPool(
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .maxSets = stageCount, // TODO optimize
+        .maxSets = SETS_PER_POOL * stageCount,
         .poolSizeCount = descriptorPoolSizeCount,
         .pPoolSizes = descriptorPoolSizes,
     };
@@ -73,6 +75,7 @@ static VkDescriptorPool getVkDescriptorPool(
     VkResult res = VKD.vkCreateDescriptorPool(grDevice->device, &createInfo, NULL, &descriptorPool);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateDescriptorPool failed (%d)\n", res);
+        assert(false);
     }
 
     free(descriptorPoolSizes);
@@ -313,31 +316,42 @@ static void grCmdBufferUpdateDescriptorSets(
     GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
     VkResult vkRes;
 
-    grCmdBuffer->bindPoint[bindPoint].descriptorPool =
-        getVkDescriptorPool(grDevice, grPipeline->stageCount,
-                            COUNT_OF(grPipeline->descriptorTypeCounts),
-                            grPipeline->descriptorTypeCounts);
+    for (unsigned i = 0; i < 2; i++) {
+        if (grCmdBuffer->bindPoint[bindPoint].descriptorPool != VK_NULL_HANDLE) {
+            const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                .pNext = NULL,
+                .descriptorPool = grCmdBuffer->bindPoint[bindPoint].descriptorPool,
+                .descriptorSetCount = grPipeline->stageCount, // TODO optimize
+                .pSetLayouts = grPipeline->descriptorSetLayouts,
+            };
 
-    // Track descriptor pool
-    grCmdBuffer->descriptorPoolCount++;
-    grCmdBuffer->descriptorPools = realloc(grCmdBuffer->descriptorPools,
-                                           grCmdBuffer->descriptorPoolCount *
-                                           sizeof(VkDescriptorPool));
-    grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] =
-        grCmdBuffer->bindPoint[bindPoint].descriptorPool;
+            vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo,
+                                                 grCmdBuffer->bindPoint[bindPoint].descriptorSets);
+            if (vkRes == VK_SUCCESS) {
+                break;
+            } else if (vkRes != VK_ERROR_OUT_OF_POOL_MEMORY) {
+                LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
+                break;
+            } else if (i > 0) {
+                LOGE("descriptor set allocation failed with a new pool\n");
+                assert(false);
+            }
+        }
 
-    const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .pNext = NULL,
-        .descriptorPool = grCmdBuffer->bindPoint[bindPoint].descriptorPool,
-        .descriptorSetCount = grPipeline->stageCount, // TODO optimize
-        .pSetLayouts = grPipeline->descriptorSetLayouts,
-    };
+        // Need a new pool
+        grCmdBuffer->bindPoint[bindPoint].descriptorPool =
+            getVkDescriptorPool(grDevice, grPipeline->stageCount,
+                                COUNT_OF(grPipeline->descriptorTypeCounts),
+                                grPipeline->descriptorTypeCounts);
 
-    vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo,
-                                         grCmdBuffer->bindPoint[bindPoint].descriptorSets);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
+        // Track descriptor pool
+        grCmdBuffer->descriptorPoolCount++;
+        grCmdBuffer->descriptorPools = realloc(grCmdBuffer->descriptorPools,
+                                               grCmdBuffer->descriptorPoolCount *
+                                               sizeof(VkDescriptorPool));
+        grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] =
+            grCmdBuffer->bindPoint[bindPoint].descriptorPool;
     }
 
     for (unsigned i = 0; i < grPipeline->stageCount; i++) {
