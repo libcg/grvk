@@ -136,19 +136,19 @@ GR_RESULT grGetGpuInfo(
 
         GR_PHYSICAL_GPU_PROPERTIES* gpuProps = (GR_PHYSICAL_GPU_PROPERTIES*)pData;
         *gpuProps = (GR_PHYSICAL_GPU_PROPERTIES) {
-            .apiVersion = 0x18000,
-            .driverVersion = UINT32_MAX,
+            .apiVersion = 0x19000, // 19.4.3
+            .driverVersion = 0x49C00000, // 19.4.3
             .vendorId = physicalDeviceProps.vendorID,
             .deviceId = physicalDeviceProps.deviceID,
             .gpuType = getGrPhysicalGpuType(physicalDeviceProps.deviceType),
-            .gpuName = "", // Filled out below
-            .maxMemRefsPerSubmission = 1024, // FIXME guess
-            .reserved = 0,
-            .maxInlineMemoryUpdateSize = 1024, // FIXME guess
-            .maxBoundDescriptorSets = 32, // FIXME guess
+            .gpuName = "", // Initialized below
+            .maxMemRefsPerSubmission = 16384, // 19.4.3
+            .reserved = 4200043, // 19.4.3
+            .maxInlineMemoryUpdateSize = 32768, // 19.4.3
+            .maxBoundDescriptorSets = 2, // 19.4.3
             .maxThreadGroupSize = physicalDeviceProps.limits.maxComputeWorkGroupSize[0],
             .timestampFrequency = 1000000000.f / physicalDeviceProps.limits.timestampPeriod,
-            .multiColorTargetClears = false,
+            .multiColorTargetClears = true, // 19.4.3
         };
         strncpy(gpuProps->gpuName, physicalDeviceProps.deviceName, GR_MAX_PHYSICAL_GPU_NAME);
     } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PERFORMANCE) {
@@ -159,10 +159,10 @@ GR_RESULT grGetGpuInfo(
 
         *(GR_PHYSICAL_GPU_PERFORMANCE*)pData = (GR_PHYSICAL_GPU_PERFORMANCE) {
             .maxGpuClock = 1000.f,
-            .aluPerClock = 1.f,
-            .texPerClock = 1.f,
-            .primsPerClock = 1.f,
-            .pixelsPerClock = 1.f,
+            .aluPerClock = 16.f, // 19.4.3
+            .texPerClock = 16.f, // 19.4.3
+            .primsPerClock = 2.f, // 19.4.3
+            .pixelsPerClock = 16.f, // 19.4.3
         };
     } else {
         LOGE("unsupported info type 0x%X\n", infoType);
