@@ -18,9 +18,10 @@ static bool getGpuInfo(
     }
 
     if (*dataSize > expectedSize) {
-        printf("%llu > %llu for type 0x%X\n",
-               *dataSize, expectedSize, infoType);
+        printf("%llu > %llu for type 0x%X\n", *dataSize, expectedSize, infoType);
         *dataSize = expectedSize;
+    } else if (*dataSize != expectedSize) {
+        printf("%llu != %llu for type 0x%X\n", *dataSize, expectedSize, infoType);
     }
 
     res = gri.grGetGpuInfo(gpu, infoType, dataSize, data);
@@ -38,7 +39,7 @@ static void printPhysicalGpuInfo(
     GR_SIZE dataSize;
     GR_PHYSICAL_GPU_PROPERTIES gpuProps;
     GR_PHYSICAL_GPU_PERFORMANCE gpuPerf;
-    GR_PHYSICAL_GPU_QUEUE_PROPERTIES gpuQueueProps[2];
+    GR_PHYSICAL_GPU_QUEUE_PROPERTIES gpuQueueProps[4];
     GR_PHYSICAL_GPU_MEMORY_PROPERTIES gpuMemProps;
     GR_PHYSICAL_GPU_IMAGE_PROPERTIES gpuImgProps;
 
@@ -62,7 +63,7 @@ static void printPhysicalGpuInfo(
                gpuProps.gpuType, gpuProps.gpuName, gpuProps.maxMemRefsPerSubmission,
                gpuProps.reserved, gpuProps.maxInlineMemoryUpdateSize,
                gpuProps.maxBoundDescriptorSets, gpuProps.maxThreadGroupSize,
-               gpuProps.timestampFrequency, gpuProps.multiColorTargetClears);
+               gpuProps.timestampFrequency, !!gpuProps.multiColorTargetClears);
     }
 
     printf(">> GR_PHYSICAL_GPU_PERFORMANCE\n");
@@ -126,19 +127,17 @@ int main(int argc, char* argv[])
 
     printf("\nMANTLEINFO\n\n");
 
-    bool init = mantleLoaderInit();
-
-    if (!init) {
+    if (!mantleLoaderInit()) {
         printf("failed to load mantle64.dll\n");
         return 1;
     }
 
     const GR_APPLICATION_INFO appInfo = {
         .pAppName = "mantleinfo",
-        .appVersion = 0,
+        .appVersion = 1,
         .pEngineName = "mantleinfo",
-        .engineVersion = 0,
-        .apiVersion = 0,
+        .engineVersion = 1,
+        .apiVersion = 1,
     };
 
     GR_UINT gpuCount = 0;
