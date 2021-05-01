@@ -10,7 +10,7 @@ extern "C" {
 
 #define MANTLE_HANDLE(name) typedef void* name
 
-#define GR_STDCALL
+#define GR_STDCALL __stdcall
 
 // Types
 
