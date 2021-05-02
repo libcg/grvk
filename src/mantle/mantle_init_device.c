@@ -164,6 +164,41 @@ GR_RESULT grGetGpuInfo(
             .primsPerClock = 2.f, // 19.4.3
             .pixelsPerClock = 16.f, // 19.4.3
         };
+    } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_MEMORY_PROPERTIES) {
+        if (pData == NULL) {
+            *pDataSize = sizeof(GR_PHYSICAL_GPU_MEMORY_PROPERTIES);
+            return GR_SUCCESS;
+        }
+
+        // TODO don't expose unsupported features?
+        *(GR_PHYSICAL_GPU_MEMORY_PROPERTIES*)pData = (GR_PHYSICAL_GPU_MEMORY_PROPERTIES) {
+            .flags = GR_MEMORY_VIRTUAL_REMAPPING_SUPPORT | // 19.4.3
+                     GR_MEMORY_PINNING_SUPPORT | // 19.4.3
+                     GR_MEMORY_PREFER_GLOBAL_REFS, // 19.4.3
+            .virtualMemPageSize = 4096, // 19.4.3
+            .maxVirtualMemSize = 1086626725888ull, // 19.4.3
+            .maxPhysicalMemSize = 10354294784ull, // 19.4.3
+        };
+    } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_IMAGE_PROPERTIES) {
+        if (pData == NULL) {
+            *pDataSize = sizeof(GR_PHYSICAL_GPU_IMAGE_PROPERTIES);
+            return GR_SUCCESS;
+        }
+
+        VkPhysicalDeviceProperties physicalDeviceProps;
+        vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
+
+        *(GR_PHYSICAL_GPU_IMAGE_PROPERTIES*)pData = (GR_PHYSICAL_GPU_IMAGE_PROPERTIES) {
+            .maxSliceWidth = physicalDeviceProps.limits.maxImageDimension1D,
+            .maxSliceHeight = physicalDeviceProps.limits.maxImageDimension2D,
+            .maxDepth = physicalDeviceProps.limits.maxImageDimension3D,
+            .maxArraySlices = physicalDeviceProps.limits.maxImageArrayLayers,
+            .reserved1 = 0, // 19.4.3
+            .reserved2 = 0, // 19.4.3
+            .maxMemoryAlignment = 262144, // 19.4.3
+            .sparseImageSupportLevel = 0, // 19.4.3
+            .flags = 0x0, // 19.4.3
+        };
     } else {
         LOGE("unsupported info type 0x%X\n", infoType);
         return GR_ERROR_INVALID_VALUE;
