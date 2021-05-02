@@ -242,6 +242,7 @@ typedef struct _GrMsaaStateObject {
 typedef struct _GrPhysicalGpu {
     GrBaseObject grBaseObj;
     VkPhysicalDevice physicalDevice;
+    VkPhysicalDeviceProperties physicalDeviceProps;
 } GrPhysicalGpu;
 
 typedef struct _GrPipeline {

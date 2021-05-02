@@ -100,7 +100,10 @@ GR_RESULT grInitAndEnumerateGpus(
         *grPhysicalGpu = (GrPhysicalGpu) {
             .grBaseObj = { GR_OBJ_TYPE_PHYSICAL_GPU },
             .physicalDevice = physicalDevices[i],
+            .physicalDeviceProps = { 0 }, // Initialized below
         };
+
+        vki.vkGetPhysicalDeviceProperties(physicalDevices[i], &grPhysicalGpu->physicalDeviceProps);
 
         gpus[i] = (GR_PHYSICAL_GPU)grPhysicalGpu;
     }
@@ -125,32 +128,31 @@ GR_RESULT grGetGpuInfo(
         return GR_ERROR_INVALID_POINTER;
     }
 
+    const VkPhysicalDeviceProperties* props = &grPhysicalGpu->physicalDeviceProps;
+
     if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PROPERTIES) {
         if (pData == NULL) {
             *pDataSize = sizeof(GR_PHYSICAL_GPU_PROPERTIES);
             return GR_SUCCESS;
         }
 
-        VkPhysicalDeviceProperties physicalDeviceProps;
-        vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
-
         GR_PHYSICAL_GPU_PROPERTIES* gpuProps = (GR_PHYSICAL_GPU_PROPERTIES*)pData;
         *gpuProps = (GR_PHYSICAL_GPU_PROPERTIES) {
             .apiVersion = 0x19000, // 19.4.3
             .driverVersion = 0x49C00000, // 19.4.3
-            .vendorId = physicalDeviceProps.vendorID,
-            .deviceId = physicalDeviceProps.deviceID,
-            .gpuType = getGrPhysicalGpuType(physicalDeviceProps.deviceType),
+            .vendorId = props->vendorID,
+            .deviceId = props->deviceID,
+            .gpuType = getGrPhysicalGpuType(props->deviceType),
             .gpuName = "", // Initialized below
             .maxMemRefsPerSubmission = 16384, // 19.4.3
             .reserved = 4200043, // 19.4.3
             .maxInlineMemoryUpdateSize = 32768, // 19.4.3
             .maxBoundDescriptorSets = 2, // 19.4.3
-            .maxThreadGroupSize = physicalDeviceProps.limits.maxComputeWorkGroupSize[0],
-            .timestampFrequency = 1000000000.f / physicalDeviceProps.limits.timestampPeriod,
+            .maxThreadGroupSize = props->limits.maxComputeWorkGroupSize[0],
+            .timestampFrequency = 1000000000.f / props->limits.timestampPeriod,
             .multiColorTargetClears = true, // 19.4.3
         };
-        strncpy(gpuProps->gpuName, physicalDeviceProps.deviceName, GR_MAX_PHYSICAL_GPU_NAME);
+        strncpy(gpuProps->gpuName, props->deviceName, GR_MAX_PHYSICAL_GPU_NAME);
     } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PERFORMANCE) {
         if (pData == NULL) {
             *pDataSize = sizeof(GR_PHYSICAL_GPU_PERFORMANCE);
@@ -185,14 +187,11 @@ GR_RESULT grGetGpuInfo(
             return GR_SUCCESS;
         }
 
-        VkPhysicalDeviceProperties physicalDeviceProps;
-        vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
-
         *(GR_PHYSICAL_GPU_IMAGE_PROPERTIES*)pData = (GR_PHYSICAL_GPU_IMAGE_PROPERTIES) {
-            .maxSliceWidth = physicalDeviceProps.limits.maxImageDimension1D,
-            .maxSliceHeight = physicalDeviceProps.limits.maxImageDimension2D,
-            .maxDepth = physicalDeviceProps.limits.maxImageDimension3D,
-            .maxArraySlices = physicalDeviceProps.limits.maxImageArrayLayers,
+            .maxSliceWidth = props->limits.maxImageDimension1D,
+            .maxSliceHeight = props->limits.maxImageDimension2D,
+            .maxDepth = props->limits.maxImageDimension3D,
+            .maxArraySlices = props->limits.maxImageArrayLayers,
             .reserved1 = 0, // 19.4.3
             .reserved2 = 0, // 19.4.3
             .maxMemoryAlignment = 262144, // 19.4.3
@@ -222,28 +221,28 @@ GR_RESULT grCreateDevice(
     unsigned universalQueueCount = 0;
     unsigned computeQueueIndex = INVALID_QUEUE_INDEX;
     unsigned computeQueueCount = 0;
+    uint32_t driverVersion;
 
-    VkPhysicalDeviceProperties physicalDeviceProps;
-    vki.vkGetPhysicalDeviceProperties(grPhysicalGpu->physicalDevice, &physicalDeviceProps);
+    const VkPhysicalDeviceProperties* props = &grPhysicalGpu->physicalDeviceProps;
 
-    if (physicalDeviceProps.vendorID == NVIDIA_VENDOR_ID) {
-        // Fixup driver version
-        physicalDeviceProps.driverVersion =
-            VK_MAKE_VERSION(VK_VERSION_MAJOR(physicalDeviceProps.driverVersion),
-                            VK_VERSION_MINOR(physicalDeviceProps.driverVersion >> 0) >> 2,
-                            VK_VERSION_PATCH(physicalDeviceProps.driverVersion >> 2) >> 4);
+    if (props->vendorID == NVIDIA_VENDOR_ID) {
+        // Fix up driver version
+        driverVersion = VK_MAKE_VERSION(
+            VK_VERSION_MAJOR(props->driverVersion),
+            VK_VERSION_MINOR(props->driverVersion >> 0) >> 2,
+            VK_VERSION_PATCH(props->driverVersion >> 2) >> 4);
+    } else {
+        driverVersion = props->driverVersion;
     }
 
     LOGI("%04X:%04X \"%s\" (Vulkan %d.%d.%d, driver %d.%d.%d)\n",
-         physicalDeviceProps.vendorID,
-         physicalDeviceProps.deviceID,
-         physicalDeviceProps.deviceName,
-         VK_VERSION_MAJOR(physicalDeviceProps.apiVersion),
-         VK_VERSION_MINOR(physicalDeviceProps.apiVersion),
-         VK_VERSION_PATCH(physicalDeviceProps.apiVersion),
-         VK_VERSION_MAJOR(physicalDeviceProps.driverVersion),
-         VK_VERSION_MINOR(physicalDeviceProps.driverVersion),
-         VK_VERSION_PATCH(physicalDeviceProps.driverVersion));
+         props->vendorID, props->deviceID, props->deviceName,
+         VK_VERSION_MAJOR(props->apiVersion),
+         VK_VERSION_MINOR(props->apiVersion),
+         VK_VERSION_PATCH(props->apiVersion),
+         VK_VERSION_MAJOR(driverVersion),
+         VK_VERSION_MINOR(driverVersion),
+         VK_VERSION_PATCH(driverVersion));
 
     uint32_t vkQueueFamilyPropertyCount = 0;
     vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
