@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mantle/mantle.h"
+#include "mantle/mantleExt.h"
 #include "logger.h"
 #include "mantle_object.h"
 #include "vulkan_loader.h"
