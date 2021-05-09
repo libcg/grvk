@@ -1,11 +1,14 @@
 #ifndef VULKAN_LOADER_H_
 #define VULKAN_LOADER_H_
-
+#if defined(_WIN64) || defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include "windows.h"
+#endif
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
+#if defined(_WIN64) || defined(_WIN32)
 #include "vulkan/vulkan_win32.h"
+#endif
 
 #define VULKAN_FN(name) \
     PFN_##name name
@@ -165,6 +168,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkGetPipelineCacheData);
     VULKAN_FN(vkGetQueryPoolResults);
     VULKAN_FN(vkGetRenderAreaGranularity);
+    VULKAN_FN(vkGetBufferDeviceAddress);
     VULKAN_FN(vkInvalidateMappedMemoryRanges);
     VULKAN_FN(vkMapMemory);
     VULKAN_FN(vkMergePipelineCaches);
@@ -206,6 +210,10 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdSetStencilOpEXT);
     VULKAN_FN(vkCmdSetStencilTestEnableEXT);
     VULKAN_FN(vkCmdSetViewportWithCountEXT);
+#endif
+
+#ifdef VK_KHR_push_descriptor
+    VULKAN_FN(vkCmdPushDescriptorSetKHR);
 #endif
 } VULKAN_DEVICE;
 

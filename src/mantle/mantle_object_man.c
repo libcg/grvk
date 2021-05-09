@@ -16,10 +16,19 @@ GR_RESULT grDestroyObject(
     switch (grObject->grObjType) {
     case GR_OBJ_TYPE_COMMAND_BUFFER: {
         GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)grObject;
-
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
         grCmdBufferResetState(grCmdBuffer);
     }   break;
+    case GR_OBJ_TYPE_SHADER: {
+        GrShader* grShader = (GrShader*)grObject;
+        free(grShader->code);
+    } break;
+    case GR_OBJ_TYPE_PIPELINE: {
+        GrPipeline* grPipeline = (GrPipeline*)grObject;
+        for (unsigned i = 0; i < grPipeline->pipelineSlotCount; ++i) {
+            VKD.vkDestroyPipeline(grDevice->device, grPipeline->pipelineSlots[i].pipeline, NULL);
+        }
+    } break;
     case GR_OBJ_TYPE_COLOR_TARGET_VIEW: {
         GrColorTargetView* grColorTargetView = (GrColorTargetView*)grObject;
 

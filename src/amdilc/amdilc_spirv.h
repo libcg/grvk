@@ -91,6 +91,7 @@ IlcSpvId ilcSpvPutBoolType(
 
 IlcSpvId ilcSpvPutIntType(
     IlcSpvModule* module,
+    unsigned bitCount,
     bool isSigned);
 
 IlcSpvId ilcSpvPutFloatType(
@@ -128,6 +129,11 @@ IlcSpvId ilcSpvPutRuntimeArrayType(
     IlcSpvId typeId,
     bool unique);
 
+void ilcSpvPutRuntimeArrayTypeWithId(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId innerTypeId);
+
 IlcSpvId ilcSpvPutStructType(
     IlcSpvModule* module,
     unsigned memberTypeIdCount,
@@ -138,13 +144,28 @@ IlcSpvId ilcSpvPutPointerType(
     IlcSpvWord storageClass,
     IlcSpvId typeId);
 
+void ilcSpvPutPointerTypeWithId(
+    IlcSpvModule* module,
+    IlcSpvId ptrId,
+    IlcSpvWord storageClass,
+    IlcSpvId typeId);
+
 IlcSpvId ilcSpvPutFunctionType(
     IlcSpvModule* module,
     IlcSpvId returnTypeId,
     unsigned argTypeIdCount,
     const IlcSpvId* argTypeIds);
 
+void ilcSpvPutForwardPointerType(
+    IlcSpvModule* module,
+    IlcSpvId typeId);
+
 IlcSpvId ilcSpvPutConstant(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord literal);
+
+IlcSpvId ilcSpvPutTypeConstant(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvWord literal);
@@ -177,26 +198,36 @@ IlcSpvId ilcSpvPutImageTexelPointer(
     IlcSpvId coordinateId,
     IlcSpvId sampleId);
 
+IlcSpvId ilcSpvPutAccessChain(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId srcId,
+    IlcSpvId argCount,
+    const IlcSpvId* args);
+
 IlcSpvId ilcSpvPutLoad(
     IlcSpvModule* module,
     IlcSpvId typeId,
-    IlcSpvId pointerId);
+    IlcSpvId pointerId,
+    IlcSpvId operandCount,
+    const IlcSpvId* operands);
 
 void ilcSpvPutStore(
     IlcSpvModule* module,
     IlcSpvId pointerId,
     IlcSpvId objectId);
 
-IlcSpvId ilcSpvPutAccessChain(
-    IlcSpvModule* module,
-    IlcSpvId resultTypeId,
-    IlcSpvId baseId,
-    unsigned indexIdCount,
-    const IlcSpvId* indexIds);
-
 void ilcSpvPutDecoration(
     IlcSpvModule* module,
     IlcSpvId target,
+    IlcSpvWord decoration,
+    unsigned argCount,
+    const IlcSpvWord* args);
+
+void ilcSpvPutMemberDecoration(
+    IlcSpvModule* module,
+    IlcSpvId target,
+    IlcSpvWord memberTarget,
     IlcSpvWord decoration,
     unsigned argCount,
     const IlcSpvWord* args);
@@ -292,6 +323,21 @@ IlcSpvId ilcSpvPutAtomicOp(
     IlcSpvId valueId);
 
 IlcSpvId ilcSpvPutBitcast(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId);
+
+IlcSpvId ilcSpvPutUConvert(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId);
+
+IlcSpvId ilcSpvPutConvertPtrToU(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId);
+
+IlcSpvId ilcSpvPutConvertUToPtr(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId operandId);
