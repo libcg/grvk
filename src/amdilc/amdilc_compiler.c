@@ -45,6 +45,7 @@ typedef struct {
     IlcSpvId depthTypeId; // needed for depth sample operations
     IlcSpvId imageTypePtrId;
     IlcSpvId depthTypePtrId;
+    SpvImageFormat imageFormat;
     IlcSpvId imageRepoId;
     bool isUav;
     bool isDynamicResource;
@@ -87,11 +88,21 @@ typedef struct {
     IlcSpvId pushConstantsVariable;
     IlcSpvId pushConstantsItemType;
     IlcSpvId virtualDescriptorType;
-    IlcSpvId uint64BufferPtrId;
+    IlcSpvId virtualDescriptorTypePtr;
 } VirtualDescriptorResources;
 
 typedef struct {
+    bool accessTypedLoad;
+    bool accessAtomicOp;
+} ResourceAnalysis;
+
+typedef struct {
+    ResourceAnalysis uavInfo[256];
+} AnalysisInfo;
+
+typedef struct {
     const Kernel* kernel;
+    AnalysisInfo analysisInfo;
     IlcSpvModule* module;
     IlcSpvId entryPointId;
     IlcSpvId intId;
@@ -514,22 +525,18 @@ static IlcSpvId emitResourceIndexLoad(
     IlcSpvId args[2] = {compiler->zeroUintId, descriptorIndexId };
     IlcSpvId pushItem = ilcSpvPutAccessChain(compiler->module, compiler->descriptorSetTypes.pushConstantsItemType, compiler->descriptorSetTypes.pushConstantsVariable, 2, args);
     IlcSpvId descriptorItem = ilcSpvPutLoad(compiler->module, compiler->descriptorSetTypes.virtualDescriptorType, pushItem, 0, NULL);
-    IlcSpvId descriptorItemIndexId;
     IlcSpvWord alignedParam[2] = {SpvMemoryAccessAlignedMask, 8};
     // emit loading commands
     for (unsigned i = 0; i < nestingCount; ++i) {
         args[1] = ilcSpvPutConstant(compiler->module, compiler->uintId, nestedIndices[i]);
-        IlcSpvId itemPtr = ilcSpvPutAccessChain(compiler->module, compiler->descriptorSetTypes.uint64BufferPtrId, descriptorItem, 2, args);
-
-        descriptorItemIndexId  = ilcSpvPutLoad(compiler->module, compiler->uint64Id, itemPtr, 2, alignedParam);
-        if (i != nestingCount - 1) {
-            descriptorItem = ilcSpvPutConvertUToPtr(compiler->module, compiler->descriptorSetTypes.virtualDescriptorType, descriptorItemIndexId);
-        }
+        IlcSpvId itemPtr = ilcSpvPutAccessChain(compiler->module, compiler->descriptorSetTypes.virtualDescriptorTypePtr, descriptorItem, 2, args);
+        descriptorItem  = ilcSpvPutLoad(compiler->module, compiler->descriptorSetTypes.virtualDescriptorType, itemPtr, 2, alignedParam);
     }
+    descriptorItem = ilcSpvPutConvertPtrToU(compiler->module, compiler->uint64Id, descriptorItem);
     IlcSpvId varId = ilcSpvPutVariable(compiler->module,
                                        ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate, compiler->uintId),
                                        SpvStorageClassPrivate);
-    IlcSpvId descriptorItemUint = ilcSpvPutUConvert(compiler->module, compiler->uintId, descriptorItemIndexId);
+    IlcSpvId descriptorItemUint = ilcSpvPutUConvert(compiler->module, compiler->uintId, descriptorItem);
     // store the index variable
     ilcSpvPutStore(compiler->module, varId, descriptorItemUint);
     return varId;
@@ -1119,40 +1126,27 @@ static SpvImageFormat getSpvImageFormat(
     return imageFormats[formatCount - 1];
 }
 
-static bool getSpvImage(uint8_t type, const uint8_t *imgFmt, SpvDim* outDim, SpvImageFormat* outImageFormat, IlcSpvWord* isArrayed, IlcSpvWord* isMultiSampled)
-{
-    *isArrayed = 0;
-    *isMultiSampled = 0;
-    switch (type) {
-    case IL_USAGE_PIXTEX_1DARRAY:
-        *isArrayed = 1;
-    case IL_USAGE_PIXTEX_1D:
-        *outDim = SpvDim1D;
-        break;
-    case IL_USAGE_PIXTEX_2DARRAY:
-    case IL_USAGE_PIXTEX_2DARRAYMSAA:
-        *isArrayed = 1;
-    case IL_USAGE_PIXTEX_2DMSAA:
-    case IL_USAGE_PIXTEX_2D:
-        *outDim = SpvDim2D;
-        *isMultiSampled = (type == IL_USAGE_PIXTEX_2DMSAA || type == IL_USAGE_PIXTEX_2DARRAYMSAA);
-        break;
-    case IL_USAGE_PIXTEX_CUBEMAP_ARRAY:
-        *isArrayed = 1;
-    case IL_USAGE_PIXTEX_CUBEMAP:
-        *outDim = SpvDimCube;
-        break;
-    case IL_USAGE_PIXTEX_3D:
-        *outDim = SpvDim3D;
-        break;
-    case IL_USAGE_PIXTEX_BUFFER:
-        *outDim = SpvDimBuffer;
-        break;
+static SpvImageFormat getScalarImageFormat(uint8_t imgFmt) {
+    switch (imgFmt) {
+    case IL_ELEMENTFORMAT_FLOAT:
+    case IL_ELEMENTFORMAT_UNKNOWN:
+        return SpvImageFormatR32f;
+    case IL_ELEMENTFORMAT_SNORM:
+        return SpvImageFormatR8Snorm;
+    case IL_ELEMENTFORMAT_UNORM:
+        return SpvImageFormatR8;
+    case IL_ELEMENTFORMAT_UINT:
+        return SpvImageFormatR32ui;
+    case IL_ELEMENTFORMAT_SINT:
+        return SpvImageFormatR32i;
     default:
-        LOGE("Unknown PixTexUsage type 0x%X\n", type);
-        assert(false);
-        return false;
+        break;
     }
+    assert(false);
+    return SpvImageFormatUnknown;
+}
+
+static bool getSpvFormat(const uint8_t* imgFmt, SpvImageFormat* outImageFormat) {
     const SpvImageFormat floatFormats[4] = {SpvImageFormatR32f, SpvImageFormatRg32f, SpvImageFormatUnknown, SpvImageFormatRgba32f};
     const SpvImageFormat snormFormats[4] = {SpvImageFormatR8Snorm, SpvImageFormatRg8Snorm, SpvImageFormatUnknown, SpvImageFormatRgba8Snorm};
     const SpvImageFormat unormFormats[4] = {SpvImageFormatR8, SpvImageFormatRg8, SpvImageFormatUnknown, SpvImageFormatRgba8};
@@ -1187,6 +1181,44 @@ static bool getSpvImage(uint8_t type, const uint8_t *imgFmt, SpvDim* outDim, Spv
         return false;
     }
     return true;
+}
+
+static bool getSpvImage(uint8_t type, const uint8_t *imgFmt, SpvDim* outDim, SpvImageFormat* outImageFormat, IlcSpvWord* isArrayed, IlcSpvWord* isMultiSampled)
+{
+    *isArrayed = 0;
+    *isMultiSampled = 0;
+    switch (type) {
+    case IL_USAGE_PIXTEX_1DARRAY:
+        *isArrayed = 1;
+    case IL_USAGE_PIXTEX_1D:
+        *outDim = SpvDim1D;
+        break;
+    case IL_USAGE_PIXTEX_2DARRAY:
+    case IL_USAGE_PIXTEX_2DARRAYMSAA:
+        *isArrayed = 1;
+    case IL_USAGE_PIXTEX_2DMSAA:
+    case IL_USAGE_PIXTEX_2D:
+        *outDim = SpvDim2D;
+        *isMultiSampled = (type == IL_USAGE_PIXTEX_2DMSAA || type == IL_USAGE_PIXTEX_2DARRAYMSAA);
+        break;
+    case IL_USAGE_PIXTEX_CUBEMAP_ARRAY:
+        *isArrayed = 1;
+    case IL_USAGE_PIXTEX_CUBEMAP:
+        *outDim = SpvDimCube;
+        break;
+    case IL_USAGE_PIXTEX_3D:
+        *outDim = SpvDim3D;
+        break;
+    case IL_USAGE_PIXTEX_BUFFER:
+        *outDim = SpvDimBuffer;
+        break;
+    default:
+        LOGE("Unknown PixTexUsage type 0x%X\n", type);
+        assert(false);
+        return false;
+    }
+
+    return getSpvFormat(imgFmt, outImageFormat);
 }
 
 
@@ -1254,6 +1286,7 @@ static const IlcResource* createBufferResource(
         .depthTypeId = 0,
         .imageTypePtrId = pointerId,
         .depthTypePtrId = 0,
+        .imageFormat = 0,
         .imageRepoId = bufferRepoId,
         .isUav = isUav,
         .isDynamicResource = isDynamicResource,
@@ -1286,6 +1319,10 @@ static const IlcResource* createResource(
 
     IlcSpvWord sampledTypeId = getScalarSampledTypeId(compiler, imgFmt[0]);
     IlcSpvWord texelTypeId = getVectorSampledTypeId(compiler, imgFmt[0]);
+    if (isUav && compiler->analysisInfo.uavInfo[id].accessAtomicOp) {
+        imageFormat = getScalarImageFormat(imgFmt[0]);
+    }
+
     if (sampledTypeId == 0) {
         LOGE("unsupported element format %X\n", imgFmt[0]);
         assert(false);
@@ -1384,6 +1421,7 @@ static const IlcResource* createResource(
         .depthTypeId = depthImageId,
         .imageTypePtrId = pImageId,
         .depthTypePtrId = pDepthImageId,
+        .imageFormat = imageFormat,
         .imageRepoId = imageRepoId,
         .isUav = isUav,
         .isDynamicResource = isDynamicResource,
@@ -1435,11 +1473,9 @@ static void emitTypedUav(
     } else {
         assert(false);
     }
-    if (fmt[0] == IL_ELEMENTFORMAT_FLOAT) {
-        fmt[1] = fmt[0];
-        fmt[2] = fmt[0];
-        fmt[3] = fmt[0];
-    }
+    fmt[1] = fmt[0];
+    fmt[2] = fmt[0];
+    fmt[3] = fmt[0];
     createResource(compiler, id, type, true, fmt, false, 0);
 }
 
@@ -2441,7 +2477,6 @@ static void emitUavAtomicOp(
         LOGE("resource %d not found\n", ilResourceId);
         return;
     }
-
     IlcSpvId vecTypeId = resource->texelTypeId;
     IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassImage,
                                                   resource->sampledTypeId);
@@ -2767,6 +2802,25 @@ static void emitInstr(
     }
 }
 
+static void emitInstrAnalysis(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    switch (instr->opcode) {
+    case IL_OP_DCL_TYPED_UAV: {
+        uint8_t ilResourceId = GET_BITS(instr->control, 0, 13);
+        compiler->analysisInfo.uavInfo[ilResourceId].accessTypedLoad = true;
+    } break;
+    case IL_OP_UAV_ADD:
+    case IL_OP_UAV_READ_ADD: {
+        uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
+        compiler->analysisInfo.uavInfo[ilResourceId].accessAtomicOp = true;
+    } break;
+    default:
+        break;
+    }
+}
+
 static void emitEntryPoint(
     IlcCompiler* compiler)
 {
@@ -2859,18 +2913,22 @@ IlcShader ilcCompileKernel(
 
     IlcSpvId uint64Id = ilcSpvPutIntType(&module, 64, false);
     IlcSpvId uint64PtrId = ilcSpvPutPointerType(&module, SpvStorageClassPrivate, uint64Id);
-    IlcSpvId uint64BufferPtrId = ilcSpvPutPointerType(&module, SpvStorageClassPhysicalStorageBuffer, uint64Id);
 
     // initialize struct for push constants
     const unsigned descriptorIndexStride = 8;
     const unsigned memberOffset = 0;
-    IlcSpvId descriptorPtrArray = ilcSpvPutRuntimeArrayType(&module, uint64Id, false);
+    IlcSpvId virtualDescriptorSetTypePtr = ilcSpvAllocId(&module);
+    ilcSpvPutForwardPointerType(&module, virtualDescriptorSetTypePtr);
+
+    IlcSpvId descriptorPtrArray = ilcSpvPutRuntimeArrayType(&module, virtualDescriptorSetTypePtr, false);
     ilcSpvPutDecoration(&module, descriptorPtrArray, SpvDecorationArrayStride, 1, &descriptorIndexStride);
     IlcSpvId virtualDescriptorSetType = ilcSpvPutStructType(&module, 1, &descriptorPtrArray);
     ilcSpvPutName(&module, virtualDescriptorSetType, "VirtualDescriptorSet");
     ilcSpvPutDecoration(&module, virtualDescriptorSetType, SpvDecorationBlock, 0, NULL);
     ilcSpvPutMemberDecoration(&module, virtualDescriptorSetType, 0, SpvDecorationOffset, 1, &memberOffset);
-    IlcSpvId virtualDescriptorSetTypePtr = ilcSpvPutPointerType(&module, SpvStorageClassPhysicalStorageBuffer, virtualDescriptorSetType);
+    ilcSpvPutPointerTypeWithId(&module, virtualDescriptorSetTypePtr, SpvStorageClassPhysicalStorageBuffer, virtualDescriptorSetType);
+
+    IlcSpvId virtualDescriptorSetTypePtrPtr = ilcSpvPutPointerType(&module, SpvStorageClassPhysicalStorageBuffer, virtualDescriptorSetTypePtr);
 
     IlcSpvId pushConstantInnerFieldPtrType = ilcSpvPutPointerType(&module, SpvStorageClassPushConstant, virtualDescriptorSetTypePtr);
 
@@ -2890,6 +2948,7 @@ IlcShader ilcCompileKernel(
 
     IlcCompiler compiler = {
         .kernel = kernel,
+        .analysisInfo = {},
         .module = &module,
         .entryPointId = ilcSpvAllocId(&module),
         .uintId = uintId,
@@ -2907,10 +2966,10 @@ IlcShader ilcCompileKernel(
         .samplerPtrId = 0,
         .samplerRepositoryId = 0,
         .descriptorSetTypes = {
-            .uint64BufferPtrId = uint64BufferPtrId,
             .pushConstantsVariable = pushConstantsVarId,
             .pushConstantsItemType = pushConstantInnerFieldPtrType,
             .virtualDescriptorType = virtualDescriptorSetTypePtr,
+            .virtualDescriptorTypePtr = virtualDescriptorSetTypePtrPtr,
         },
         .mappings = mappings,
         .regCount = 0,
@@ -2926,7 +2985,9 @@ IlcShader ilcCompileKernel(
         .isInFunction = true,
         .isAfterReturn = false,
     };
-
+    for (int i = 0; i < kernel->instrCount; i++) {
+        emitInstrAnalysis(&compiler, &kernel->instrs[i]);
+    }
     emitImplicitInputs(&compiler);
     emitFunc(&compiler, compiler.entryPointId);
     for (int i = 0; i < kernel->instrCount; i++) {

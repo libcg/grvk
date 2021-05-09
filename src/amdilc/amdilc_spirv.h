@@ -129,6 +129,11 @@ IlcSpvId ilcSpvPutRuntimeArrayType(
     IlcSpvId typeId,
     bool unique);
 
+void ilcSpvPutRuntimeArrayTypeWithId(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId innerTypeId);
+
 IlcSpvId ilcSpvPutStructType(
     IlcSpvModule* module,
     unsigned memberTypeIdCount,
@@ -136,6 +141,12 @@ IlcSpvId ilcSpvPutStructType(
 
 IlcSpvId ilcSpvPutPointerType(
     IlcSpvModule* module,
+    IlcSpvWord storageClass,
+    IlcSpvId typeId);
+
+void ilcSpvPutPointerTypeWithId(
+    IlcSpvModule* module,
+    IlcSpvId ptrId,
     IlcSpvWord storageClass,
     IlcSpvId typeId);
 
@@ -317,6 +328,11 @@ IlcSpvId ilcSpvPutBitcast(
     IlcSpvId operandId);
 
 IlcSpvId ilcSpvPutUConvert(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId);
+
+IlcSpvId ilcSpvPutConvertPtrToU(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId operandId);

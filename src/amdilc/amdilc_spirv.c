@@ -441,6 +441,17 @@ IlcSpvId ilcSpvPutRuntimeArrayType(
     return putType(module, SpvOpTypeRuntimeArray, 1, &typeId, true, unique);
 }
 
+void ilcSpvPutRuntimeArrayTypeWithId(
+    IlcSpvModule* module,
+    IlcSpvId typeId,
+    IlcSpvId innerTypeId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_TYPES];
+    putInstr(buffer, SpvOpTypeRuntimeArray, 3);
+    putWord(buffer, typeId);
+    putWord(buffer, innerTypeId);
+}
+
 IlcSpvId ilcSpvPutStructType(
     IlcSpvModule* module,
     unsigned memberTypeIdCount,
@@ -457,6 +468,19 @@ IlcSpvId ilcSpvPutPointerType(
     const IlcSpvWord args[] = { storageClass, typeId };
 
     return putType(module, SpvOpTypePointer, 2, args, true, false);
+}
+
+void ilcSpvPutPointerTypeWithId(
+    IlcSpvModule* module,
+    IlcSpvId ptrId,
+    IlcSpvWord storageClass,
+    IlcSpvId typeId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_TYPES_WITH_CONSTANTS];
+    putInstr(buffer, SpvOpTypePointer, 4);
+    putWord(buffer, ptrId);
+    putWord(buffer, storageClass);
+    putWord(buffer, typeId);
 }
 
 IlcSpvId ilcSpvPutFunctionType(
@@ -894,6 +918,21 @@ IlcSpvId ilcSpvPutBitcast(
 
     IlcSpvId id = ilcSpvAllocId(module);
     putInstr(buffer, SpvOpBitcast, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, operandId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutConvertPtrToU(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId operandId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpConvertPtrToU, 4);
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, operandId);
