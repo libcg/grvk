@@ -1,14 +1,6 @@
 #include "mantle/mantleExt.h"
 #include "logger.h"
 
-// Library Versioning Functions
-
-GR_UINT32 grGetExtensionLibraryVersion()
-{
-    LOGW("STUB\n");
-    return 0;
-}
-
 // Border Color Palette Extension Functions
 
 GR_RESULT grCreateBorderColorPalette(

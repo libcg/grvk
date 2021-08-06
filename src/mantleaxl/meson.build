@@ -1,5 +1,6 @@
 mantleaxl_src = [
   'main.c',
+  'mantleaxl_lib_version.c',
   'stub.c'
 ]
 
