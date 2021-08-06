@@ -229,6 +229,16 @@ GR_RESULT grGetGpuInfo(
             .sparseImageSupportLevel = 0, // 19.4.3
             .flags = 0x0, // 19.4.3
         };
+    } else if (infoType == GR_EXT_INFO_TYPE_PHYSICAL_GPU_SUPPORTED_AXL_VERSION) {
+        if (pData == NULL) {
+            *pDataSize = sizeof(GR_PHYSICAL_GPU_SUPPORTED_AXL_VERSION);
+            return GR_SUCCESS;
+        }
+
+        *(GR_PHYSICAL_GPU_SUPPORTED_AXL_VERSION*)pData = (GR_PHYSICAL_GPU_SUPPORTED_AXL_VERSION) {
+            .minVersion = 0,
+            .maxVersion = UINT32_MAX,
+        };
     } else {
         LOGE("unsupported info type 0x%X\n", infoType);
         return GR_ERROR_INVALID_VALUE;
