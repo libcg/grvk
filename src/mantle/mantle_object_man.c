@@ -64,13 +64,16 @@ GR_RESULT grGetObjectInfo(
 
     switch (infoType) {
     case GR_INFO_TYPE_MEMORY_REQUIREMENTS: {
+        const unsigned expectedSize = sizeof(GR_MEMORY_REQUIREMENTS);
         GR_MEMORY_REQUIREMENTS* grMemReqs = (GR_MEMORY_REQUIREMENTS*)pData;
         VkMemoryRequirements memReqs;
 
         if (pData == NULL) {
-            *pDataSize = sizeof(GR_MEMORY_REQUIREMENTS);
+            *pDataSize = expectedSize;
             return GR_SUCCESS;
-        } else if (*pDataSize != sizeof(GR_MEMORY_REQUIREMENTS)) {
+        } else if (*pDataSize < expectedSize) {
+            LOGW("can't write GR_MEMORY_REQUIREMENTS, got size %d, expected %d\n",
+                 *pDataSize, expectedSize);
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
@@ -99,12 +102,15 @@ GR_RESULT grGetObjectInfo(
         }
     }   break;
     case GR_WSI_WIN_INFO_TYPE_QUEUE_PROPERTIES: {
+        const unsigned expectedSize = sizeof(GR_WSI_WIN_QUEUE_PROPERTIES);
         GR_WSI_WIN_QUEUE_PROPERTIES* grQueueProps = (GR_WSI_WIN_QUEUE_PROPERTIES*)pData;
 
         if (pData == NULL) {
-            *pDataSize = sizeof(GR_WSI_WIN_QUEUE_PROPERTIES);
+            *pDataSize = expectedSize;
             return GR_SUCCESS;
-        } else if (*pDataSize != sizeof(GR_WSI_WIN_QUEUE_PROPERTIES)) {
+        } else if (*pDataSize < expectedSize) {
+            LOGW("can't write GR_WSI_WIN_QUEUE_PROPERTIES, got size %d, expected %d\n",
+                 *pDataSize, expectedSize);
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
