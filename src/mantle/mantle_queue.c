@@ -116,6 +116,7 @@ GR_RESULT grGetDeviceQueue(
 
     unsigned queueIndex = getVkQueueFamilyIndex(grDevice, queueType);
     if (queueIndex == INVALID_QUEUE_INDEX) {
+        LOGE("invalid index %d for queue type %d\n", queueIndex, queueType);
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
