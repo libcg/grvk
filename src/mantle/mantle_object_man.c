@@ -98,6 +98,22 @@ GR_RESULT grGetObjectInfo(
             return GR_ERROR_INVALID_VALUE;
         }
     }   break;
+    case GR_WSI_WIN_INFO_TYPE_QUEUE_PROPERTIES: {
+        GR_WSI_WIN_QUEUE_PROPERTIES* grQueueProps = (GR_WSI_WIN_QUEUE_PROPERTIES*)pData;
+
+        if (pData == NULL) {
+            *pDataSize = sizeof(GR_WSI_WIN_QUEUE_PROPERTIES);
+            return GR_SUCCESS;
+        } else if (*pDataSize != sizeof(GR_WSI_WIN_QUEUE_PROPERTIES)) {
+            return GR_ERROR_INVALID_MEMORY_SIZE;
+        }
+
+        // FIXME check queue capability
+        *grQueueProps = (GR_WSI_WIN_QUEUE_PROPERTIES) {
+            .presentSupport = GR_WSI_WIN_FULLSCREEN_PRESENT_SUPPORTED |
+                              GR_WSI_WIN_WINDOWED_PRESENT_SUPPORTED,
+        };
+    }   break;
     default:
         LOGW("unsupported info type 0x%X\n", infoType);
         return GR_ERROR_INVALID_VALUE;
