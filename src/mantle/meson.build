@@ -10,6 +10,7 @@ mantle_src = [
   'mantle_query_sync.c',
   'mantle_queue.c',
   'mantle_memory_man.c',
+  'mantle_multi_dev_man.c',
   'mantle_object_man.c',
   'mantle_shader_pipeline.c',
   'mantle_state_object.c',

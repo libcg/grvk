@@ -93,15 +93,6 @@ GR_RESULT grGetQueryPoolResults(
 
 // Multi-Device Management Functions
 
-GR_RESULT grGetMultiGpuCompatibility(
-    GR_PHYSICAL_GPU gpu0,
-    GR_PHYSICAL_GPU gpu1,
-    GR_GPU_COMPATIBILITY_INFO* pInfo)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grOpenSharedMemory(
     GR_DEVICE device,
     const GR_MEMORY_OPEN_INFO* pOpenInfo,
