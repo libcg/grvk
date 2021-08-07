@@ -1089,10 +1089,11 @@ static void emitTypedUav(
     addResource(compiler, &resource);
 }
 
-static void emitStructuredSrv(
+static void emitSrv(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
+    bool isStructured = instr->opcode == IL_OP_DCL_STRUCT_SRV;
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
     IlcSpvId arrayId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->floatId, true);
@@ -1109,7 +1110,7 @@ static void emitStructuredSrv(
     ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset, 1, &memberOffset);
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationNonWritable, 0, NULL);
 
-    ilcSpvPutName(compiler->module, arrayId, "structSrv");
+    ilcSpvPutName(compiler->module, arrayId, isStructured ? "structSrv" : "rawSrv");
     emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     const IlcResource resource = {
@@ -1118,7 +1119,8 @@ static void emitStructuredSrv(
         .texelTypeId = compiler->floatId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
-        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
+        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                      isStructured ? instr->extras[0] : 4),
     };
 
     addResource(compiler, &resource);
@@ -2420,8 +2422,9 @@ static void emitInstr(
     case IL_OP_UAV_READ_ADD:
         emitUavAtomicOp(compiler, instr);
         break;
+    case IL_OP_DCL_RAW_SRV:
     case IL_OP_DCL_STRUCT_SRV:
-        emitStructuredSrv(compiler, instr);
+        emitSrv(compiler, instr);
         break;
     case IL_OP_SRV_STRUCT_LOAD:
         emitStructuredSrvLoad(compiler, instr);

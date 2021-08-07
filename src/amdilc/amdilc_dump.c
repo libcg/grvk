@@ -721,6 +721,9 @@ static void dumpInstruction(
     case IL_OP_UAV_READ_ADD:
         fprintf(file, "uav_read_add_id(%u)", GET_BITS(instr->control, 0, 13));
         break;
+    case IL_OP_DCL_RAW_SRV:
+        fprintf(file, "dcl_raw_srv_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
     case IL_OP_DCL_STRUCT_SRV:
         fprintf(file, "dcl_struct_srv_id(%u) %u",
                 GET_BITS(instr->control, 0, 13), instr->extras[0]);
