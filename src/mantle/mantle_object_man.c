@@ -120,6 +120,30 @@ GR_RESULT grGetObjectInfo(
                               GR_WSI_WIN_WINDOWED_PRESENT_SUPPORTED,
         };
     }   break;
+    case GR_WSI_WIN_INFO_TYPE_DISPLAY_PROPERTIES: {
+        const unsigned expectedSize = sizeof(GR_WSI_WIN_DISPLAY_PROPERTIES);
+        GR_WSI_WIN_DISPLAY_PROPERTIES* grDisplayProps = (GR_WSI_WIN_DISPLAY_PROPERTIES*)pData;
+
+        if (pData == NULL) {
+            *pDataSize = expectedSize;
+            return GR_SUCCESS;
+        } else if (*pDataSize < expectedSize) {
+            LOGW("can't write GR_WSI_WIN_DISPLAY_PROPERTIES, got size %d, expected %d\n",
+                 *pDataSize, expectedSize);
+            return GR_ERROR_INVALID_MEMORY_SIZE;
+        }
+
+        // FIXME implement
+        *grDisplayProps = (GR_WSI_WIN_DISPLAY_PROPERTIES) {
+            .hMonitor = MonitorFromPoint((POINT){ 0, 0 }, MONITOR_DEFAULTTOPRIMARY),
+            .displayName = "Display 0",
+            .desktopCoordinates = {
+                .offset = { 0, 0 },
+                .extent = { 1920, 1080 },
+            },
+            .rotation = GR_WSI_WIN_ROTATION_ANGLE_0,
+        };
+    }   break;
     default:
         LOGW("unsupported info type 0x%X\n", infoType);
         return GR_ERROR_INVALID_VALUE;
