@@ -259,7 +259,8 @@ static VkRenderPass getVkRenderPass(
 
 static VkPipeline getVkPipeline(
     const GrPipeline* grPipeline,
-    const GrColorBlendStateObject* grColorBlendState)
+    const GrColorBlendStateObject* grColorBlendState,
+    const GrRasterStateObject* grRasterState)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
     const PipelineCreateInfo* createInfo = grPipeline->createInfo;
@@ -315,7 +316,7 @@ static VkPipeline getVkPipeline(
         .flags = 0,
         .depthClampEnable = VK_TRUE,
         .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = VK_POLYGON_MODE_FILL, // TODO implement polygon modes
+        .polygonMode = grRasterState->polygonMode,
         .cullMode = 0, // Dynamic state
         .frontFace = 0, // Dynamic state
         .depthBiasEnable = VK_TRUE,
@@ -449,7 +450,8 @@ static VkPipeline getVkPipeline(
 
 VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
-    const GrColorBlendStateObject* grColorBlendState)
+    const GrColorBlendStateObject* grColorBlendState,
+    const GrRasterStateObject* grRasterState)
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
@@ -458,14 +460,15 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
-        if (grColorBlendState == slot->grColorBlendState) {
+        if (grColorBlendState == slot->grColorBlendState &&
+            grRasterState == slot->grRasterState) {
             vkPipeline = slot->pipeline;
             break;
         }
     }
 
     if (vkPipeline == VK_NULL_HANDLE) {
-        vkPipeline = getVkPipeline(grPipeline, grColorBlendState);
+        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grRasterState);
 
         grPipeline->pipelineSlotCount++;
         grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,
@@ -473,6 +476,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
         grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1] = (PipelineSlot) {
             .pipeline = vkPipeline,
             .grColorBlendState = grColorBlendState,
+            .grRasterState = grRasterState,
         };
     }
 

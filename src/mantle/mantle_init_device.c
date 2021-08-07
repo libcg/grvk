@@ -404,6 +404,7 @@ GR_RESULT grCreateDevice(
         .dualSrcBlend = VK_TRUE,
         .logicOp = VK_TRUE,
         .depthClamp = VK_TRUE,
+        .fillModeNonSolid = VK_TRUE,
         .multiViewport = VK_TRUE,
         .samplerAnisotropy = VK_TRUE,
         .fragmentStoresAndAtomics = VK_TRUE,

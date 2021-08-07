@@ -400,7 +400,9 @@ static void grCmdBufferUpdateResources(
 
     if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_PIPELINE) {
         VkPipeline vkPipeline =
-            grPipelineFindOrCreateVkPipeline(grGraphicsPipeline, grCmdBuffer->grColorBlendState);
+            grPipelineFindOrCreateVkPipeline(grGraphicsPipeline,
+                                             grCmdBuffer->grColorBlendState,
+                                             grCmdBuffer->grRasterState);
 
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer,
                               VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline);
@@ -435,7 +437,7 @@ GR_VOID grCmdBindPipeline(
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
-                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL));
+                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL));
 
         grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
     }

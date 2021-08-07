@@ -67,14 +67,11 @@ GR_RESULT grCreateRasterState(
 
     // TODO validate args
 
-    if (pCreateInfo->fillMode != GR_FILL_SOLID) {
-        LOGW("fill mode 0x%X is not supported\n", pCreateInfo->fillMode);
-    }
-
     GrRasterStateObject* grRasterStateObject = malloc(sizeof(GrRasterStateObject));
 
     *grRasterStateObject = (GrRasterStateObject) {
         .grObj = { GR_OBJ_TYPE_RASTER_STATE_OBJECT, grDevice },
+        .polygonMode = getVkPolygonMode(pCreateInfo->fillMode),
         .cullMode = getVkCullModeFlags(pCreateInfo->cullMode),
         .frontFace = getVkFrontFace(pCreateInfo->frontFace),
         .depthBiasConstantFactor = (float)pCreateInfo->depthBias,

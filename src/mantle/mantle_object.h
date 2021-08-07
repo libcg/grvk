@@ -99,7 +99,9 @@ typedef struct _PipelineCreateInfo
 typedef struct _PipelineSlot
 {
     VkPipeline pipeline;
+    // TODO keep track of individual parameters to minimize pipeline count
     const GrColorBlendStateObject* grColorBlendState;
+    const GrRasterStateObject* grRasterState;
 } PipelineSlot;
 
 // Base object
@@ -266,6 +268,7 @@ typedef struct _GrQueueSemaphore {
 
 typedef struct _GrRasterStateObject {
     GrObject grObj;
+    VkPolygonMode polygonMode;
     VkCullModeFlags cullMode;
     VkFrontFace frontFace;
     float depthBiasConstantFactor;
@@ -331,6 +334,7 @@ void grGpuMemoryBindBuffer(
 
 VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
-    const GrColorBlendStateObject* grColorBlendState);
+    const GrColorBlendStateObject* grColorBlendState,
+    const GrRasterStateObject* grRasterState);
 
 #endif // GR_OBJECT_H_
