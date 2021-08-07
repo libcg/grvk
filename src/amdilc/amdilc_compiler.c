@@ -2421,9 +2421,14 @@ static void emitInstr(
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
         break;
-    case IL_UNK_660:
-        // FIXME seems to be a no-op
-        break;
+    case IL_UNK_660: {
+        // FIXME seems to be some sort of vertex ID offset (as seen in 3DMark), store 0 for now
+        IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
+        const IlcSpvWord constituents[] = { zeroId, zeroId, zeroId, zeroId };
+        IlcSpvId zero4Id = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id,
+                                                       4, constituents);
+        storeDestination(compiler, &instr->dsts[0], zero4Id, compiler->int4Id);
+    }   break;
     default:
         LOGW("unhandled instruction %d\n", instr->opcode);
     }
