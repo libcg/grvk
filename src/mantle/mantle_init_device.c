@@ -381,33 +381,36 @@ GR_RESULT grCreateDevice(
         goto bail;
     }
 
-    const VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separateDsLayouts = {
+    VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separateDsLayouts = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES,
         .pNext = NULL,
         .separateDepthStencilLayouts = VK_TRUE,
     };
-    const VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicState = {
+    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicState = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
-        .pNext = (void*)&separateDsLayouts,
+        .pNext = &separateDsLayouts,
         .extendedDynamicState = VK_TRUE,
     };
-    const VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
+    VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT,
-        .pNext = (void*)&extendedDynamicState,
+        .pNext = &extendedDynamicState,
         .shaderDemoteToHelperInvocation = VK_TRUE,
     };
-
-    const VkPhysicalDeviceFeatures deviceFeatures = {
-        .imageCubeArray = VK_TRUE,
-        .geometryShader = VK_TRUE,
-        .tessellationShader = VK_TRUE,
-        .dualSrcBlend = VK_TRUE,
-        .logicOp = VK_TRUE,
-        .depthClamp = VK_TRUE,
-        .fillModeNonSolid = VK_TRUE,
-        .multiViewport = VK_TRUE,
-        .samplerAnisotropy = VK_TRUE,
-        .fragmentStoresAndAtomics = VK_TRUE,
+    VkPhysicalDeviceFeatures2 deviceFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &demoteToHelperInvocation,
+        .features = {
+            .imageCubeArray = VK_TRUE,
+            .geometryShader = VK_TRUE,
+            .tessellationShader = VK_TRUE,
+            .dualSrcBlend = VK_TRUE,
+            .logicOp = VK_TRUE,
+            .depthClamp = VK_TRUE,
+            .fillModeNonSolid = VK_TRUE,
+            .multiViewport = VK_TRUE,
+            .samplerAnisotropy = VK_TRUE,
+            .fragmentStoresAndAtomics = VK_TRUE,
+        },
     };
 
     const char *deviceExtensions[] = {
@@ -418,7 +421,7 @@ GR_RESULT grCreateDevice(
 
     const VkDeviceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &demoteToHelperInvocation,
+        .pNext = &deviceFeatures,
         .flags = 0,
         .queueCreateInfoCount = pCreateInfo->queueRecordCount,
         .pQueueCreateInfos = queueCreateInfos,
@@ -426,7 +429,7 @@ GR_RESULT grCreateDevice(
         .ppEnabledLayerNames = NULL,
         .enabledExtensionCount = COUNT_OF(deviceExtensions),
         .ppEnabledExtensionNames = deviceExtensions,
-        .pEnabledFeatures = &deviceFeatures,
+        .pEnabledFeatures = NULL,
     };
 
     vkRes = vki.vkCreateDevice(grPhysicalGpu->physicalDevice, &createInfo, NULL, &vkDevice);
