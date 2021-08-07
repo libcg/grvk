@@ -36,6 +36,9 @@ GR_RESULT grDestroyObject(
 
         VKD.vkDestroyImageView(grDevice->device, grImageView->imageView, NULL);
     }   break;
+    case GR_OBJ_TYPE_SHADER:
+        // FIXME actually destroy it?
+        return GR_SUCCESS;
     default:
         LOGW("unsupported object type %u\n", grObject->grObjType);
         return GR_ERROR_INVALID_OBJECT_TYPE;
