@@ -490,7 +490,18 @@ static IlcSpvId loadSource(
     uint8_t componentMask,
     IlcSpvId typeId)
 {
-    const IlcRegister* reg = findRegister(compiler, src->registerType, src->registerNum);
+    const IlcRegister* reg;
+
+    if ((src->swizzle[0] == IL_COMPSEL_0 || src->swizzle[0] == IL_COMPSEL_1) &&
+        (src->swizzle[1] == IL_COMPSEL_0 || src->swizzle[1] == IL_COMPSEL_1) &&
+        (src->swizzle[2] == IL_COMPSEL_0 || src->swizzle[2] == IL_COMPSEL_1) &&
+        (src->swizzle[3] == IL_COMPSEL_0 || src->swizzle[3] == IL_COMPSEL_1)) {
+        // We're reading only 0 or 1s so it's safe to create a temporary register
+        // Example: r4096.0001 as seen in 3DMark shader
+        reg = findOrCreateRegister(compiler, src->registerType, src->registerNum);
+    } else {
+        reg = findRegister(compiler, src->registerType, src->registerNum);
+    }
 
     if (reg == NULL) {
         LOGE("source register %d %d not found\n", src->registerType, src->registerNum);
