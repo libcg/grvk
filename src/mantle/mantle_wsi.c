@@ -263,7 +263,7 @@ GR_RESULT grWsiWinGetDisplays(
 {
     LOGT("%p %p %p\n", device, pDisplayCount, pDisplayList);
     GrDevice* grDevice = (GrDevice*)device;
-    unsigned attachedDisplayCount = 1;
+    unsigned displayCount = 1;
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -271,18 +271,17 @@ GR_RESULT grWsiWinGetDisplays(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     } else if (pDisplayCount == NULL) {
         return GR_ERROR_INVALID_POINTER;
-    } else if (pDisplayList != NULL && *pDisplayCount < attachedDisplayCount) {
+    }
+
+    if (pDisplayList == NULL) {
+        *pDisplayCount = displayCount;
+        return GR_SUCCESS;
+    } else if (*pDisplayCount < displayCount) {
+        LOGW("can't write display list, count %d, expected %d\n", *pDisplayCount, displayCount);
         return GR_ERROR_INVALID_MEMORY_SIZE;
     }
 
     LOGW("semi-stub\n"); // TODO finish
-
-    if (pDisplayList == NULL) {
-        *pDisplayCount = 1;
-        return GR_SUCCESS;
-    }
-
-    unsigned displayCount = MIN(attachedDisplayCount, *pDisplayCount);
 
     for (unsigned i = 0; i < displayCount; i++) {
         GrWsiWinDisplay* grWsiWinDisplay = malloc(sizeof(GrWsiWinDisplay));
@@ -294,7 +293,45 @@ GR_RESULT grWsiWinGetDisplays(
         pDisplayList[i] = (GR_WSI_WIN_DISPLAY)grWsiWinDisplay;
     }
 
-    *pDisplayCount = displayCount;
+    return GR_SUCCESS;
+}
+
+GR_RESULT grWsiWinGetDisplayModeList(
+    GR_WSI_WIN_DISPLAY display,
+    GR_UINT* pDisplayModeCount,
+    GR_WSI_WIN_DISPLAY_MODE* pDisplayModeList)
+{
+    LOGT("%p %p %p\n", display, pDisplayModeCount, pDisplayModeList);
+    GrWsiWinDisplay* grWsiWinDisplay = (GrWsiWinDisplay*)display;
+    unsigned displayModeCount = 1;
+
+    if (grWsiWinDisplay == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grWsiWinDisplay) != GR_OBJ_TYPE_WSI_WIN_DISPLAY) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pDisplayModeCount == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    if (pDisplayModeList == NULL) {
+        *pDisplayModeCount = displayModeCount;
+        return GR_SUCCESS;
+    } else if (*pDisplayModeCount < displayModeCount) {
+        LOGW("can't write display mode list, count %d, expected %d\n",
+             *pDisplayModeCount, displayModeCount);
+        return GR_ERROR_INVALID_MEMORY_SIZE;
+    }
+
+    LOGW("semi-stub\n"); // TODO finish
+
+    *pDisplayModeList = (GR_WSI_WIN_DISPLAY_MODE) {
+        .extent = { 1280, 720 },
+        .format = { GR_CH_FMT_B8G8R8A8, GR_NUM_FMT_UNORM },
+        .refreshRate = 60,
+        .stereo = false,
+        .crossDisplayPresent = true,
+    };
+
     return GR_SUCCESS;
 }
 
