@@ -891,6 +891,8 @@ GR_VOID grCmdCopyImage(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grSrcImage = (GrImage*)srcImage;
     GrImage* grDstImage = (GrImage*)destImage;
+    unsigned srcTileSize = getVkFormatTileSize(grSrcImage->format);
+    unsigned dstTileSize = getVkFormatTileSize(grDstImage->format);
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
@@ -901,10 +903,23 @@ GR_VOID grCmdCopyImage(
 
             vkRegions[i] = (VkImageCopy) {
                 .srcSubresource = getVkImageSubresourceLayers(region->srcSubresource),
-                .srcOffset = { region->srcOffset.x, region->srcOffset.y, region->srcOffset.z },
+                .srcOffset = {
+                    region->srcOffset.x * srcTileSize,
+                    region->srcOffset.y * srcTileSize,
+                    region->srcOffset.z,
+                },
                 .dstSubresource = getVkImageSubresourceLayers(region->destSubresource),
-                .dstOffset = { region->destOffset.x, region->destOffset.y, region->destOffset.z },
-                .extent = { region->extent.width, region->extent.height, region->extent.depth },
+                .dstOffset = {
+                    region->destOffset.x * dstTileSize,
+                    region->destOffset.y * dstTileSize,
+                    region->destOffset.z,
+                },
+                .extent = {
+                    // FIXME it's not clear whether src or dstTileSize should be used here
+                    region->extent.width * dstTileSize,
+                    region->extent.height * dstTileSize,
+                    region->extent.depth,
+                },
             };
         }
 
@@ -927,8 +942,14 @@ GR_VOID grCmdCopyImage(
                      region->srcOffset.x, region->srcOffset.y, region->srcOffset.z);
             }
 
+            const VkExtent3D srcTexelExtent = {
+                grSrcImage->extent.width * srcTileSize,
+                grSrcImage->extent.height * srcTileSize,
+                grSrcImage->extent.depth,
+            };
+
             vkRegions[i] = (VkBufferImageCopy) {
-                .bufferOffset = grImageGetBufferOffset(grSrcImage->extent, grSrcImage->format,
+                .bufferOffset = grImageGetBufferOffset(srcTexelExtent, grSrcImage->format,
                                                        region->srcSubresource.arraySlice,
                                                        grSrcImage->arrayLayers,
                                                        region->srcSubresource.mipLevel),
@@ -936,13 +957,13 @@ GR_VOID grCmdCopyImage(
                 .bufferImageHeight = 0,
                 .imageSubresource = getVkImageSubresourceLayers(region->destSubresource),
                 .imageOffset = {
-                    region->destOffset.x,
-                    region->destOffset.y,
+                    region->destOffset.x * dstTileSize,
+                    region->destOffset.y * dstTileSize,
                     region->destOffset.z,
                 },
                 .imageExtent = {
-                    region->extent.width,
-                    region->extent.height,
+                    region->extent.width * dstTileSize,
+                    region->extent.height * dstTileSize,
                     region->extent.depth,
                 },
             };
@@ -969,6 +990,7 @@ GR_VOID grCmdCopyMemoryToImage(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
     GrImage* grDstImage = (GrImage*)destImage;
+    unsigned dstTileSize = getVkFormatTileSize(grDstImage->format);
 
     grCmdBufferEndRenderPass(grCmdBuffer);
     grGpuMemoryBindBuffer(grSrcGpuMemory);
@@ -982,10 +1004,14 @@ GR_VOID grCmdCopyMemoryToImage(
             .bufferRowLength = 0,
             .bufferImageHeight = 0,
             .imageSubresource = getVkImageSubresourceLayers(region->imageSubresource),
-            .imageOffset = { region->imageOffset.x, region->imageOffset.y, region->imageOffset.z },
+            .imageOffset = {
+                region->imageOffset.x * dstTileSize,
+                region->imageOffset.y * dstTileSize,
+                region->imageOffset.z
+            },
             .imageExtent = {
-                region->imageExtent.width,
-                region->imageExtent.height,
+                region->imageExtent.width * dstTileSize,
+                region->imageExtent.height * dstTileSize,
                 region->imageExtent.depth,
             },
         };
