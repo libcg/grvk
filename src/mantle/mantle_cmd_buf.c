@@ -476,6 +476,7 @@ GR_VOID grCmdBindStateObject(
         VKD.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
         grCmdBuffer->grRasterState = rasterState;
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_PIPELINE;
     }   break;
     case GR_STATE_BIND_DEPTH_STENCIL: {
         GrDepthStencilStateObject* depthStencilState = (GrDepthStencilStateObject*)state;
