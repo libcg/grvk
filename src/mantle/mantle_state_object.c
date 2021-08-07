@@ -10,11 +10,33 @@ GR_RESULT grCreateViewportState(
     LOGT("%p %p %p\n", device, pCreateInfo, pState);
     GrDevice* grDevice = (GrDevice*)device;
 
-    // TODO validate args
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pCreateInfo == NULL || pState == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    } else if (pCreateInfo->viewportCount > GR_MAX_VIEWPORTS) {
+        return GR_ERROR_INVALID_VALUE;
+    }
 
     VkViewport *vkViewports = malloc(sizeof(VkViewport) * pCreateInfo->viewportCount);
     for (int i = 0; i < pCreateInfo->viewportCount; i++) {
         const GR_VIEWPORT* viewport = &pCreateInfo->viewports[i];
+
+        if (viewport->originX < -32768.f || viewport->originX > 32768.f ||
+            viewport->originY < -32768.f || viewport->originY > 32768.f ||
+            viewport->width < 0.f || viewport->width > 32768.f ||
+            viewport->height < 0.f || viewport->height > 32768.f ||
+            viewport->minDepth < 0.f || viewport->minDepth > 1.f ||
+            viewport->maxDepth < 0.f || viewport->maxDepth > 1.f ||
+            viewport->minDepth >= viewport->maxDepth) {
+            LOGW("invalid viewport parameters %g %g %g %g %g %g\n",
+                 viewport->originX, viewport->originY, viewport->width, viewport->height,
+                 viewport->minDepth, viewport->maxDepth);
+            free(vkViewports);
+            return GR_ERROR_INVALID_VALUE;
+        }
 
         vkViewports[i] = (VkViewport) {
             .x = viewport->originX,
@@ -31,6 +53,18 @@ GR_RESULT grCreateViewportState(
         const GR_RECT* scissor = &pCreateInfo->scissors[i];
 
         if (pCreateInfo->scissorEnable) {
+            if (scissor->offset.x < 0.f || scissor->offset.x > 32768.f ||
+                scissor->offset.y < 0.f || scissor->offset.y > 32768.f ||
+                scissor->extent.width < 0.f || scissor->extent.width > 32768.f ||
+                scissor->extent.height < 0.f || scissor->extent.height > 32768.f) {
+                LOGW("invalid scissor parameters %g %g %g %g\n",
+                     scissor->offset.x, scissor->offset.y,
+                     scissor->extent.width, scissor->extent.height);
+                free(vkViewports);
+                free(vkScissors);
+                return GR_ERROR_INVALID_VALUE;
+            }
+
             vkScissors[i] = (VkRect2D) {
                 .offset = { scissor->offset.x, scissor->offset.y },
                 .extent = { scissor->extent.width, scissor->extent.height },
