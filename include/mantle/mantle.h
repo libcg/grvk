@@ -15,7 +15,7 @@ extern "C" {
 // Types
 
 typedef void GR_VOID;
-typedef int32_t GR_BOOL;
+typedef uint32_t GR_BOOL;
 typedef char GR_CHAR;
 typedef uint8_t GR_BYTE;
 typedef int32_t GR_INT;
