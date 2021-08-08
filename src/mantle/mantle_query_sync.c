@@ -153,6 +153,8 @@ GR_RESULT grCreateQueueSemaphore(
         .semaphore = vkSem,
     };
 
+    *pSemaphore = (GR_QUEUE_SEMAPHORE)grQueueSemaphore;
+
     return GR_SUCCESS;
 }
 
