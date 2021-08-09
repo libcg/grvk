@@ -129,13 +129,14 @@ GR_RESULT grGetGpuInfo(
     }
 
     const VkPhysicalDeviceProperties* props = &grPhysicalGpu->physicalDeviceProps;
+    unsigned expectedSize = 0;
 
-    if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PROPERTIES) {
-        const unsigned expectedSize = sizeof(GR_PHYSICAL_GPU_PROPERTIES);
+    switch (infoType) {
+    case GR_INFO_TYPE_PHYSICAL_GPU_PROPERTIES:
+        expectedSize = sizeof(GR_PHYSICAL_GPU_PROPERTIES);
 
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_PHYSICAL_GPU_PROPERTIES, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -159,12 +160,12 @@ GR_RESULT grGetGpuInfo(
             .multiColorTargetClears = true, // 19.4.3
         };
         strncpy(gpuProps->gpuName, props->deviceName, GR_MAX_PHYSICAL_GPU_NAME);
-    } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_PERFORMANCE) {
-        const unsigned expectedSize = sizeof(GR_PHYSICAL_GPU_PERFORMANCE);
+        break;
+    case GR_INFO_TYPE_PHYSICAL_GPU_PERFORMANCE:
+        expectedSize = sizeof(GR_PHYSICAL_GPU_PERFORMANCE);
 
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_PHYSICAL_GPU_PERFORMANCE, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -178,12 +179,12 @@ GR_RESULT grGetGpuInfo(
             .primsPerClock = 2.f, // 19.4.3
             .pixelsPerClock = 16.f, // 19.4.3
         };
-    } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_QUEUE_PROPERTIES) {
-        const unsigned expectedSize = 2 * sizeof(GR_PHYSICAL_GPU_QUEUE_PROPERTIES);
+        break;
+    case GR_INFO_TYPE_PHYSICAL_GPU_QUEUE_PROPERTIES:
+        expectedSize = 2 * sizeof(GR_PHYSICAL_GPU_QUEUE_PROPERTIES);
 
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_PHYSICAL_GPU_QUEUE_PROPERTIES, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -215,12 +216,12 @@ GR_RESULT grGetGpuInfo(
             .maxAtomicCounters = 0,
             .supportsTimestamps = false,
         };*/
-    } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_MEMORY_PROPERTIES) {
-        const unsigned expectedSize = sizeof(GR_PHYSICAL_GPU_MEMORY_PROPERTIES);
+        break;
+    case GR_INFO_TYPE_PHYSICAL_GPU_MEMORY_PROPERTIES:
+        expectedSize = sizeof(GR_PHYSICAL_GPU_MEMORY_PROPERTIES);
 
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_PHYSICAL_GPU_MEMORY_PROPERTIES, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -236,12 +237,12 @@ GR_RESULT grGetGpuInfo(
             .maxVirtualMemSize = 1086626725888ull, // 19.4.3
             .maxPhysicalMemSize = 10354294784ull, // 19.4.3
         };
-    } else if (infoType == GR_INFO_TYPE_PHYSICAL_GPU_IMAGE_PROPERTIES) {
-        const unsigned expectedSize = sizeof(GR_PHYSICAL_GPU_IMAGE_PROPERTIES);
+        break;
+    case GR_INFO_TYPE_PHYSICAL_GPU_IMAGE_PROPERTIES:
+        expectedSize = sizeof(GR_PHYSICAL_GPU_IMAGE_PROPERTIES);
 
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_PHYSICAL_GPU_IMAGE_PROPERTIES, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -259,12 +260,12 @@ GR_RESULT grGetGpuInfo(
             .sparseImageSupportLevel = 0, // 19.4.3
             .flags = 0x0, // 19.4.3
         };
-    } else if (infoType == GR_EXT_INFO_TYPE_PHYSICAL_GPU_SUPPORTED_AXL_VERSION) {
-        const unsigned expectedSize = sizeof(GR_PHYSICAL_GPU_SUPPORTED_AXL_VERSION);
+        break;
+    case GR_EXT_INFO_TYPE_PHYSICAL_GPU_SUPPORTED_AXL_VERSION:
+        expectedSize = sizeof(GR_PHYSICAL_GPU_SUPPORTED_AXL_VERSION);
 
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_PHYSICAL_GPU_SUPPORTED_AXL_VERSION, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -275,10 +276,14 @@ GR_RESULT grGetGpuInfo(
             .minVersion = 0,
             .maxVersion = UINT32_MAX,
         };
-    } else {
+        break;
+    default:
         LOGE("unsupported info type 0x%X\n", infoType);
         return GR_ERROR_INVALID_VALUE;
     }
+
+    assert(expectedSize != 0);
+    *pDataSize = expectedSize;
 
     return GR_SUCCESS;
 }
