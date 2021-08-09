@@ -84,15 +84,18 @@ GR_RESULT grGetMemoryHeapInfo(
         return GR_ERROR_INVALID_VALUE;
     } else if (pDataSize == NULL) {
         return GR_ERROR_INVALID_POINTER;
-    } else if (pData == NULL) {
-        *pDataSize = sizeof(GR_MEMORY_HEAP_PROPERTIES);
-        return GR_SUCCESS;
     } else if (pData != NULL && *pDataSize < sizeof(GR_MEMORY_HEAP_PROPERTIES)) {
         return GR_ERROR_INVALID_MEMORY_SIZE;
     }
 
     if (heapId >= grDevice->memoryProperties.memoryTypeCount) {
         return GR_ERROR_INVALID_ORDINAL;
+    }
+
+    *pDataSize = sizeof(GR_MEMORY_HEAP_PROPERTIES);
+
+    if (pData == NULL) {
+        return GR_SUCCESS;
     }
 
     VkMemoryPropertyFlags flags = grDevice->memoryProperties.memoryTypes[heapId].propertyFlags;

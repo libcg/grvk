@@ -94,12 +94,14 @@ GR_RESULT grGetFormatInfo(
         return GR_ERROR_INVALID_FORMAT;
     } else if (pDataSize == NULL) {
         return GR_ERROR_INVALID_POINTER;
-    } else if (pData == NULL) {
-        // Return structure size
-        *pDataSize = sizeof(GR_FORMAT_PROPERTIES);
-        return GR_SUCCESS;
-    } else if (*pDataSize < sizeof(GR_FORMAT_PROPERTIES)) {
+    } else if (pData != NULL && *pDataSize < sizeof(GR_FORMAT_PROPERTIES)) {
         return GR_ERROR_INVALID_MEMORY_SIZE;
+    }
+
+    *pDataSize = sizeof(GR_FORMAT_PROPERTIES);
+
+    if (pData == NULL) {
+        return GR_SUCCESS;
     }
 
     VkFormatProperties vkFormatProps;
@@ -311,8 +313,9 @@ GR_RESULT grGetImageSubresourceInfo(
         return GR_ERROR_INVALID_MEMORY_SIZE;
     }
 
+    *pDataSize = sizeof(GR_SUBRESOURCE_LAYOUT);
+
     if (pData == NULL) {
-        *pDataSize = sizeof(GR_SUBRESOURCE_LAYOUT);
         return GR_SUCCESS;
     }
 
@@ -337,22 +340,22 @@ GR_RESULT grGetImageSubresourceInfo(
             .depthPitch = grImageGetBufferDepthPitch(grImage->extent, grImage->format,
                                                      pSubresource->mipLevel),
         };
-        return GR_SUCCESS;
+    } else {
+        GrDevice* grDevice = GET_OBJ_DEVICE(grImage);
+        VkImageSubresource subresource = getVkImageSubresource(*pSubresource);
+
+        VkSubresourceLayout subresourceLayout;
+        VKD.vkGetImageSubresourceLayout(grDevice->device, grImage->image, &subresource,
+                                        &subresourceLayout);
+
+        *(GR_SUBRESOURCE_LAYOUT*)pData = (GR_SUBRESOURCE_LAYOUT) {
+            .offset = subresourceLayout.offset,
+            .size = subresourceLayout.size,
+            .rowPitch = subresourceLayout.rowPitch,
+            .depthPitch = subresourceLayout.depthPitch,
+        };
     }
 
-    GrDevice* grDevice = GET_OBJ_DEVICE(grImage);
-    VkImageSubresource subresource = getVkImageSubresource(*pSubresource);
-
-    VkSubresourceLayout subresourceLayout;
-    VKD.vkGetImageSubresourceLayout(grDevice->device, grImage->image, &subresource,
-                                    &subresourceLayout);
-
-    *(GR_SUBRESOURCE_LAYOUT*)pData = (GR_SUBRESOURCE_LAYOUT) {
-        .offset = subresourceLayout.offset,
-        .size = subresourceLayout.size,
-        .rowPitch = subresourceLayout.rowPitch,
-        .depthPitch = subresourceLayout.depthPitch,
-    };
     return GR_SUCCESS;
 }
 
