@@ -64,16 +64,17 @@ GR_RESULT grGetObjectInfo(
     }
 
     GrObjectType objType = GET_OBJ_TYPE(grBaseObject);
+    unsigned expectedSize = 0;
 
     switch (infoType) {
     case GR_INFO_TYPE_MEMORY_REQUIREMENTS: {
-        const unsigned expectedSize = sizeof(GR_MEMORY_REQUIREMENTS);
         GR_MEMORY_REQUIREMENTS* grMemReqs = (GR_MEMORY_REQUIREMENTS*)pData;
         VkMemoryRequirements memReqs;
 
+        expectedSize = sizeof(GR_MEMORY_REQUIREMENTS);
+
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_MEMORY_REQUIREMENTS, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -105,12 +106,12 @@ GR_RESULT grGetObjectInfo(
         }
     }   break;
     case GR_WSI_WIN_INFO_TYPE_QUEUE_PROPERTIES: {
-        const unsigned expectedSize = sizeof(GR_WSI_WIN_QUEUE_PROPERTIES);
         GR_WSI_WIN_QUEUE_PROPERTIES* grQueueProps = (GR_WSI_WIN_QUEUE_PROPERTIES*)pData;
 
+        expectedSize = sizeof(GR_WSI_WIN_QUEUE_PROPERTIES);
+
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_WSI_WIN_QUEUE_PROPERTIES, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -124,12 +125,12 @@ GR_RESULT grGetObjectInfo(
         };
     }   break;
     case GR_WSI_WIN_INFO_TYPE_DISPLAY_PROPERTIES: {
-        const unsigned expectedSize = sizeof(GR_WSI_WIN_DISPLAY_PROPERTIES);
         GR_WSI_WIN_DISPLAY_PROPERTIES* grDisplayProps = (GR_WSI_WIN_DISPLAY_PROPERTIES*)pData;
 
+        expectedSize = sizeof(GR_WSI_WIN_DISPLAY_PROPERTIES);
+
         if (pData == NULL) {
-            *pDataSize = expectedSize;
-            return GR_SUCCESS;
+            break;
         } else if (*pDataSize < expectedSize) {
             LOGW("can't write GR_WSI_WIN_DISPLAY_PROPERTIES, got size %d, expected %d\n",
                  *pDataSize, expectedSize);
@@ -151,6 +152,9 @@ GR_RESULT grGetObjectInfo(
         LOGW("unsupported info type 0x%X\n", infoType);
         return GR_ERROR_INVALID_VALUE;
     }
+
+    assert(expectedSize != 0);
+    *pDataSize = expectedSize;
 
     return GR_SUCCESS;
 }
