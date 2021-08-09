@@ -293,6 +293,8 @@ GR_RESULT grWsiWinGetDisplays(
         pDisplayList[i] = (GR_WSI_WIN_DISPLAY)grWsiWinDisplay;
     }
 
+    *pDisplayCount = displayCount;
+
     return GR_SUCCESS;
 }
 
@@ -331,6 +333,8 @@ GR_RESULT grWsiWinGetDisplayModeList(
         .stereo = false,
         .crossDisplayPresent = true,
     };
+
+    *pDisplayModeCount = displayModeCount;
 
     return GR_SUCCESS;
 }
