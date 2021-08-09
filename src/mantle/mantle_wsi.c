@@ -498,3 +498,13 @@ GR_RESULT grWsiWinQueuePresent(
 
     return GR_SUCCESS;
 }
+
+GR_RESULT grWsiWinSetMaxQueuedFrames(
+    GR_DEVICE device,
+    GR_UINT maxFrames)
+{
+    LOGT("%p %u\n", device, maxFrames);
+    LOGW("semi-stub\n");
+
+    return GR_SUCCESS;
+}

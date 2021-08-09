@@ -363,11 +363,3 @@ GR_RESULT grWsiWinGetScanLine(
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
-
-GR_RESULT grWsiWinSetMaxQueuedFrames(
-    GR_DEVICE device,
-    GR_UINT maxFrames)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
