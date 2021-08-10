@@ -34,4 +34,4 @@ mantle_dll = shared_library('mantle' + dll_variant, mantle_src,
 
 mantle_dep = declare_dependency(
   link_with           : [ mantle_dll ],
-  include_directories : [ grvk_include_path ])
+  include_directories : [ grvk_include_path, include_directories('.') ])

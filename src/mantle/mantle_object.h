@@ -1,6 +1,7 @@
 #ifndef GR_OBJECT_H_
 #define GR_OBJECT_H_
 
+#include <stdbool.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "vulkan_loader.h"
@@ -16,6 +17,7 @@
     (((GrObject*)(obj))->grDevice)
 
 typedef enum _GrObjectType {
+    GR_OBJ_TYPE_BORDER_COLOR_PALETTE,
     GR_OBJ_TYPE_COMMAND_BUFFER,
     GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT,
     GR_OBJ_TYPE_COLOR_TARGET_VIEW,
@@ -114,6 +116,10 @@ typedef struct _GrObject {
     GrObjectType grObjType;
     GrDevice* grDevice;
 } GrObject;
+
+typedef struct _GrBorderColorPalette {
+    GrObject grObj;
+} GrBorderColorPalette;
 
 typedef struct _GrCmdBuffer {
     GrObject grObj;

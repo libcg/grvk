@@ -3,15 +3,6 @@
 
 // Border Color Palette Extension Functions
 
-GR_RESULT grCreateBorderColorPalette(
-    GR_DEVICE device,
-    const GR_BORDER_COLOR_PALETTE_CREATE_INFO* pCreateInfo,
-    GR_BORDER_COLOR_PALETTE* pPalette)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grUpdateBorderColorPalette(
     GR_BORDER_COLOR_PALETTE palette,
     GR_UINT firstEntry,

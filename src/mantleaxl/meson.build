@@ -1,5 +1,6 @@
 mantleaxl_src = [
   'main.c',
+  'mantleaxl_border_color_palette_ext.c',
   'mantleaxl_lib_version.c',
   'stub.c'
 ]
@@ -9,7 +10,7 @@ mantleaxl_def = 'mantleaxl' + dll_variant + '.def'
 mantleaxl_dll = shared_library('mantleaxl' + dll_variant, mantleaxl_src,
   name_prefix         : '',
   c_args              : '-DGRVK_VERSION="@0@"'.format(meson.project_version()),
-  dependencies        : [ lib_vulkan, logger_dep ],
+  dependencies        : [ lib_vulkan, mantle_dep, amdilc_dep, logger_dep ],
   include_directories : grvk_include_path,
   install             : true,
   objects             : not grvk_msvc ? mantleaxl_def : [],
