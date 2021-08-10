@@ -179,14 +179,16 @@ GR_RESULT grCreateImage(
                   pCreateInfo->arraySize % 6 == 0 &&
                   pCreateInfo->samples == 1;
 
-    if (pCreateInfo->flags != 0) {
+    if ((pCreateInfo->flags & ~GR_IMAGE_CREATE_VIEW_FORMAT_CHANGE) != 0) {
         LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
     }
 
     const VkImageCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = NULL,
-        .flags = isCube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0,
+        .flags = (pCreateInfo->flags & GR_IMAGE_CREATE_VIEW_FORMAT_CHANGE ?
+                  VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0) |
+                 (isCube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0),
         .imageType = getVkImageType(pCreateInfo->imageType),
         .format = getVkFormat(pCreateInfo->format),
         .extent = {
