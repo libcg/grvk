@@ -105,15 +105,21 @@ GR_RESULT grGetMemoryHeapInfo(
     bool hostCoherent = (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
     bool hostCached = (flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0;
 
+    // FIXME heaps are out of order compared to 19.4.3
+    // FIXME perf ratings need rework
+
     // https://www.basnieuwenhuizen.nl/the-catastrophe-of-reading-from-vram/
     // https://gpuopen.com/learn/vulkan-device-memory/
     *(GR_MEMORY_HEAP_PROPERTIES*)pData = (GR_MEMORY_HEAP_PROPERTIES) {
         .heapMemoryType = deviceLocal ? GR_HEAP_MEMORY_LOCAL : GR_HEAP_MEMORY_REMOTE,
         .heapSize = grDevice->memoryProperties.memoryHeaps[vkHeapIndex].size,
-        .pageSize = 4096, // FIXME guessed
+        .pageSize = 65536, // 19.4.3
         .flags = (hostVisible ? GR_MEMORY_HEAP_CPU_VISIBLE : 0) |
                  (hostCoherent ? GR_MEMORY_HEAP_CPU_GPU_COHERENT : 0) |
-                 (!hostCached ? GR_MEMORY_HEAP_CPU_UNCACHED : 0),
+                 (hostVisible && !hostCached ? GR_MEMORY_HEAP_CPU_UNCACHED : 0) |
+                 (hostCoherent && !hostCached ? GR_MEMORY_HEAP_CPU_WRITE_COMBINED : 0) |
+                 (!deviceLocal && hostCached ? GR_MEMORY_HEAP_HOLDS_PINNED : 0) |
+                 (!deviceLocal ? GR_MEMORY_HEAP_SHAREABLE : 0),
         .gpuReadPerfRating = 10.0f + 1000.0f * deviceLocal, // FIXME
         .gpuWritePerfRating = 10.0f + 1000.0f * deviceLocal, // FIXME
         // Mantle spec: "For heaps inaccessible by the CPU, the read and write performance rating
