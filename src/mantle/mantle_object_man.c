@@ -95,6 +95,8 @@ GR_RESULT grGetObjectInfo(
             *grMemReqs = getGrMemoryRequirements(memReqs);
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
+        case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
+        case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
         case GR_OBJ_TYPE_DESCRIPTOR_SET:
         case GR_OBJ_TYPE_IMAGE_VIEW:
         case GR_OBJ_TYPE_PIPELINE:
@@ -194,6 +196,8 @@ GR_RESULT grBindObjectMemory(
         }
     }   break;
     case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
+    case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
+    case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
     case GR_OBJ_TYPE_DESCRIPTOR_SET:
     case GR_OBJ_TYPE_IMAGE_VIEW:
     case GR_OBJ_TYPE_PIPELINE:
