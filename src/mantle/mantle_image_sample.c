@@ -11,7 +11,9 @@ static bool isMsaaSupported(
     res = vki.vkGetPhysicalDeviceImageFormatProperties(physicalDevice, format, VK_IMAGE_TYPE_2D,
                                                        tiling, VK_IMAGE_USAGE_SAMPLED_BIT, 0,
                                                        &formatProps);
-    if (res != VK_SUCCESS) {
+    if (res == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+        return false;
+    } else if (res != VK_SUCCESS) {
         LOGE("vkGetPhysicalDeviceImageFormatProperties failed (%d)\n", res);
         assert(false);
     }
