@@ -26,8 +26,32 @@ GR_RESULT grCreateBorderColorPalette(
     GrBorderColorPalette* grBorderColorPalette = malloc(sizeof(GrBorderColorPalette));
     *grBorderColorPalette = (GrBorderColorPalette) {
         .grObj = { GR_OBJ_TYPE_BORDER_COLOR_PALETTE, grDevice },
+        .size = pCreateInfo->paletteSize,
     };
 
     *pPalette = (GR_BORDER_COLOR_PALETTE)grBorderColorPalette;
+    return GR_SUCCESS;
+}
+
+GR_RESULT grUpdateBorderColorPalette(
+    GR_BORDER_COLOR_PALETTE palette,
+    GR_UINT firstEntry,
+    GR_UINT entryCount,
+    const GR_FLOAT* pEntries)
+{
+    LOGT("%p %u %u %p\n", palette, firstEntry, entryCount, pEntries);
+    GrBorderColorPalette* grBorderColorPalette = (GrBorderColorPalette*)palette;
+
+    if (grBorderColorPalette == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grBorderColorPalette) != GR_OBJ_TYPE_BORDER_COLOR_PALETTE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pEntries == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    } else if (firstEntry + entryCount > grBorderColorPalette->size) {
+        return GR_ERROR_INVALID_VALUE;
+    }
+
+    LOGW("semi-stub\n");
     return GR_SUCCESS;
 }

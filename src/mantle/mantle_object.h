@@ -119,6 +119,7 @@ typedef struct _GrObject {
 
 typedef struct _GrBorderColorPalette {
     GrObject grObj;
+    unsigned size;
 } GrBorderColorPalette;
 
 typedef struct _GrCmdBuffer {

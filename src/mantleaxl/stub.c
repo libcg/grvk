@@ -3,16 +3,6 @@
 
 // Border Color Palette Extension Functions
 
-GR_RESULT grUpdateBorderColorPalette(
-    GR_BORDER_COLOR_PALETTE palette,
-    GR_UINT firstEntry,
-    GR_UINT entryCount,
-    const GR_FLOAT* pEntries)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_VOID grCmdBindBorderColorPalette(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
