@@ -96,6 +96,7 @@ GR_RESULT grGetObjectInfo(
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
         case GR_OBJ_TYPE_DESCRIPTOR_SET:
+        case GR_OBJ_TYPE_IMAGE_VIEW:
         case GR_OBJ_TYPE_PIPELINE:
             // No memory requirements
             *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
@@ -194,6 +195,7 @@ GR_RESULT grBindObjectMemory(
     }   break;
     case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
     case GR_OBJ_TYPE_DESCRIPTOR_SET:
+    case GR_OBJ_TYPE_IMAGE_VIEW:
     case GR_OBJ_TYPE_PIPELINE:
         // Nothing to do
         break;
