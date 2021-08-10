@@ -81,7 +81,8 @@ GR_RESULT grGetObjectInfo(
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
-        if (objType == GR_OBJ_TYPE_IMAGE) {
+        switch (objType) {
+        case GR_OBJ_TYPE_IMAGE: {
             GrImage* grImage = (GrImage*)grBaseObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
 
@@ -92,15 +93,18 @@ GR_RESULT grGetObjectInfo(
             }
 
             *grMemReqs = getGrMemoryRequirements(memReqs);
-        } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
-                   objType == GR_OBJ_TYPE_PIPELINE) {
+        }   break;
+        case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
+        case GR_OBJ_TYPE_DESCRIPTOR_SET:
+        case GR_OBJ_TYPE_PIPELINE:
             // No memory requirements
             *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
                 .size = 4,
                 .alignment = 4,
                 .heapCount = 0,
             };
-        } else {
+            break;
+        default:
             LOGW("unsupported type %d for info type 0x%X\n", objType, infoType);
             return GR_ERROR_INVALID_VALUE;
         }
@@ -175,7 +179,8 @@ GR_RESULT grBindObjectMemory(
 
     GrObjectType objType = GET_OBJ_TYPE(grObject);
 
-    if (objType == GR_OBJ_TYPE_IMAGE) {
+    switch (objType) {
+    case GR_OBJ_TYPE_IMAGE: {
         GrImage* grImage = (GrImage*)grObject;
         GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
@@ -186,10 +191,13 @@ GR_RESULT grBindObjectMemory(
             vkRes = VKD.vkBindBufferMemory(grDevice->device, grImage->buffer,
                                            grGpuMemory->deviceMemory, offset);
         }
-    } else if (objType == GR_OBJ_TYPE_DESCRIPTOR_SET ||
-               objType == GR_OBJ_TYPE_PIPELINE) {
+    }   break;
+    case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
+    case GR_OBJ_TYPE_DESCRIPTOR_SET:
+    case GR_OBJ_TYPE_PIPELINE:
         // Nothing to do
-    } else {
+        break;
+    default:
         LOGW("unsupported object type %d\n", objType);
         return GR_ERROR_UNAVAILABLE;
     }
