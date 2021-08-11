@@ -76,12 +76,12 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "vThreadGrpID",
     "46?",
     "mem",
-    "48?",
+    "vicp",
     "49?",
     "50?",
     "51?",
     "52?",
-    "53?",
+    "vInstanceID",
     "54?",
     "55?",
     "56?",
@@ -199,6 +199,26 @@ static const char* mIlInterpModeNames[IL_INTERPMODE_LAST] = {
     "_interp(linear_noperspective_centroid)",
     "_interp(linear_sample)",
     "_interp(linear_noperspective_sample)",
+};
+
+static const char* mIlTsDomainNames[IL_TS_DOMAIN_LAST] = {
+    "isoline",
+    "tri",
+    "quad",
+};
+
+static const char* mIlTsPartitionNames[IL_TS_PARTITION_LAST] = {
+    "integer",
+    "pow2",
+    "fractional_odd",
+    "fractional_even",
+};
+
+static const char* mIlTsOutputPrimitiveNames[IL_TS_OUTPUT_LAST] = {
+    "point",
+    "line",
+    "triangle_cw",
+    "triangle_ccw",
 };
 
 static bool hasRegisterNumber(
@@ -738,6 +758,25 @@ static void dumpInstruction(
         break;
     case IL_OP_U_BIT_EXTRACT:
         fprintf(file, "ubit_extract");
+        break;
+    case IL_DCL_NUM_ICP:
+        fprintf(file, "dcl_num_icp %u", instr->extras[0]);
+        break;
+    case IL_DCL_NUM_OCP:
+        fprintf(file, "dcl_num_ocp %u", instr->extras[0]);
+        break;
+    case IL_OP_HS_FORK_PHASE:
+        fprintf(file, "hs_fork_phase %u", instr->control);
+        break;
+    case IL_DCL_TS_DOMAIN:
+        fprintf(file, "dcl_ts_domain ts_domain_%s", mIlTsDomainNames[instr->control]);
+        break;
+    case IL_DCL_TS_PARTITION:
+        fprintf(file, "dcl_ts_partition ts_partition_%s", mIlTsPartitionNames[instr->control]);
+        break;
+    case IL_DCL_TS_OUTPUT_PRIMITIVE:
+        fprintf(file, "dcl_ts_output_primitive ts_output_primitive_%s",
+                mIlTsOutputPrimitiveNames[instr->control]);
         break;
     case IL_OP_U_BIT_INSERT:
         fprintf(file, "ubit_insert");
