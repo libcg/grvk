@@ -513,7 +513,7 @@ static IlcSpvId loadSource(
         if (src->hasImmediate) {
             LOGW("unhandled immediate\n");
         }
-        if (src->hasRelativeSrc) {
+        if (src->relativeSrc != NULL) {
             LOGW("unhandled relative source\n");
         }
         ptrId = reg->id;
@@ -522,7 +522,7 @@ static IlcSpvId loadSource(
                                                   reg->typeId);
         IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId,
                                              src->hasImmediate ? src->immediate : 0);
-        if (src->hasRelativeSrc) {
+        if (src->relativeSrc != NULL) {
             IlcSpvId rel4Id = loadSource(compiler, src->relativeSrc, COMP_MASK_XYZW,
                                          compiler->int4Id);
             IlcSpvId relId = emitVectorTrim(compiler, rel4Id, compiler->int4Id, 0, 1);

@@ -25,6 +25,7 @@ typedef struct {
     uint8_t component[4];
     bool clamp;
     uint8_t shiftScale;
+    Source* absoluteSrc;
     bool hasImmediate;
     Token immediate;
 } Destination;
@@ -41,7 +42,6 @@ typedef struct _Source {
     bool abs;
     uint8_t divComp;
     bool clamp;
-    bool hasRelativeSrc;
     Source* relativeSrc;
     bool hasImmediate;
     Token immediate;

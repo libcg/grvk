@@ -8,6 +8,9 @@
 
 static HCRYPTPROV mCryptProvider = 0;
 
+static void freeSource(
+    Source* src);
+
 static void calcSha1(
     uint8_t* digest,
     const uint8_t* data,
@@ -30,10 +33,19 @@ static void calcSha1(
     CryptDestroyHash(hash);
 }
 
+static void freeDestination(
+    Destination* dst)
+{
+    if (dst->absoluteSrc != NULL) {
+        freeSource(dst->absoluteSrc);
+    }
+    free(dst->absoluteSrc);
+}
+
 static void freeSource(
     Source* src)
 {
-    if (src->hasRelativeSrc) {
+    if (src->relativeSrc != NULL) {
         freeSource(src->relativeSrc);
     }
     free(src->relativeSrc);

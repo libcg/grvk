@@ -291,14 +291,16 @@ static void dumpDestination(
 
     if (hasRegisterNumber(dst->registerType)) {
         fprintf(file, "%u", dst->registerNum);
-    } else {
-        assert(dst->registerNum == 0);
     }
 
     if (dst->registerType == IL_REGTYPE_ITEMP) {
         if (dst->hasImmediate) {
             fprintf(file, "[%u]", dst->immediate);
         }
+    } else if (dst->registerType == IL_REGTYPE_INPUTCP) {
+        assert(dst->absoluteSrc != NULL && dst->absoluteSrc->registerType == IL_REGTYPE_INPUTCP);
+        // Second dimension is the attribute number
+        fprintf(file, "[%u][%u]", dst->registerNum, dst->absoluteSrc->registerNum);
     } else {
         if (dst->hasImmediate) {
             LOGW("unhandled immediate value\n");
@@ -325,22 +327,21 @@ static void dumpSource(
 
     if (hasRegisterNumber(src->registerType)) {
         fprintf(file, "%u", src->registerNum);
-    } else {
-        assert(src->registerNum == 0);
     }
 
     if (src->registerType == IL_REGTYPE_ITEMP ||
         src->registerType == IL_REGTYPE_CONST_BUFF) {
-        bool indexed = src->hasImmediate || src->hasRelativeSrc;
+        bool indexed = src->hasImmediate || src->relativeSrc != NULL;
 
         if (indexed) {
             fprintf(file, "[");
         }
-        if (src->hasRelativeSrc) {
+        if (src->relativeSrc != NULL) {
             dumpSource(file, src->relativeSrc);
-        }
-        if (src->hasImmediate && src->hasRelativeSrc) {
-            fprintf(file, "+");
+
+            if (src->hasImmediate) {
+                fprintf(file, "+");
+            }
         }
         if (src->hasImmediate) {
             fprintf(file, "%u", src->immediate);
@@ -352,7 +353,7 @@ static void dumpSource(
         if (src->hasImmediate) {
             LOGW("unhandled immediate value\n");
         }
-        if (src->hasRelativeSrc) {
+        if (src->relativeSrc != NULL) {
             LOGW("unhandled relative source\n");
         }
     }

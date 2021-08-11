@@ -116,6 +116,10 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_UNK_660] = { IL_UNK_660, 1, 0, 0, false }, // FIXME undocumented
 };
 
+static unsigned decodeSource(
+    Source* src,
+    const Token* token);
+
 static unsigned getSourceCount(
     const Instruction* instr)
 {
@@ -185,6 +189,8 @@ static unsigned decodeDestination(
     uint8_t dimension;
     bool extended;
 
+    memset(dst, 0, sizeof(*dst));
+
     dst->registerNum = GET_BITS(token[idx], 0, 15);
     dst->registerType = GET_BITS(token[idx], 16, 21);
     modifierPresent = GET_BIT(token[idx], 22);
@@ -211,6 +217,11 @@ static unsigned decodeDestination(
         dst->shiftScale = IL_SHIFT_NONE;
     }
 
+    if (relativeAddress == IL_ADDR_ABSOLUTE && dimension != 0) {
+        dst->absoluteSrc = malloc(sizeof(Source));
+        idx += decodeSource(dst->absoluteSrc, &token[idx]);
+    }
+
     if (dst->hasImmediate) {
         dst->immediate = token[idx];
         idx++;
@@ -220,7 +231,7 @@ static unsigned decodeDestination(
         // TODO
         LOGW("unhandled addressing %d\n", relativeAddress);
     }
-    if (dimension != 0) {
+    if (dimension != 0 && relativeAddress != IL_ADDR_ABSOLUTE) {
         // TODO
         LOGW("unhandled dimension %d\n", dimension);
     }
@@ -284,7 +295,6 @@ static unsigned decodeSource(
         LOGW("unhandled relative addressing\n");
     } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
         if (dimension == 0) {
-            src->hasRelativeSrc = true;
             src->relativeSrc = malloc(sizeof(Source));
             idx += decodeSource(src->relativeSrc, &token[idx]);
         }
