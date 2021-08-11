@@ -11,7 +11,7 @@ binPath = os.path.join(dirPath, 'il_{}.bin'.format(name))
 outPath = 'il_{}_out.txt'.format(name)
 refPath = os.path.join(dirPath, 'il_{}.txt'.format(name))
 
-subprocess.run(['wine', 'test/amdil-dis', binPath, outPath])
+subprocess.run(['wine', 'test/amdil-dis.exe', binPath, outPath])
 
 with open(outPath, 'rb') as f:
     bytes = f.read()
