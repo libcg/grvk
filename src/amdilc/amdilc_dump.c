@@ -435,6 +435,9 @@ static void dumpInstruction(
     case IL_OP_CONTINUE:
         fprintf(file, "continue");
         break;
+    case IL_OP_DCLARRAY:
+        fprintf(file, "dclarray");
+        break;
     case IL_OP_DIV:
         fprintf(file, "div_zeroop(%s)", mIlZeroOpNames[instr->control]);
         break;
