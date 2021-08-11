@@ -42,7 +42,8 @@ typedef struct _Source {
     bool abs;
     uint8_t divComp;
     bool clamp;
-    Source* relativeSrc;
+    unsigned relativeSrcCount;
+    Source* relativeSrcs;
     bool hasImmediate;
     Token immediate;
 } Source;

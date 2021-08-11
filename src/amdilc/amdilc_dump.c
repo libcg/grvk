@@ -330,14 +330,15 @@ static void dumpSource(
     }
 
     if (src->registerType == IL_REGTYPE_ITEMP ||
-        src->registerType == IL_REGTYPE_CONST_BUFF) {
-        bool indexed = src->hasImmediate || src->relativeSrc != NULL;
+        src->registerType == IL_REGTYPE_CONST_BUFF ||
+        src->registerType == IL_REGTYPE_INPUTCP) {
+        bool indexed = src->hasImmediate || src->relativeSrcCount > 0;
 
         if (indexed) {
             fprintf(file, "[");
         }
-        if (src->relativeSrc != NULL) {
-            dumpSource(file, src->relativeSrc);
+        if (src->relativeSrcCount > 0) {
+            dumpSource(file, &src->relativeSrcs[0]);
 
             if (src->hasImmediate) {
                 fprintf(file, "+");
@@ -353,9 +354,15 @@ static void dumpSource(
         if (src->hasImmediate) {
             LOGW("unhandled immediate value\n");
         }
-        if (src->relativeSrc != NULL) {
+        if (src->relativeSrcCount > 0) {
             LOGW("unhandled relative source\n");
         }
+    }
+
+    if (src->registerType == IL_REGTYPE_INPUTCP) {
+        // Register number of the 2nd relative source is the attribute number
+        assert(src->relativeSrcCount == 2);
+        fprintf(file, "[%u]", src->relativeSrcs[1].registerNum);
     }
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||

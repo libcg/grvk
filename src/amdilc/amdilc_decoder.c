@@ -197,7 +197,7 @@ static unsigned decodeDestination(
     unsigned idx = 0;
     bool modifierPresent;
     uint8_t relativeAddress;
-    uint8_t dimension;
+    bool dimension;
     bool extended;
 
     memset(dst, 0, sizeof(*dst));
@@ -261,7 +261,7 @@ static unsigned decodeSource(
     unsigned idx = 0;
     bool modifierPresent;
     uint8_t relativeAddress;
-    uint8_t dimension;
+    bool dimension;
     bool extended;
 
     memset(src, 0, sizeof(*src));
@@ -305,9 +305,10 @@ static unsigned decodeSource(
         // TODO
         LOGW("unhandled relative addressing\n");
     } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
-        if (dimension == 0) {
-            src->relativeSrc = malloc(sizeof(Source));
-            idx += decodeSource(src->relativeSrc, &token[idx]);
+        src->relativeSrcCount = dimension ? 2 : 1;
+        src->relativeSrcs = malloc(src->relativeSrcCount * sizeof(Source));
+        for (unsigned i = 0; i < src->relativeSrcCount; i++) {
+            idx += decodeSource(&src->relativeSrcs[i], &token[idx]);
         }
     } else {
         assert(false);
@@ -318,7 +319,7 @@ static unsigned decodeSource(
         idx++;
     }
 
-    if (dimension != 0) {
+    if (dimension != 0 && relativeAddress != IL_ADDR_REG_RELATIVE) {
         // TODO
         LOGW("unhandled dimension %d\n", dimension);
     }

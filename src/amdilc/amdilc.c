@@ -45,16 +45,19 @@ static void freeDestination(
 static void freeSource(
     Source* src)
 {
-    if (src->relativeSrc != NULL) {
-        freeSource(src->relativeSrc);
+    for (unsigned i = 0; i < src->relativeSrcCount; i++) {
+        freeSource(&src->relativeSrcs[i]);
     }
-    free(src->relativeSrc);
+    free(src->relativeSrcs);
 }
 
 static void freeInstruction(
     Instruction* instr)
 {
-    for (int i = 0; i < instr->srcCount; i++) {
+    for (unsigned i = 0; i < instr->dstCount; i++) {
+        freeDestination(&instr->dsts[i]);
+    }
+    for (unsigned i = 0; i < instr->srcCount; i++) {
         freeSource(&instr->srcs[i]);
     }
     free(instr->dsts);
@@ -65,7 +68,7 @@ static void freeInstruction(
 static void freeKernel(
     Kernel* kernel)
 {
-    for (int i = 0; i < kernel->instrCount; i++) {
+    for (unsigned i = 0; i < kernel->instrCount; i++) {
         freeInstruction(&kernel->instrs[i]);
     }
     free(kernel->instrs);
