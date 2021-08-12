@@ -799,6 +799,12 @@ static void dumpInstruction(
     case IL_OP_HS_FORK_PHASE:
         fprintf(file, "hs_fork_phase %u", instr->control);
         break;
+    case IL_OP_HS_JOIN_PHASE:
+        fprintf(file, "hs_join_phase %u", instr->control);
+        break;
+    case IL_OP_ENDPHASE:
+        fprintf(file, "endphase");
+        break;
     case IL_DCL_TS_DOMAIN:
         fprintf(file, "dcl_ts_domain ts_domain_%s", mIlTsDomainNames[instr->control]);
         break;
