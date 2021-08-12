@@ -26,6 +26,8 @@ typedef struct {
     bool clamp;
     uint8_t shiftScale;
     Source* absoluteSrc;
+    unsigned relativeSrcCount;
+    Source* relativeSrcs;
     bool hasImmediate;
     Token immediate;
 } Destination;

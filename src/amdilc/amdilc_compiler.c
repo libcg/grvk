@@ -644,6 +644,12 @@ static void storeDestination(
         if (dst->hasImmediate) {
             LOGW("unhandled immediate\n");
         }
+        if (dst->absoluteSrc != NULL) {
+            LOGW("unhandled absolute source\n");
+        }
+        if (dst->relativeSrcCount > 0) {
+            LOGW("unhandled relative source (%u)\n", dst->relativeSrcCount);
+        }
         ptrId = reg->id;
     } else {
         assert(dst->hasImmediate);

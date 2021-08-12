@@ -221,6 +221,10 @@ static const char* mIlTsOutputPrimitiveNames[IL_TS_OUTPUT_LAST] = {
     "triangle_ccw",
 };
 
+static void dumpSource(
+    FILE* file,
+    const Source* src);
+
 static bool hasRegisterNumber(
     uint8_t registerType)
 {
@@ -294,8 +298,18 @@ static void dumpDestination(
     }
 
     if (dst->registerType == IL_REGTYPE_ITEMP) {
+        assert(dst->absoluteSrc == NULL);
+        assert(dst->relativeSrcCount == 0);
         if (dst->hasImmediate) {
             fprintf(file, "[%u]", dst->immediate);
+        }
+    } else if (dst->registerType == IL_REGTYPE_OUTPUT) {
+        assert(!dst->hasImmediate);
+        assert(dst->absoluteSrc == NULL);
+        for (unsigned i = 0; i < dst->relativeSrcCount; i++) {
+            fprintf(file, "[");
+            dumpSource(file, &dst->relativeSrcs[i]);
+            fprintf(file, "]");
         }
     } else if (dst->registerType == IL_REGTYPE_INPUTCP) {
         assert(dst->absoluteSrc != NULL && dst->absoluteSrc->registerType == IL_REGTYPE_INPUTCP);
@@ -304,6 +318,12 @@ static void dumpDestination(
     } else {
         if (dst->hasImmediate) {
             LOGW("unhandled immediate value\n");
+        }
+        if (dst->absoluteSrc != NULL) {
+            LOGW("unhandled absolute source\n");
+        }
+        if (dst->relativeSrcCount > 0) {
+            LOGW("unhandled relative source (%u)\n", dst->relativeSrcCount);
         }
     }
 

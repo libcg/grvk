@@ -228,9 +228,23 @@ static unsigned decodeDestination(
         dst->shiftScale = IL_SHIFT_NONE;
     }
 
-    if (relativeAddress == IL_ADDR_ABSOLUTE && dimension != 0) {
-        dst->absoluteSrc = malloc(sizeof(Source));
-        idx += decodeSource(dst->absoluteSrc, &token[idx]);
+    if (relativeAddress == IL_ADDR_ABSOLUTE) {
+        if (dimension) {
+            dst->absoluteSrc = malloc(sizeof(Source));
+            idx += decodeSource(dst->absoluteSrc, &token[idx]);
+        }
+    } else if (relativeAddress == IL_ADDR_RELATIVE) {
+        // TODO
+        LOGW("unhandled relative addressing\n");
+        assert(!dimension);
+    } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
+        dst->relativeSrcCount = dimension ? 2 : 1;
+        dst->relativeSrcs = malloc(dst->relativeSrcCount * sizeof(Source));
+        for (unsigned i = 0; i < dst->relativeSrcCount; i++) {
+            idx += decodeSource(&dst->relativeSrcs[i], &token[idx]);
+        }
+    } else {
+        assert(false);
     }
 
     if (dst->hasImmediate) {
@@ -238,14 +252,6 @@ static unsigned decodeDestination(
         idx++;
     }
 
-    if (relativeAddress != IL_ADDR_ABSOLUTE) {
-        // TODO
-        LOGW("unhandled addressing %d\n", relativeAddress);
-    }
-    if (dimension != 0 && relativeAddress != IL_ADDR_ABSOLUTE) {
-        // TODO
-        LOGW("unhandled dimension %d\n", dimension);
-    }
     if (extended) {
         // TODO
         LOGW("unhandled extended register addressing\n");
@@ -319,7 +325,7 @@ static unsigned decodeSource(
         idx++;
     }
 
-    if (dimension != 0 && relativeAddress != IL_ADDR_REG_RELATIVE) {
+    if (dimension && relativeAddress != IL_ADDR_REG_RELATIVE) {
         // TODO
         LOGW("unhandled dimension %d\n", dimension);
     }
