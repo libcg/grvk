@@ -77,7 +77,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "46?",
     "mem",
     "vicp",
-    "49?",
+    "vpc",
     "50?",
     "51?",
     "52?",
@@ -315,6 +315,8 @@ static void dumpDestination(
         assert(dst->absoluteSrc != NULL && dst->absoluteSrc->registerType == IL_REGTYPE_INPUTCP);
         // Second dimension is the attribute number
         fprintf(file, "[%u][%u]", dst->registerNum, dst->absoluteSrc->registerNum);
+    } else if (dst->registerType == IL_REGTYPE_PATCHCONST) {
+        fprintf(file, "[%u]", dst->registerNum);
     } else {
         if (dst->hasImmediate) {
             LOGW("unhandled immediate value\n");
@@ -347,6 +349,8 @@ static void dumpSource(
 
     if (hasRegisterNumber(src->registerType)) {
         fprintf(file, "%u", src->registerNum);
+    } else if (src->registerType == IL_REGTYPE_PATCHCONST) {
+        fprintf(file, "[%u]", src->registerNum);
     }
 
     if (src->registerType == IL_REGTYPE_ITEMP ||
