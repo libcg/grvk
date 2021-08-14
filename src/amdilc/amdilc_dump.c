@@ -78,7 +78,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "mem",
     "vicp",
     "vpc",
-    "50?",
+    "vDomain",
     "51?",
     "52?",
     "vInstanceID",
@@ -356,18 +356,19 @@ static void dumpSource(
 {
     fprintf(file, "%s", mIlRegTypeNames[src->registerType]);
 
-    if (hasRegisterNumber(src->registerType)) {
-        fprintf(file, "%u", src->registerNum);
-    } else if (src->registerType == IL_REGTYPE_PATCHCONST) {
-        fprintf(file, "[%u]", src->registerNum);
-    }
+    unsigned srcCount = src->srcCount;
 
-    unsigned srcCount;
     if (src->registerType == IL_REGTYPE_INPUTCP) {
         // Last source is reserved for the attribute number
-        srcCount = src->relativeSrcCount - 1;
-    } else {
-        srcCount = src->relativeSrcCount;
+        srcCount--;
+    }
+
+    if (hasRegisterNumber(src->registerType)) {
+        fprintf(file, "%u", src->registerNum);
+    } else if (srcCount == 0 &&
+               (src->registerType == IL_REGTYPE_INPUTCP ||
+                src->registerType == IL_REGTYPE_PATCHCONST)) {
+        fprintf(file, "[%u]", src->registerNum);
     }
 
     if (src->registerType == IL_REGTYPE_ITEMP ||
@@ -381,7 +382,7 @@ static void dumpSource(
             fprintf(file, "[");
         }
         if (srcCount > 0) {
-            dumpSource(file, &src->relativeSrcs[0]);
+            dumpSource(file, &src->srcs[0]);
 
             if (src->hasImmediate) {
                 fprintf(file, "+");
@@ -397,14 +398,14 @@ static void dumpSource(
         if (src->hasImmediate) {
             LOGW("unhandled immediate value\n");
         }
-        if (src->relativeSrcCount > 0) {
+        if (src->srcCount > 0) {
             LOGW("unhandled relative source\n");
         }
     }
 
     if (src->registerType == IL_REGTYPE_INPUTCP) {
         // Last source is reserved for the attribute number
-        fprintf(file, "[%u]", src->relativeSrcs[srcCount].registerNum);
+        fprintf(file, "[%u]", src->srcs[src->srcCount - 1].registerNum);
     }
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||

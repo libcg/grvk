@@ -45,10 +45,10 @@ static void freeDestination(
 static void freeSource(
     Source* src)
 {
-    for (unsigned i = 0; i < src->relativeSrcCount; i++) {
-        freeSource(&src->relativeSrcs[i]);
+    for (unsigned i = 0; i < src->srcCount; i++) {
+        freeSource(&src->srcs[i]);
     }
-    free(src->relativeSrcs);
+    free(src->srcs);
 }
 
 static void freeInstruction(
