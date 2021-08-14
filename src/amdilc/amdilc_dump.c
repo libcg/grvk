@@ -295,28 +295,37 @@ static void dumpDestination(
 
     if (hasRegisterNumber(dst->registerType)) {
         fprintf(file, "%u", dst->registerNum);
+    } else if (dst->registerType == IL_REGTYPE_INPUTCP ||
+               dst->registerType == IL_REGTYPE_PATCHCONST) {
+        fprintf(file, "[%u]", dst->registerNum);
     }
 
-    if (dst->registerType == IL_REGTYPE_ITEMP) {
+    if (dst->registerType == IL_REGTYPE_ITEMP ||
+        dst->registerType == IL_REGTYPE_OUTPUT) {
         assert(dst->absoluteSrc == NULL);
-        assert(dst->relativeSrcCount == 0);
-        if (dst->hasImmediate) {
-            fprintf(file, "[%u]", dst->immediate);
-        }
-    } else if (dst->registerType == IL_REGTYPE_OUTPUT) {
-        assert(!dst->hasImmediate);
-        assert(dst->absoluteSrc == NULL);
-        for (unsigned i = 0; i < dst->relativeSrcCount; i++) {
+        assert(dst->relativeSrcCount <= 1);
+
+        bool indexed = dst->hasImmediate || dst->relativeSrcCount > 0;
+
+        if (indexed) {
             fprintf(file, "[");
-            dumpSource(file, &dst->relativeSrcs[i]);
+        }
+        if (dst->relativeSrcCount > 0) {
+            dumpSource(file, &dst->relativeSrcs[0]);
+
+            if (dst->hasImmediate) {
+                fprintf(file, "+");
+            }
+        }
+        if (dst->hasImmediate) {
+            fprintf(file, "%u", dst->immediate);
+        }
+        if (indexed) {
             fprintf(file, "]");
         }
     } else if (dst->registerType == IL_REGTYPE_INPUTCP) {
-        assert(dst->absoluteSrc != NULL && dst->absoluteSrc->registerType == IL_REGTYPE_INPUTCP);
-        // Second dimension is the attribute number
-        fprintf(file, "[%u][%u]", dst->registerNum, dst->absoluteSrc->registerNum);
-    } else if (dst->registerType == IL_REGTYPE_PATCHCONST) {
-        fprintf(file, "[%u]", dst->registerNum);
+        // Attribute number
+        fprintf(file, "[%u]", dst->absoluteSrc->registerNum);
     } else {
         if (dst->hasImmediate) {
             LOGW("unhandled immediate value\n");
@@ -353,15 +362,25 @@ static void dumpSource(
         fprintf(file, "[%u]", src->registerNum);
     }
 
+    unsigned srcCount;
+    if (src->registerType == IL_REGTYPE_INPUTCP) {
+        // Last source is reserved for the attribute number
+        srcCount = src->relativeSrcCount - 1;
+    } else {
+        srcCount = src->relativeSrcCount;
+    }
+
     if (src->registerType == IL_REGTYPE_ITEMP ||
         src->registerType == IL_REGTYPE_CONST_BUFF ||
         src->registerType == IL_REGTYPE_INPUTCP) {
-        bool indexed = src->hasImmediate || src->relativeSrcCount > 0;
+        assert(srcCount <= 1);
+
+        bool indexed = src->hasImmediate || srcCount > 0;
 
         if (indexed) {
             fprintf(file, "[");
         }
-        if (src->relativeSrcCount > 0) {
+        if (srcCount > 0) {
             dumpSource(file, &src->relativeSrcs[0]);
 
             if (src->hasImmediate) {
@@ -384,9 +403,8 @@ static void dumpSource(
     }
 
     if (src->registerType == IL_REGTYPE_INPUTCP) {
-        // Register number of the 2nd relative source is the attribute number
-        assert(src->relativeSrcCount == 2);
-        fprintf(file, "[%u]", src->relativeSrcs[1].registerNum);
+        // Last source is reserved for the attribute number
+        fprintf(file, "[%u]", src->relativeSrcs[srcCount].registerNum);
     }
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
