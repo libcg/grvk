@@ -447,19 +447,18 @@ static void dumpSource(
 
 static void dumpInstruction(
     FILE* file,
-    const Instruction* instr)
+    const Instruction* instr,
+    int* indentLevel)
 {
-    static int indentLevel = 0; // TODO move to context
-
     switch (instr->opcode) {
     case IL_OP_ELSE:
     case IL_OP_ENDIF:
     case IL_OP_ENDLOOP:
-        indentLevel--;
+        (*indentLevel)--;
         break;
     }
 
-    for (int i = 0; i < indentLevel; i++) {
+    for (int i = 0; i < *indentLevel; i++) {
         fprintf(file, "    ");
     }
 
@@ -505,7 +504,7 @@ static void dumpInstruction(
         break;
     case IL_OP_ELSE:
         fprintf(file, "else");
-        indentLevel++;
+        (*indentLevel)++;
         break;
     case IL_OP_END:
         fprintf(file, "end");
@@ -545,15 +544,15 @@ static void dumpInstruction(
         break;
     case IL_OP_IF_LOGICALZ:
         fprintf(file, "if_logicalz");
-        indentLevel++;
+        (*indentLevel)++;
         break;
     case IL_OP_IF_LOGICALNZ:
         fprintf(file, "if_logicalnz");
-        indentLevel++;
+        (*indentLevel)++;
         break;
     case IL_OP_WHILE:
         fprintf(file, "whileloop");
-        indentLevel++;
+        (*indentLevel)++;
         break;
     case IL_OP_RET_DYN:
         fprintf(file, "ret_dyn");
@@ -888,6 +887,8 @@ void ilcDumpKernel(
     FILE* file,
     const Kernel* kernel)
 {
+    int indentLevel = 0;
+
     fprintf(file, "%s\nil_%s_%d_%d%s%s\n",
             mIlLanguageTypeNames[kernel->clientType],
             mIlShaderTypeNames[kernel->shaderType],
@@ -895,6 +896,6 @@ void ilcDumpKernel(
             kernel->multipass ? "_mp" : "", kernel->realtime ? "_rt" : "");
 
     for (int i = 0; i < kernel->instrCount; i++) {
-        dumpInstruction(file, &kernel->instrs[i]);
+        dumpInstruction(file, &kernel->instrs[i], &indentLevel);
     }
 }
