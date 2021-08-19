@@ -895,6 +895,11 @@ GR_VOID grCmdCopyImage(
     unsigned srcTileSize = getVkFormatTileSize(grSrcImage->format);
     unsigned dstTileSize = getVkFormatTileSize(grDstImage->format);
 
+    if (quirkHas(QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS)) {
+        srcTileSize = 1;
+        dstTileSize = 1;
+    }
+
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     if (grSrcImage->image != VK_NULL_HANDLE) {
@@ -916,7 +921,6 @@ GR_VOID grCmdCopyImage(
                     region->destOffset.z,
                 },
                 .extent = {
-                    // FIXME it's not clear whether src or dstTileSize should be used here
                     region->extent.width * dstTileSize,
                     region->extent.height * dstTileSize,
                     region->extent.depth,
@@ -992,6 +996,10 @@ GR_VOID grCmdCopyMemoryToImage(
     GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
     GrImage* grDstImage = (GrImage*)destImage;
     unsigned dstTileSize = getVkFormatTileSize(grDstImage->format);
+
+    if (quirkHas(QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS)) {
+        dstTileSize = 1;
+    }
 
     grCmdBufferEndRenderPass(grCmdBuffer);
     grGpuMemoryBindBuffer(grSrcGpuMemory);

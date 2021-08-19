@@ -328,9 +328,8 @@ VkImageLayout getVkImageLayout(
     case GR_IMAGE_STATE_GRAPHICS_SHADER_READ_ONLY:
     case GR_IMAGE_STATE_COMPUTE_SHADER_READ_ONLY:
     case GR_IMAGE_STATE_MULTI_SHADER_READ_ONLY:
-        // FIXME Star Swarm binds read-only images to UAVs??
-        //return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        return VK_IMAGE_LAYOUT_GENERAL;
+        return quirkHas(QUIRK_READ_ONLY_IMAGE_BOUND_TO_UAV) ?
+               VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     case GR_IMAGE_STATE_GRAPHICS_SHADER_WRITE_ONLY:
     case GR_IMAGE_STATE_GRAPHICS_SHADER_READ_WRITE:
     case GR_IMAGE_STATE_COMPUTE_SHADER_WRITE_ONLY:
@@ -342,9 +341,8 @@ VkImageLayout getVkImageLayout(
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
         return VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_CLEAR:
-        // FIXME Star Swarm doesn't prepare images before grCmdClearColorImage??
-        //return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        return VK_IMAGE_LAYOUT_GENERAL;
+        return quirkHas(QUIRK_IMAGE_WRONG_CLEAR_STATE) ?
+               VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     default:
         break;
     }

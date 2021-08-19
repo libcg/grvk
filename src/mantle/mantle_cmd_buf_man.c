@@ -191,9 +191,9 @@ GR_RESULT grResetCommandBuffer(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    // HACK: Star Swarm attempts to reset a command buffer in use and free related resources...
-    // Wait for the submit fence ourselves to work around that issue.
-    if (grCmdBuffer->submitFence != NULL) {
+    if (quirkHas(QUIRK_INVALID_CMD_BUFFER_RESET) && grCmdBuffer->submitFence != NULL) {
+        // Game attempts to reset a command buffer in use...
+        // Wait for the submit fence ourselves to work around that issue.
         grWaitForFences((GR_DEVICE)grDevice, 1, (GR_FENCE*)&grCmdBuffer->submitFence, true, 10.0f);
     }
 

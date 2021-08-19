@@ -15,6 +15,7 @@ mantle_src = [
   'mantle_shader_pipeline.c',
   'mantle_state_object.c',
   'mantle_wsi.c',
+  'quirk.c',
   'stub.c',
   'util.c',
   'vulkan_loader.c',

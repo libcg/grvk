@@ -38,6 +38,8 @@ GR_RESULT grInitAndEnumerateGpus(
          pAppInfo->pEngineName, pAppInfo->engineVersion,
          pAppInfo->apiVersion);
 
+    quirkInit(pAppInfo);
+
     if (pAllocCb != NULL) {
         LOGW("unhandled alloc callbacks\n");
     }

@@ -103,8 +103,8 @@ GR_RESULT grGetObjectInfo(
             // Mantle spec: "Not all objects have memory requirements, in which case it is valid
             // for the requirements structure to return zero size and alignment, and no heaps."
             *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
-                .size = 0,
-                .alignment = 0,
+                .size = quirkHas(QUIRK_NON_ZERO_MEM_REQ) ? 4 : 0,
+                .alignment = quirkHas(QUIRK_NON_ZERO_MEM_REQ) ? 4 : 0,
                 .heapCount = 0,
             };
             break;

@@ -10,6 +10,7 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "logger.h"
 #include "mantle_object.h"
+#include "quirk.h"
 #include "vulkan_loader.h"
 
 #define INVALID_QUEUE_INDEX (~0u)
