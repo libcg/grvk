@@ -1364,6 +1364,62 @@ static void emitFloatOp(
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Sqrt, compiler->float4Id,
                                 instr->srcCount, srcIds);
         break;
+    case IL_OP_F_2_F16: {
+        IlcSpvId firstHalfId = emitVectorTrim(compiler, srcIds[0], compiler->float4Id, 0, 2);
+        IlcSpvId secondHalfId = emitVectorTrim(compiler, srcIds[0], compiler->float4Id, 2, 2);
+        IlcSpvId lsbId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450PackHalf2x16, compiler->intId,
+                                         1, &firstHalfId);
+        IlcSpvId msbId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450PackHalf2x16, compiler->intId,
+                                         1, &secondHalfId);
+        IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
+        IlcSpvId sixteenId = ilcSpvPutConstant(compiler->module, compiler->intId, 16);
+        const IlcSpvId argIds[][3] = {
+            { lsbId, zeroId, sixteenId },
+            { lsbId, sixteenId, sixteenId },
+            { msbId, zeroId, sixteenId },
+            { msbId, sixteenId, sixteenId },
+        };
+        const IlcSpvId componentIds[] = {
+            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[0]),
+            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[1]),
+            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[2]),
+            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[3]),
+        };
+        resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, componentIds);
+        resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
+    }   break;
+    case IL_OP_F16_2_F: {
+        IlcSpvId intSrcId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
+        IlcSpvId intIds[] = {
+            emitVectorTrim(compiler, intSrcId, compiler->int4Id, 0, 1),
+            emitVectorTrim(compiler, intSrcId, compiler->int4Id, 1, 1),
+            emitVectorTrim(compiler, intSrcId, compiler->int4Id, 2, 1),
+            emitVectorTrim(compiler, intSrcId, compiler->int4Id, 3, 1),
+        };
+        IlcSpvId sixteenId = ilcSpvPutConstant(compiler->module, compiler->intId, 16);
+        const IlcSpvId shiftArgIds[][2] = {
+            { intIds[1], sixteenId },
+            { intIds[3], sixteenId },
+        };
+        intIds[1] = ilcSpvPutAlu(compiler->module, SpvOpShiftLeftLogical, compiler->intId,
+                                 2, shiftArgIds[0]);
+        intIds[3] = ilcSpvPutAlu(compiler->module, SpvOpShiftLeftLogical, compiler->intId,
+                                 2, shiftArgIds[1]);
+        const IlcSpvId orArgIds[][2] = {
+            { intIds[0], intIds[1] },
+            { intIds[2], intIds[3] },
+        };
+        intIds[0] = ilcSpvPutAlu(compiler->module, SpvOpBitwiseOr, compiler->intId, 2, orArgIds[0]);
+        intIds[2] = ilcSpvPutAlu(compiler->module, SpvOpBitwiseOr, compiler->intId, 2, orArgIds[1]);
+        IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
+        IlcSpvId firstHalfId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450UnpackHalf2x16,
+                                               float2Id, 1, &intIds[0]);
+        IlcSpvId secondHalfId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450UnpackHalf2x16,
+                                                float2Id, 1, &intIds[2]);
+        const IlcSpvWord components[] = { 0, 1, 2, 3 };
+        resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id,
+                                       firstHalfId, secondHalfId, 4, components);
+    }   break;
     default:
         assert(false);
         break;
@@ -2313,6 +2369,8 @@ static void emitInstr(
     case IL_OP_COS_VEC:
     case IL_OP_SQRT_VEC:
     case IL_OP_DP2:
+    case IL_OP_F_2_F16:
+    case IL_OP_F16_2_F:
         emitFloatOp(compiler, instr);
         break;
     case IL_OP_EQ:

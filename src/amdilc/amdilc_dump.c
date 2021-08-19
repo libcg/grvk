@@ -840,6 +840,12 @@ static void dumpInstruction(
     case IL_OP_U_BIT_INSERT:
         fprintf(file, "ubit_insert");
         break;
+    case IL_OP_F_2_F16:
+        fprintf(file, "f2f16");
+        break;
+    case IL_OP_F16_2_F:
+        fprintf(file, "f162f");
+        break;
     case IL_DCL_GLOBAL_FLAGS:
         fprintf(file, "dcl_global_flags");
         break;
