@@ -19,6 +19,16 @@
 #define COMP_MASK_XYZ       (COMP_MASK_XY | COMP_MASK_Z)
 #define COMP_MASK_XYZW      (COMP_MASK_XYZ | COMP_MASK_W)
 
+typedef enum {
+    RES_TYPE_GENERIC,
+    RES_TYPE_LDS,
+} IlcResourceType;
+
+typedef enum {
+    BLOCK_IF_ELSE,
+    BLOCK_LOOP,
+} IlcControlFlowBlockType;
+
 typedef struct {
     IlcSpvId id;
     IlcSpvId typeId;
@@ -31,23 +41,19 @@ typedef struct {
 } IlcRegister;
 
 typedef struct {
+    IlcResourceType resType;
     IlcSpvId id;
     IlcSpvId typeId;
     IlcSpvId texelTypeId;
     uint32_t ilId;
     uint8_t ilType;
-    uint32_t strideId;
+    IlcSpvId strideId;
 } IlcResource;
 
 typedef struct {
     IlcSpvId id;
     uint32_t ilId;
 } IlcSampler;
-
-typedef enum {
-    BLOCK_IF_ELSE,
-    BLOCK_LOOP,
-} IlcControlFlowBlockType;
 
 typedef struct {
     IlcSpvId labelElseId;
@@ -352,12 +358,13 @@ static const IlcRegister* findOrCreateRegister(
 
 static const IlcResource* findResource(
     IlcCompiler* compiler,
+    IlcResourceType resType,
     uint32_t ilId)
 {
     for (int i = 0; i < compiler->resourceCount; i++) {
         const IlcResource* resource = &compiler->resources[i];
 
-        if (resource->ilId == ilId) {
+        if (resource->resType == resType && resource->ilId == ilId) {
             return resource;
         }
     }
@@ -369,13 +376,13 @@ static void addResource(
     IlcCompiler* compiler,
     const IlcResource* resource)
 {
-    if (findResource(compiler, resource->ilId) != NULL) {
-        LOGE("resource %d already present\n", resource->ilId);
+    if (findResource(compiler, resource->resType, resource->ilId) != NULL) {
+        LOGE("resource%u.%u already present\n", resource->resType, resource->ilId);
         assert(false);
     }
 
     char name[32];
-    snprintf(name, sizeof(name), "resource%u", resource->ilId);
+    snprintf(name, sizeof(name), "resource%u.%u", resource->resType, resource->ilId);
     ilcSpvPutName(compiler->module, resource->id, name);
 
     compiler->resourceCount++;
@@ -404,7 +411,7 @@ static const IlcSampler* addSampler(
     const IlcSampler* sampler)
 {
     if (findSampler(compiler, sampler->ilId) != NULL) {
-        LOGE("sampler %d already present\n", sampler->ilId);
+        LOGE("sampler%u already present\n", sampler->ilId);
         assert(false);
     }
 
@@ -1021,6 +1028,7 @@ static void emitResource(
                 VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 
     const IlcResource resource = {
+        .resType = RES_TYPE_GENERIC,
         .id = resourceId,
         .typeId = imageId,
         .texelTypeId = texelTypeId,
@@ -1085,6 +1093,7 @@ static void emitTypedUav(
                 VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     const IlcResource resource = {
+        .resType = RES_TYPE_GENERIC,
         .id = resourceId,
         .typeId = imageId,
         .texelTypeId = sampledTypeId,
@@ -1121,6 +1130,7 @@ static void emitSrv(
     emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
 
     const IlcResource resource = {
+        .resType = RES_TYPE_GENERIC,
         .id = resourceId,
         .typeId = arrayId,
         .texelTypeId = compiler->floatId,
@@ -1149,6 +1159,7 @@ static void emitStructuredLds(
     ilcSpvPutName(compiler->module, arrayId, "structLds");
 
     const IlcResource resource = {
+        .resType = RES_TYPE_LDS,
         .id = resourceId,
         .typeId = arrayId,
         .texelTypeId = compiler->uintId,
@@ -1830,7 +1841,7 @@ static void emitLoad(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const Destination* dst = &instr->dsts[0];
 
     if (resource == NULL) {
@@ -1852,7 +1863,7 @@ static void emitResinfo(
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     bool ilReturnType = GET_BIT(instr->control, 8);
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const Destination* dst = &instr->dsts[0];
 
     if (resource == NULL) {
@@ -1903,7 +1914,7 @@ static void emitSample(
     uint8_t ilSamplerId = GET_BITS(instr->control, 8, 11);
     // TODO handle indexed args and aoffimmi
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const IlcSampler* sampler = findOrCreateSampler(compiler, ilSamplerId);
     const Destination* dst = &instr->dsts[0];
 
@@ -1971,7 +1982,7 @@ static void emitLdsLoadVec(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_LDS, ilResourceId);
     const Destination* dst = &instr->dsts[0];
 
     if (resource == NULL) {
@@ -2023,7 +2034,7 @@ static void emitLdsStoreVec(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_LDS, ilResourceId);
     const Destination* dst = &instr->dsts[0];
 
     if (resource == NULL) {
@@ -2077,7 +2088,7 @@ static void emitUavLoad(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const Destination* dst = &instr->dsts[0];
 
     if (resource == NULL) {
@@ -2099,7 +2110,7 @@ static void emitUavStore(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
@@ -2120,7 +2131,7 @@ static void emitUavAtomicOp(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
@@ -2169,7 +2180,7 @@ static void emitStructuredSrvLoad(
         LOGW("unhandled indexed resource ID\n");
     }
 
-    const IlcResource* resource = findResource(compiler, ilResourceId);
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const Destination* dst = &instr->dsts[0];
 
     if (resource == NULL) {

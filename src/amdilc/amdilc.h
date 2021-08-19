@@ -6,6 +6,7 @@
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
+// TODO get rid of this
 #define ILC_BASE_RESOURCE_ID    (16) // Samplers use 0-15
 
 typedef struct _IlcBinding {
