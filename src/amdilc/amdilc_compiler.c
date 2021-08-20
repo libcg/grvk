@@ -2000,6 +2000,7 @@ static void emitSample(
     IlcSpvWord sampleOp = 0;
     IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
                                        compiler->float4Id);
+    IlcSpvId drefId = 0;
     SpvImageOperandsMask operandsMask = 0;
     unsigned operandIdCount = 0;
     IlcSpvId operandIds[2];
@@ -2033,6 +2034,14 @@ static void emitSample(
         IlcSpvId lodId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
         operandIds[0] = emitVectorTrim(compiler, lodId, compiler->float4Id, COMP_INDEX_X, 1);
         operandIdCount++;
+    } else if (instr->opcode == IL_OP_SAMPLE_C_LZ) {
+        sampleOp = SpvOpImageSampleDrefExplicitLod;
+        drefId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        drefId = emitVectorTrim(compiler, drefId, compiler->float4Id, COMP_INDEX_X, 1);
+        operandsMask |= SpvImageOperandsLodMask;
+
+        operandIds[0] = ilcSpvPutConstant(compiler->module, compiler->floatId, 0);
+        operandIdCount++;
     } else {
         assert(false);
     }
@@ -2043,10 +2052,19 @@ static void emitSample(
     IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
     IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId,
                                                     resourceId, samplerId);
-    IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, resource->texelTypeId,
-                                             sampledImageId, coordinateId, operandsMask,
-                                             operandIdCount, operandIds);
-    storeDestination(compiler, dst, sampleId, resource->texelTypeId);
+    if (drefId == 0) {
+        IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, resource->texelTypeId,
+                                                 sampledImageId, coordinateId, drefId, operandsMask,
+                                                 operandIdCount, operandIds);
+        storeDestination(compiler, dst, sampleId, resource->texelTypeId);
+    } else {
+        // Store the scalar result in dst.x
+        IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, compiler->floatId,
+                                                 sampledImageId, coordinateId, drefId, operandsMask,
+                                                 operandIdCount, operandIds);
+        sampleId = emitVectorGrow(compiler, sampleId, compiler->floatId, 1);
+        storeDestination(compiler, dst, sampleId, compiler->float4Id);
+    }
 }
 
 static void emitLdsLoadVec(
@@ -2484,6 +2502,7 @@ static void emitInstr(
     case IL_OP_SAMPLE_B:
     case IL_OP_SAMPLE_G:
     case IL_OP_SAMPLE_L:
+    case IL_OP_SAMPLE_C_LZ:
         emitSample(compiler, instr);
         break;
     case IL_OP_CMOV_LOGICAL:
