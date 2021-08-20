@@ -2667,6 +2667,7 @@ IlcShader ilcCompileKernel(
 
     free(compiler.regs);
     free(compiler.resources);
+    free(compiler.samplers);
     free(compiler.controlFlowBlocks);
     ilcSpvFinish(&module);
 
