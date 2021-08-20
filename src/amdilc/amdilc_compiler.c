@@ -2651,8 +2651,16 @@ IlcShader ilcCompileKernel(
 
     emitImplicitInputs(&compiler);
     emitFunc(&compiler, compiler.entryPointId);
-    for (int i = 0; i < kernel->instrCount; i++) {
-        emitInstr(&compiler, &kernel->instrs[i]);
+
+    if (compiler.kernel->shaderType == IL_SHADER_HULL ||
+        compiler.kernel->shaderType == IL_SHADER_DOMAIN) {
+        LOGW("unhandled hull/domain shader type\n");
+        ilcSpvPutReturn(compiler.module);
+        ilcSpvPutFunctionEnd(compiler.module);
+    } else {
+        for (int i = 0; i < kernel->instrCount; i++) {
+            emitInstr(&compiler, &kernel->instrs[i]);
+        }
     }
 
     emitEntryPoint(&compiler);
