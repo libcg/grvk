@@ -2562,9 +2562,11 @@ static void emitEntryPoint(
         break;
     case IL_SHADER_HULL:
         execution = SpvExecutionModelTessellationControl;
+        ilcSpvPutCapability(compiler->module, SpvCapabilityTessellation);
         break;
     case IL_SHADER_DOMAIN:
         execution = SpvExecutionModelTessellationEvaluation;
+        ilcSpvPutCapability(compiler->module, SpvCapabilityTessellation);
         break;
     }
 
