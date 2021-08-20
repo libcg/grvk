@@ -250,7 +250,10 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId imageId,
-    IlcSpvId coordinateId);
+    IlcSpvId coordinateId,
+    SpvImageOperandsMask mask,
+    unsigned operandIdCount,
+    const IlcSpvId* operandIds);
 
 IlcSpvId ilcSpvPutImageRead(
     IlcSpvModule* module,

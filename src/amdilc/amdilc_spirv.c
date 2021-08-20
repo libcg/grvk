@@ -723,16 +723,26 @@ IlcSpvId ilcSpvPutImageFetch(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId imageId,
-    IlcSpvId coordinateId)
+    IlcSpvId coordinateId,
+    SpvImageOperandsMask mask,
+    unsigned operandIdCount,
+    const IlcSpvId* operandIds)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    unsigned length = 5 + (mask != 0) + operandIdCount;
 
     IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, SpvOpImageFetch, 5);
+    putInstr(buffer, SpvOpImageFetch, length);
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, imageId);
     putWord(buffer, coordinateId);
+    if (mask != 0) {
+        putWord(buffer, mask);
+    }
+    for (unsigned i = 0; i < operandIdCount; i++) {
+        putWord(buffer, operandIds[i]);
+    }
     return id;
 }
 

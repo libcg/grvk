@@ -109,6 +109,7 @@ static unsigned getResourceDimensionCount(
     case IL_USAGE_PIXTEX_BUFFER:
         return 1;
     case IL_USAGE_PIXTEX_2D:
+    case IL_USAGE_PIXTEX_2DMSAA:
     case IL_USAGE_PIXTEX_1DARRAY:
         return 2;
     case IL_USAGE_PIXTEX_3D:
@@ -134,6 +135,7 @@ static SpvDim getSpvDimension(
                             isSampled ? SpvCapabilitySampled1D : SpvCapabilityImage1D);
         return SpvDim1D;
     case IL_USAGE_PIXTEX_2D:
+    case IL_USAGE_PIXTEX_2DMSAA:
     case IL_USAGE_PIXTEX_2DARRAY:
         return SpvDim2D;
     case IL_USAGE_PIXTEX_3D:
@@ -155,6 +157,13 @@ static bool isArrayed(
 {
     return ilType == IL_USAGE_PIXTEX_1DARRAY ||
            ilType == IL_USAGE_PIXTEX_2DARRAY ||
+           ilType == IL_USAGE_PIXTEX_2DARRAYMSAA;
+}
+
+static bool isMultisampled(
+    uint8_t ilType)
+{
+    return ilType == IL_USAGE_PIXTEX_2DMSAA ||
            ilType == IL_USAGE_PIXTEX_2DARRAYMSAA;
 }
 
@@ -1017,7 +1026,8 @@ static void emitResource(
     }
 
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim,
-                                          0, isArrayed(type), 0, 1, spvImageFormat);
+                                          0, isArrayed(type), isMultisampled(type), 1,
+                                          spvImageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -1081,7 +1091,8 @@ static void emitTypedUav(
     }
 
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim,
-                                          0, isArrayed(type), 0, 2, spvImageFormat);
+                                          0, isArrayed(type), isMultisampled(type), 2,
+                                          spvImageFormat);
     IlcSpvId pImageId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniformConstant,
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
@@ -1900,9 +1911,21 @@ static void emitLoad(
     }
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+
+    SpvImageOperandsMask operandsMask = 0;
+    unsigned operandIdCount = 0;
+    IlcSpvId operandIds[2];
+
+    if (resource->ilType == IL_USAGE_PIXTEX_2DMSAA) {
+        // Sample number is stored in src.w
+        operandsMask |= SpvImageOperandsSampleMask;
+        operandIds[0] = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_W, 1);
+        operandIdCount++;
+    }
+
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId fetchId = ilcSpvPutImageFetch(compiler->module, resource->texelTypeId, resourceId,
-                                           srcId);
+                                           srcId, operandsMask, operandIdCount, operandIds);
     storeDestination(compiler, dst, fetchId, resource->texelTypeId);
 }
 
