@@ -70,7 +70,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "39?",
     "40?",
     "vTidInGrp",
-    "42?",
+    "vTidInGrpFlat",
     "vAbsTid",
     "44?",
     "vThreadGrpID",

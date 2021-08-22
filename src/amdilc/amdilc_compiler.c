@@ -2408,8 +2408,12 @@ static void emitImplicitInput(
     const char* name)
 {
     IlcSpvId componentTypeId = compiler->uintId;
-    IlcSpvId inputTypeId = ilcSpvPutVectorType(compiler->module, componentTypeId,
-                                               componentCount);
+    IlcSpvId inputTypeId;
+    if (componentCount == 1) {
+        inputTypeId = componentTypeId;
+    } else {
+        inputTypeId = ilcSpvPutVectorType(compiler->module, componentTypeId, componentCount);
+    }
     IlcSpvId inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
     IlcSpvWord builtInType = spvBuiltIn;
@@ -2436,6 +2440,8 @@ static void emitImplicitInputs(
         // TODO declare on-demand
         emitImplicitInput(compiler, SpvBuiltInLocalInvocationId, IL_REGTYPE_THREAD_ID_IN_GROUP,
                           3, "vTidInGrp");
+        emitImplicitInput(compiler, SpvBuiltInLocalInvocationIndex,
+                          IL_REGTYPE_THREAD_ID_IN_GROUP_FLAT, 1, "vTidInGrpFlat");
         emitImplicitInput(compiler, SpvBuiltInGlobalInvocationId, IL_REGTYPE_ABSOLUTE_THREAD_ID,
                           3, "vAbsTid");
         emitImplicitInput(compiler, SpvBuiltInWorkgroupId, IL_REGTYPE_THREAD_GROUP_ID,
