@@ -840,6 +840,19 @@ static void dumpInstruction(
     case IL_OP_U_BIT_INSERT:
         fprintf(file, "ubit_insert");
         break;
+    case IL_OP_FETCH4_C:
+        if (GET_BITS(instr->control, 12, 15) & 0xD) {
+            LOGW("unhandled fetch4c flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "fetch4c_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        if (instr->addressOffset != 0) {
+            fprintf(file, "_addroffimmi(%g,%g,%g)",
+                    (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f,
+                    (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f,
+                    (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f);
+        }
+        break;
     case IL_OP_F_2_F16:
         fprintf(file, "f2f16");
         break;
