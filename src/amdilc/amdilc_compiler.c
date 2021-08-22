@@ -924,22 +924,28 @@ static void emitInput(
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
-    } else if (importUsage == IL_IMPORTUSAGE_VERTEXID ||
+    } else if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID ||
+               importUsage == IL_IMPORTUSAGE_VERTEXID ||
                importUsage == IL_IMPORTUSAGE_INSTANCEID ||
-               importUsage == IL_IMPORTUSAGE_PRIMITIVEID) {
+               importUsage == IL_IMPORTUSAGE_SAMPLE_INDEX) {
         inputComponentTypeId = compiler->intId;
         inputComponentCount = 1;
         inputTypeId = compiler->intId;
         inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
         IlcSpvWord builtInType = 0;
-        if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
+        if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID) {
+            builtInType = SpvBuiltInPrimitiveId;
+            ilcSpvPutCapability(compiler->module, SpvCapabilityGeometry);
+        } else if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
             builtInType = SpvBuiltInVertexIndex;
         } else if (importUsage == IL_IMPORTUSAGE_INSTANCEID) {
             builtInType = SpvBuiltInInstanceIndex;
+        } else if (importUsage == IL_IMPORTUSAGE_SAMPLE_INDEX) {
+            builtInType = SpvBuiltInSampleId;
+            ilcSpvPutCapability(compiler->module, SpvCapabilitySampleRateShading);
         } else {
-            ilcSpvPutCapability(compiler->module, SpvCapabilityGeometry);
-            builtInType = SpvBuiltInPrimitiveId;
+            assert(false);
         }
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
     } else {
