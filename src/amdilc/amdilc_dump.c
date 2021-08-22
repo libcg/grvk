@@ -63,7 +63,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "l",
     "v",
     "o",
-    "35?",
+    "icb",
     "36?",
     "37?",
     "38?",
@@ -373,6 +373,7 @@ static void dumpSource(
 
     if (src->registerType == IL_REGTYPE_ITEMP ||
         src->registerType == IL_REGTYPE_CONST_BUFF ||
+        src->registerType == IL_REGTYPE_IMMED_CONST_BUFF ||
         src->registerType == IL_REGTYPE_INPUTCP) {
         assert(srcCount <= 1);
 
