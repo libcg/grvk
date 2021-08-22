@@ -113,6 +113,7 @@ static unsigned getResourceDimensionCount(
     case IL_USAGE_PIXTEX_1DARRAY:
         return 2;
     case IL_USAGE_PIXTEX_3D:
+    case IL_USAGE_PIXTEX_CUBEMAP:
     case IL_USAGE_PIXTEX_2DARRAY:
         return 3;
     default:
@@ -140,6 +141,8 @@ static SpvDim getSpvDimension(
         return SpvDim2D;
     case IL_USAGE_PIXTEX_3D:
         return SpvDim3D;
+    case IL_USAGE_PIXTEX_CUBEMAP:
+        return SpvDimCube;
     case IL_USAGE_PIXTEX_BUFFER:
         ilcSpvPutCapability(compiler->module,
                             isSampled ? SpvCapabilitySampledBuffer : SpvCapabilityImageBuffer);
