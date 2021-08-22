@@ -90,6 +90,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_COS_VEC] = { IL_OP_COS_VEC, 1, 1, 0 },
     [IL_OP_SQRT_VEC] = { IL_OP_SQRT_VEC, 1, 1, 0 },
     [IL_OP_DP2] = { IL_OP_DP2, 1, 2, 0 },
+    [IL_OP_FETCH4] = { IL_OP_FETCH4, 1, 1, 0 },
     [IL_OP_DCL_NUM_THREAD_PER_GROUP] = { IL_OP_DCL_NUM_THREAD_PER_GROUP, 0, 0, 0 },
     [IL_OP_FENCE] = { IL_OP_FENCE, 0, 0, 0 },
     [IL_OP_LDS_LOAD_VEC] = { IL_OP_LDS_LOAD_VEC, 1, 2, 0 },
@@ -132,6 +133,7 @@ static bool hasIndexedResourceSampler(
            instr->opcode == IL_OP_SAMPLE_G ||
            instr->opcode == IL_OP_SAMPLE_L ||
            instr->opcode == IL_OP_SAMPLE_C_LZ ||
+           instr->opcode == IL_OP_FETCH4 ||
            instr->opcode == IL_OP_FETCH4_C;
 }
 

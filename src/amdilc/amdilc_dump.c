@@ -755,6 +755,19 @@ static void dumpInstruction(
     case IL_OP_DP2:
         fprintf(file, "dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
+    case IL_OP_FETCH4:
+        if (GET_BITS(instr->control, 12, 15) & 0xD) {
+            LOGW("unhandled fetch4 flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "fetch4_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        if (instr->addressOffset != 0) {
+            fprintf(file, "_addroffimmi(%g,%g,%g)",
+                    (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f,
+                    (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f,
+                    (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f);
+        }
+        break;
     case IL_OP_DCL_NUM_THREAD_PER_GROUP:
         fprintf(file, "dcl_num_thread_per_group");
         for (int i = 0; i < instr->extraCount; i++) {
