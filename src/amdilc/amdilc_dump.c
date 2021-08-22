@@ -788,6 +788,9 @@ static void dumpInstruction(
     case IL_OP_UAV_STORE:
         fprintf(file, "uav_store_id(%u)", GET_BITS(instr->control, 0, 13));
         break;
+    case IL_OP_UAV_STRUCT_STORE:
+        fprintf(file, "uav_struct_store_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
     case IL_OP_UAV_ADD:
         fprintf(file, "uav_add_id(%u)", GET_BITS(instr->control, 0, 13));
         break;
