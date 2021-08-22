@@ -2073,6 +2073,72 @@ static void emitSample(
     }
 }
 
+static void emitFetch4(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
+    uint8_t ilSamplerId = GET_BITS(instr->control, 8, 11);
+    // TODO handle indexed args
+
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
+    const IlcSampler* sampler = findOrCreateSampler(compiler, ilSamplerId);
+    const Destination* dst = &instr->dsts[0];
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    unsigned dimCount = getResourceDimensionCount(resource->ilType);
+    IlcSpvWord sampleOp = 0;
+    IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
+                                       compiler->float4Id);
+    IlcSpvId drefId = 0;
+    SpvImageOperandsMask operandsMask = 0;
+    unsigned operandIdCount = 0;
+    IlcSpvId operandIds[2];
+
+    if (instr->opcode == IL_OP_FETCH4_C) {
+        sampleOp = SpvOpImageDrefGather;
+        drefId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        drefId = emitVectorTrim(compiler, drefId, compiler->float4Id, COMP_INDEX_X, 1);
+    } else {
+        assert(false);
+    }
+
+    if (instr->addressOffset != 0) {
+        float u = (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f;
+        float v = (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f;
+        float w = (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f;
+        if (u != (int)u || v != (int)v || w != (int)w) {
+            LOGW("non-integer offsets %g %g %g\n", u, v, w);
+        }
+        operandsMask |= SpvImageOperandsConstOffsetMask;
+        const IlcSpvId constantIds[] = {
+            ilcSpvPutConstant(compiler->module, compiler->intId, u),
+            ilcSpvPutConstant(compiler->module, compiler->intId, v),
+            ilcSpvPutConstant(compiler->module, compiler->intId, w),
+        };
+        IlcSpvId offsetsTypeId = ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
+        IlcSpvId offsetsId = ilcSpvPutConstantComposite(compiler->module, offsetsTypeId,
+                                                        dimCount, constantIds);
+        operandIds[0] = offsetsId;
+        operandIdCount++;
+    }
+
+    IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
+    IlcSpvId samplerTypeId = ilcSpvPutSamplerType(compiler->module);
+    IlcSpvId samplerId = ilcSpvPutLoad(compiler->module, samplerTypeId, sampler->id);
+    IlcSpvId sampledImageTypeId = ilcSpvPutSampledImageType(compiler->module, resource->typeId);
+    IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId,
+                                                    resourceId, samplerId);
+    IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, resource->texelTypeId,
+                                             sampledImageId, coordinateId, drefId, operandsMask,
+                                             operandIdCount, operandIds);
+    storeDestination(compiler, dst, sampleId, resource->texelTypeId);
+}
+
 static void emitLdsLoadVec(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2510,6 +2576,9 @@ static void emitInstr(
     case IL_OP_SAMPLE_L:
     case IL_OP_SAMPLE_C_LZ:
         emitSample(compiler, instr);
+        break;
+    case IL_OP_FETCH4_C:
+        emitFetch4(compiler, instr);
         break;
     case IL_OP_CMOV_LOGICAL:
         emitCmovLogical(compiler, instr);
