@@ -686,6 +686,9 @@ static void dumpInstruction(
     case IL_OP_U_MOD:
         fprintf(file, "umod");
         break;
+    case IL_OP_U_MIN:
+        fprintf(file, "umin");
+        break;
     case IL_OP_U_LT:
         fprintf(file, "ult");
         break;
