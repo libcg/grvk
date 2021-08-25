@@ -307,8 +307,12 @@ unsigned getVkFormatTileSize(
     case VK_FORMAT_R32_SFLOAT:
     case VK_FORMAT_R32G32B32A32_SFLOAT:
         return 1;
-    case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+    case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+    case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+    case VK_FORMAT_BC3_UNORM_BLOCK:
+    case VK_FORMAT_BC3_SRGB_BLOCK:
     case VK_FORMAT_BC4_UNORM_BLOCK:
+    case VK_FORMAT_BC5_UNORM_BLOCK:
     case VK_FORMAT_BC7_UNORM_BLOCK:
         return 4;
     default:
