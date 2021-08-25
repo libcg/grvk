@@ -653,7 +653,7 @@ static void storeDestination(
         return;
     }
 
-    if (typeId != reg->typeId) {
+    if (typeId != reg->typeId && reg->componentCount == 4) {
         // Need to cast to the expected type
         varId = ilcSpvPutBitcast(compiler->module, reg->typeId, varId);
     }
@@ -699,17 +699,23 @@ static void storeDestination(
 
     if (dst->component[0] == IL_MODCOMP_NOWRITE || dst->component[1] == IL_MODCOMP_NOWRITE ||
         dst->component[2] == IL_MODCOMP_NOWRITE || dst->component[3] == IL_MODCOMP_NOWRITE) {
-        // Select components from {dst.x, dst.y, dst.z, dst.w, x, y, z, w}
-        IlcSpvId origId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
+        if (reg->componentCount == 1) {
+            // Nothing to do
+        } else if (reg->componentCount == 4) {
+            // Select components from {dst.x, dst.y, dst.z, dst.w, x, y, z, w}
+            IlcSpvId origId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
 
-        const IlcSpvWord components[] = {
-            dst->component[0] == IL_MODCOMP_NOWRITE ? 0 : 4,
-            dst->component[1] == IL_MODCOMP_NOWRITE ? 1 : 5,
-            dst->component[2] == IL_MODCOMP_NOWRITE ? 2 : 6,
-            dst->component[3] == IL_MODCOMP_NOWRITE ? 3 : 7,
-        };
-        varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, origId, varId,
-                                       4, components);
+            const IlcSpvWord components[] = {
+                dst->component[0] == IL_MODCOMP_NOWRITE ? 0 : 4,
+                dst->component[1] == IL_MODCOMP_NOWRITE ? 1 : 5,
+                dst->component[2] == IL_MODCOMP_NOWRITE ? 2 : 6,
+                dst->component[3] == IL_MODCOMP_NOWRITE ? 3 : 7,
+            };
+            varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, origId, varId,
+                                           4, components);
+        } else {
+            LOGW("unhandled write mask for component count %u\n", reg->componentCount);
+        }
     }
 
     if ((dst->component[0] == IL_MODCOMP_0 || dst->component[0] == IL_MODCOMP_1) ||
@@ -727,6 +733,10 @@ static void storeDestination(
         };
         varId = ilcSpvPutVectorShuffle(compiler->module, reg->typeId, varId, zeroOneId,
                                        4, components);
+    }
+
+    if (reg->componentCount < 4) {
+        varId = emitVectorTrim(compiler, varId, typeId, 0, reg->componentCount);
     }
 
     ilcSpvPutStore(compiler->module, ptrId, varId);
@@ -825,16 +835,7 @@ static void emitOutput(
 {
     uint8_t importUsage = GET_BITS(instr->control, 0, 4);
 
-    assert(instr->dstCount == 1 &&
-           instr->srcCount == 0 &&
-           instr->extraCount == 0);
-
     const Destination* dst = &instr->dsts[0];
-
-    assert(dst->registerType == IL_REGTYPE_OUTPUT &&
-           !dst->clamp &&
-           dst->shiftScale == IL_SHIFT_NONE);
-
     const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
         // Outputs are allowed to be redeclared with different components.
@@ -848,8 +849,28 @@ static void emitOutput(
         }
     }
 
-    IlcSpvId outputTypeId = compiler->float4Id;
-    IlcSpvId outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
+    IlcSpvId outputId = 0;
+    IlcSpvId outputTypeId = 0;
+    unsigned outputComponentCount = 0;
+    const char* outputPrefix = NULL;
+
+    if (dst->registerType == IL_REGTYPE_OUTPUT) {
+        outputTypeId = compiler->float4Id;
+        outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
+        outputComponentCount = 4;
+        outputPrefix = "o";
+    } else if (dst->registerType == IL_REGTYPE_DEPTH) {
+        outputTypeId = compiler->floatId;
+        outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
+        outputComponentCount = 1;
+        outputPrefix = "oDepth";
+
+        IlcSpvWord builtInType = SpvBuiltInFragDepth;
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
+    } else {
+        LOGW("unhandled output register type\n");
+        assert(false);
+    }
 
     if (importUsage == IL_IMPORTUSAGE_POS) {
         IlcSpvWord builtInType = SpvBuiltInPosition;
@@ -865,14 +886,14 @@ static void emitOutput(
         .id = outputId,
         .typeId = outputTypeId,
         .componentTypeId = compiler->floatId,
-        .componentCount = 4,
+        .componentCount = outputComponentCount,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
         .ilInterpMode = 0,
     };
 
-    addRegister(compiler, &reg, "o");
+    addRegister(compiler, &reg, outputPrefix);
 }
 
 static void emitInput(

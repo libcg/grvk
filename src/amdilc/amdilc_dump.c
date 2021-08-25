@@ -54,7 +54,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "23?",
     "24?",
     "25?",
-    "26?",
+    "oDepth",
     "27?",
     "28?",
     "29?",
