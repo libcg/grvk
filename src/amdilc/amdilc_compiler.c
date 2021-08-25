@@ -1125,6 +1125,41 @@ static void emitTypedUav(
     addResource(compiler, &resource);
 }
 
+static void emitUav(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint16_t id = GET_BITS(instr->control, 0, 13);
+
+    IlcSpvId arrayId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->floatId, true);
+    IlcSpvId structId = ilcSpvPutStructType(compiler->module, 1, &arrayId);
+    IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                              structId);
+    IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pointerId,
+                                            SpvStorageClassStorageBuffer);
+
+    IlcSpvWord arrayStride = sizeof(float);
+    IlcSpvWord memberOffset = 0;
+    ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationArrayStride, 1, &arrayStride);
+    ilcSpvPutDecoration(compiler->module, structId, SpvDecorationBlock, 0, NULL);
+    ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset, 1, &memberOffset);
+
+    ilcSpvPutName(compiler->module, arrayId, "structUav");
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+
+    const IlcResource resource = {
+        .resType = RES_TYPE_GENERIC,
+        .id = resourceId,
+        .typeId = arrayId,
+        .texelTypeId = compiler->floatId,
+        .ilId = id,
+        .ilType = IL_USAGE_PIXTEX_UNKNOWN,
+        .strideId = instr->extras[0],
+    };
+
+    addResource(compiler, &resource);
+}
+
 static void emitSrv(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2612,6 +2647,9 @@ static void emitInstr(
     case IL_OP_DCL_UAV:
     case IL_OP_DCL_TYPED_UAV:
         emitTypedUav(compiler, instr);
+        break;
+    case IL_OP_DCL_TYPELESS_UAV:
+        emitUav(compiler, instr);
         break;
     case IL_OP_UAV_LOAD:
         emitUavLoad(compiler, instr);

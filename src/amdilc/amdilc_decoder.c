@@ -121,7 +121,8 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_F_2_F16] = { IL_OP_F_2_F16, 1, 1, 0 },
     [IL_OP_F16_2_F] = { IL_OP_F16_2_F, 1, 1, 0 },
     [IL_DCL_GLOBAL_FLAGS] = { IL_DCL_GLOBAL_FLAGS, 0, 0, 0 },
-    [IL_OP_DCL_TYPED_UAV] = { IL_OP_DCL_TYPED_UAV, 0, 0, 1 }, // FIXME undocumented
+    [IL_OP_DCL_TYPED_UAV] = { IL_OP_DCL_TYPED_UAV, 0, 0, 1 }, // Undocumented
+    [IL_OP_DCL_TYPELESS_UAV] = { IL_OP_DCL_TYPELESS_UAV, 0, 0, 2 }, // Undocumented
     [IL_UNK_660] = { IL_UNK_660, 1, 0, 0 }, // FIXME undocumented
 };
 

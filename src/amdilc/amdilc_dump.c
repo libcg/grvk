@@ -887,10 +887,21 @@ static void dumpInstruction(
         break;
     case IL_OP_DCL_TYPED_UAV:
         // FIXME guessed from IL_OP_DCL_UAV
+        if (GET_BITS(instr->extras[0], 8, 31)) {
+            LOGW("unhandled dcl_typed_uav bits 0x%X\n", instr->extras[0]);
+        }
         fprintf(file, "dcl_typed_uav_id(%u)_type(%s)_fmtx(%s)",
                 GET_BITS(instr->control, 0, 13),
                 mIlPixTexUsageNames[GET_BITS(instr->extras[0], 4, 7)],
                 mIlElementFormatNames[GET_BITS(instr->extras[0], 0, 3)]);
+        break;
+    case IL_OP_DCL_TYPELESS_UAV:
+        // FIXME guessed
+        if (GET_BITS(instr->extras[0], 8, 31) || instr->extras[1]) {
+            LOGW("unhandled dcl_typed_uav bits 0x%X 0x%X\n", instr->extras[0], instr->extras[1]);
+        }
+        fprintf(file, "dcl_typeless_uav_id(%u)_stride(%u)_length(?)_access(?)",
+                GET_BITS(instr->control, 0, 13), instr->extras[0]);
         break;
     case IL_UNK_660:
         fprintf(file, "unk_%u", instr->opcode);
