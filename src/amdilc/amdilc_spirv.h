@@ -242,7 +242,7 @@ IlcSpvId ilcSpvPutImageSample(
     IlcSpvId resultTypeId,
     IlcSpvId sampledImageId,
     IlcSpvId coordinateId,
-    IlcSpvId drefId,
+    IlcSpvId argId,
     SpvImageOperandsMask mask,
     unsigned operandIdCount,
     const IlcSpvId* operandIds);

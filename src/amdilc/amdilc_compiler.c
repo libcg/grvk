@@ -2136,15 +2136,19 @@ static void emitFetch4(
     IlcSpvWord sampleOp = 0;
     IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
                                        compiler->float4Id);
-    IlcSpvId drefId = 0;
+    IlcSpvId argId = 0;
     SpvImageOperandsMask operandsMask = 0;
     unsigned operandIdCount = 0;
     IlcSpvId operandIds[2];
 
-    if (instr->opcode == IL_OP_FETCH4_C) {
+    if (instr->opcode == IL_OP_FETCH4) {
+        sampleOp = SpvOpImageGather;
+        // Component index is stored in optional primary modifier
+        argId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->primModifier);
+    } else if (instr->opcode == IL_OP_FETCH4_C) {
         sampleOp = SpvOpImageDrefGather;
-        drefId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
-        drefId = emitVectorTrim(compiler, drefId, compiler->float4Id, COMP_INDEX_X, 1);
+        IlcSpvId drefId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        argId = emitVectorTrim(compiler, drefId, compiler->float4Id, COMP_INDEX_X, 1);
     } else {
         assert(false);
     }
@@ -2176,7 +2180,7 @@ static void emitFetch4(
     IlcSpvId sampledImageId = ilcSpvPutSampledImage(compiler->module, sampledImageTypeId,
                                                     resourceId, samplerId);
     IlcSpvId sampleId = ilcSpvPutImageSample(compiler->module, sampleOp, resource->texelTypeId,
-                                             sampledImageId, coordinateId, drefId, operandsMask,
+                                             sampledImageId, coordinateId, argId, operandsMask,
                                              operandIdCount, operandIds);
     storeDestination(compiler, dst, sampleId, resource->texelTypeId);
 }
@@ -2626,6 +2630,7 @@ static void emitInstr(
     case IL_OP_SAMPLE_C_LZ:
         emitSample(compiler, instr);
         break;
+    case IL_OP_FETCH4:
     case IL_OP_FETCH4_C:
         emitFetch4(compiler, instr);
         break;

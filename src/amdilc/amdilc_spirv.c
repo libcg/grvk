@@ -697,13 +697,13 @@ IlcSpvId ilcSpvPutImageSample(
     IlcSpvId resultTypeId,
     IlcSpvId sampledImageId,
     IlcSpvId coordinateId,
-    IlcSpvId drefId,
+    IlcSpvId argId,
     SpvImageOperandsMask mask,
     unsigned operandIdCount,
     const IlcSpvId* operandIds)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
-    unsigned length = 5 + (drefId != 0) + (mask != 0) + operandIdCount;
+    unsigned length = 5 + (argId != 0) + (mask != 0) + operandIdCount;
 
     IlcSpvId id = ilcSpvAllocId(module);
     putInstr(buffer, sampleOp, length);
@@ -711,8 +711,8 @@ IlcSpvId ilcSpvPutImageSample(
     putWord(buffer, id);
     putWord(buffer, sampledImageId);
     putWord(buffer, coordinateId);
-    if (drefId != 0) {
-        putWord(buffer, drefId);
+    if (argId != 0) {
+        putWord(buffer, argId);
     }
     if (mask != 0) {
         putWord(buffer, mask);

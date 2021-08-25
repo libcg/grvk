@@ -759,11 +759,14 @@ static void dumpInstruction(
         fprintf(file, "dp2%s", GET_BIT(instr->control, 0) ? "_ieee" : "");
         break;
     case IL_OP_FETCH4:
-        if (GET_BITS(instr->control, 12, 15) & 0xD) {
+        if (GET_BIT(instr->control, 12) || GET_BIT(instr->control, 14)) {
             LOGW("unhandled fetch4 flags 0x%X\n", instr->control);
         }
         fprintf(file, "fetch4_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        if (instr->primModifier != 0) {
+            fprintf(file, "_compselect(%s)", mIlComponentSelectNames[instr->primModifier]);
+        }
         if (instr->addressOffset != 0) {
             fprintf(file, "_addroffimmi(%g,%g,%g)",
                     (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f,
