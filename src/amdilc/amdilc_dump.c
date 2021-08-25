@@ -647,11 +647,20 @@ static void dumpInstruction(
     case IL_OP_I_OR:
         fprintf(file, "ior");
         break;
+    case IL_OP_I_XOR:
+        fprintf(file, "ixor");
+        break;
     case IL_OP_I_ADD:
         fprintf(file, "iadd");
         break;
     case IL_OP_I_MAD:
         fprintf(file, "imad");
+        break;
+    case IL_OP_I_MAX:
+        fprintf(file, "imax");
+        break;
+    case IL_OP_I_MIN:
+        fprintf(file, "imin");
         break;
     case IL_OP_I_MUL:
         fprintf(file, "imul");

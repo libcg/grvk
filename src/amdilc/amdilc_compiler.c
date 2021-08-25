@@ -1571,6 +1571,10 @@ static void emitIntegerOp(
         resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseOr, compiler->int4Id,
                              instr->srcCount, srcIds);
         break;
+    case IL_OP_I_XOR:
+        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseXor, compiler->int4Id,
+                             instr->srcCount, srcIds);
+        break;
     case IL_OP_I_ADD:
         resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id,
                              instr->srcCount, srcIds);
@@ -1580,6 +1584,14 @@ static void emitIntegerOp(
         IlcSpvId addIds[] = { mulId, srcIds[2] };
         resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id, 2, addIds);
     } break;
+    case IL_OP_I_MAX:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450SMax, compiler->int4Id,
+                                instr->srcCount, srcIds);
+        break;
+    case IL_OP_I_MIN:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450SMin, compiler->int4Id,
+                                instr->srcCount, srcIds);
+        break;
     case IL_OP_I_MUL:
         resId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->int4Id,
                              instr->srcCount, srcIds);
@@ -2561,8 +2573,11 @@ static void emitInstr(
         break;
     case IL_OP_I_NOT:
     case IL_OP_I_OR:
+    case IL_OP_I_XOR:
     case IL_OP_I_ADD:
     case IL_OP_I_MAD:
+    case IL_OP_I_MAX:
+    case IL_OP_I_MIN:
     case IL_OP_I_MUL:
     case IL_OP_I_NEGATE:
     case IL_OP_I_SHL:
