@@ -18,6 +18,9 @@ typedef enum {
 
     // Command buffer reset before completion
     QUIRK_INVALID_CMD_BUFFER_RESET = 16,
+
+    // Cubemap layer index and count are divided by 6
+    QUIRK_CUBEMAP_LAYER_DIV_6 = 32,
 } QUIRK_FLAGS;
 
 void quirkInit(

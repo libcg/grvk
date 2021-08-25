@@ -146,6 +146,6 @@ VkImageSubresourceLayers getVkImageSubresourceLayers(
 
 VkImageSubresourceRange getVkImageSubresourceRange(
     GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
-    bool isCubemap);
+    bool multiplyCubeLayers);
 
 #endif // MANTLE_INTERNAL_H_

@@ -966,9 +966,9 @@ VkImageSubresourceLayers getVkImageSubresourceLayers(
 
 VkImageSubresourceRange getVkImageSubresourceRange(
     GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
-    bool isCubemap)
+    bool multiplyCubeLayers)
 {
-    unsigned layerFactor = isCubemap ? 6 : 1;
+    unsigned layerFactor = multiplyCubeLayers ? 6 : 1;
 
     return (VkImageSubresourceRange) {
         .aspectMask = getVkImageAspectFlags(subresourceRange.aspect),

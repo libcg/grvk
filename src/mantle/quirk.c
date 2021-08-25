@@ -10,7 +10,8 @@ void quirkInit(
                   QUIRK_READ_ONLY_IMAGE_BOUND_TO_UAV |
                   QUIRK_IMAGE_WRONG_CLEAR_STATE |
                   QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS |
-                  QUIRK_INVALID_CMD_BUFFER_RESET;
+                  QUIRK_INVALID_CMD_BUFFER_RESET |
+                  QUIRK_CUBEMAP_LAYER_DIV_6;
     }
 
     if (mQuirks != 0) {
