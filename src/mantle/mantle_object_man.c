@@ -185,43 +185,68 @@ GR_RESULT grBindObjectMemory(
         return GR_ERROR_INVALID_HANDLE;
     }
 
-    GrObjectType objType = GET_OBJ_TYPE(grObject);
+    if (grGpuMemory != NULL) {
+        // Bind memory
+        GrObjectType objType = GET_OBJ_TYPE(grObject);
 
-    switch (objType) {
-    case GR_OBJ_TYPE_IMAGE: {
-        GrImage* grImage = (GrImage*)grObject;
-        GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
+        switch (objType) {
+        case GR_OBJ_TYPE_IMAGE: {
+            GrImage* grImage = (GrImage*)grObject;
+            GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
-        if (grImage->image != VK_NULL_HANDLE) {
-            vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
-                                          grGpuMemory->deviceMemory, offset);
-        } else {
-            vkRes = VKD.vkBindBufferMemory(grDevice->device, grImage->buffer,
-                                           grGpuMemory->deviceMemory, offset);
+            if (grImage->image != VK_NULL_HANDLE) {
+                vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
+                                              grGpuMemory->deviceMemory, offset);
+            } else {
+                vkRes = VKD.vkBindBufferMemory(grDevice->device, grImage->buffer,
+                                               grGpuMemory->deviceMemory, offset);
+            }
+        }   break;
+        case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
+        case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
+        case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
+        case GR_OBJ_TYPE_DESCRIPTOR_SET:
+        case GR_OBJ_TYPE_IMAGE_VIEW:
+        case GR_OBJ_TYPE_PIPELINE:
+            // Nothing to do
+            break;
+        default:
+            LOGW("unsupported object type %d\n", objType);
+            return GR_ERROR_UNAVAILABLE;
         }
-    }   break;
-    case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
-    case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
-    case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
-    case GR_OBJ_TYPE_DESCRIPTOR_SET:
-    case GR_OBJ_TYPE_IMAGE_VIEW:
-    case GR_OBJ_TYPE_PIPELINE:
-        // Nothing to do
-        break;
-    default:
-        LOGW("unsupported object type %d\n", objType);
-        return GR_ERROR_UNAVAILABLE;
+
+        EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
+        grGpuMemory->boundObjectCount++;
+        grGpuMemory->boundObjects = realloc(grGpuMemory->boundObjects,
+                                            grGpuMemory->boundObjectCount * sizeof(GrObject*));
+        grGpuMemory->boundObjects[grGpuMemory->boundObjectCount - 1] = grObject;
+        LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
+
+        if (grObject->grGpuMemory != NULL) {
+            LOGW("re-bound object\n");
+        }
+        grObject->grGpuMemory = grGpuMemory;
+
+        if (vkRes != VK_SUCCESS) {
+            LOGW("binding failed (%d)\n", objType);
+        }
+    } else {
+        // Unbind memory.. sort of
+        grGpuMemory = grObject->grGpuMemory;
+        grObject->grGpuMemory = NULL;
+
+        EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
+        for (unsigned i = 0; i < grGpuMemory->boundObjectCount; i++) {
+            if (grGpuMemory->boundObjects[i] == grObject) {
+                // Remove object reference (skipping realloc)
+                memmove(&grGpuMemory->boundObjects[i], &grGpuMemory->boundObjects[i + 1],
+                        (grGpuMemory->boundObjectCount - i - 1) * sizeof(GrObject*));
+                grGpuMemory->boundObjectCount--;
+                i--;
+            }
+        }
+        LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
     }
 
-    EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
-    grGpuMemory->boundObjectCount++;
-    grGpuMemory->boundObjects = realloc(grGpuMemory->boundObjects,
-                                        grGpuMemory->boundObjectCount * sizeof(GrObject*));
-    grGpuMemory->boundObjects[grGpuMemory->boundObjectCount - 1] = grObject;
-    LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
-
-    if (vkRes != VK_SUCCESS) {
-        LOGW("binding failed (%d)\n", objType);
-    }
     return getGrResult(vkRes);
 }

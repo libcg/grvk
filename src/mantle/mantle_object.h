@@ -57,6 +57,7 @@ typedef struct _GrDepthStencilStateObject GrDepthStencilStateObject;
 typedef struct _GrDescriptorSet GrDescriptorSet;
 typedef struct _GrDevice GrDevice;
 typedef struct _GrFence GrFence;
+typedef struct _GrGpuMemory GrGpuMemory;
 typedef struct _GrPipeline GrPipeline;
 typedef struct _GrRasterStateObject GrRasterStateObject;
 typedef struct _GrViewportStateObject GrViewportStateObject;
@@ -116,6 +117,7 @@ typedef struct _GrBaseObject {
 typedef struct _GrObject {
     GrObjectType grObjType;
     GrDevice* grDevice;
+    GrGpuMemory* grGpuMemory;
 } GrObject;
 
 typedef struct _GrBorderColorPalette {
