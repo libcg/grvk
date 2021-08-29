@@ -159,16 +159,6 @@ GR_VOID grCmdCloneImageData(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdUpdateMemory(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset,
-    GR_GPU_SIZE dataSize,
-    const GR_UINT32* pData)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID grCmdMemoryAtomic(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,
