@@ -63,7 +63,7 @@ GR_RESULT grCreateImageView(
         }
     }
 
-    const VkImageViewCreateInfo createInfo = {
+    VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -83,6 +83,13 @@ GR_RESULT grCreateImageView(
         .subresourceRange = getVkImageSubresourceRange(pCreateInfo->subresourceRange,
                                                        pCreateInfo->viewType == GR_IMAGE_VIEW_CUBE),
     };
+
+    if (grImage->format == VK_FORMAT_D32_SFLOAT_S8_UINT &&
+        createInfo.format == VK_FORMAT_R32_SFLOAT) {
+        // Battlefield 4 tries to create an invalid R32 view from a D32S8 image
+        createInfo.format = grImage->format;
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    }
 
     VkResult res = VKD.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
     if (res != VK_SUCCESS) {
