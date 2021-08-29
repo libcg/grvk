@@ -37,6 +37,7 @@ typedef enum _GrObjectType {
     GR_OBJ_TYPE_RASTER_STATE_OBJECT,
     GR_OBJ_TYPE_SAMPLER,
     GR_OBJ_TYPE_SHADER,
+    GR_OBJ_TYPE_QUERY_POOL,
     GR_OBJ_TYPE_QUEUE,
     GR_OBJ_TYPE_VIEWPORT_STATE_OBJECT,
     GR_OBJ_TYPE_WSI_WIN_DISPLAY,
@@ -294,6 +295,11 @@ typedef struct _GrShader {
     unsigned bindingCount;
     IlcBinding* bindings;
 } GrShader;
+
+typedef struct _GrQueryPool {
+    GrObject grObj;
+    VkQueryPool queryPool;
+} GrQueryPool;
 
 typedef struct _GrQueue {
     GrObject grObj; // FIXME base object?

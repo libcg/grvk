@@ -60,15 +60,6 @@ GR_RESULT grLoadPipeline(
 
 // Query and Synchronization Functions
 
-GR_RESULT grCreateQueryPool(
-    GR_DEVICE device,
-    const GR_QUERY_POOL_CREATE_INFO* pCreateInfo,
-    GR_QUERY_POOL* pQueryPool)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT grGetQueryPoolResults(
     GR_QUERY_POOL queryPool,
     GR_UINT startQuery,

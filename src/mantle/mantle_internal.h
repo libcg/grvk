@@ -138,6 +138,9 @@ VkSamplerAddressMode getVkSamplerAddressMode(
 VkBorderColor getVkBorderColor(
     GR_BORDER_COLOR_TYPE borderColorType);
 
+VkQueryType getVkQueryType(
+    GR_QUERY_TYPE queryType);
+
 VkImageSubresource getVkImageSubresource(
     GR_IMAGE_SUBRESOURCE subresource);
 

@@ -949,6 +949,20 @@ VkBorderColor getVkBorderColor(
     return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 }
 
+VkQueryType getVkQueryType(
+    GR_QUERY_TYPE queryType)
+{
+    switch (queryType) {
+    case GR_QUERY_OCCLUSION:
+        return VK_QUERY_TYPE_OCCLUSION;
+    case GR_QUERY_PIPELINE_STATISTICS:
+        return VK_QUERY_TYPE_PIPELINE_STATISTICS;
+    }
+
+    LOGW("unsupported query type 0x%X\n", queryType);
+    return VK_QUERY_TYPE_OCCLUSION;
+}
+
 VkImageSubresource getVkImageSubresource(
     GR_IMAGE_SUBRESOURCE subresource)
 {

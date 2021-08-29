@@ -2,6 +2,63 @@
 
 // Query and Synchronization Functions
 
+GR_RESULT grCreateQueryPool(
+    GR_DEVICE device,
+    const GR_QUERY_POOL_CREATE_INFO* pCreateInfo,
+    GR_QUERY_POOL* pQueryPool)
+{
+    LOGT("%p %p %p\n", device, pCreateInfo, pQueryPool);
+    GrDevice* grDevice = (GrDevice*)device;
+
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pCreateInfo == NULL || pQueryPool == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    } else if (pCreateInfo->slots == 0) {
+        return GR_ERROR_INVALID_VALUE;
+    }
+
+    VkQueryPool vkQueryPool = VK_NULL_HANDLE;
+
+    const VkQueryPoolCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .queryType = getVkQueryType(pCreateInfo->queryType),
+        .queryCount = pCreateInfo->slots,
+        .pipelineStatistics =
+            VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_INVOCATIONS_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_CONTROL_SHADER_PATCHES_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_EVALUATION_SHADER_INVOCATIONS_BIT |
+            VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT,
+    };
+
+    VkResult res = VKD.vkCreateQueryPool(grDevice->device, &createInfo, NULL, &vkQueryPool);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateQueryPool failed (%d)\n", res);
+        return getGrResult(res);
+    }
+
+    GrQueryPool *grQueryPool = malloc(sizeof(GrQueryPool));
+    *grQueryPool = (GrQueryPool) {
+        .grObj = { GR_OBJ_TYPE_QUERY_POOL, grDevice },
+        .queryPool = vkQueryPool,
+    };
+
+    *pQueryPool = (GR_QUERY_POOL)grQueryPool;
+
+    return GR_SUCCESS;
+}
+
 GR_RESULT grCreateFence(
     GR_DEVICE device,
     const GR_FENCE_CREATE_INFO* pCreateInfo,
