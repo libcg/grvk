@@ -859,6 +859,16 @@ static void emitOutput(
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
         outputComponentCount = 4;
         outputPrefix = "o";
+
+        if (importUsage == IL_IMPORTUSAGE_POS) {
+            IlcSpvWord builtInType = SpvBuiltInPosition;
+            ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
+        } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+            IlcSpvWord locationIdx = dst->registerNum;
+            ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
+        } else {
+            LOGW("unhandled import usage %d\n", importUsage);
+        }
     } else if (dst->registerType == IL_REGTYPE_DEPTH) {
         outputTypeId = compiler->floatId;
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
@@ -867,19 +877,13 @@ static void emitOutput(
 
         IlcSpvWord builtInType = SpvBuiltInFragDepth;
         ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
+
+        // TODO explore what Re-Z really means
+        ilcSpvPutExecMode(compiler->module, compiler->entryPointId, SpvExecutionModeDepthReplacing,
+                          0, NULL);
     } else {
         LOGW("unhandled output register type\n");
         assert(false);
-    }
-
-    if (importUsage == IL_IMPORTUSAGE_POS) {
-        IlcSpvWord builtInType = SpvBuiltInPosition;
-        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
-    } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
-        IlcSpvWord locationIdx = dst->registerNum;
-        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
-    } else {
-        LOGW("unhandled import usage %d\n", importUsage);
     }
 
     const IlcRegister reg = {
