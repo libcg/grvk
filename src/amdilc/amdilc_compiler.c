@@ -553,10 +553,21 @@ static IlcSpvId loadSource(
     }
 
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
-    IlcSpvId vec4TypeId = ilcSpvPutVectorType(compiler->module, reg->componentTypeId, 4);
+    IlcSpvId componentTypeId = 0;
 
+    if (reg->componentTypeId == compiler->boolId) {
+        // Promote to float scalar
+        componentTypeId = compiler->floatId;
+        IlcSpvId trueId = ilcSpvPutConstant(compiler->module, componentTypeId, TRUE_LITERAL);
+        IlcSpvId falseId = ilcSpvPutConstant(compiler->module, componentTypeId, FALSE_LITERAL);
+        varId = ilcSpvPutSelect(compiler->module, componentTypeId, varId, trueId, falseId);
+    } else {
+        componentTypeId = reg->componentTypeId;
+    }
+
+    IlcSpvId vec4TypeId = ilcSpvPutVectorType(compiler->module, componentTypeId, 4);
     if (reg->componentCount < 4) {
-        varId = emitVectorGrow(compiler, varId, reg->componentTypeId, reg->componentCount);
+        varId = emitVectorGrow(compiler, varId, componentTypeId, reg->componentCount);
     }
 
     const uint8_t swizzle[] = {
@@ -569,7 +580,7 @@ static IlcSpvId loadSource(
     if (swizzle[0] != IL_COMPSEL_X_R || swizzle[1] != IL_COMPSEL_Y_G ||
         swizzle[2] != IL_COMPSEL_Z_B || swizzle[3] != IL_COMPSEL_W_A) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId zeroOneId = emitZeroOneVector(compiler, reg->componentTypeId);
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler, componentTypeId);
 
         const IlcSpvWord components[] = { swizzle[0], swizzle[1], swizzle[2], swizzle[3] };
         varId = ilcSpvPutVectorShuffle(compiler->module, vec4TypeId, varId, zeroOneId,
@@ -975,6 +986,14 @@ static void emitInput(
         } else {
             assert(false);
         }
+        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
+    } else if (importUsage == IL_IMPORTUSAGE_ISFRONTFACE) {
+        inputComponentTypeId = compiler->boolId;
+        inputComponentCount = 1;
+        inputTypeId = compiler->boolId;
+        inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+
+        IlcSpvWord builtInType = SpvBuiltInFrontFacing;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
     } else {
         LOGW("unhandled import usage %d\n", importUsage);
@@ -1535,14 +1554,10 @@ static void emitFloatComparisonOp(
                                    instr->srcCount, srcIds);
     IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatId, TRUE_LITERAL);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatId, FALSE_LITERAL);
-    const IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
-    const IlcSpvId falseConsistuentIds[] = { falseId, falseId, falseId, falseId };
-    IlcSpvId trueCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
-                                                          4, trueConsistuentIds);
-    IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
-                                                           4, falseConsistuentIds);
-    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
-                                     trueCompositeId, falseCompositeId);
+    IlcSpvId true4Id = emitVectorGrow(compiler, trueId, compiler->floatId, 1);
+    IlcSpvId false4Id = emitVectorGrow(compiler, falseId, compiler->floatId, 1);
+    IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id,
+                                     condId, true4Id, false4Id);
 
     storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
 }
@@ -2722,9 +2737,7 @@ static void emitInstr(
     case IL_UNK_660: {
         // FIXME seems to be some sort of vertex ID offset (as seen in 3DMark), store 0 for now
         IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
-        const IlcSpvWord constituents[] = { zeroId, zeroId, zeroId, zeroId };
-        IlcSpvId zero4Id = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id,
-                                                       4, constituents);
+        IlcSpvId zero4Id = emitVectorGrow(compiler, zeroId, compiler->intId, 1);
         storeDestination(compiler, &instr->dsts[0], zero4Id, compiler->int4Id);
     }   break;
     default:
