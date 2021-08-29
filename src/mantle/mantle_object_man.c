@@ -115,6 +115,8 @@ GR_RESULT grGetObjectInfo(
     }   break;
     case GR_WSI_WIN_INFO_TYPE_QUEUE_PROPERTIES: {
         GR_WSI_WIN_QUEUE_PROPERTIES* grQueueProps = (GR_WSI_WIN_QUEUE_PROPERTIES*)pData;
+        const GrQueue* grQueue = (GrQueue*)grBaseObject;
+        const GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
 
         expectedSize = sizeof(GR_WSI_WIN_QUEUE_PROPERTIES);
 
@@ -127,9 +129,11 @@ GR_RESULT grGetObjectInfo(
         }
 
         // FIXME check queue capability
+        // TODO present from compute
         *grQueueProps = (GR_WSI_WIN_QUEUE_PROPERTIES) {
-            .presentSupport = GR_WSI_WIN_FULLSCREEN_PRESENT_SUPPORTED |
-                              GR_WSI_WIN_WINDOWED_PRESENT_SUPPORTED,
+            .presentSupport = grQueue->queueIndex == grDevice->universalQueueIndex ?
+                              GR_WSI_WIN_FULLSCREEN_PRESENT_SUPPORTED |
+                              GR_WSI_WIN_WINDOWED_PRESENT_SUPPORTED : 0,
         };
     }   break;
     case GR_WSI_WIN_INFO_TYPE_DISPLAY_PROPERTIES: {
