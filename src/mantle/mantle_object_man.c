@@ -100,6 +100,7 @@ GR_RESULT grGetObjectInfo(
         case GR_OBJ_TYPE_DESCRIPTOR_SET:
         case GR_OBJ_TYPE_IMAGE_VIEW:
         case GR_OBJ_TYPE_PIPELINE:
+        case GR_OBJ_TYPE_QUERY_POOL:
             // Mantle spec: "Not all objects have memory requirements, in which case it is valid
             // for the requirements structure to return zero size and alignment, and no heaps."
             *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
