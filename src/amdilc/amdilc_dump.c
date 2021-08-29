@@ -840,9 +840,16 @@ static void dumpInstruction(
         fprintf(file, "srv_struct_load%s_id(%u)",
                 GET_BIT(instr->control, 12) ? "_ext" : "", GET_BITS(instr->control, 0, 7));
         break;
+    case IL_DCL_LDS:
+        fprintf(file, "dcl_lds_id(%u) %u",
+                GET_BITS(instr->control, 0, 13), instr->extras[0]);
+        break;
     case IL_DCL_STRUCT_LDS:
         fprintf(file, "dcl_struct_lds_id(%u) %u, %u",
                 GET_BITS(instr->control, 0, 13), instr->extras[0], instr->extras[1]);
+        break;
+    case IL_OP_LDS_READ_ADD:
+        fprintf(file, "lds_read_add_resource(%u)", GET_BITS(instr->control, 0, 13));
         break;
     case IL_OP_U_BIT_EXTRACT:
         fprintf(file, "ubit_extract");
