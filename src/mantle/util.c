@@ -302,8 +302,10 @@ unsigned getVkFormatTileSize(
 {
     switch (vkFormat) {
     case VK_FORMAT_R8_UNORM:
+    case VK_FORMAT_R8G8_UNORM:
     case VK_FORMAT_R8G8B8A8_UNORM:
     case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+    case VK_FORMAT_R16_UNORM:
     case VK_FORMAT_R32_SFLOAT:
     case VK_FORMAT_R32G32B32A32_SFLOAT:
         return 1;
