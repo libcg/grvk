@@ -129,6 +129,8 @@ GR_RESULT grGetDeviceQueue(
         .grObj = { GR_OBJ_TYPE_QUEUE, grDevice },
         .queue = vkQueue,
         .queueIndex = queueIndex,
+        .globalMemRefCount = 0,
+        .globalMemRefs = NULL,
     };
 
     if (!mMemRefMutexInit) {
@@ -159,6 +161,7 @@ GR_RESULT grQueueSubmit(
     GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
 
     EnterCriticalSection(&mMemRefMutex);
+    checkMemoryReferences(grQueue, grQueue->globalMemRefCount, grQueue->globalMemRefs);
     checkMemoryReferences(grQueue, memRefCount, pMemRefs);
     LeaveCriticalSection(&mMemRefMutex);
 
@@ -243,4 +246,28 @@ GR_RESULT grDeviceWaitIdle(
     }
 
     return getGrResult(res);
+}
+
+GR_RESULT grQueueSetGlobalMemReferences(
+    GR_QUEUE queue,
+    GR_UINT memRefCount,
+    const GR_MEMORY_REF* pMemRefs)
+{
+    LOGT("%p %u %p\n", queue, memRefCount, pMemRefs);
+    GrQueue* grQueue = (GrQueue*)queue;
+
+    if (grQueue == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grQueue) != GR_OBJ_TYPE_QUEUE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (memRefCount > 0 && pMemRefs == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    EnterCriticalSection(&mMemRefMutex);
+    grQueue->globalMemRefCount = memRefCount;
+    grQueue->globalMemRefs = (GR_MEMORY_REF*)pMemRefs;
+    LeaveCriticalSection(&mMemRefMutex);
+
+    return GR_SUCCESS;
 }

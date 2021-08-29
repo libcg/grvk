@@ -4,17 +4,6 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "logger.h"
 
-// Queue Functions
-
-GR_RESULT grQueueSetGlobalMemReferences(
-    GR_QUEUE queue,
-    GR_UINT memRefCount,
-    const GR_MEMORY_REF* pMemRefs)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Memory Management Functions
 
 GR_RESULT grSetMemoryPriority(

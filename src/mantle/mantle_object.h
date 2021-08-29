@@ -299,6 +299,8 @@ typedef struct _GrQueue {
     GrObject grObj; // FIXME base object?
     VkQueue queue;
     unsigned queueIndex;
+    unsigned globalMemRefCount;
+    GR_MEMORY_REF* globalMemRefs;
 } GrQueue;
 
 typedef struct _GrViewportStateObject {
