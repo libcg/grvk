@@ -198,13 +198,13 @@ GR_RESULT grGetGpuInfo(
             .queueType = GR_QUEUE_UNIVERSAL,
             .queueCount = 1,
             .maxAtomicCounters = 512,
-            .supportsTimestamps = true,
+            .supportsTimestamps = false, // TODO implement timestamps
         };
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[1] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_QUEUE_COMPUTE,
             .queueCount = 1,
             .maxAtomicCounters = 1024,
-            .supportsTimestamps = true,
+            .supportsTimestamps = false, // TODO implement timestamps
         };
         /*((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[2] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_EXT_QUEUE_DMA,
