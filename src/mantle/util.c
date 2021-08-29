@@ -496,6 +496,8 @@ VkAccessFlags getVkAccessFlagsMemory(
         return VK_ACCESS_INDEX_READ_BIT;
     case GR_MEMORY_STATE_INDIRECT_ARG:
         return VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+    case GR_MEMORY_STATE_WRITE_TIMESTAMP:
+        return VK_ACCESS_TRANSFER_WRITE_BIT;
     case GR_MEMORY_STATE_DISCARD:
         return 0;
     default:
