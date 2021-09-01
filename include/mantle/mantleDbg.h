@@ -100,29 +100,29 @@ GR_RESULT GR_STDCALL grDbgSetValidationLevel(
     GR_DEVICE device,
     GR_ENUM validationLevel);
 
-GR_RESULT grDbgRegisterMsgCallback(
+GR_RESULT GR_STDCALL grDbgRegisterMsgCallback(
     GR_DBG_MSG_CALLBACK_FUNCTION pfnMsgCallback,
     GR_VOID* pUserData);
 
-GR_RESULT grDbgUnregisterMsgCallback(
+GR_RESULT GR_STDCALL grDbgUnregisterMsgCallback(
     GR_DBG_MSG_CALLBACK_FUNCTION pfnMsgCallback);
 
-GR_RESULT grDbgSetMessageFilter(
+GR_RESULT GR_STDCALL grDbgSetMessageFilter(
     GR_DEVICE device,
     GR_ENUM msgCode,
     GR_ENUM filter);
 
-GR_RESULT grDbgSetObjectTag(
+GR_RESULT GR_STDCALL grDbgSetObjectTag(
     GR_BASE_OBJECT object,
     GR_SIZE tagSize,
     const GR_VOID* pTag);
 
-GR_RESULT grDbgSetGlobalOption(
+GR_RESULT GR_STDCALL grDbgSetGlobalOption(
     GR_DBG_GLOBAL_OPTION dbgOption,
     GR_SIZE dataSize,
     const GR_VOID* pData);
 
-GR_RESULT grDbgSetDeviceOption(
+GR_RESULT GR_STDCALL grDbgSetDeviceOption(
     GR_DEVICE device,
     GR_DBG_DEVICE_OPTION dbgOption,
     GR_SIZE dataSize,

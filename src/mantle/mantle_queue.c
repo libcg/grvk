@@ -104,7 +104,7 @@ static void checkMemoryReferences(
 
 // Queue Functions
 
-GR_RESULT grGetDeviceQueue(
+GR_RESULT GR_STDCALL grGetDeviceQueue(
     GR_DEVICE device,
     GR_ENUM queueType,
     GR_UINT queueId,
@@ -142,7 +142,7 @@ GR_RESULT grGetDeviceQueue(
     return GR_SUCCESS;
 }
 
-GR_RESULT grQueueSubmit(
+GR_RESULT GR_STDCALL grQueueSubmit(
     GR_QUEUE queue,
     GR_UINT cmdBufferCount,
     const GR_CMD_BUFFER* pCmdBuffers,
@@ -207,7 +207,7 @@ GR_RESULT grQueueSubmit(
     return getGrResult(res);
 }
 
-GR_RESULT grQueueWaitIdle(
+GR_RESULT GR_STDCALL grQueueWaitIdle(
     GR_QUEUE queue)
 {
     LOGT("%p\n", queue);
@@ -228,7 +228,7 @@ GR_RESULT grQueueWaitIdle(
     return getGrResult(res);
 }
 
-GR_RESULT grDeviceWaitIdle(
+GR_RESULT GR_STDCALL grDeviceWaitIdle(
     GR_DEVICE device)
 {
     LOGT("%p\n", device);
@@ -248,7 +248,7 @@ GR_RESULT grDeviceWaitIdle(
     return getGrResult(res);
 }
 
-GR_RESULT grQueueSetGlobalMemReferences(
+GR_RESULT GR_STDCALL grQueueSetGlobalMemReferences(
     GR_QUEUE queue,
     GR_UINT memRefCount,
     const GR_MEMORY_REF* pMemRefs)

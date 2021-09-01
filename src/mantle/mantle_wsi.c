@@ -256,7 +256,7 @@ static void initSwapchain(
 
 // Functions
 
-GR_RESULT grWsiWinGetDisplays(
+GR_RESULT GR_STDCALL grWsiWinGetDisplays(
     GR_DEVICE device,
     GR_UINT* pDisplayCount,
     GR_WSI_WIN_DISPLAY* pDisplayList)
@@ -298,7 +298,7 @@ GR_RESULT grWsiWinGetDisplays(
     return GR_SUCCESS;
 }
 
-GR_RESULT grWsiWinGetDisplayModeList(
+GR_RESULT GR_STDCALL grWsiWinGetDisplayModeList(
     GR_WSI_WIN_DISPLAY display,
     GR_UINT* pDisplayModeCount,
     GR_WSI_WIN_DISPLAY_MODE* pDisplayModeList)
@@ -339,7 +339,7 @@ GR_RESULT grWsiWinGetDisplayModeList(
     return GR_SUCCESS;
 }
 
-GR_RESULT grWsiWinTakeFullscreenOwnership(
+GR_RESULT GR_STDCALL grWsiWinTakeFullscreenOwnership(
     GR_WSI_WIN_DISPLAY display,
     GR_IMAGE image)
 {
@@ -356,7 +356,7 @@ GR_RESULT grWsiWinTakeFullscreenOwnership(
     return GR_SUCCESS;
 }
 
-GR_RESULT grWsiWinCreatePresentableImage(
+GR_RESULT GR_STDCALL grWsiWinCreatePresentableImage(
     GR_DEVICE device,
     const GR_WSI_WIN_PRESENTABLE_IMAGE_CREATE_INFO* pCreateInfo,
     GR_IMAGE* pImage,
@@ -427,7 +427,7 @@ GR_RESULT grWsiWinCreatePresentableImage(
     return GR_SUCCESS;
 }
 
-GR_RESULT grWsiWinQueuePresent(
+GR_RESULT GR_STDCALL grWsiWinQueuePresent(
     GR_QUEUE queue,
     const GR_WSI_WIN_PRESENT_INFO* pPresentInfo)
 {
@@ -503,7 +503,7 @@ GR_RESULT grWsiWinQueuePresent(
     return GR_SUCCESS;
 }
 
-GR_RESULT grWsiWinSetMaxQueuedFrames(
+GR_RESULT GR_STDCALL grWsiWinSetMaxQueuedFrames(
     GR_DEVICE device,
     GR_UINT maxFrames)
 {

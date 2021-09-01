@@ -2,7 +2,7 @@
 
 // Query and Synchronization Functions
 
-GR_RESULT grCreateQueryPool(
+GR_RESULT GR_STDCALL grCreateQueryPool(
     GR_DEVICE device,
     const GR_QUERY_POOL_CREATE_INFO* pCreateInfo,
     GR_QUERY_POOL* pQueryPool)
@@ -59,7 +59,7 @@ GR_RESULT grCreateQueryPool(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateFence(
+GR_RESULT GR_STDCALL grCreateFence(
     GR_DEVICE device,
     const GR_FENCE_CREATE_INFO* pCreateInfo,
     GR_FENCE* pFence)
@@ -95,7 +95,7 @@ GR_RESULT grCreateFence(
     return GR_SUCCESS;
 }
 
-GR_RESULT grGetFenceStatus(
+GR_RESULT GR_STDCALL grGetFenceStatus(
     GR_FENCE fence)
 {
     LOGT("%p\n", fence);
@@ -121,7 +121,7 @@ GR_RESULT grGetFenceStatus(
     return getGrResult(res);
 }
 
-GR_RESULT grWaitForFences(
+GR_RESULT GR_STDCALL grWaitForFences(
     GR_DEVICE device,
     GR_UINT fenceCount,
     const GR_FENCE* pFences,
@@ -167,7 +167,7 @@ GR_RESULT grWaitForFences(
     return getGrResult(res);
 }
 
-GR_RESULT grCreateQueueSemaphore(
+GR_RESULT GR_STDCALL grCreateQueueSemaphore(
     GR_DEVICE device,
     const GR_QUEUE_SEMAPHORE_CREATE_INFO* pCreateInfo,
     GR_QUEUE_SEMAPHORE* pSemaphore)
@@ -215,7 +215,7 @@ GR_RESULT grCreateQueueSemaphore(
     return GR_SUCCESS;
 }
 
-GR_RESULT grSignalQueueSemaphore(
+GR_RESULT GR_STDCALL grSignalQueueSemaphore(
     GR_QUEUE queue,
     GR_QUEUE_SEMAPHORE semaphore)
 {
@@ -251,7 +251,7 @@ GR_RESULT grSignalQueueSemaphore(
     return getGrResult(res);
 }
 
-GR_RESULT grWaitQueueSemaphore(
+GR_RESULT GR_STDCALL grWaitQueueSemaphore(
     GR_QUEUE queue,
     GR_QUEUE_SEMAPHORE semaphore)
 {
@@ -288,7 +288,7 @@ GR_RESULT grWaitQueueSemaphore(
     return getGrResult(res);
 }
 
-GR_RESULT grCreateEvent(
+GR_RESULT GR_STDCALL grCreateEvent(
     GR_DEVICE device,
     const GR_EVENT_CREATE_INFO* pCreateInfo,
     GR_EVENT* pEvent)
@@ -328,7 +328,7 @@ GR_RESULT grCreateEvent(
     return GR_SUCCESS;
 }
 
-GR_RESULT grGetEventStatus(
+GR_RESULT GR_STDCALL grGetEventStatus(
     GR_EVENT event)
 {
     LOGT("%p\n", event);
@@ -350,7 +350,7 @@ GR_RESULT grGetEventStatus(
     return getGrResult(res);
 }
 
-GR_RESULT grSetEvent(
+GR_RESULT GR_STDCALL grSetEvent(
     GR_EVENT event)
 {
     LOGT("%p\n", event);
@@ -372,7 +372,7 @@ GR_RESULT grSetEvent(
     return getGrResult(res);
 }
 
-GR_RESULT grResetEvent(
+GR_RESULT GR_STDCALL grResetEvent(
     GR_EVENT event)
 {
     LOGT("%p\n", event);

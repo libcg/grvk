@@ -6,7 +6,7 @@
 
 // Memory Management Functions
 
-GR_RESULT grSetMemoryPriority(
+GR_RESULT GR_STDCALL grSetMemoryPriority(
     GR_GPU_MEMORY mem,
     GR_ENUM priority)
 {
@@ -14,7 +14,7 @@ GR_RESULT grSetMemoryPriority(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grRemapVirtualMemoryPages(
+GR_RESULT GR_STDCALL grRemapVirtualMemoryPages(
     GR_DEVICE device,
     GR_UINT rangeCount,
     const GR_VIRTUAL_MEMORY_REMAP_RANGE* pRanges,
@@ -27,7 +27,7 @@ GR_RESULT grRemapVirtualMemoryPages(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grPinSystemMemory(
+GR_RESULT GR_STDCALL grPinSystemMemory(
     GR_DEVICE device,
     const GR_VOID* pSysMem,
     GR_SIZE memSize,
@@ -39,7 +39,7 @@ GR_RESULT grPinSystemMemory(
 
 // Shader and Pipeline Functions
 
-GR_RESULT grStorePipeline(
+GR_RESULT GR_STDCALL grStorePipeline(
     GR_PIPELINE pipeline,
     GR_SIZE* pDataSize,
     GR_VOID* pData)
@@ -48,7 +48,7 @@ GR_RESULT grStorePipeline(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grLoadPipeline(
+GR_RESULT GR_STDCALL grLoadPipeline(
     GR_DEVICE device,
     GR_SIZE dataSize,
     const GR_VOID* pData,
@@ -60,7 +60,7 @@ GR_RESULT grLoadPipeline(
 
 // Query and Synchronization Functions
 
-GR_RESULT grGetQueryPoolResults(
+GR_RESULT GR_STDCALL grGetQueryPoolResults(
     GR_QUERY_POOL queryPool,
     GR_UINT startQuery,
     GR_UINT queryCount,
@@ -73,7 +73,7 @@ GR_RESULT grGetQueryPoolResults(
 
 // Multi-Device Management Functions
 
-GR_RESULT grOpenSharedMemory(
+GR_RESULT GR_STDCALL grOpenSharedMemory(
     GR_DEVICE device,
     const GR_MEMORY_OPEN_INFO* pOpenInfo,
     GR_GPU_MEMORY* pMem)
@@ -82,7 +82,7 @@ GR_RESULT grOpenSharedMemory(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grOpenSharedQueueSemaphore(
+GR_RESULT GR_STDCALL grOpenSharedQueueSemaphore(
     GR_DEVICE device,
     const GR_QUEUE_SEMAPHORE_OPEN_INFO* pOpenInfo,
     GR_QUEUE_SEMAPHORE* pSemaphore)
@@ -91,7 +91,7 @@ GR_RESULT grOpenSharedQueueSemaphore(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grOpenPeerMemory(
+GR_RESULT GR_STDCALL grOpenPeerMemory(
     GR_DEVICE device,
     const GR_PEER_MEMORY_OPEN_INFO* pOpenInfo,
     GR_GPU_MEMORY* pMem)
@@ -100,7 +100,7 @@ GR_RESULT grOpenPeerMemory(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grOpenPeerImage(
+GR_RESULT GR_STDCALL grOpenPeerImage(
     GR_DEVICE device,
     const GR_PEER_IMAGE_OPEN_INFO* pOpenInfo,
     GR_IMAGE* pImage,
@@ -237,7 +237,7 @@ GR_RESULT GR_STDCALL grDbgSetValidationLevel(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDbgRegisterMsgCallback(
+GR_RESULT GR_STDCALL grDbgRegisterMsgCallback(
     GR_DBG_MSG_CALLBACK_FUNCTION pfnMsgCallback,
     GR_VOID* pUserData)
 {
@@ -245,14 +245,14 @@ GR_RESULT grDbgRegisterMsgCallback(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDbgUnregisterMsgCallback(
+GR_RESULT GR_STDCALL grDbgUnregisterMsgCallback(
     GR_DBG_MSG_CALLBACK_FUNCTION pfnMsgCallback)
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDbgSetMessageFilter(
+GR_RESULT GR_STDCALL grDbgSetMessageFilter(
     GR_DEVICE device,
     GR_ENUM msgCode,
     GR_ENUM filter)
@@ -261,7 +261,7 @@ GR_RESULT grDbgSetMessageFilter(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDbgSetObjectTag(
+GR_RESULT GR_STDCALL grDbgSetObjectTag(
     GR_BASE_OBJECT object,
     GR_SIZE tagSize,
     const GR_VOID* pTag)
@@ -270,7 +270,7 @@ GR_RESULT grDbgSetObjectTag(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDbgSetGlobalOption(
+GR_RESULT GR_STDCALL grDbgSetGlobalOption(
     GR_DBG_GLOBAL_OPTION dbgOption,
     GR_SIZE dataSize,
     const GR_VOID* pData)
@@ -279,7 +279,7 @@ GR_RESULT grDbgSetGlobalOption(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDbgSetDeviceOption(
+GR_RESULT GR_STDCALL grDbgSetDeviceOption(
     GR_DEVICE device,
     GR_DBG_DEVICE_OPTION dbgOption,
     GR_SIZE dataSize,
@@ -304,14 +304,14 @@ GR_VOID GR_STDCALL grCmdDbgMarkerEnd(
 
 // WSI Functions
 
-GR_RESULT grWsiWinReleaseFullscreenOwnership(
+GR_RESULT GR_STDCALL grWsiWinReleaseFullscreenOwnership(
     GR_WSI_WIN_DISPLAY display)
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWsiWinSetGammaRamp(
+GR_RESULT GR_STDCALL grWsiWinSetGammaRamp(
     GR_WSI_WIN_DISPLAY display,
     const GR_WSI_WIN_GAMMA_RAMP* pGammaRamp)
 {
@@ -319,14 +319,14 @@ GR_RESULT grWsiWinSetGammaRamp(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWsiWinWaitForVerticalBlank(
+GR_RESULT GR_STDCALL grWsiWinWaitForVerticalBlank(
     GR_WSI_WIN_DISPLAY display)
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWsiWinGetScanLine(
+GR_RESULT GR_STDCALL grWsiWinGetScanLine(
     GR_WSI_WIN_DISPLAY display,
     GR_INT* pScanLine)
 {

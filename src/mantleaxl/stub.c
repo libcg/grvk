@@ -13,7 +13,7 @@ GR_VOID grCmdBindBorderColorPalette(
 
 // Advanced Multisampling Extnension Functions
 
-GR_RESULT grCreateAdvancedMsaaState(
+GR_RESULT GR_STDCALL grCreateAdvancedMsaaState(
     GR_DEVICE device,
     const GR_ADVANCED_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState)
@@ -22,7 +22,7 @@ GR_RESULT grCreateAdvancedMsaaState(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreateFmaskImageView(
+GR_RESULT GR_STDCALL grCreateFmaskImageView(
     GR_DEVICE device,
     const GR_FMASK_IMAGE_VIEW_CREATE_INFO* pCreateInfo,
     GR_IMAGE_VIEW* pView)
@@ -33,7 +33,7 @@ GR_RESULT grCreateFmaskImageView(
 
 // Copy Occlusion Query Data Extension Functions
 
-GR_RESULT grCmdCopyOcclusionData(
+GR_RESULT GR_STDCALL grCmdCopyOcclusionData(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT startQuery,
@@ -121,7 +121,7 @@ GR_VOID grCmdEndWhile(
 
 // Timer Queue Extension Functions
 
-GR_RESULT grQueueDelay(
+GR_RESULT GR_STDCALL grQueueDelay(
     GR_QUEUE queue,
     GR_FLOAT delay)
 {
@@ -129,7 +129,7 @@ GR_RESULT grQueueDelay(
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCalibrateGpuTimestamp(
+GR_RESULT GR_STDCALL grCalibrateGpuTimestamp(
     GR_DEVICE device,
     GR_GPU_TIMESTAMP_CALIBRATION* pCalibrationData)
 {
@@ -139,253 +139,253 @@ GR_RESULT grCalibrateGpuTimestamp(
 
 // Undocumented Functions
 
-GR_RESULT grAddEmulatedPrivateDisplay()
+GR_RESULT GR_STDCALL grAddEmulatedPrivateDisplay()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grAddPerfExperimentCounter()
+GR_RESULT GR_STDCALL grAddPerfExperimentCounter()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grAddPerfExperimentTrace()
+GR_RESULT GR_STDCALL grAddPerfExperimentTrace()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grBlankPrivateDisplay()
+GR_RESULT GR_STDCALL grBlankPrivateDisplay()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdBeginPerfExperiment()
+GR_RESULT GR_STDCALL grCmdBeginPerfExperiment()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdBindUserData()
+GR_RESULT GR_STDCALL grCmdBindUserData()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdCopyRegisterToMemory()
+GR_RESULT GR_STDCALL grCmdCopyRegisterToMemory()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdDispatchOffset()
+GR_RESULT GR_STDCALL grCmdDispatchOffset()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdDispatchOffsetIndirect()
+GR_RESULT GR_STDCALL grCmdDispatchOffsetIndirect()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdEndPerfExperiment()
+GR_RESULT GR_STDCALL grCmdEndPerfExperiment()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdInsertTraceMarker()
+GR_RESULT GR_STDCALL grCmdInsertTraceMarker()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdWaitMemoryValue()
+GR_RESULT GR_STDCALL grCmdWaitMemoryValue()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCmdWaitRegisterValue()
+GR_RESULT GR_STDCALL grCmdWaitRegisterValue()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreatePerfExperiment()
+GR_RESULT GR_STDCALL grCreatePerfExperiment()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreatePrivateDisplayImage()
+GR_RESULT GR_STDCALL grCreatePrivateDisplayImage()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grCreateVirtualDisplay()
+GR_RESULT GR_STDCALL grCreateVirtualDisplay()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDestroyVirtualDisplay()
+GR_RESULT GR_STDCALL grDestroyVirtualDisplay()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grDisablePrivateDisplay()
+GR_RESULT GR_STDCALL grDisablePrivateDisplay()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grEnablePrivateDisplay()
+GR_RESULT GR_STDCALL grEnablePrivateDisplay()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grEnablePrivateDisplayAudio()
+GR_RESULT GR_STDCALL grEnablePrivateDisplayAudio()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grFinalizePerfExperiment()
+GR_RESULT GR_STDCALL grFinalizePerfExperiment()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grGetPrivateDisplayScanLine()
+GR_RESULT GR_STDCALL grGetPrivateDisplayScanLine()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grGetPrivateDisplays()
+GR_RESULT GR_STDCALL grGetPrivateDisplays()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grGetVirtualDisplayProperties()
+GR_RESULT GR_STDCALL grGetVirtualDisplayProperties()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grOpenExternalSharedPrivateDisplayImage()
+GR_RESULT GR_STDCALL grOpenExternalSharedPrivateDisplayImage()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grPrivateDisplayPresent()
+GR_RESULT GR_STDCALL grPrivateDisplayPresent()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grQueueDelayAfterVsync()
+GR_RESULT GR_STDCALL grQueueDelayAfterVsync()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grQueueMigrateObjects()
+GR_RESULT GR_STDCALL grQueueMigrateObjects()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grQueueSetExecutionPriority()
+GR_RESULT GR_STDCALL grQueueSetExecutionPriority()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grRegisterPowerEvent()
+GR_RESULT GR_STDCALL grRegisterPowerEvent()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grRegisterPrivateDisplayEvent()
+GR_RESULT GR_STDCALL grRegisterPrivateDisplayEvent()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grRemoveEmulatedPrivateDisplay()
+GR_RESULT GR_STDCALL grRemoveEmulatedPrivateDisplay()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grSetEventAfterVsync()
+GR_RESULT GR_STDCALL grSetEventAfterVsync()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grSetPowerDefaultPerformance()
+GR_RESULT GR_STDCALL grSetPowerDefaultPerformance()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grSetPowerProfile()
+GR_RESULT GR_STDCALL grSetPowerProfile()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grSetPowerRegions()
+GR_RESULT GR_STDCALL grSetPowerRegions()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grSetPrivateDisplayPowerMode()
+GR_RESULT GR_STDCALL grSetPrivateDisplayPowerMode()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grSetPrivateDisplaySettings()
+GR_RESULT GR_STDCALL grSetPrivateDisplaySettings()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWinAllocMemory()
+GR_RESULT GR_STDCALL grWinAllocMemory()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWinOpenExternalSharedImage()
+GR_RESULT GR_STDCALL grWinOpenExternalSharedImage()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWinOpenExternalSharedMemory()
+GR_RESULT GR_STDCALL grWinOpenExternalSharedMemory()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;
 }
 
-GR_RESULT grWinOpenExternalSharedQueueSemaphore()
+GR_RESULT GR_STDCALL grWinOpenExternalSharedQueueSemaphore()
 {
     LOGW("STUB\n");
     return GR_UNSUPPORTED;

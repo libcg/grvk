@@ -2,7 +2,7 @@
 
 // Extension Discovery Functions
 
-GR_RESULT grGetExtensionSupport(
+GR_RESULT GR_STDCALL grGetExtensionSupport(
     GR_PHYSICAL_GPU gpu,
     const GR_CHAR* pExtName)
 {

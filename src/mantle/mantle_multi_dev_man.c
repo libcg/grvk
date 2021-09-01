@@ -2,7 +2,7 @@
 
 // Multi-Device Management Functions
 
-GR_RESULT grGetMultiGpuCompatibility(
+GR_RESULT GR_STDCALL grGetMultiGpuCompatibility(
     GR_PHYSICAL_GPU gpu0,
     GR_PHYSICAL_GPU gpu1,
     GR_GPU_COMPATIBILITY_INFO* pInfo)

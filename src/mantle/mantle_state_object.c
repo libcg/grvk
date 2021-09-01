@@ -2,7 +2,7 @@
 
 // State Object Functions
 
-GR_RESULT grCreateViewportState(
+GR_RESULT GR_STDCALL grCreateViewportState(
     GR_DEVICE device,
     const GR_VIEWPORT_STATE_CREATE_INFO* pCreateInfo,
     GR_VIEWPORT_STATE_OBJECT* pState)
@@ -91,7 +91,7 @@ GR_RESULT grCreateViewportState(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateRasterState(
+GR_RESULT GR_STDCALL grCreateRasterState(
     GR_DEVICE device,
     const GR_RASTER_STATE_CREATE_INFO* pCreateInfo,
     GR_RASTER_STATE_OBJECT* pState)
@@ -117,7 +117,7 @@ GR_RESULT grCreateRasterState(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateColorBlendState(
+GR_RESULT GR_STDCALL grCreateColorBlendState(
     GR_DEVICE device,
     const GR_COLOR_BLEND_STATE_CREATE_INFO* pCreateInfo,
     GR_COLOR_BLEND_STATE_OBJECT* pState)
@@ -171,7 +171,7 @@ GR_RESULT grCreateColorBlendState(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateDepthStencilState(
+GR_RESULT GR_STDCALL grCreateDepthStencilState(
     GR_DEVICE device,
     const GR_DEPTH_STENCIL_STATE_CREATE_INFO* pCreateInfo,
     GR_DEPTH_STENCIL_STATE_OBJECT* pState)
@@ -217,7 +217,7 @@ GR_RESULT grCreateDepthStencilState(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateMsaaState(
+GR_RESULT GR_STDCALL grCreateMsaaState(
     GR_DEVICE device,
     const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState)

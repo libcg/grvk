@@ -2,7 +2,7 @@
 
 // Descriptor Set Functions
 
-GR_RESULT grCreateDescriptorSet(
+GR_RESULT GR_STDCALL grCreateDescriptorSet(
     GR_DEVICE device,
     const GR_DESCRIPTOR_SET_CREATE_INFO* pCreateInfo,
     GR_DESCRIPTOR_SET* pDescriptorSet)

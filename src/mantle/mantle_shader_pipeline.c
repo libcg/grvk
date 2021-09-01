@@ -487,7 +487,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
 
 // Shader and Pipeline Functions
 
-GR_RESULT grCreateShader(
+GR_RESULT GR_STDCALL grCreateShader(
     GR_DEVICE device,
     const GR_SHADER_CREATE_INFO* pCreateInfo,
     GR_SHADER* pShader)
@@ -531,7 +531,7 @@ GR_RESULT grCreateShader(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateGraphicsPipeline(
+GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     GR_DEVICE device,
     const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline)
@@ -686,7 +686,7 @@ bail:
     return res;
 }
 
-GR_RESULT grCreateComputePipeline(
+GR_RESULT GR_STDCALL grCreateComputePipeline(
     GR_DEVICE device,
     const GR_COMPUTE_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline)

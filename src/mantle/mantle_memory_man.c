@@ -47,7 +47,7 @@ void grGpuMemoryBindBuffer(
 
 // Memory Management Functions
 
-GR_RESULT grGetMemoryHeapCount(
+GR_RESULT GR_STDCALL grGetMemoryHeapCount(
     GR_DEVICE device,
     GR_UINT* pCount)
 {
@@ -66,7 +66,7 @@ GR_RESULT grGetMemoryHeapCount(
     return GR_SUCCESS;
 }
 
-GR_RESULT grGetMemoryHeapInfo(
+GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
     GR_DEVICE device,
     GR_UINT heapId,
     GR_ENUM infoType,
@@ -133,7 +133,7 @@ GR_RESULT grGetMemoryHeapInfo(
     return GR_SUCCESS;
 }
 
-GR_RESULT grAllocMemory(
+GR_RESULT GR_STDCALL grAllocMemory(
     GR_DEVICE device,
     const GR_MEMORY_ALLOC_INFO* pAllocInfo,
     GR_GPU_MEMORY* pMem)
@@ -199,12 +199,11 @@ GR_RESULT grAllocMemory(
     };
 
     InitializeCriticalSectionAndSpinCount(&grGpuMemory->boundObjectsMutex, 0);
-
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
     return GR_SUCCESS;
 }
 
-GR_RESULT grFreeMemory(
+GR_RESULT GR_STDCALL grFreeMemory(
     GR_GPU_MEMORY mem)
 {
     LOGT("%p\n", mem);
@@ -225,7 +224,7 @@ GR_RESULT grFreeMemory(
     return GR_SUCCESS;
 }
 
-GR_RESULT grMapMemory(
+GR_RESULT GR_STDCALL grMapMemory(
     GR_GPU_MEMORY mem,
     GR_FLAGS flags,
     GR_VOID** ppData)
@@ -254,7 +253,7 @@ GR_RESULT grMapMemory(
     return getGrResult(vkRes);
 }
 
-GR_RESULT grUnmapMemory(
+GR_RESULT GR_STDCALL grUnmapMemory(
     GR_GPU_MEMORY mem)
 {
     LOGT("%p\n", mem);
