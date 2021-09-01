@@ -1935,7 +1935,19 @@ static void emitContinue(
     }
 
     IlcSpvId labelId = ilcSpvAllocId(compiler->module);
-    ilcSpvPutBranch(compiler->module, block->loop.labelContinueId);
+
+    if (instr->opcode == IL_OP_CONTINUE) {
+        ilcSpvPutBranch(compiler->module, block->loop.labelContinueId);
+    } else if (instr->opcode == IL_OP_CONTINUE_LOGICALZ ||
+               instr->opcode == IL_OP_CONTINUE_LOGICALNZ) {
+        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+        IlcSpvId condId = emitConditionCheck(compiler, srcId,
+                                             instr->opcode == IL_OP_CONTINUE_LOGICALNZ);
+        ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelContinueId, labelId);
+    } else {
+        assert(false);
+    }
+
     ilcSpvPutLabel(compiler->module, labelId);
 }
 
@@ -2619,6 +2631,8 @@ static void emitInstr(
         emitIntegerComparisonOp(compiler, instr);
         break;
     case IL_OP_CONTINUE:
+    case IL_OP_CONTINUE_LOGICALZ:
+    case IL_OP_CONTINUE_LOGICALNZ:
         emitContinue(compiler, instr);
         break;
     case IL_OP_ELSE:

@@ -543,6 +543,12 @@ static void dumpInstruction(
     case IL_OP_BREAK_LOGICALNZ:
         fprintf(file, "break_logicalnz");
         break;
+    case IL_OP_CONTINUE_LOGICALZ:
+        fprintf(file, "continue_logicalz");
+        break;
+    case IL_OP_CONTINUE_LOGICALNZ:
+        fprintf(file, "continue_logicalnz");
+        break;
     case IL_OP_IF_LOGICALZ:
         fprintf(file, "if_logicalz");
         (*indentLevel)++;
