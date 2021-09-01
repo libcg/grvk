@@ -113,6 +113,10 @@ static void checkMemoryReferences(
     for (unsigned i = 0; i < memRefCount; i++) {
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)memRefs[i].mem;
 
+        if (grGpuMemory == NULL) {
+            continue;
+        }
+
         EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
         for (unsigned j = 0; j < grGpuMemory->boundObjectCount; j++) {
             GrObject* grBoundObject = grGpuMemory->boundObjects[j];
