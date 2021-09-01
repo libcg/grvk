@@ -274,6 +274,7 @@ typedef struct _GrPipeline {
 typedef struct _GrQueueSemaphore {
     GrObject grObj;
     VkSemaphore semaphore;
+    unsigned currentCount;
 } GrQueueSemaphore;
 
 typedef struct _GrRasterStateObject {

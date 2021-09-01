@@ -175,7 +175,7 @@ GR_RESULT GR_STDCALL grCreateQueueSemaphore(
     LOGT("%p %p %p\n", device, pCreateInfo, pSemaphore);
     GrDevice* grDevice = (GrDevice*)device;
 
-    VkSemaphore vkSem = VK_NULL_HANDLE;
+    VkSemaphore vkSemaphore = VK_NULL_HANDLE;
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -198,7 +198,7 @@ GR_RESULT GR_STDCALL grCreateQueueSemaphore(
         .flags = 0,
     };
 
-    VkResult res = VKD.vkCreateSemaphore(grDevice->device, &createInfo, NULL, &vkSem);
+    VkResult res = VKD.vkCreateSemaphore(grDevice->device, &createInfo, NULL, &vkSemaphore);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateSemaphore failed (%d)\n", res);
         return getGrResult(res);
@@ -207,7 +207,8 @@ GR_RESULT GR_STDCALL grCreateQueueSemaphore(
     GrQueueSemaphore* grQueueSemaphore = malloc(sizeof(GrQueueSemaphore));
     *grQueueSemaphore = (GrQueueSemaphore) {
         .grObj = { GR_OBJ_TYPE_QUEUE_SEMAPHORE, grDevice },
-        .semaphore = vkSem,
+        .semaphore = vkSemaphore,
+        .currentCount = pCreateInfo->initialCount,
     };
 
     *pSemaphore = (GR_QUEUE_SEMAPHORE)grQueueSemaphore;
@@ -263,6 +264,13 @@ GR_RESULT GR_STDCALL grWaitQueueSemaphore(
         return GR_ERROR_INVALID_HANDLE;
     } else if (GET_OBJ_TYPE(grQueue) != GR_OBJ_TYPE_QUEUE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    if (grQueueSemaphore->currentCount > 0) {
+        // Mantle spec: "At creation time, an application can specify an initial semaphore count
+        // that is equivalent to signaling the semaphore that many times."
+        grQueueSemaphore->currentCount--;
+        return GR_SUCCESS;
     }
 
     const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
