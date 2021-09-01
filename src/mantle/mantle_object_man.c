@@ -2,7 +2,7 @@
 
 // Generic API Object Management functions
 
-GR_RESULT grDestroyObject(
+GR_RESULT GR_STDCALL grDestroyObject(
     GR_OBJECT object)
 {
     LOGT("%p\n", object);
@@ -48,7 +48,7 @@ GR_RESULT grDestroyObject(
     return GR_SUCCESS;
 }
 
-GR_RESULT grGetObjectInfo(
+GR_RESULT GR_STDCALL grGetObjectInfo(
     GR_BASE_OBJECT object,
     GR_ENUM infoType,
     GR_SIZE* pDataSize,
@@ -172,7 +172,7 @@ GR_RESULT grGetObjectInfo(
     return GR_SUCCESS;
 }
 
-GR_RESULT grBindObjectMemory(
+GR_RESULT GR_STDCALL grBindObjectMemory(
     GR_OBJECT object,
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset)

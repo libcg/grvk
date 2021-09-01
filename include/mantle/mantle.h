@@ -10,7 +10,11 @@ extern "C" {
 
 #define MANTLE_HANDLE(name) typedef void* name
 
-#define GR_STDCALL __stdcall
+#if defined(_WIN32)
+  #define GR_STDCALL __stdcall
+#else
+  #define GR_STDCALL
+#endif
 
 // Types
 
@@ -1275,47 +1279,47 @@ typedef struct _GR_VIRTUAL_MEMORY_REMAP_RANGE
 
 // Initialization and Device Functions
 
-GR_RESULT grInitAndEnumerateGpus(
+GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
     const GR_APPLICATION_INFO* pAppInfo,
     const GR_ALLOC_CALLBACKS* pAllocCb,
     GR_UINT* pGpuCount,
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS]);
 
-GR_RESULT grGetGpuInfo(
+GR_RESULT GR_STDCALL grGetGpuInfo(
     GR_PHYSICAL_GPU gpu,
     GR_ENUM infoType,
     GR_SIZE* pDataSize,
     GR_VOID* pData);
 
-GR_RESULT grCreateDevice(
+GR_RESULT GR_STDCALL grCreateDevice(
     GR_PHYSICAL_GPU gpu,
     const GR_DEVICE_CREATE_INFO* pCreateInfo,
     GR_DEVICE* pDevice);
 
-GR_RESULT grDestroyDevice(
+GR_RESULT GR_STDCALL grDestroyDevice(
     GR_DEVICE device);
 
 // Extension Discovery Functions
 
-GR_RESULT grGetExtensionSupport(
+GR_RESULT GR_STDCALL grGetExtensionSupport(
     GR_PHYSICAL_GPU gpu,
     const GR_CHAR* pExtName);
 
 // Queue Functions
 
-GR_RESULT grGetDeviceQueue(
+GR_RESULT GR_STDCALL grGetDeviceQueue(
     GR_DEVICE device,
     GR_ENUM queueType,
     GR_UINT queueId,
     GR_QUEUE* pQueue);
 
-GR_RESULT grQueueWaitIdle(
+GR_RESULT GR_STDCALL grQueueWaitIdle(
     GR_QUEUE queue);
 
-GR_RESULT grDeviceWaitIdle(
+GR_RESULT GR_STDCALL grDeviceWaitIdle(
     GR_DEVICE device);
 
-GR_RESULT grQueueSubmit(
+GR_RESULT GR_STDCALL grQueueSubmit(
     GR_QUEUE queue,
     GR_UINT cmdBufferCount,
     const GR_CMD_BUFFER* pCmdBuffers,
@@ -1323,45 +1327,45 @@ GR_RESULT grQueueSubmit(
     const GR_MEMORY_REF* pMemRefs,
     GR_FENCE fence);
 
-GR_RESULT grQueueSetGlobalMemReferences(
+GR_RESULT GR_STDCALL grQueueSetGlobalMemReferences(
     GR_QUEUE queue,
     GR_UINT memRefCount,
     const GR_MEMORY_REF* pMemRefs);
 
 // Memory Management Functions
 
-GR_RESULT grGetMemoryHeapCount(
+GR_RESULT GR_STDCALL grGetMemoryHeapCount(
     GR_DEVICE device,
     GR_UINT* pCount);
 
-GR_RESULT grGetMemoryHeapInfo(
+GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
     GR_DEVICE device,
     GR_UINT heapId,
     GR_ENUM infoType,
     GR_SIZE* pDataSize,
     GR_VOID* pData);
 
-GR_RESULT grAllocMemory(
+GR_RESULT GR_STDCALL grAllocMemory(
     GR_DEVICE device,
     const GR_MEMORY_ALLOC_INFO* pAllocInfo,
     GR_GPU_MEMORY* pMem);
 
-GR_RESULT grFreeMemory(
+GR_RESULT GR_STDCALL grFreeMemory(
     GR_GPU_MEMORY mem);
 
-GR_RESULT grSetMemoryPriority(
+GR_RESULT GR_STDCALL grSetMemoryPriority(
     GR_GPU_MEMORY mem,
     GR_ENUM priority);
 
-GR_RESULT grMapMemory(
+GR_RESULT GR_STDCALL grMapMemory(
     GR_GPU_MEMORY mem,
     GR_FLAGS flags,
     GR_VOID** ppData);
 
-GR_RESULT grUnmapMemory(
+GR_RESULT GR_STDCALL grUnmapMemory(
     GR_GPU_MEMORY mem);
 
-GR_RESULT grRemapVirtualMemoryPages(
+GR_RESULT GR_STDCALL grRemapVirtualMemoryPages(
     GR_DEVICE device,
     GR_UINT rangeCount,
     const GR_VIRTUAL_MEMORY_REMAP_RANGE* pRanges,
@@ -1370,7 +1374,7 @@ GR_RESULT grRemapVirtualMemoryPages(
     GR_UINT postSignalSemaphoreCount,
     const GR_QUEUE_SEMAPHORE* pPostSignalSemaphores);
 
-GR_RESULT grPinSystemMemory(
+GR_RESULT GR_STDCALL grPinSystemMemory(
     GR_DEVICE device,
     const GR_VOID* pSysMem,
     GR_SIZE memSize,
@@ -1378,86 +1382,86 @@ GR_RESULT grPinSystemMemory(
 
 // Generic API Object Management functions
 
-GR_RESULT grDestroyObject(
+GR_RESULT GR_STDCALL grDestroyObject(
     GR_OBJECT object);
 
-GR_RESULT grGetObjectInfo(
+GR_RESULT GR_STDCALL grGetObjectInfo(
     GR_BASE_OBJECT object,
     GR_ENUM infoType,
     GR_SIZE* pDataSize,
     GR_VOID* pData);
 
-GR_RESULT grBindObjectMemory(
+GR_RESULT GR_STDCALL grBindObjectMemory(
     GR_OBJECT object,
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset);
 
 // Image and Sample Functions
 
-GR_RESULT grGetFormatInfo(
+GR_RESULT GR_STDCALL grGetFormatInfo(
     GR_DEVICE device,
     GR_FORMAT format,
     GR_ENUM infoType,
     GR_SIZE* pDataSize,
     GR_VOID* pData);
 
-GR_RESULT grCreateImage(
+GR_RESULT GR_STDCALL grCreateImage(
     GR_DEVICE device,
     const GR_IMAGE_CREATE_INFO* pCreateInfo,
     GR_IMAGE* pImage);
 
-GR_RESULT grGetImageSubresourceInfo(
+GR_RESULT GR_STDCALL grGetImageSubresourceInfo(
     GR_IMAGE image,
     const GR_IMAGE_SUBRESOURCE* pSubresource,
     GR_ENUM infoType,
     GR_SIZE* pDataSize,
     GR_VOID* pData);
 
-GR_RESULT grCreateSampler(
+GR_RESULT GR_STDCALL grCreateSampler(
     GR_DEVICE device,
     const GR_SAMPLER_CREATE_INFO* pCreateInfo,
     GR_SAMPLER* pSampler);
 
 // Image View Functions
 
-GR_RESULT grCreateImageView(
+GR_RESULT GR_STDCALL grCreateImageView(
     GR_DEVICE device,
     const GR_IMAGE_VIEW_CREATE_INFO* pCreateInfo,
     GR_IMAGE_VIEW* pView);
 
-GR_RESULT grCreateColorTargetView(
+GR_RESULT GR_STDCALL grCreateColorTargetView(
     GR_DEVICE device,
     const GR_COLOR_TARGET_VIEW_CREATE_INFO* pCreateInfo,
     GR_COLOR_TARGET_VIEW* pView);
 
-GR_RESULT grCreateDepthStencilView(
+GR_RESULT GR_STDCALL grCreateDepthStencilView(
     GR_DEVICE device,
     const GR_DEPTH_STENCIL_VIEW_CREATE_INFO* pCreateInfo,
     GR_DEPTH_STENCIL_VIEW* pView);
 
 // Shader and Pipeline Functions
 
-GR_RESULT grCreateShader(
+GR_RESULT GR_STDCALL grCreateShader(
     GR_DEVICE device,
     const GR_SHADER_CREATE_INFO* pCreateInfo,
     GR_SHADER* pShader);
 
-GR_RESULT grCreateGraphicsPipeline(
+GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     GR_DEVICE device,
     const GR_GRAPHICS_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline);
 
-GR_RESULT grCreateComputePipeline(
+GR_RESULT GR_STDCALL grCreateComputePipeline(
     GR_DEVICE device,
     const GR_COMPUTE_PIPELINE_CREATE_INFO* pCreateInfo,
     GR_PIPELINE* pPipeline);
 
-GR_RESULT grStorePipeline(
+GR_RESULT GR_STDCALL grStorePipeline(
     GR_PIPELINE pipeline,
     GR_SIZE* pDataSize,
     GR_VOID* pData);
 
-GR_RESULT grLoadPipeline(
+GR_RESULT GR_STDCALL grLoadPipeline(
     GR_DEVICE device,
     GR_SIZE dataSize,
     const GR_VOID* pData,
@@ -1465,7 +1469,7 @@ GR_RESULT grLoadPipeline(
 
 // Descriptor Set Functions
 
-GR_RESULT grCreateDescriptorSet(
+GR_RESULT GR_STDCALL grCreateDescriptorSet(
     GR_DEVICE device,
     const GR_DESCRIPTOR_SET_CREATE_INFO* pCreateInfo,
     GR_DESCRIPTOR_SET* pDescriptorSet);
@@ -1507,110 +1511,110 @@ GR_VOID grClearDescriptorSetSlots(
 
 // State Object Functions
 
-GR_RESULT grCreateViewportState(
+GR_RESULT GR_STDCALL grCreateViewportState(
     GR_DEVICE device,
     const GR_VIEWPORT_STATE_CREATE_INFO* pCreateInfo,
     GR_VIEWPORT_STATE_OBJECT* pState);
 
-GR_RESULT grCreateRasterState(
+GR_RESULT GR_STDCALL grCreateRasterState(
     GR_DEVICE device,
     const GR_RASTER_STATE_CREATE_INFO* pCreateInfo,
     GR_RASTER_STATE_OBJECT* pState);
 
-GR_RESULT grCreateColorBlendState(
+GR_RESULT GR_STDCALL grCreateColorBlendState(
     GR_DEVICE device,
     const GR_COLOR_BLEND_STATE_CREATE_INFO* pCreateInfo,
     GR_COLOR_BLEND_STATE_OBJECT* pState);
 
-GR_RESULT grCreateDepthStencilState(
+GR_RESULT GR_STDCALL grCreateDepthStencilState(
     GR_DEVICE device,
     const GR_DEPTH_STENCIL_STATE_CREATE_INFO* pCreateInfo,
     GR_DEPTH_STENCIL_STATE_OBJECT* pState);
 
-GR_RESULT grCreateMsaaState(
+GR_RESULT GR_STDCALL grCreateMsaaState(
     GR_DEVICE device,
     const GR_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState);
 
 // Query and Synchronization Functions
 
-GR_RESULT grCreateQueryPool(
+GR_RESULT GR_STDCALL grCreateQueryPool(
     GR_DEVICE device,
     const GR_QUERY_POOL_CREATE_INFO* pCreateInfo,
     GR_QUERY_POOL* pQueryPool);
 
-GR_RESULT grGetQueryPoolResults(
+GR_RESULT GR_STDCALL grGetQueryPoolResults(
     GR_QUERY_POOL queryPool,
     GR_UINT startQuery,
     GR_UINT queryCount,
     GR_SIZE* pDataSize,
     GR_VOID* pData);
 
-GR_RESULT grCreateFence(
+GR_RESULT GR_STDCALL grCreateFence(
     GR_DEVICE device,
     const GR_FENCE_CREATE_INFO* pCreateInfo,
     GR_FENCE* pFence);
 
-GR_RESULT grGetFenceStatus(
+GR_RESULT GR_STDCALL grGetFenceStatus(
     GR_FENCE fence);
 
-GR_RESULT grWaitForFences(
+GR_RESULT GR_STDCALL grWaitForFences(
     GR_DEVICE device,
     GR_UINT fenceCount,
     const GR_FENCE* pFences,
     GR_BOOL waitAll,
     GR_FLOAT timeout);
 
-GR_RESULT grCreateQueueSemaphore(
+GR_RESULT GR_STDCALL grCreateQueueSemaphore(
     GR_DEVICE device,
     const GR_QUEUE_SEMAPHORE_CREATE_INFO* pCreateInfo,
     GR_QUEUE_SEMAPHORE* pSemaphore);
 
-GR_RESULT grSignalQueueSemaphore(
+GR_RESULT GR_STDCALL grSignalQueueSemaphore(
     GR_QUEUE queue,
     GR_QUEUE_SEMAPHORE semaphore);
 
-GR_RESULT grWaitQueueSemaphore(
+GR_RESULT GR_STDCALL grWaitQueueSemaphore(
     GR_QUEUE queue,
     GR_QUEUE_SEMAPHORE semaphore);
 
-GR_RESULT grCreateEvent(
+GR_RESULT GR_STDCALL grCreateEvent(
     GR_DEVICE device,
     const GR_EVENT_CREATE_INFO* pCreateInfo,
     GR_EVENT* pEvent);
 
-GR_RESULT grGetEventStatus(
+GR_RESULT GR_STDCALL grGetEventStatus(
     GR_EVENT event);
 
-GR_RESULT grSetEvent(
+GR_RESULT GR_STDCALL grSetEvent(
     GR_EVENT event);
 
-GR_RESULT grResetEvent(
+GR_RESULT GR_STDCALL grResetEvent(
     GR_EVENT event);
 
 // Multi-Device Management Functions
 
-GR_RESULT grGetMultiGpuCompatibility(
+GR_RESULT GR_STDCALL grGetMultiGpuCompatibility(
     GR_PHYSICAL_GPU gpu0,
     GR_PHYSICAL_GPU gpu1,
     GR_GPU_COMPATIBILITY_INFO* pInfo);
 
-GR_RESULT grOpenSharedMemory(
+GR_RESULT GR_STDCALL grOpenSharedMemory(
     GR_DEVICE device,
     const GR_MEMORY_OPEN_INFO* pOpenInfo,
     GR_GPU_MEMORY* pMem);
 
-GR_RESULT grOpenSharedQueueSemaphore(
+GR_RESULT GR_STDCALL grOpenSharedQueueSemaphore(
     GR_DEVICE device,
     const GR_QUEUE_SEMAPHORE_OPEN_INFO* pOpenInfo,
     GR_QUEUE_SEMAPHORE* pSemaphore);
 
-GR_RESULT grOpenPeerMemory(
+GR_RESULT GR_STDCALL grOpenPeerMemory(
     GR_DEVICE device,
     const GR_PEER_MEMORY_OPEN_INFO* pOpenInfo,
     GR_GPU_MEMORY* pMem);
 
-GR_RESULT grOpenPeerImage(
+GR_RESULT GR_STDCALL grOpenPeerImage(
     GR_DEVICE device,
     const GR_PEER_IMAGE_OPEN_INFO* pOpenInfo,
     GR_IMAGE* pImage,
@@ -1618,19 +1622,19 @@ GR_RESULT grOpenPeerImage(
 
 // Command Buffer Management Functions
 
-GR_RESULT grCreateCommandBuffer(
+GR_RESULT GR_STDCALL grCreateCommandBuffer(
     GR_DEVICE device,
     const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
     GR_CMD_BUFFER* pCmdBuffer);
 
-GR_RESULT grBeginCommandBuffer(
+GR_RESULT GR_STDCALL grBeginCommandBuffer(
     GR_CMD_BUFFER cmdBuffer,
     GR_FLAGS flags);
 
-GR_RESULT grEndCommandBuffer(
+GR_RESULT GR_STDCALL grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer);
 
-GR_RESULT grResetCommandBuffer(
+GR_RESULT GR_STDCALL grResetCommandBuffer(
     GR_CMD_BUFFER cmdBuffer);
 
 // Command Buffer Building Functions

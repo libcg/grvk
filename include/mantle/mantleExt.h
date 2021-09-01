@@ -140,12 +140,12 @@ GR_UINT32 grGetExtensionLibraryVersion();
 
 // Border Color Palette Extension Functions
 
-GR_RESULT grCreateBorderColorPalette(
+GR_RESULT GR_STDCALL grCreateBorderColorPalette(
     GR_DEVICE device,
     const GR_BORDER_COLOR_PALETTE_CREATE_INFO* pCreateInfo,
     GR_BORDER_COLOR_PALETTE* pPalette);
 
-GR_RESULT grUpdateBorderColorPalette(
+GR_RESULT GR_STDCALL grUpdateBorderColorPalette(
     GR_BORDER_COLOR_PALETTE palette,
     GR_UINT firstEntry,
     GR_UINT entryCount,
@@ -158,19 +158,19 @@ GR_VOID grCmdBindBorderColorPalette(
 
 // Advanced Multisampling Extnension Functions
 
-GR_RESULT grCreateAdvancedMsaaState(
+GR_RESULT GR_STDCALL grCreateAdvancedMsaaState(
     GR_DEVICE device,
     const GR_ADVANCED_MSAA_STATE_CREATE_INFO* pCreateInfo,
     GR_MSAA_STATE_OBJECT* pState);
 
-GR_RESULT grCreateFmaskImageView(
+GR_RESULT GR_STDCALL grCreateFmaskImageView(
     GR_DEVICE device,
     const GR_FMASK_IMAGE_VIEW_CREATE_INFO* pCreateInfo,
     GR_IMAGE_VIEW* pView);
 
 // Copy Occlusion Query Data Extension Functions
 
-GR_RESULT grCmdCopyOcclusionData(
+GR_RESULT GR_STDCALL grCmdCopyOcclusionData(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT startQuery,
@@ -227,99 +227,99 @@ GR_VOID grCmdEndWhile(
 
 // Timer Queue Extension Functions
 
-GR_RESULT grQueueDelay(
+GR_RESULT GR_STDCALL grQueueDelay(
     GR_QUEUE queue,
     GR_FLOAT delay);
 
-GR_RESULT grCalibrateGpuTimestamp(
+GR_RESULT GR_STDCALL grCalibrateGpuTimestamp(
     GR_DEVICE device,
     GR_GPU_TIMESTAMP_CALIBRATION* pCalibrationData);
 
 // Undocumented Functions
 
-GR_RESULT grAddEmulatedPrivateDisplay();
+GR_RESULT GR_STDCALL grAddEmulatedPrivateDisplay();
 
-GR_RESULT grAddPerfExperimentCounter();
+GR_RESULT GR_STDCALL grAddPerfExperimentCounter();
 
-GR_RESULT grAddPerfExperimentTrace();
+GR_RESULT GR_STDCALL grAddPerfExperimentTrace();
 
-GR_RESULT grBlankPrivateDisplay();
+GR_RESULT GR_STDCALL grBlankPrivateDisplay();
 
-GR_RESULT grCmdBeginPerfExperiment();
+GR_RESULT GR_STDCALL grCmdBeginPerfExperiment();
 
-GR_RESULT grCmdBindUserData();
+GR_RESULT GR_STDCALL grCmdBindUserData();
 
-GR_RESULT grCmdCopyRegisterToMemory();
+GR_RESULT GR_STDCALL grCmdCopyRegisterToMemory();
 
-GR_RESULT grCmdDispatchOffset();
+GR_RESULT GR_STDCALL grCmdDispatchOffset();
 
-GR_RESULT grCmdDispatchOffsetIndirect();
+GR_RESULT GR_STDCALL grCmdDispatchOffsetIndirect();
 
-GR_RESULT grCmdEndPerfExperiment();
+GR_RESULT GR_STDCALL grCmdEndPerfExperiment();
 
-GR_RESULT grCmdInsertTraceMarker();
+GR_RESULT GR_STDCALL grCmdInsertTraceMarker();
 
-GR_RESULT grCmdWaitMemoryValue();
+GR_RESULT GR_STDCALL grCmdWaitMemoryValue();
 
-GR_RESULT grCmdWaitRegisterValue();
+GR_RESULT GR_STDCALL grCmdWaitRegisterValue();
 
-GR_RESULT grCreatePerfExperiment();
+GR_RESULT GR_STDCALL grCreatePerfExperiment();
 
-GR_RESULT grCreatePrivateDisplayImage();
+GR_RESULT GR_STDCALL grCreatePrivateDisplayImage();
 
-GR_RESULT grCreateVirtualDisplay();
+GR_RESULT GR_STDCALL grCreateVirtualDisplay();
 
-GR_RESULT grDestroyVirtualDisplay();
+GR_RESULT GR_STDCALL grDestroyVirtualDisplay();
 
-GR_RESULT grDisablePrivateDisplay();
+GR_RESULT GR_STDCALL grDisablePrivateDisplay();
 
-GR_RESULT grEnablePrivateDisplay();
+GR_RESULT GR_STDCALL grEnablePrivateDisplay();
 
-GR_RESULT grEnablePrivateDisplayAudio();
+GR_RESULT GR_STDCALL grEnablePrivateDisplayAudio();
 
-GR_RESULT grFinalizePerfExperiment();
+GR_RESULT GR_STDCALL grFinalizePerfExperiment();
 
-GR_RESULT grGetPrivateDisplayScanLine();
+GR_RESULT GR_STDCALL grGetPrivateDisplayScanLine();
 
-GR_RESULT grGetPrivateDisplays();
+GR_RESULT GR_STDCALL grGetPrivateDisplays();
 
-GR_RESULT grGetVirtualDisplayProperties();
+GR_RESULT GR_STDCALL grGetVirtualDisplayProperties();
 
-GR_RESULT grOpenExternalSharedPrivateDisplayImage();
+GR_RESULT GR_STDCALL grOpenExternalSharedPrivateDisplayImage();
 
-GR_RESULT grPrivateDisplayPresent();
+GR_RESULT GR_STDCALL grPrivateDisplayPresent();
 
-GR_RESULT grQueueDelayAfterVsync();
+GR_RESULT GR_STDCALL grQueueDelayAfterVsync();
 
-GR_RESULT grQueueMigrateObjects();
+GR_RESULT GR_STDCALL grQueueMigrateObjects();
 
-GR_RESULT grQueueSetExecutionPriority();
+GR_RESULT GR_STDCALL grQueueSetExecutionPriority();
 
-GR_RESULT grRegisterPowerEvent();
+GR_RESULT GR_STDCALL grRegisterPowerEvent();
 
-GR_RESULT grRegisterPrivateDisplayEvent();
+GR_RESULT GR_STDCALL grRegisterPrivateDisplayEvent();
 
-GR_RESULT grRemoveEmulatedPrivateDisplay();
+GR_RESULT GR_STDCALL grRemoveEmulatedPrivateDisplay();
 
-GR_RESULT grSetEventAfterVsync();
+GR_RESULT GR_STDCALL grSetEventAfterVsync();
 
-GR_RESULT grSetPowerDefaultPerformance();
+GR_RESULT GR_STDCALL grSetPowerDefaultPerformance();
 
-GR_RESULT grSetPowerProfile();
+GR_RESULT GR_STDCALL grSetPowerProfile();
 
-GR_RESULT grSetPowerRegions();
+GR_RESULT GR_STDCALL grSetPowerRegions();
 
-GR_RESULT grSetPrivateDisplayPowerMode();
+GR_RESULT GR_STDCALL grSetPrivateDisplayPowerMode();
 
-GR_RESULT grSetPrivateDisplaySettings();
+GR_RESULT GR_STDCALL grSetPrivateDisplaySettings();
 
-GR_RESULT grWinAllocMemory();
+GR_RESULT GR_STDCALL grWinAllocMemory();
 
-GR_RESULT grWinOpenExternalSharedImage();
+GR_RESULT GR_STDCALL grWinOpenExternalSharedImage();
 
-GR_RESULT grWinOpenExternalSharedMemory();
+GR_RESULT GR_STDCALL grWinOpenExternalSharedMemory();
 
-GR_RESULT grWinOpenExternalSharedQueueSemaphore();
+GR_RESULT GR_STDCALL grWinOpenExternalSharedQueueSemaphore();
 
 #ifdef __cplusplus
 }

@@ -26,7 +26,7 @@ void grCmdBufferResetState(
 
 // Command Buffer Management Functions
 
-GR_RESULT grCreateCommandBuffer(
+GR_RESULT GR_STDCALL grCreateCommandBuffer(
     GR_DEVICE device,
     const GR_CMD_BUFFER_CREATE_INFO* pCreateInfo,
     GR_CMD_BUFFER* pCmdBuffer)
@@ -104,7 +104,7 @@ GR_RESULT grCreateCommandBuffer(
     return GR_SUCCESS;
 }
 
-GR_RESULT grBeginCommandBuffer(
+GR_RESULT GR_STDCALL grBeginCommandBuffer(
     GR_CMD_BUFFER cmdBuffer,
     GR_FLAGS flags)
 {
@@ -148,7 +148,7 @@ GR_RESULT grBeginCommandBuffer(
     return GR_SUCCESS;
 }
 
-GR_RESULT grEndCommandBuffer(
+GR_RESULT GR_STDCALL grEndCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
     LOGT("%p\n", cmdBuffer);
@@ -177,7 +177,7 @@ GR_RESULT grEndCommandBuffer(
     return GR_SUCCESS;
 }
 
-GR_RESULT grResetCommandBuffer(
+GR_RESULT GR_STDCALL grResetCommandBuffer(
     GR_CMD_BUFFER cmdBuffer)
 {
     LOGT("%p\n", cmdBuffer);

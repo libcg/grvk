@@ -2,7 +2,7 @@
 
 // Image View Functions
 
-GR_RESULT grCreateImageView(
+GR_RESULT GR_STDCALL grCreateImageView(
     GR_DEVICE device,
     const GR_IMAGE_VIEW_CREATE_INFO* pCreateInfo,
     GR_IMAGE_VIEW* pView)
@@ -107,7 +107,7 @@ GR_RESULT grCreateImageView(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateColorTargetView(
+GR_RESULT GR_STDCALL grCreateColorTargetView(
     GR_DEVICE device,
     const GR_COLOR_TARGET_VIEW_CREATE_INFO* pCreateInfo,
     GR_COLOR_TARGET_VIEW* pView)
@@ -178,7 +178,7 @@ GR_RESULT grCreateColorTargetView(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateDepthStencilView(
+GR_RESULT GR_STDCALL grCreateDepthStencilView(
     GR_DEVICE device,
     const GR_DEPTH_STENCIL_VIEW_CREATE_INFO* pCreateInfo,
     GR_DEPTH_STENCIL_VIEW* pView)

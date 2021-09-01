@@ -74,7 +74,7 @@ unsigned grImageGetBufferDepthPitch(
 
 // Image and Sample Functions
 
-GR_RESULT grGetFormatInfo(
+GR_RESULT GR_STDCALL grGetFormatInfo(
     GR_DEVICE device,
     GR_FORMAT format,
     GR_ENUM infoType,
@@ -121,7 +121,7 @@ GR_RESULT grGetFormatInfo(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateImage(
+GR_RESULT GR_STDCALL grCreateImage(
     GR_DEVICE device,
     const GR_IMAGE_CREATE_INFO* pCreateInfo,
     GR_IMAGE* pImage)
@@ -292,7 +292,7 @@ GR_RESULT grCreateImage(
     return GR_SUCCESS;
 }
 
-GR_RESULT grGetImageSubresourceInfo(
+GR_RESULT GR_STDCALL grGetImageSubresourceInfo(
     GR_IMAGE image,
     const GR_IMAGE_SUBRESOURCE* pSubresource,
     GR_ENUM infoType,
@@ -363,7 +363,7 @@ GR_RESULT grGetImageSubresourceInfo(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateSampler(
+GR_RESULT GR_STDCALL grCreateSampler(
     GR_DEVICE device,
     const GR_SAMPLER_CREATE_INFO* pCreateInfo,
     GR_SAMPLER* pSampler)

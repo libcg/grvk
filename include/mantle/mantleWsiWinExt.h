@@ -163,45 +163,45 @@ typedef struct _GR_WSI_WIN_QUEUE_PROPERTIES
 
 // Functions
 
-GR_RESULT grWsiWinGetDisplays(
+GR_RESULT GR_STDCALL grWsiWinGetDisplays(
     GR_DEVICE device,
     GR_UINT* pDisplayCount,
     GR_WSI_WIN_DISPLAY* pDisplayList);
 
-GR_RESULT grWsiWinGetDisplayModeList(
+GR_RESULT GR_STDCALL grWsiWinGetDisplayModeList(
     GR_WSI_WIN_DISPLAY display,
     GR_UINT* pDisplayModeCount,
     GR_WSI_WIN_DISPLAY_MODE* pDisplayModeList);
 
-GR_RESULT grWsiWinTakeFullscreenOwnership(
+GR_RESULT GR_STDCALL grWsiWinTakeFullscreenOwnership(
     GR_WSI_WIN_DISPLAY display,
     GR_IMAGE image);
 
-GR_RESULT grWsiWinReleaseFullscreenOwnership(
+GR_RESULT GR_STDCALL grWsiWinReleaseFullscreenOwnership(
     GR_WSI_WIN_DISPLAY display);
 
-GR_RESULT grWsiWinSetGammaRamp(
+GR_RESULT GR_STDCALL grWsiWinSetGammaRamp(
     GR_WSI_WIN_DISPLAY display,
     const GR_WSI_WIN_GAMMA_RAMP* pGammaRamp);
 
-GR_RESULT grWsiWinWaitForVerticalBlank(
+GR_RESULT GR_STDCALL grWsiWinWaitForVerticalBlank(
     GR_WSI_WIN_DISPLAY display);
 
-GR_RESULT grWsiWinGetScanLine(
+GR_RESULT GR_STDCALL grWsiWinGetScanLine(
     GR_WSI_WIN_DISPLAY display,
     GR_INT* pScanLine);
 
-GR_RESULT grWsiWinCreatePresentableImage(
+GR_RESULT GR_STDCALL grWsiWinCreatePresentableImage(
     GR_DEVICE device,
     const GR_WSI_WIN_PRESENTABLE_IMAGE_CREATE_INFO* pCreateInfo,
     GR_IMAGE* pImage,
     GR_GPU_MEMORY* pMem);
 
-GR_RESULT grWsiWinQueuePresent(
+GR_RESULT GR_STDCALL grWsiWinQueuePresent(
     GR_QUEUE queue,
     const GR_WSI_WIN_PRESENT_INFO* pPresentInfo);
 
-GR_RESULT grWsiWinSetMaxQueuedFrames(
+GR_RESULT GR_STDCALL grWsiWinSetMaxQueuedFrames(
     GR_DEVICE device,
     GR_UINT maxFrames);
 

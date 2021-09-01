@@ -4,7 +4,7 @@
 
 // Border Color Palette Extension Functions
 
-GR_RESULT grCreateBorderColorPalette(
+GR_RESULT GR_STDCALL grCreateBorderColorPalette(
     GR_DEVICE device,
     const GR_BORDER_COLOR_PALETTE_CREATE_INFO* pCreateInfo,
     GR_BORDER_COLOR_PALETTE* pPalette)
@@ -33,7 +33,7 @@ GR_RESULT grCreateBorderColorPalette(
     return GR_SUCCESS;
 }
 
-GR_RESULT grUpdateBorderColorPalette(
+GR_RESULT GR_STDCALL grUpdateBorderColorPalette(
     GR_BORDER_COLOR_PALETTE palette,
     GR_UINT firstEntry,
     GR_UINT entryCount,

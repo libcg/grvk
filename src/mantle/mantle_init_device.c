@@ -21,7 +21,7 @@ static char* getGrvkEngineName(
 
 // Initialization and Device Functions
 
-GR_RESULT grInitAndEnumerateGpus(
+GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
     const GR_APPLICATION_INFO* pAppInfo,
     const GR_ALLOC_CALLBACKS* pAllocCb,
     GR_UINT* pGpuCount,
@@ -113,7 +113,7 @@ GR_RESULT grInitAndEnumerateGpus(
     return GR_SUCCESS;
 }
 
-GR_RESULT grGetGpuInfo(
+GR_RESULT GR_STDCALL grGetGpuInfo(
     GR_PHYSICAL_GPU gpu,
     GR_ENUM infoType,
     GR_SIZE* pDataSize,
@@ -290,7 +290,7 @@ GR_RESULT grGetGpuInfo(
     return GR_SUCCESS;
 }
 
-GR_RESULT grCreateDevice(
+GR_RESULT GR_STDCALL grCreateDevice(
     GR_PHYSICAL_GPU gpu,
     const GR_DEVICE_CREATE_INFO* pCreateInfo,
     GR_DEVICE* pDevice)
@@ -485,7 +485,7 @@ bail:
     return res;
 }
 
-GR_RESULT grDestroyDevice(
+GR_RESULT GR_STDCALL grDestroyDevice(
     GR_DEVICE device)
 {
     LOGT("%p\n", device);
