@@ -173,6 +173,8 @@ GR_RESULT GR_STDCALL grCreateImage(
         return GR_ERROR_INVALID_FLAGS;
     }
 
+    bool isTarget = pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET ||
+                    pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL;
     bool isCube = pCreateInfo->imageType == GR_IMAGE_2D &&
                   pCreateInfo->extent.width == pCreateInfo->extent.height &&
                   pCreateInfo->extent.depth == 1 &&
@@ -204,7 +206,8 @@ GR_RESULT GR_STDCALL grCreateImage(
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = NULL,
-        .initialLayout = getVkImageLayout(GR_IMAGE_STATE_UNINITIALIZED),
+        .initialLayout = isTarget ? getVkImageLayout(GR_IMAGE_STATE_UNINITIALIZED) :
+                                    VK_IMAGE_LAYOUT_PREINITIALIZED,
     };
 
     // Use a buffer for linear transfer-only images
@@ -283,8 +286,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .arrayLayers = createInfo.arrayLayers,
         .format = createInfo.format,
         .usage = createInfo.usage,
-        .needInitialDataTransferState = !(pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET) &&
-                                        !(pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL),
+        .needInitialDataTransferState = !isTarget,
         .isCube = isCube,
     };
 

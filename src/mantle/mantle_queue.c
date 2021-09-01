@@ -18,49 +18,87 @@ static unsigned getVkQueueFamilyIndex(
     return INVALID_QUEUE_INDEX;
 }
 
-static void prepareImages(
+static void prepareImagesForDataTransfer(
     const GrQueue* grQueue,
     unsigned imageCount,
-    GrImage** images,
-    GR_IMAGE_STATE newState)
+    GrImage** images)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
-    GR_IMAGE_STATE_TRANSITION* stateTransitions =
-        malloc(imageCount * sizeof(GR_IMAGE_STATE_TRANSITION));
+    VkCommandPool vkCommandPool = VK_NULL_HANDLE;
+    VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
+    VkImageMemoryBarrier* barriers = malloc(imageCount * sizeof(VkImageMemoryBarrier));
+
+    // TODO create command pool and buffer in advance
+    const VkCommandPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .queueFamilyIndex = grQueue->queueIndex,
+    };
+
+    VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &vkCommandPool);
+
+    const VkCommandBufferAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = vkCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &vkCommandBuffer);
+
+    const VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = NULL,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = NULL,
+    };
 
     for (unsigned i = 0; i < imageCount; i++) {
-        stateTransitions[i] = (GR_IMAGE_STATE_TRANSITION) {
-            .image = (GR_IMAGE)images[i],
-            .oldState = GR_IMAGE_STATE_UNINITIALIZED,
-            .newState = newState,
+        barriers[i] = (VkImageMemoryBarrier) {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext = NULL,
+            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = getVkAccessFlagsImage(GR_IMAGE_STATE_DATA_TRANSFER),
+            .oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED,
+            .newLayout = getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = images[i]->image,
             .subresourceRange = {
-                .aspect = GR_IMAGE_ASPECT_COLOR,
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, // TODO handle depth-stencil
                 .baseMipLevel = 0,
-                .mipLevels = GR_LAST_MIP_OR_SLICE,
-                .baseArraySlice = 0,
-                .arraySize = GR_LAST_MIP_OR_SLICE,
+                .levelCount = VK_REMAINING_MIP_LEVELS,
+                .baseArrayLayer = 0,
+                .layerCount = VK_REMAINING_ARRAY_LAYERS,
             },
         };
     }
 
-    const GR_CMD_BUFFER_CREATE_INFO cmdBufferCreateInfo = {
-        .queueType = GR_QUEUE_UNIVERSAL,
-        .flags = 0,
+    VKD.vkBeginCommandBuffer(vkCommandBuffer, &beginInfo);
+    VKD.vkCmdPipelineBarrier(vkCommandBuffer,
+                             VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             0, 0, NULL, 0, NULL, imageCount, barriers);
+    VKD.vkEndCommandBuffer(vkCommandBuffer);
+
+    const VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = NULL,
+        .waitSemaphoreCount = 0,
+        .pWaitSemaphores = NULL,
+        .pWaitDstStageMask = NULL,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &vkCommandBuffer,
+        .signalSemaphoreCount = 0,
+        .pSignalSemaphores = NULL,
     };
 
-    // TODO create cmd buffer in advance
-    GR_CMD_BUFFER cmdBuffer = GR_NULL_HANDLE;
-    grCreateCommandBuffer((GR_DEVICE)grDevice, &cmdBufferCreateInfo, &cmdBuffer);
+    VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    VKD.vkQueueWaitIdle(grQueue->queue); // TODO chain with a semaphore
 
-    grBeginCommandBuffer(cmdBuffer, GR_CMD_BUFFER_OPTIMIZE_ONE_TIME_SUBMIT);
-    grCmdPrepareImages(cmdBuffer, imageCount, stateTransitions);
-    grEndCommandBuffer(cmdBuffer);
-
-    grQueueSubmit((GR_QUEUE)grQueue, 1, &cmdBuffer, 0, NULL, GR_NULL_HANDLE);
-    grQueueWaitIdle((GR_QUEUE)grQueue); // TODO use a fence, or better, a semaphore...
-
-    grDestroyObject(cmdBuffer);
-    free(stateTransitions);
+    VKD.vkDestroyCommandPool(grDevice->device, vkCommandPool, NULL);
+    free(barriers);
 }
 
 static void checkMemoryReferences(
@@ -96,7 +134,7 @@ static void checkMemoryReferences(
 
     // Perform data transfer state transition
     if (imageCount > 0) {
-        prepareImages(grQueue, imageCount, images, GR_IMAGE_STATE_DATA_TRANSFER);
+        prepareImagesForDataTransfer(grQueue, imageCount, images);
     }
 
     free(images);
