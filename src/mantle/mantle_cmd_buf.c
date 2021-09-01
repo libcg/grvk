@@ -1020,8 +1020,10 @@ GR_VOID grCmdCopyMemoryToImage(
                 region->imageOffset.z
             },
             .imageExtent = {
-                region->imageExtent.width * dstTileSize,
-                region->imageExtent.height * dstTileSize,
+                MIN(region->imageExtent.width * dstTileSize,
+                    MIP(grDstImage->extent.width, region->imageSubresource.mipLevel)),
+                MIN(region->imageExtent.height * dstTileSize,
+                    MIP(grDstImage->extent.height, region->imageSubresource.mipLevel)),
                 region->imageExtent.depth,
             },
         };
