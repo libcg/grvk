@@ -84,9 +84,11 @@ GR_RESULT GR_STDCALL grCreateImageView(
                                                        pCreateInfo->viewType == GR_IMAGE_VIEW_CUBE),
     };
 
-    if (grImage->format == VK_FORMAT_D32_SFLOAT_S8_UINT &&
-        createInfo.format == VK_FORMAT_R32_SFLOAT) {
-        // Battlefield 4 tries to create an invalid R32 view from a D32S8 image
+    // Battlefield 4 tries to create invalid views from depth-stencil images
+    if ((grImage->format == VK_FORMAT_D16_UNORM &&
+         createInfo.format == VK_FORMAT_R16_UNORM) ||
+        (grImage->format == VK_FORMAT_D32_SFLOAT_S8_UINT &&
+         createInfo.format == VK_FORMAT_R32_SFLOAT)) {
         createInfo.format = grImage->format;
         createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     }
