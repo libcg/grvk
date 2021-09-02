@@ -29,7 +29,7 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
     return GR_SUCCESS;
 }
 
-GR_VOID grBeginDescriptorSetUpdate(
+GR_VOID GR_STDCALL grBeginDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet)
 {
     LOGT("%p\n", descriptorSet);
@@ -37,7 +37,7 @@ GR_VOID grBeginDescriptorSetUpdate(
     // TODO dirty tracking
 }
 
-GR_VOID grEndDescriptorSetUpdate(
+GR_VOID GR_STDCALL grEndDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet)
 {
     LOGT("%p\n", descriptorSet);
@@ -45,7 +45,7 @@ GR_VOID grEndDescriptorSetUpdate(
     // TODO update descriptors of bound pipelines
 }
 
-GR_VOID grAttachSamplerDescriptors(
+GR_VOID GR_STDCALL grAttachSamplerDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
@@ -65,7 +65,7 @@ GR_VOID grAttachSamplerDescriptors(
     }
 }
 
-GR_VOID grAttachImageViewDescriptors(
+GR_VOID GR_STDCALL grAttachImageViewDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
@@ -89,7 +89,7 @@ GR_VOID grAttachImageViewDescriptors(
     }
 }
 
-GR_VOID grAttachMemoryViewDescriptors(
+GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
@@ -117,7 +117,7 @@ GR_VOID grAttachMemoryViewDescriptors(
     }
 }
 
-GR_VOID grAttachNestedDescriptors(
+GR_VOID GR_STDCALL grAttachNestedDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
@@ -140,7 +140,7 @@ GR_VOID grAttachNestedDescriptors(
     }
 }
 
-GR_VOID grClearDescriptorSetSlots(
+GR_VOID GR_STDCALL grClearDescriptorSetSlots(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount)
