@@ -112,7 +112,7 @@ GR_RESULT GR_STDCALL grOpenPeerImage(
 
 // Command Buffer Building Functions
 
-GR_VOID grCmdDispatchIndirect(
+GR_VOID GR_STDCALL grCmdDispatchIndirect(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset)
@@ -120,7 +120,7 @@ GR_VOID grCmdDispatchIndirect(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdResolveImage(
+GR_VOID GR_STDCALL grCmdResolveImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
     GR_IMAGE destImage,
@@ -130,7 +130,7 @@ GR_VOID grCmdResolveImage(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdCloneImageData(
+GR_VOID GR_STDCALL grCmdCloneImageData(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
     GR_ENUM srcImageState,
@@ -140,7 +140,7 @@ GR_VOID grCmdCloneImageData(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdMemoryAtomic(
+GR_VOID GR_STDCALL grCmdMemoryAtomic(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,
     GR_GPU_SIZE destOffset,
@@ -150,7 +150,7 @@ GR_VOID grCmdMemoryAtomic(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdBeginQuery(
+GR_VOID GR_STDCALL grCmdBeginQuery(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT slot,
@@ -159,7 +159,7 @@ GR_VOID grCmdBeginQuery(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdEndQuery(
+GR_VOID GR_STDCALL grCmdEndQuery(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT slot)
@@ -167,7 +167,7 @@ GR_VOID grCmdEndQuery(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdResetQueryPool(
+GR_VOID GR_STDCALL grCmdResetQueryPool(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT startQuery,
@@ -176,7 +176,7 @@ GR_VOID grCmdResetQueryPool(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdWriteTimestamp(
+GR_VOID GR_STDCALL grCmdWriteTimestamp(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM timestampType,
     GR_GPU_MEMORY destMem,
@@ -185,7 +185,7 @@ GR_VOID grCmdWriteTimestamp(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdInitAtomicCounters(
+GR_VOID GR_STDCALL grCmdInitAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_UINT startCounter,
@@ -195,7 +195,7 @@ GR_VOID grCmdInitAtomicCounters(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdLoadAtomicCounters(
+GR_VOID GR_STDCALL grCmdLoadAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_UINT startCounter,
@@ -206,7 +206,7 @@ GR_VOID grCmdLoadAtomicCounters(
     LOGW("STUB\n");
 }
 
-GR_VOID grCmdSaveAtomicCounters(
+GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_UINT startCounter,

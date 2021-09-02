@@ -1474,37 +1474,37 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
     const GR_DESCRIPTOR_SET_CREATE_INFO* pCreateInfo,
     GR_DESCRIPTOR_SET* pDescriptorSet);
 
-GR_VOID grBeginDescriptorSetUpdate(
+GR_VOID GR_STDCALL grBeginDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet);
 
-GR_VOID grEndDescriptorSetUpdate(
+GR_VOID GR_STDCALL grEndDescriptorSetUpdate(
     GR_DESCRIPTOR_SET descriptorSet);
 
-GR_VOID grAttachSamplerDescriptors(
+GR_VOID GR_STDCALL grAttachSamplerDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
     const GR_SAMPLER* pSamplers);
 
-GR_VOID grAttachImageViewDescriptors(
+GR_VOID GR_STDCALL grAttachImageViewDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
     const GR_IMAGE_VIEW_ATTACH_INFO* pImageViews);
 
-GR_VOID grAttachMemoryViewDescriptors(
+GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
     const GR_MEMORY_VIEW_ATTACH_INFO* pMemViews);
 
-GR_VOID grAttachNestedDescriptors(
+GR_VOID GR_STDCALL grAttachNestedDescriptors(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount,
     const GR_DESCRIPTOR_SET_ATTACH_INFO* pNestedDescriptorSets);
 
-GR_VOID grClearDescriptorSetSlots(
+GR_VOID GR_STDCALL grClearDescriptorSetSlots(
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT startSlot,
     GR_UINT slotCount);
@@ -1639,58 +1639,58 @@ GR_RESULT GR_STDCALL grResetCommandBuffer(
 
 // Command Buffer Building Functions
 
-GR_VOID grCmdBindPipeline(
+GR_VOID GR_STDCALL grCmdBindPipeline(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_PIPELINE pipeline);
 
-GR_VOID grCmdBindStateObject(
+GR_VOID GR_STDCALL grCmdBindStateObject(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM stateBindPoint,
     GR_STATE_OBJECT state);
 
-GR_VOID grCmdBindDescriptorSet(
+GR_VOID GR_STDCALL grCmdBindDescriptorSet(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_UINT index,
     GR_DESCRIPTOR_SET descriptorSet,
     GR_UINT slotOffset);
 
-GR_VOID grCmdBindDynamicMemoryView(
+GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     const GR_MEMORY_VIEW_ATTACH_INFO* pMemView);
 
-GR_VOID grCmdBindIndexData(
+GR_VOID GR_STDCALL grCmdBindIndexData(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset,
     GR_ENUM indexType);
 
-GR_VOID grCmdBindTargets(
+GR_VOID GR_STDCALL grCmdBindTargets(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT colorTargetCount,
     const GR_COLOR_TARGET_BIND_INFO* pColorTargets,
     const GR_DEPTH_STENCIL_BIND_INFO* pDepthTarget);
 
-GR_VOID grCmdPrepareMemoryRegions(
+GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT transitionCount,
     const GR_MEMORY_STATE_TRANSITION* pStateTransitions);
 
-GR_VOID grCmdPrepareImages(
+GR_VOID GR_STDCALL grCmdPrepareImages(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT transitionCount,
     const GR_IMAGE_STATE_TRANSITION* pStateTransitions);
 
-GR_VOID grCmdDraw(
+GR_VOID GR_STDCALL grCmdDraw(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT firstVertex,
     GR_UINT vertexCount,
     GR_UINT firstInstance,
     GR_UINT instanceCount);
 
-GR_VOID grCmdDrawIndexed(
+GR_VOID GR_STDCALL grCmdDrawIndexed(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT firstIndex,
     GR_UINT indexCount,
@@ -1698,98 +1698,98 @@ GR_VOID grCmdDrawIndexed(
     GR_UINT firstInstance,
     GR_UINT instanceCount);
 
-GR_VOID grCmdDrawIndirect(
+GR_VOID GR_STDCALL grCmdDrawIndirect(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset);
 
-GR_VOID grCmdDrawIndexedIndirect(
+GR_VOID GR_STDCALL grCmdDrawIndexedIndirect(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset);
 
-GR_VOID grCmdDispatch(
+GR_VOID GR_STDCALL grCmdDispatch(
     GR_CMD_BUFFER cmdBuffer,
     GR_UINT x,
     GR_UINT y,
     GR_UINT z);
 
-GR_VOID grCmdDispatchIndirect(
+GR_VOID GR_STDCALL grCmdDispatchIndirect(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY mem,
     GR_GPU_SIZE offset);
 
-GR_VOID grCmdCopyMemory(
+GR_VOID GR_STDCALL grCmdCopyMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY srcMem,
     GR_GPU_MEMORY destMem,
     GR_UINT regionCount,
     const GR_MEMORY_COPY* pRegions);
 
-GR_VOID grCmdCopyImage(
+GR_VOID GR_STDCALL grCmdCopyImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
     GR_IMAGE destImage,
     GR_UINT regionCount,
     const GR_IMAGE_COPY* pRegions);
 
-GR_VOID grCmdCopyMemoryToImage(
+GR_VOID GR_STDCALL grCmdCopyMemoryToImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY srcMem,
     GR_IMAGE destImage,
     GR_UINT regionCount,
     const GR_MEMORY_IMAGE_COPY* pRegions);
 
-GR_VOID grCmdCopyImageToMemory(
+GR_VOID GR_STDCALL grCmdCopyImageToMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
     GR_GPU_MEMORY destMem,
     GR_UINT regionCount,
     const GR_MEMORY_IMAGE_COPY* pRegions);
 
-GR_VOID grCmdResolveImage(
+GR_VOID GR_STDCALL grCmdResolveImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
     GR_IMAGE destImage,
     GR_UINT regionCount,
     const GR_IMAGE_RESOLVE* pRegions);
 
-GR_VOID grCmdCloneImageData(
+GR_VOID GR_STDCALL grCmdCloneImageData(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
     GR_ENUM srcImageState,
     GR_IMAGE destImage,
     GR_ENUM destImageState);
 
-GR_VOID grCmdUpdateMemory(
+GR_VOID GR_STDCALL grCmdUpdateMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,
     GR_GPU_SIZE destOffset,
     GR_GPU_SIZE dataSize,
     const GR_UINT32* pData);
 
-GR_VOID grCmdFillMemory(
+GR_VOID GR_STDCALL grCmdFillMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,
     GR_GPU_SIZE destOffset,
     GR_GPU_SIZE fillSize,
     GR_UINT32 data);
 
-GR_VOID grCmdClearColorImage(
+GR_VOID GR_STDCALL grCmdClearColorImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
     const GR_FLOAT color[4],
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges);
 
-GR_VOID grCmdClearColorImageRaw(
+GR_VOID GR_STDCALL grCmdClearColorImageRaw(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
     const GR_UINT32 color[4],
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges);
 
-GR_VOID grCmdClearDepthStencil(
+GR_VOID GR_STDCALL grCmdClearDepthStencil(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
     GR_FLOAT depth,
@@ -1797,52 +1797,52 @@ GR_VOID grCmdClearDepthStencil(
     GR_UINT rangeCount,
     const GR_IMAGE_SUBRESOURCE_RANGE* pRanges);
 
-GR_VOID grCmdSetEvent(
+GR_VOID GR_STDCALL grCmdSetEvent(
     GR_CMD_BUFFER cmdBuffer,
     GR_EVENT event);
 
-GR_VOID grCmdResetEvent(
+GR_VOID GR_STDCALL grCmdResetEvent(
     GR_CMD_BUFFER cmdBuffer,
     GR_EVENT event);
 
-GR_VOID grCmdMemoryAtomic(
+GR_VOID GR_STDCALL grCmdMemoryAtomic(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,
     GR_GPU_SIZE destOffset,
     GR_UINT64 srcData,
     GR_ENUM atomicOp);
 
-GR_VOID grCmdBeginQuery(
+GR_VOID GR_STDCALL grCmdBeginQuery(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT slot,
     GR_FLAGS flags);
 
-GR_VOID grCmdEndQuery(
+GR_VOID GR_STDCALL grCmdEndQuery(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT slot);
 
-GR_VOID grCmdResetQueryPool(
+GR_VOID GR_STDCALL grCmdResetQueryPool(
     GR_CMD_BUFFER cmdBuffer,
     GR_QUERY_POOL queryPool,
     GR_UINT startQuery,
     GR_UINT queryCount);
 
-GR_VOID grCmdWriteTimestamp(
+GR_VOID GR_STDCALL grCmdWriteTimestamp(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM timestampType,
     GR_GPU_MEMORY destMem,
     GR_GPU_SIZE destOffset);
 
-GR_VOID grCmdInitAtomicCounters(
+GR_VOID GR_STDCALL grCmdInitAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_UINT startCounter,
     GR_UINT counterCount,
     const GR_UINT32* pData);
 
-GR_VOID grCmdLoadAtomicCounters(
+GR_VOID GR_STDCALL grCmdLoadAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_UINT startCounter,
@@ -1850,7 +1850,7 @@ GR_VOID grCmdLoadAtomicCounters(
     GR_GPU_MEMORY srcMem,
     GR_GPU_SIZE srcOffset);
 
-GR_VOID grCmdSaveAtomicCounters(
+GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
     GR_UINT startCounter,
