@@ -14,6 +14,8 @@ void quirkInit(
                   QUIRK_CUBEMAP_LAYER_DIV_6;
     } else if (!strcmp(appInfo->pAppName, "Battlefield")) {
         mQuirks = QUIRK_MISSING_DEPTH_STENCIL_TARGET;
+    } else if (!strcmp(appInfo->pEngineName, "CivTech")) {
+        mQuirks = QUIRK_NON_ZERO_MEM_REQ;
     }
 
     if (mQuirks != 0) {
