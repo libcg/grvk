@@ -168,7 +168,7 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
         // FIXME check queue capability
         // TODO present from compute
         *grQueueProps = (GR_WSI_WIN_QUEUE_PROPERTIES) {
-            .presentSupport = grQueue->queueIndex == grDevice->universalQueueIndex ?
+            .presentSupport = grQueue->queueFamilyIndex == grDevice->universalQueueFamilyIndex ?
                               GR_WSI_WIN_FULLSCREEN_PRESENT_SUPPORTED |
                               GR_WSI_WIN_WINDOWED_PRESENT_SUPPORTED : 0,
         };

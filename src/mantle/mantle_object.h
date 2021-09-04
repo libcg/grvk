@@ -204,8 +204,9 @@ typedef struct _GrDevice {
     VkDevice device;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;
-    unsigned universalQueueIndex;
-    unsigned computeQueueIndex;
+    unsigned universalQueueFamilyIndex;
+    unsigned computeQueueFamilyIndex;
+    unsigned dmaQueueFamilyIndex;
 } GrDevice;
 
 typedef struct _GrEvent {
@@ -308,7 +309,7 @@ typedef struct _GrQueryPool {
 typedef struct _GrQueue {
     GrObject grObj; // FIXME base object?
     VkQueue queue;
-    unsigned queueIndex;
+    unsigned queueFamilyIndex;
     unsigned globalMemRefCount;
     GR_MEMORY_REF* globalMemRefs;
 } GrQueue;

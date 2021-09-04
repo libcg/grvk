@@ -3,15 +3,17 @@
 static CRITICAL_SECTION mMemRefMutex;
 static bool mMemRefMutexInit = false;
 
-static unsigned getVkQueueFamilyIndex(
+unsigned getVkQueueFamilyIndex(
     GrDevice* grDevice,
     GR_QUEUE_TYPE queueType)
 {
-    switch (queueType) {
+    switch ((GR_ENUM)(queueType)) {
     case GR_QUEUE_UNIVERSAL:
-        return grDevice->universalQueueIndex;
+        return grDevice->universalQueueFamilyIndex;
     case GR_QUEUE_COMPUTE:
-        return grDevice->computeQueueIndex;
+        return grDevice->computeQueueFamilyIndex;
+    case GR_EXT_QUEUE_DMA:
+        return grDevice->dmaQueueFamilyIndex;
     }
 
     LOGE("invalid queue type %d\n", queueType);
@@ -33,7 +35,7 @@ static void prepareImagesForDataTransfer(
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .queueFamilyIndex = grQueue->queueIndex,
+        .queueFamilyIndex = grQueue->queueFamilyIndex,
     };
 
     VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &vkCommandPool);
@@ -156,13 +158,13 @@ GR_RESULT GR_STDCALL grGetDeviceQueue(
     GrDevice* grDevice = (GrDevice*)device;
     VkQueue vkQueue = VK_NULL_HANDLE;
 
-    unsigned queueIndex = getVkQueueFamilyIndex(grDevice, queueType);
-    if (queueIndex == INVALID_QUEUE_INDEX) {
-        LOGE("invalid index %d for queue type %d\n", queueIndex, queueType);
+    unsigned queueFamilyIndex = getVkQueueFamilyIndex(grDevice, queueType);
+    if (queueFamilyIndex == INVALID_QUEUE_INDEX) {
+        LOGE("invalid index %d for queue type %d\n", queueFamilyIndex, queueType);
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
-    VKD.vkGetDeviceQueue(grDevice->device, queueIndex, queueId, &vkQueue);
+    VKD.vkGetDeviceQueue(grDevice->device, queueFamilyIndex, queueId, &vkQueue);
 
     // FIXME technically, this object should be created in advance so it doesn't get duplicated
     // when the application requests it multiple times
@@ -170,7 +172,7 @@ GR_RESULT GR_STDCALL grGetDeviceQueue(
     *grQueue = (GrQueue) {
         .grObj = { GR_OBJ_TYPE_QUEUE, grDevice },
         .queue = vkQueue,
-        .queueIndex = queueIndex,
+        .queueFamilyIndex = queueFamilyIndex,
         .globalMemRefCount = 0,
         .globalMemRefs = NULL,
     };

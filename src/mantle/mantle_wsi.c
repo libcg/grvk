@@ -141,7 +141,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
 static void initSwapchain(
     GrDevice* grDevice,
     HWND hwnd,
-    unsigned queueIndex)
+    unsigned queueFamilyIndex)
 {
     VkResult res;
 
@@ -159,8 +159,8 @@ static void initSwapchain(
     }
 
     VkBool32 supported = VK_FALSE;
-    res = vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueIndex, mSurface,
-                                                   &supported);
+    res = vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueFamilyIndex,
+                                                   mSurface, &supported);
     if (res != VK_SUCCESS) {
         LOGE("vkGetPhysicalDeviceSurfaceSupportKHR failed (%d)\n", res);
     } else if (!supported) {
@@ -208,7 +208,7 @@ static void initSwapchain(
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .queueFamilyIndex = grDevice->universalQueueIndex,
+        .queueFamilyIndex = grDevice->universalQueueFamilyIndex,
     };
 
     res = VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &mCommandPool);
@@ -442,7 +442,7 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
     GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
 
     if (mSwapchain == VK_NULL_HANDLE) {
-        initSwapchain(grDevice, pPresentInfo->hWndDest, grQueue->queueIndex);
+        initSwapchain(grDevice, pPresentInfo->hWndDest, grQueue->queueFamilyIndex);
     }
 
     uint32_t vkImageIndex = 0;

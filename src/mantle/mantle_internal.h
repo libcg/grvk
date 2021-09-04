@@ -39,6 +39,10 @@
 #define OFFSET_OF(struct, member) \
     (size_t)(&((struct*)0)->member)
 
+unsigned getVkQueueFamilyIndex(
+    GrDevice* grDevice,
+    GR_QUEUE_TYPE queueType);
+
 GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
     VkPhysicalDeviceType type);
 
