@@ -153,7 +153,9 @@ GR_RESULT GR_STDCALL grAllocMemory(
         return GR_ERROR_INVALID_VALUE;
     }
 
-    if (pAllocInfo->flags != 0) { // TODO
+    if (pAllocInfo->flags & GR_MEMORY_ALLOC_SHAREABLE) {
+        LOGW("unhandled shareable flag\n");
+    } else if (pAllocInfo->flags != 0) {
         LOGW("allocation flags %d are not supported\n", pAllocInfo->flags);
         return GR_ERROR_INVALID_FLAGS;
     }
