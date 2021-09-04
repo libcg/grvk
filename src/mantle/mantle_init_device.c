@@ -19,6 +19,30 @@ static char* getGrvkEngineName(
     return grvkEngineName;
 }
 
+// Exported functions
+
+unsigned grDeviceGetQueueFamilyIndex(
+    const GrDevice* grDevice,
+    GR_QUEUE_TYPE queueType)
+{
+    switch (queueType) {
+    case GR_QUEUE_UNIVERSAL:
+        return grDevice->universalQueueFamilyIndex;
+    case GR_QUEUE_COMPUTE:
+        return grDevice->computeQueueFamilyIndex;
+    }
+
+    switch ((GR_EXT_QUEUE_TYPE)queueType) {
+    case GR_EXT_QUEUE_DMA:
+        return grDevice->dmaQueueFamilyIndex;
+    case GR_EXT_QUEUE_TIMER:
+        break; // TODO implement
+    }
+
+    LOGE("invalid queue type %d\n", queueType);
+    return INVALID_QUEUE_INDEX;
+}
+
 // Initialization and Device Functions
 
 GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
@@ -208,7 +232,7 @@ GR_RESULT GR_STDCALL grGetGpuInfo(
         };
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[2] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_EXT_QUEUE_DMA,
-            .queueCount = 0, // TODO implement
+            .queueCount = 1,
             .maxAtomicCounters = 0,
             .supportsTimestamps = false, // TODO implement timestamps
         };
@@ -301,10 +325,12 @@ GR_RESULT GR_STDCALL grCreateDevice(
     GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
     VULKAN_DEVICE vkd;
     VkDevice vkDevice = VK_NULL_HANDLE;
-    unsigned universalQueueIndex = INVALID_QUEUE_INDEX;
+    unsigned universalQueueFamilyIndex = INVALID_QUEUE_INDEX;
     unsigned universalQueueCount = 0;
-    unsigned computeQueueIndex = INVALID_QUEUE_INDEX;
+    unsigned computeQueueFamilyIndex = INVALID_QUEUE_INDEX;
     unsigned computeQueueCount = 0;
+    unsigned dmaQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    unsigned dmaQueueCount = 0;
     uint32_t driverVersion;
 
     const VkPhysicalDeviceProperties* props = &grPhysicalGpu->physicalDeviceProps;
@@ -343,12 +369,14 @@ GR_RESULT GR_STDCALL grCreateDevice(
 
         if ((queueFamilyProperty->queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) ==
             (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) {
-            universalQueueIndex = i;
+            universalQueueFamilyIndex = i;
             universalQueueCount = queueFamilyProperty->queueCount;
-        } else if ((queueFamilyProperty->queueFlags & VK_QUEUE_COMPUTE_BIT) ==
-                   VK_QUEUE_COMPUTE_BIT) {
-            computeQueueIndex = i;
+        } else if (queueFamilyProperty->queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            computeQueueFamilyIndex = i;
             computeQueueCount = queueFamilyProperty->queueCount;
+        } else if (queueFamilyProperty->queueFlags & VK_QUEUE_TRANSFER_BIT) {
+            dmaQueueFamilyIndex = i;
+            dmaQueueCount = queueFamilyProperty->queueCount;
         }
     }
 
@@ -363,11 +391,27 @@ GR_RESULT GR_STDCALL grCreateDevice(
             queuePriorities[j] = 1.0f; // Max priority
         }
 
-        if ((requestedQueue->queueType == GR_QUEUE_UNIVERSAL &&
-             requestedQueue->queueCount > universalQueueCount) ||
-            (requestedQueue->queueType == GR_QUEUE_COMPUTE &&
-             requestedQueue->queueCount > computeQueueCount)) {
-            LOGE("can't find requested queue type %X with count %d\n",
+        unsigned requestedQueueFamilyIndex = INVALID_QUEUE_INDEX;
+        switch (requestedQueue->queueType) {
+        case GR_QUEUE_UNIVERSAL:
+            if (requestedQueue->queueCount <= universalQueueCount) {
+                requestedQueueFamilyIndex = universalQueueFamilyIndex;
+            }
+            break;
+        case GR_QUEUE_COMPUTE:
+            if (requestedQueue->queueCount <= computeQueueCount) {
+                requestedQueueFamilyIndex = computeQueueFamilyIndex;
+            }
+            break;
+        case GR_EXT_QUEUE_DMA:
+            if (requestedQueue->queueCount <= dmaQueueCount) {
+                requestedQueueFamilyIndex = dmaQueueFamilyIndex;
+            }
+            break;
+        }
+
+        if (requestedQueueFamilyIndex == INVALID_QUEUE_INDEX) {
+            LOGE("can't find requested queue type 0x%X with count %d\n",
                  requestedQueue->queueType, requestedQueue->queueCount);
             res = GR_ERROR_INVALID_VALUE;
             // Bail after the loop to properly release memory
@@ -377,8 +421,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
-            .queueFamilyIndex = requestedQueue->queueType == GR_QUEUE_UNIVERSAL ?
-                                universalQueueIndex : computeQueueIndex,
+            .queueFamilyIndex = requestedQueueFamilyIndex,
             .queueCount = requestedQueue->queueCount,
             .pQueuePriorities = queuePriorities,
         };
@@ -466,8 +509,9 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
-        .universalQueueIndex = universalQueueIndex,
-        .computeQueueIndex = computeQueueIndex,
+        .universalQueueFamilyIndex = universalQueueFamilyIndex,
+        .computeQueueFamilyIndex = computeQueueFamilyIndex,
+        .dmaQueueFamilyIndex = dmaQueueFamilyIndex
     };
 
     *pDevice = (GR_DEVICE)grDevice;

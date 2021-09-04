@@ -54,8 +54,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = pCreateInfo->queueType == GR_QUEUE_UNIVERSAL ?
-                            grDevice->universalQueueIndex : grDevice->computeQueueIndex,
+        .queueFamilyIndex = grDeviceGetQueueFamilyIndex(grDevice, pCreateInfo->queueType)
     };
 
     vkRes = VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &vkCommandPool);
