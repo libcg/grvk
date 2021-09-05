@@ -1867,6 +1867,12 @@ static void emitElse(
         assert(false);
     }
 
+    if (compiler->isAfterReturn) {
+        // Declare unreachable block
+        ilcSpvPutLabel(compiler->module, ilcSpvAllocId(compiler->module));
+        compiler->isAfterReturn = false;
+    }
+
     ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
     ilcSpvPutLabel(compiler->module, block.ifElse.labelElseId);
     block.ifElse.hasElseBlock = true;
@@ -1911,7 +1917,7 @@ static void emitEndIf(
     }
 
     if (compiler->isAfterReturn) {
-        // Declare a new block
+        // Declare unreachable block
         ilcSpvPutLabel(compiler->module, ilcSpvAllocId(compiler->module));
         compiler->isAfterReturn = false;
     }
