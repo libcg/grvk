@@ -207,6 +207,7 @@ typedef struct _GrDevice {
     unsigned universalQueueFamilyIndex;
     unsigned computeQueueFamilyIndex;
     unsigned dmaQueueFamilyIndex;
+    unsigned dmaQueueIdOffset;
 } GrDevice;
 
 typedef struct _GrEvent {

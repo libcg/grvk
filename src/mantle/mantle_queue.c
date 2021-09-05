@@ -17,7 +17,7 @@ unsigned getVkQueueFamilyIndex(
     }
 
     LOGE("invalid queue type %d\n", queueType);
-    return INVALID_QUEUE_INDEX;
+    return INVALID_INDEX;
 }
 
 static void prepareImagesForDataTransfer(
@@ -159,9 +159,14 @@ GR_RESULT GR_STDCALL grGetDeviceQueue(
     VkQueue vkQueue = VK_NULL_HANDLE;
 
     unsigned queueFamilyIndex = getVkQueueFamilyIndex(grDevice, queueType);
-    if (queueFamilyIndex == INVALID_QUEUE_INDEX) {
+    if (queueFamilyIndex == INVALID_INDEX) {
         LOGE("invalid index %d for queue type %d\n", queueFamilyIndex, queueType);
         return GR_ERROR_INVALID_QUEUE_TYPE;
+    }
+
+    if (queueType == GR_EXT_QUEUE_DMA) {
+        // Apply an id offset in case we are using another queue family as a fallback
+        queueId += grDevice->dmaQueueIdOffset;
     }
 
     VKD.vkGetDeviceQueue(grDevice->device, queueFamilyIndex, queueId, &vkQueue);

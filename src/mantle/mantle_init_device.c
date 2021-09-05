@@ -301,11 +301,12 @@ GR_RESULT GR_STDCALL grCreateDevice(
     GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
     VULKAN_DEVICE vkd;
     VkDevice vkDevice = VK_NULL_HANDLE;
-    unsigned universalQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    unsigned universalQueueFamilyIndex = INVALID_INDEX;
     unsigned universalQueueCount = 0;
-    unsigned computeQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    unsigned computeQueueFamilyIndex = INVALID_INDEX;
     unsigned computeQueueCount = 0;
-    unsigned dmaQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    unsigned dmaQueueFamilyIndex = INVALID_INDEX;
+    unsigned dmaQueueIdOffset = 0;
     unsigned dmaQueueCount = 0;
     uint32_t driverVersion;
 
@@ -357,10 +358,47 @@ GR_RESULT GR_STDCALL grCreateDevice(
         }
     }
 
+    const GR_DEVICE_QUEUE_CREATE_INFO* dmaQueueRequestForFallback = NULL;
+    unsigned computeQueueInfoIndex = INVALID_INDEX;
+    unsigned universalQueueInfoIndex = INVALID_INDEX;
+    unsigned queueCreateInfoCount = 0;
     VkDeviceQueueCreateInfo* queueCreateInfos =
         malloc(sizeof(VkDeviceQueueCreateInfo) * pCreateInfo->queueRecordCount);
     for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
         const GR_DEVICE_QUEUE_CREATE_INFO* requestedQueue = &pCreateInfo->pRequestedQueues[i];
+        unsigned requestedQueueFamilyIndex = INVALID_INDEX;
+        switch (requestedQueue->queueType) {
+        case GR_QUEUE_UNIVERSAL:
+            if (requestedQueue->queueCount <= universalQueueCount) {
+                requestedQueueFamilyIndex = universalQueueFamilyIndex;
+            }
+            universalQueueInfoIndex = queueCreateInfoCount;
+            break;
+        case GR_QUEUE_COMPUTE:
+            if (requestedQueue->queueCount <= computeQueueCount) {
+                requestedQueueFamilyIndex = computeQueueFamilyIndex;
+            }
+            computeQueueInfoIndex = queueCreateInfoCount;
+            break;
+        case GR_EXT_QUEUE_DMA:
+            if (requestedQueue->queueCount <= dmaQueueCount) {
+                requestedQueueFamilyIndex = dmaQueueFamilyIndex;
+            } else {
+                // We need to find a fallback after enumerating the rest
+                dmaQueueRequestForFallback = requestedQueue;
+                assert(requestedQueue->queueCount == 1);
+                // Avoid filling out queueCreateInfo entry on this
+                continue;
+            }
+            break;
+        }
+
+        if (requestedQueueFamilyIndex == INVALID_INDEX) {
+            LOGE("can't find requested queue type %X with count %d\n",
+                 requestedQueue->queueType, requestedQueue->queueCount);
+            res = GR_ERROR_INVALID_VALUE;
+            // Bail after the loop to properly release memory
+        }
 
         float* queuePriorities = malloc(sizeof(float) * requestedQueue->queueCount);
 
@@ -368,33 +406,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
             queuePriorities[j] = 1.0f; // Max priority
         }
 
-        unsigned requestedQueueFamilyIndex = INVALID_QUEUE_INDEX;
-        switch (requestedQueue->queueType) {
-        case GR_QUEUE_UNIVERSAL:
-            if (requestedQueue->queueCount <= universalQueueCount) {
-                requestedQueueFamilyIndex = universalQueueFamilyIndex;
-            }
-            break;
-        case GR_QUEUE_COMPUTE:
-            if (requestedQueue->queueCount <= computeQueueCount) {
-                requestedQueueFamilyIndex = computeQueueFamilyIndex;
-            }
-            break;
-        case GR_EXT_QUEUE_DMA:
-            if (requestedQueue->queueCount <= dmaQueueCount) {
-                requestedQueueFamilyIndex = dmaQueueFamilyIndex;
-            }
-            break;
-        }
-
-        if (requestedQueueFamilyIndex == INVALID_QUEUE_INDEX) {
-            LOGE("can't find requested queue type %X with count %d\n",
-                 requestedQueue->queueType, requestedQueue->queueCount);
-            res = GR_ERROR_INVALID_VALUE;
-            // Bail after the loop to properly release memory
-        }
-
-        queueCreateInfos[i] = (VkDeviceQueueCreateInfo) {
+        queueCreateInfos[queueCreateInfoCount++] = (VkDeviceQueueCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
@@ -406,6 +418,63 @@ GR_RESULT GR_STDCALL grCreateDevice(
 
     if (res != GR_SUCCESS) {
         goto bail;
+    }
+
+    if (dmaQueueRequestForFallback) {
+        // Find a suitable queue to expose as the DMA queue since we
+        // didn't find a transfer queue with vk
+        unsigned usedComputeQueues = computeQueueInfoIndex == INVALID_INDEX ?
+                                         0 :
+                                         queueCreateInfos[computeQueueInfoIndex].queueCount;
+        unsigned usedUniversalQueues = universalQueueInfoIndex == INVALID_INDEX ?
+                                           0 :
+                                           queueCreateInfos[universalQueueInfoIndex].queueCount;
+        unsigned fallbackQueueInfoIndex;
+
+        if (computeQueueCount - usedComputeQueues >= dmaQueueRequestForFallback->queueCount) {
+            LOGW("falling back to compute queue for dma queue request\n")
+            dmaQueueIdOffset = usedComputeQueues;
+            dmaQueueFamilyIndex = computeQueueFamilyIndex;
+            fallbackQueueInfoIndex = computeQueueInfoIndex;
+        } else if (universalQueueCount - usedUniversalQueues >=
+                   dmaQueueRequestForFallback->queueCount) {
+            LOGW("falling back to universal queue for dma queue request\n")
+            dmaQueueIdOffset = usedUniversalQueues;
+            dmaQueueFamilyIndex = universalQueueFamilyIndex;
+            fallbackQueueInfoIndex = universalQueueInfoIndex;
+        } else {
+            LOGE("no transfer queue or fallback queue assignable to dma queue request\n");
+            res = GR_ERROR_INVALID_VALUE;
+            goto bail;
+        }
+
+        if (fallbackQueueInfoIndex != INVALID_INDEX) {
+            // Fix up the existing queueCreateInfo to accomodate our fallback
+            VkDeviceQueueCreateInfo* createInfo = &(queueCreateInfos[fallbackQueueInfoIndex]);
+            createInfo->queueCount += dmaQueueRequestForFallback->queueCount;
+            float* queuePriorities = (float*)createInfo->pQueuePriorities;
+            queuePriorities = realloc(queuePriorities, sizeof(float) * createInfo->queueCount);
+            for (int i = dmaQueueIdOffset; i < createInfo->queueCount; i++) {
+                queuePriorities[i] = 1.0f; // Max priority
+            }
+            createInfo->pQueuePriorities = queuePriorities;
+        } else {
+            // Add new create info entry
+            float* queuePriorities = malloc(sizeof(float) * 1);
+
+            for (int j = 0; j < dmaQueueRequestForFallback->queueCount; j++) {
+                queuePriorities[j] = 1.0f; // Max priority
+            }
+
+            queueCreateInfos[queueCreateInfoCount++] = (VkDeviceQueueCreateInfo) {
+                .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .queueFamilyIndex = dmaQueueFamilyIndex,
+                .queueCount = dmaQueueRequestForFallback->queueCount,
+                .pQueuePriorities = queuePriorities,
+            };
+        }
     }
 
     VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separateDsLayouts = {
@@ -450,7 +519,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = &deviceFeatures,
         .flags = 0,
-        .queueCreateInfoCount = pCreateInfo->queueRecordCount,
+        .queueCreateInfoCount = queueCreateInfoCount,
         .pQueueCreateInfos = queueCreateInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
@@ -488,13 +557,15 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .memoryProperties = memoryProperties,
         .universalQueueFamilyIndex = universalQueueFamilyIndex,
         .computeQueueFamilyIndex = computeQueueFamilyIndex,
-        .dmaQueueFamilyIndex = dmaQueueFamilyIndex
+        .dmaQueueFamilyIndex = dmaQueueFamilyIndex,
+        .dmaQueueIdOffset = dmaQueueIdOffset
     };
+
 
     *pDevice = (GR_DEVICE)grDevice;
 
 bail:
-    for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
+    for (int i = 0; i < queueCreateInfoCount; i++) {
         free((void*)queueCreateInfos[i].pQueuePriorities);
     }
     free(queueCreateInfos);

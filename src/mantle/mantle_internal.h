@@ -13,7 +13,7 @@
 #include "quirk.h"
 #include "vulkan_loader.h"
 
-#define INVALID_QUEUE_INDEX (~0u)
+#define INVALID_INDEX (~0u)
 
 #define VKD \
     (grDevice->vkd)
