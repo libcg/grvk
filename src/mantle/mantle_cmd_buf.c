@@ -1033,6 +1033,58 @@ GR_VOID grCmdCopyMemoryToImage(
     free(vkRegions);
 }
 
+GR_VOID grCmdCopyImageToMemory(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_IMAGE srcImage,
+    GR_GPU_MEMORY destMem,
+    GR_UINT regionCount,
+    const GR_MEMORY_IMAGE_COPY* pRegions)
+{
+    LOGT("%p %p %p %u %p\n", cmdBuffer, srcImage, destMem, regionCount, pRegions);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrImage* grSrcImage = (GrImage*)srcImage;
+    GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
+    unsigned srcTileSize = getVkFormatTileSize(grSrcImage->format);
+
+    if (quirkHas(QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS)) {
+        srcTileSize = 1;
+    }
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grDstGpuMemory);
+
+    VkBufferImageCopy* vkRegions = malloc(regionCount * sizeof(VkBufferImageCopy));
+    for (unsigned i = 0; i < regionCount; i++) {
+        const GR_MEMORY_IMAGE_COPY* region = &pRegions[i];
+
+        vkRegions[i] = (VkBufferImageCopy) {
+            .bufferOffset = region->memOffset,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource = getVkImageSubresourceLayers(region->imageSubresource),
+            .imageOffset = {
+                region->imageOffset.x * srcTileSize,
+                region->imageOffset.y * srcTileSize,
+                region->imageOffset.z
+            },
+            .imageExtent = {
+                MIN(region->imageExtent.width * srcTileSize,
+                    MIP(grSrcImage->extent.width, region->imageSubresource.mipLevel)),
+                MIN(region->imageExtent.height * srcTileSize,
+                    MIP(grSrcImage->extent.height, region->imageSubresource.mipLevel)),
+                region->imageExtent.depth,
+            },
+        };
+    }
+
+    VKD.vkCmdCopyImageToBuffer(grCmdBuffer->commandBuffer, grSrcImage->image,
+                               getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                               grDstGpuMemory->buffer, regionCount, vkRegions);
+
+    free(vkRegions);
+}
+
 GR_VOID grCmdUpdateMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY destMem,
