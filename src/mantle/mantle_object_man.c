@@ -20,10 +20,26 @@ GR_RESULT GR_STDCALL grDestroyObject(
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
         grCmdBufferResetState(grCmdBuffer);
     }   break;
+    case GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT:
+        // Nothing to do
+        break;
     case GR_OBJ_TYPE_COLOR_TARGET_VIEW: {
         GrColorTargetView* grColorTargetView = (GrColorTargetView*)grObject;
 
         VKD.vkDestroyImageView(grDevice->device, grColorTargetView->imageView, NULL);
+    }   break;
+    case GR_OBJ_TYPE_DEPTH_STENCIL_STATE_OBJECT:
+        // Nothing to do
+        break;
+    case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW: {
+        GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)grObject;
+
+        VKD.vkDestroyImageView(grDevice->device, grDepthStencilView->imageView, NULL);
+    }   break;
+    case GR_OBJ_TYPE_DESCRIPTOR_SET: {
+        GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)grObject;
+
+        free(grDescriptorSet->slots);
     }   break;
     case GR_OBJ_TYPE_IMAGE: {
         GrImage* grImage = (GrImage*)grObject;
@@ -36,9 +52,29 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         VKD.vkDestroyImageView(grDevice->device, grImageView->imageView, NULL);
     }   break;
+    case GR_OBJ_TYPE_MSAA_STATE_OBJECT:
+        // Nothing to do
+        break;
+    case GR_OBJ_TYPE_PIPELINE:
+        // TODO
+        break;
+    case GR_OBJ_TYPE_RASTER_STATE_OBJECT:
+        // Nothing to do
+        break;
+    case GR_OBJ_TYPE_SAMPLER: {
+        GrSampler* grSampler = (GrSampler*)grObject;
+
+        VKD.vkDestroySampler(grDevice->device, grSampler->sampler, NULL);
+    }   break;
     case GR_OBJ_TYPE_SHADER:
         // FIXME actually destroy it?
         return GR_SUCCESS;
+    case GR_OBJ_TYPE_VIEWPORT_STATE_OBJECT: {
+        GrViewportStateObject* grViewportStateObject = (GrViewportStateObject*)grObject;
+
+        free(grViewportStateObject->viewports);
+        free(grViewportStateObject->scissors);
+    }   break;
     default:
         LOGW("unsupported object type %u\n", grObject->grObjType);
         return GR_ERROR_INVALID_OBJECT_TYPE;
