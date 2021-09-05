@@ -148,7 +148,8 @@ static void updateDescriptorTypeCounts(
 static VkRenderPass getVkRenderPass(
     const GrDevice* grDevice,
     const GR_PIPELINE_CB_TARGET_STATE* cbTargets,
-    const GR_PIPELINE_DB_STATE* dbTarget)
+    const GR_PIPELINE_DB_STATE* dbTarget,
+    const GrShader* grPixelShader)
 {
     VkRenderPass renderPass = VK_NULL_HANDLE;
     VkAttachmentDescription descriptions[GR_MAX_COLOR_TARGETS + 1];
@@ -188,20 +189,35 @@ static VkRenderPass getVkRenderPass(
         colorReferenceCount++;
     }
 
-    VkFormat dbVkFormat = getVkFormat(dbTarget->format);
-    if (dbVkFormat != VK_FORMAT_UNDEFINED) {
+    GR_FORMAT format = dbTarget->format;
+
+    if (quirkHas(QUIRK_MISSING_DEPTH_STENCIL_TARGET) &&
+        format.channelFormat == GR_CH_FMT_UNDEFINED &&
+        format.numericFormat == GR_NUM_FMT_UNDEFINED &&
+        grPixelShader != NULL) {
+        if (!strcmp(grPixelShader->name, "ps_6c8b07ccd38a7fca675aff99b410efbe5e70d3b2")) {
+            format.channelFormat = GR_CH_FMT_R32G8;
+            format.numericFormat = GR_NUM_FMT_DS;
+        } else if (!strcmp(grPixelShader->name, "ps_c8c16de62224f3a32a04185565da4396b2f363f2")) {
+            format.channelFormat = GR_CH_FMT_R16;
+            format.numericFormat = GR_NUM_FMT_DS;
+        }
+    }
+
+    if (!(format.channelFormat == GR_CH_FMT_UNDEFINED &&
+          format.numericFormat == GR_NUM_FMT_UNDEFINED)) {
         // Table 10 in the API reference
-        bool hasDepth = dbTarget->format.channelFormat == GR_CH_FMT_R16 ||
-                        dbTarget->format.channelFormat == GR_CH_FMT_R32 ||
-                        dbTarget->format.channelFormat == GR_CH_FMT_R16G8 ||
-                        dbTarget->format.channelFormat == GR_CH_FMT_R32G8;
-        bool hasStencil = dbTarget->format.channelFormat == GR_CH_FMT_R8 ||
-                          dbTarget->format.channelFormat == GR_CH_FMT_R16G8 ||
-                          dbTarget->format.channelFormat == GR_CH_FMT_R32G8;
+        bool hasDepth = format.channelFormat == GR_CH_FMT_R16 ||
+                        format.channelFormat == GR_CH_FMT_R32 ||
+                        format.channelFormat == GR_CH_FMT_R16G8 ||
+                        format.channelFormat == GR_CH_FMT_R32G8;
+        bool hasStencil = format.channelFormat == GR_CH_FMT_R8 ||
+                          format.channelFormat == GR_CH_FMT_R16G8 ||
+                          format.channelFormat == GR_CH_FMT_R32G8;
 
         descriptions[descriptionCount] = (VkAttachmentDescription) {
             .flags = 0,
-            .format = dbVkFormat,
+            .format = getVkFormat(format),
             .samples = VK_SAMPLE_COUNT_1_BIT,
             .loadOp = hasDepth ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .storeOp = hasDepth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -646,7 +662,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         goto bail;
     }
 
-    renderPass = getVkRenderPass(grDevice, pCreateInfo->cbState.target, &pCreateInfo->dbState);
+    renderPass = getVkRenderPass(grDevice, pCreateInfo->cbState.target, &pCreateInfo->dbState,
+                                 (GrShader*)pCreateInfo->ps.shader);
     if (renderPass == VK_NULL_HANDLE)
     {
         res = GR_ERROR_OUT_OF_MEMORY;

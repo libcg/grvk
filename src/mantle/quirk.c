@@ -12,6 +12,8 @@ void quirkInit(
                   QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS |
                   QUIRK_INVALID_CMD_BUFFER_RESET |
                   QUIRK_CUBEMAP_LAYER_DIV_6;
+    } else if (!strcmp(appInfo->pAppName, "Battlefield")) {
+        mQuirks = QUIRK_MISSING_DEPTH_STENCIL_TARGET;
     }
 
     if (mQuirks != 0) {
