@@ -528,15 +528,9 @@ static IlcSpvId loadSource(
     }
 
     IlcSpvId ptrId = 0;
-    if (src->registerType != IL_REGTYPE_ITEMP) {
-        if (src->hasImmediate) {
-            LOGW("unhandled immediate\n");
-        }
-        if (src->srcCount > 0) {
-            LOGW("unhandled extra sources (%u)\n", src->srcCount);
-        }
-        ptrId = reg->id;
-    } else {
+    if (src->registerType == IL_REGTYPE_ITEMP ||
+        src->registerType == IL_REGTYPE_IMMED_CONST_BUFF) {
+        // 1D arrays
         IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
                                                   reg->typeId);
         IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId,
@@ -550,6 +544,14 @@ static IlcSpvId loadSource(
             indexId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
         }
         ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
+    } else {
+        if (src->hasImmediate) {
+            LOGW("unhandled immediate\n");
+        }
+        if (src->srcCount > 0) {
+            LOGW("unhandled extra sources (%u)\n", src->srcCount);
+        }
+        ptrId = reg->id;
     }
 
     IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
@@ -774,6 +776,50 @@ static void emitGlobalFlags(
     if (enableDoublePrecisionFloatOps) {
         LOGW("unhandled enableDoublePrecisionFloatOps flag\n");
     }
+}
+
+static void emitConstBuffer(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    assert(instr->extraCount % 4 == 0);
+
+    // Create immediate constant buffer
+    unsigned arraySize = instr->extraCount / 4;
+    IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->uintId, arraySize);
+    IlcSpvId typeId = compiler->float4Id;
+    IlcSpvId arrayTypeId = ilcSpvPutArrayType(compiler->module, typeId, lengthId);
+    IlcSpvId arrayId = emitVariable(compiler, arrayTypeId, SpvStorageClassPrivate);
+
+    // Populate array
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate, typeId);
+    for (unsigned i = 0; i < arraySize; i++) {
+        IlcSpvId consistuentIds[] = {
+            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 0]),
+            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 1]),
+            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 2]),
+            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 3]),
+        };
+        IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, typeId,
+                                                          4, consistuentIds);
+
+        IlcSpvId addrId = ilcSpvPutConstant(compiler->module, compiler->uintId, i);
+        IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, arrayId, 1, &addrId);
+        ilcSpvPutStore(compiler->module, ptrId, compositeId);
+    }
+
+    const IlcRegister constBufferReg = {
+        .id = arrayId,
+        .typeId = typeId,
+        .componentTypeId = compiler->floatId,
+        .componentCount = 4,
+        .ilType = IL_REGTYPE_IMMED_CONST_BUFF,
+        .ilNum = 0,
+        .ilImportUsage = 0,
+        .ilInterpMode = 0,
+    };
+
+    addRegister(compiler, &constBufferReg, "icb");
 }
 
 static void emitIndexedTempArray(
@@ -2666,6 +2712,9 @@ static void emitInstr(
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);
         compiler->isAfterReturn = true;
+        break;
+    case IL_DCL_CONST_BUFFER:
+        emitConstBuffer(compiler, instr);
         break;
     case IL_DCL_INDEXED_TEMP_ARRAY:
         emitIndexedTempArray(compiler, instr);

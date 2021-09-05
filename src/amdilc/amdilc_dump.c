@@ -565,10 +565,10 @@ static void dumpInstruction(
         fprintf(file, "ret_dyn");
         break;
     case IL_DCL_CONST_BUFFER:
-        if (GET_BIT(instr->control, 15)) {
-            LOGW("unhandled immediate constant buffer\n");
+        if (!GET_BIT(instr->control, 15)) {
+            LOGW("unhandled non-immediate constant buffer\n");
         }
-        fprintf(file, "dcl_cb");
+        fprintf(file, "dcl_cb icb[%u]", instr->extraCount);
         break;
     case IL_DCL_INDEXED_TEMP_ARRAY:
         fprintf(file, "dcl_indexed_temp_array");
