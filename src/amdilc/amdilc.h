@@ -9,9 +9,12 @@
 // TODO get rid of this
 #define ILC_BASE_RESOURCE_ID    (16) // Samplers use 0-15
 
+#define ILC_MAX_STRIDE_CONSTANTS    (8)
+
 typedef struct _IlcBinding {
     uint32_t index;
     VkDescriptorType descriptorType;
+    int strideIndex; // Stride location in push constants (<0 means non-existent)
 } IlcBinding;
 
 typedef struct _IlcShader {

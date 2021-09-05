@@ -78,6 +78,7 @@ typedef struct _DescriptorSetSlot
             VkFormat vkFormat;
             VkDeviceSize offset;
             VkDeviceSize range;
+            VkDeviceSize stride;
         } memoryView;
         struct {
             const GrDescriptorSet* nextSet;

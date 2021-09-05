@@ -112,6 +112,7 @@ GR_VOID grAttachMemoryViewDescriptors(
                 .vkFormat = getVkFormat(info->format),
                 .offset = info->offset,
                 .range = info->range,
+                .stride = info->stride,
             },
         };
     }

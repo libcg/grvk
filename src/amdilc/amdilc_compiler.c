@@ -18,6 +18,7 @@
 #define COMP_MASK_XY        (COMP_MASK_X | COMP_MASK_Y)
 #define COMP_MASK_XYZ       (COMP_MASK_XY | COMP_MASK_Z)
 #define COMP_MASK_XYZW      (COMP_MASK_XYZ | COMP_MASK_W)
+#define NO_STRIDE_INDEX     (-1)
 
 typedef enum {
     RES_TYPE_GENERIC,
@@ -89,6 +90,8 @@ typedef struct {
     IlcSpvId float4Id;
     IlcSpvId boolId;
     IlcSpvId bool4Id;
+    IlcSpvId pushConstantsId;
+    unsigned currentStrideIndex;
     unsigned regCount;
     IlcRegister* regs;
     unsigned resourceCount;
@@ -270,7 +273,8 @@ static void emitBinding(
     IlcCompiler* compiler,
     IlcSpvId bindingId,
     IlcSpvWord ilId,
-    VkDescriptorType vkDescriptorType)
+    VkDescriptorType vkDescriptorType,
+    int strideIndex)
 {
     unsigned descriptorSetIdx = 0;
 
@@ -304,6 +308,7 @@ static void emitBinding(
     compiler->bindings[compiler->bindingCount - 1] = (IlcBinding) {
         .index = ilId,
         .descriptorType = vkDescriptorType,
+        .strideIndex = strideIndex,
     };
 }
 
@@ -452,7 +457,7 @@ static const IlcSampler* findOrCreateSampler(
         IlcSpvId samplerId = ilcSpvPutVariable(compiler->module, pointerId,
                                                SpvStorageClassUniformConstant);
 
-        emitBinding(compiler, samplerId, ilId, VK_DESCRIPTOR_TYPE_SAMPLER);
+        emitBinding(compiler, samplerId, ilId, VK_DESCRIPTOR_TYPE_SAMPLER, NO_STRIDE_INDEX);
 
         const IlcSampler newSampler = {
             .id = samplerId,
@@ -1133,8 +1138,9 @@ static void emitResource(
                                             SpvStorageClassUniformConstant);
 
     emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
-                spvDim == SpvDimBuffer ?
-                VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
+                spvDim == SpvDimBuffer ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER :
+                                         VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                NO_STRIDE_INDEX);
 
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
@@ -1199,8 +1205,9 @@ static void emitTypedUav(
 
     ilcSpvPutName(compiler->module, imageId, "typedUav");
     emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
-                spvDim == SpvDimBuffer ?
-                VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+                spvDim == SpvDimBuffer ? VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER :
+                                         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                NO_STRIDE_INDEX);
 
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
@@ -1235,7 +1242,8 @@ static void emitUav(
     ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset, 1, &memberOffset);
 
     ilcSpvPutName(compiler->module, arrayId, "structUav");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                NO_STRIDE_INDEX);
 
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
@@ -1272,7 +1280,53 @@ static void emitSrv(
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationNonWritable, 0, NULL);
 
     ilcSpvPutName(compiler->module, arrayId, isStructured ? "structSrv" : "rawSrv");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                isStructured ? NO_STRIDE_INDEX : compiler->currentStrideIndex);
+
+    IlcSpvId strideId = 0;
+
+    if (isStructured) {
+        strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]);
+    } else {
+        if (compiler->kernel->shaderType != IL_SHADER_VERTEX) {
+            LOGE("unhandled raw SRVs for shader type %u\n", compiler->kernel->shaderType);
+            assert(false);
+        }
+        if (compiler->currentStrideIndex >= ILC_MAX_STRIDE_CONSTANTS) {
+            LOGE("too many SRV strides\n");
+            assert(false);
+        }
+
+        if (compiler->pushConstantsId == 0) {
+            // Create push constants variable lazily
+            IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                                  ILC_MAX_STRIDE_CONSTANTS);
+            IlcSpvId arrayId = ilcSpvPutArrayType(compiler->module, compiler->intId, lengthId);
+            IlcSpvId structId = ilcSpvPutStructType(compiler->module, 1, &arrayId);
+            compiler->pushConstantsId = emitVariable(compiler, structId,
+                                                     SpvStorageClassPushConstant);
+
+            IlcSpvWord arrayStride = sizeof(uint32_t);
+            IlcSpvWord memberOffset = 0;
+            ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationArrayStride,
+                                1, &arrayStride);
+            ilcSpvPutDecoration(compiler->module, structId, SpvDecorationBlock, 0, NULL);
+            ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset,
+                                      1, &memberOffset);
+        }
+
+        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPushConstant,
+                                                  compiler->intId);
+        IlcSpvId indexesId[] = {
+            ilcSpvPutConstant(compiler->module, compiler->intId, 0),
+            ilcSpvPutConstant(compiler->module, compiler->intId, compiler->currentStrideIndex),
+        };
+        IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId,
+                                              compiler->pushConstantsId, 2, indexesId);
+        strideId = ilcSpvPutLoad(compiler->module, compiler->intId, ptrId);
+
+        compiler->currentStrideIndex++;
+    }
 
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
@@ -1281,8 +1335,7 @@ static void emitSrv(
         .texelTypeId = compiler->floatId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
-        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId,
-                                      isStructured ? instr->extras[0] : 4),
+        .strideId = strideId,
     };
 
     addResource(compiler, &resource);
@@ -2843,9 +2896,16 @@ static void emitEntryPoint(
         break;
     }
 
-    unsigned interfaceCount = compiler->regCount + compiler->resourceCount + compiler->samplerCount;
+    unsigned interfaceCount = (compiler->pushConstantsId != 0 ? 1 : 0) +
+                              compiler->regCount +
+                              compiler->resourceCount +
+                              compiler->samplerCount;
     IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
     unsigned interfaceIndex = 0;
+    if (compiler->pushConstantsId != 0) {
+        interfaces[interfaceIndex] = compiler->pushConstantsId;
+        interfaceIndex++;
+    }
     for (int i = 0; i < compiler->regCount; i++) {
         const IlcRegister* reg = &compiler->regs[i];
 
@@ -2910,6 +2970,8 @@ IlcShader ilcCompileKernel(
         .float4Id = ilcSpvPutVectorType(&module, floatId, 4),
         .boolId = boolId,
         .bool4Id = ilcSpvPutVectorType(&module, boolId, 4),
+        .pushConstantsId = 0,
+        .currentStrideIndex = 0,
         .regCount = 0,
         .regs = NULL,
         .resourceCount = 0,

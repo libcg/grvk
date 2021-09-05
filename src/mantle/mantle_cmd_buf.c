@@ -129,6 +129,7 @@ static void updateVkDescriptorSet(
     const GrDevice* grDevice,
     GrCmdBuffer* grCmdBuffer,
     VkDescriptorSet vkDescriptorSet,
+    VkPipelineLayout vkPipelineLayout,
     unsigned slotOffset,
     const GR_PIPELINE_SHADER* shaderInfo,
     const GrDescriptorSet* grDescriptorSet,
@@ -253,6 +254,16 @@ static void updateVkDescriptorSet(
                 .range = slot->memoryView.range,
             };
             writes[i].pBufferInfo = &bufferInfos[i];
+
+            if (binding->strideIndex >= 0) {
+                // Pass memory view stride through push constants
+                uint32_t stride = slot->memoryView.stride;
+
+                VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, vkPipelineLayout,
+                                       VK_SHADER_STAGE_VERTEX_BIT,
+                                       binding->strideIndex * sizeof(uint32_t),
+                                       sizeof(uint32_t), &stride);
+            }
         } else {
             LOGE("unhandled descriptor type %d\n", binding->descriptorType);
             assert(false);
@@ -357,6 +368,7 @@ static void grCmdBufferUpdateDescriptorSets(
     for (unsigned i = 0; i < grPipeline->stageCount; i++) {
         updateVkDescriptorSet(grDevice, grCmdBuffer,
                               grCmdBuffer->bindPoint[bindPoint].descriptorSets[i],
+                              grPipeline->pipelineLayout,
                               grCmdBuffer->bindPoint[bindPoint].slotOffset,
                               &grPipeline->shaderInfos[i],
                               grCmdBuffer->bindPoint[bindPoint].grDescriptorSet,
@@ -592,6 +604,7 @@ GR_VOID grCmdBindDynamicMemoryView(
             .vkFormat = getVkFormat(pMemView->format),
             .offset = pMemView->offset,
             .range = pMemView->range,
+            .stride = pMemView->stride,
         },
     };
 
