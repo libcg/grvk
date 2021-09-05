@@ -183,7 +183,7 @@ GR_RESULT GR_STDCALL grGetGpuInfo(
         };
         break;
     case GR_INFO_TYPE_PHYSICAL_GPU_QUEUE_PROPERTIES:
-        expectedSize = 2 * sizeof(GR_PHYSICAL_GPU_QUEUE_PROPERTIES);
+        expectedSize = 4 * sizeof(GR_PHYSICAL_GPU_QUEUE_PROPERTIES);
 
         if (pData == NULL) {
             break;
@@ -206,18 +206,18 @@ GR_RESULT GR_STDCALL grGetGpuInfo(
             .maxAtomicCounters = 1024,
             .supportsTimestamps = false, // TODO implement timestamps
         };
-        /*((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[2] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
+        ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[2] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_EXT_QUEUE_DMA,
-            .queueCount = 1,
+            .queueCount = 0, // TODO implement
             .maxAtomicCounters = 0,
-            .supportsTimestamps = true,
-        };*/
-        /*((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[3] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
+            .supportsTimestamps = false, // TODO implement timestamps
+        };
+        ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[3] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_EXT_QUEUE_TIMER,
-            .queueCount = 1,
+            .queueCount = 0, // TODO implement
             .maxAtomicCounters = 0,
             .supportsTimestamps = false,
-        };*/
+        };
         break;
     case GR_INFO_TYPE_PHYSICAL_GPU_MEMORY_PROPERTIES:
         expectedSize = sizeof(GR_PHYSICAL_GPU_MEMORY_PROPERTIES);

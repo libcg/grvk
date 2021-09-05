@@ -13,6 +13,8 @@ GR_RESULT GR_STDCALL grGetExtensionSupport(
     } else if (strcmp(pExtName, "GR_BORDER_COLOR_PALETTE") == 0) {
         // TODO implement
         return GR_SUCCESS;
+    } else if (strcmp(pExtName, "GR_DMA_QUEUE") == 0) {
+        return GR_SUCCESS;
     }
 
     return GR_UNSUPPORTED;
