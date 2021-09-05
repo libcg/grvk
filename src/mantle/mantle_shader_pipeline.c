@@ -525,6 +525,7 @@ GR_RESULT GR_STDCALL grCreateShader(
         .shaderModule = vkShaderModule,
         .bindingCount = ilcShader.bindingCount,
         .bindings = ilcShader.bindings,
+        .name = ilcShader.name,
     };
 
     *pShader = (GR_SHADER)grShader;

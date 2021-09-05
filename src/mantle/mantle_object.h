@@ -297,6 +297,7 @@ typedef struct _GrShader {
     VkShaderModule shaderModule;
     unsigned bindingCount;
     IlcBinding* bindings;
+    char* name;
 } GrShader;
 
 typedef struct _GrQueryPool {

@@ -19,6 +19,7 @@ typedef struct _IlcShader {
     uint32_t* code;
     unsigned bindingCount;
     IlcBinding* bindings;
+    char* name;
 } IlcShader;
 
 IlcShader ilcCompileShader(

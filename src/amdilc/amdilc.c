@@ -4,7 +4,7 @@
 #include "amdilc_internal.h"
 
 #define SHA1_SIZE   (20)
-#define NAME_LEN    (128)
+#define NAME_LEN    (64)
 
 static HCRYPTPROV mCryptProvider = 0;
 

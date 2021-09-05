@@ -2949,5 +2949,6 @@ IlcShader ilcCompileKernel(
         .code = module.buffer[ID_MAIN].words,
         .bindingCount = compiler.bindingCount,
         .bindings = compiler.bindings,
+        .name = strdup(name),
     };
 }
