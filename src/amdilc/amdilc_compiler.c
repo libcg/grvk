@@ -51,6 +51,7 @@ typedef struct {
     uint32_t ilId;
     uint8_t ilType;
     IlcSpvId strideId;
+    bool structured;
 } IlcResource;
 
 typedef struct {
@@ -1153,6 +1154,7 @@ static void emitResource(
         .ilId = id,
         .ilType = type,
         .strideId = 0,
+        .structured = false,
     };
 
     addResource(compiler, &resource);
@@ -1220,6 +1222,7 @@ static void emitTypedUav(
         .ilId = id,
         .ilType = type,
         .strideId = 0,
+        .structured = false,
     };
 
     addResource(compiler, &resource);
@@ -1258,6 +1261,7 @@ static void emitUav(
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intId,
                                       isStructured ? instr->extras[0] : 4),
+        .structured = isStructured,
     };
 
     addResource(compiler, &resource);
@@ -1354,6 +1358,7 @@ static void emitSrv(
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = strideId,
+        .structured = isStructured,
     };
 
     addResource(compiler, &resource);
@@ -1381,6 +1386,7 @@ static void emitLds(
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, 4),
+        .structured = false,
     };
 
     addResource(compiler, &resource);
@@ -1409,6 +1415,7 @@ static void emitStructuredLds(
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, stride),
+        .structured = true,
     };
 
     addResource(compiler, &resource);
@@ -2478,24 +2485,27 @@ static void emitLdsStoreVec(
     IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
                                        byteAddrId, fourId);
 
-    IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
                                               resource->texelTypeId);
 
     // Write up to four components based on the destination mask
     for (unsigned i = 0; i < 4; i++) {
         if (dst->component[i] == IL_MODCOMP_NOWRITE) {
-            break;
+            continue;
         }
 
+        IlcSpvId addrId;
         if (i > 0) {
             // Increment address
-            wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
-                                      wordAddrId, oneId);
+            IlcSpvId offsetId = ilcSpvPutConstant(compiler->module, compiler->intId, i);
+            addrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                  wordAddrId, offsetId);
+        } else {
+            addrId = wordAddrId;
         }
 
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
-                                              1, &wordAddrId);
+                                              1, &addrId);
         IlcSpvId componentId = emitVectorTrim(compiler, dataId, compiler->uint4Id, i, 1);
         ilcSpvPutStore(compiler->module, ptrId, componentId);
     }
@@ -2572,28 +2582,89 @@ static void emitStructUavStore(
     IlcSpvId byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, baseId, offsetId);
     IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId, byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4));
 
-    IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
+    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
                                               resource->texelTypeId);
     // Write up to four components based on the destination mask
     for (unsigned i = 0; i < 4; i++) {
         if (dst->component[i] == IL_MODCOMP_NOWRITE) {
-            break;
+            continue;
         }
 
+        IlcSpvId addrId;
         if (i > 0) {
-            // Increment address
-            wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
-                                      wordAddrId, oneId);
+            // calculate address
+            IlcSpvId offsetId = ilcSpvPutConstant(compiler->module, compiler->intId, i);
+            addrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                  wordAddrId, offsetId);
+        } else {
+            addrId = wordAddrId;
         }
 
+        IlcSpvId indexIds[] = { zeroId, addrId };
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
-                                              1, &wordAddrId);
+                                              2, indexIds);
         IlcSpvId componentId = emitVectorTrim(compiler, elementId, elementTypeId, i, 1);
         ilcSpvPutStore(compiler->module, ptrId, componentId);
     }
 }
 
+static void emitLdsAtomicOp(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 4);
+
+    const IlcResource* resource = findResource(compiler, RES_TYPE_LDS, ilResourceId);
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
+                                                  resource->texelTypeId);
+    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId byteAddrId;
+    if (resource->structured) {
+        IlcSpvId indexId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X, 1);
+        IlcSpvId offsetId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_Y, 1);
+        // addr = (index * stride + offset) / 4
+        IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId,
+                                       indexId, resource->strideId);
+        byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+            baseId, offsetId);
+    } else {
+        byteAddrId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X, 1);
+    }
+    IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
+                                       byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4));
+    IlcSpvId bufferPtrId = ilcSpvPutAccessChain(compiler->module, pointerTypeId, resource->id,
+                                      1, &wordAddrId);
+    IlcSpvId readId = 0;
+    IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
+    IlcSpvId scopeId = ilcSpvPutConstant(compiler->module, compiler->intId, SpvScopeWorkgroup);
+    IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                             SpvMemorySemanticsAcquireReleaseMask |
+                                             SpvMemorySemanticsSubgroupMemoryMask);
+    IlcSpvId src1Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, vecTypeId);
+    IlcSpvId valueId = emitVectorTrim(compiler, src1Id, vecTypeId, COMP_INDEX_X, 1);
+
+    if (instr->opcode == IL_OP_LDS_ADD || instr->opcode == IL_OP_LDS_READ_ADD) {
+        readId = ilcSpvPutAtomicOp(compiler->module, SpvOpAtomicIAdd, resource->texelTypeId,
+                                   bufferPtrId, scopeId, semanticsId, valueId);
+    } else if (instr->opcode == IL_OP_LDS_UMAX || instr->opcode == IL_OP_LDS_READ_UMAX) {
+        readId = ilcSpvPutAtomicOp(compiler->module, SpvOpAtomicUMax, resource->texelTypeId,
+                                   bufferPtrId, scopeId, semanticsId, valueId);
+    } else {
+        assert(false);
+    }
+
+    if (instr->dstCount > 0) {
+        IlcSpvId resId = emitVectorGrow(compiler, readId, resource->texelTypeId, 1);
+        storeDestination(compiler, &instr->dsts[0], resId, vecTypeId);
+    }
+}
 
 static void emitUavAtomicOp(
     IlcCompiler* compiler,
@@ -2608,21 +2679,48 @@ static void emitUavAtomicOp(
         return;
     }
 
-    IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
-    IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassImage,
-                                                  resource->texelTypeId);
-    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId trimAddressId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X,
-                                            getResourceDimensionCount(resource->ilType));
-    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
-    IlcSpvId texelPtrId = ilcSpvPutImageTexelPointer(compiler->module, pointerTypeId, resource->id,
-                                                     trimAddressId, zeroId);
+    IlcSpvId texelPtrId ;
 
+    IlcSpvId semanticsId;
+    if (resource->strideId == 0) {
+        IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassImage,
+                                                      resource->texelTypeId);
+        IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+        IlcSpvId trimAddressId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X,
+                                                getResourceDimensionCount(resource->ilType));
+        IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
+        texelPtrId = ilcSpvPutImageTexelPointer(compiler->module, pointerTypeId, resource->id,
+                                                trimAddressId, zeroId);
+        semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                        SpvMemorySemanticsAcquireReleaseMask |
+                                        SpvMemorySemanticsImageMemoryMask);
+    } else {
+        IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                                      resource->texelTypeId);
+        IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+        IlcSpvId byteAddrId;
+        if (resource->structured) {
+            IlcSpvId indexId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X, 1);
+            IlcSpvId offsetId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_Y, 1);
+            // addr = (index * stride + offset) / 4
+            IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId, indexId, resource->strideId);
+            byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, baseId, offsetId);
+        } else {
+            byteAddrId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X, 1);
+        }
+        IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
+        IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
+                                           byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4));
+        const IlcSpvId indexIds[] = { zeroId, wordAddrId };
+        texelPtrId = ilcSpvPutAccessChain(compiler->module, pointerTypeId, resource->id,
+                                          2, indexIds);
+        semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                        SpvMemorySemanticsAcquireReleaseMask |
+                                        SpvMemorySemanticsUniformMemoryMask);
+    }
     IlcSpvId readId = 0;
+    IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
     IlcSpvId scopeId = ilcSpvPutConstant(compiler->module, compiler->intId, SpvScopeDevice);
-    IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
-                                             SpvMemorySemanticsAcquireReleaseMask |
-                                             SpvMemorySemanticsImageMemoryMask);
     IlcSpvId src1Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, vecTypeId);
     IlcSpvId valueId = emitVectorTrim(compiler, src1Id, vecTypeId, COMP_INDEX_X, 1);
 
@@ -3114,6 +3212,11 @@ static void emitInstr(
     case IL_OP_APPEND_BUF_ALLOC:
     case IL_OP_APPEND_BUF_CONSUME:
         emitAppendBufOp(compiler, instr);
+    case IL_OP_LDS_ADD:
+    case IL_OP_LDS_READ_ADD:
+    case IL_OP_LDS_UMAX:
+    case IL_OP_LDS_READ_UMAX:
+        emitLdsAtomicOp(compiler, instr);
         break;
     case IL_OP_DCL_RAW_SRV:
     case IL_OP_DCL_STRUCT_SRV:
