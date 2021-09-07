@@ -279,12 +279,35 @@ IlcSpvId ilcSpvPutImageQueryLevels(
     IlcSpvId resultTypeId,
     IlcSpvId imageId);
 
-IlcSpvId ilcSpvPutAlu(
+IlcSpvId ilcSpvPutOp1(
     IlcSpvModule* module,
     SpvOp op,
     IlcSpvId resultTypeId,
-    unsigned idCount,
-    const IlcSpvId* ids);
+    IlcSpvId arg0Id);
+
+IlcSpvId ilcSpvPutOp2(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId arg0Id,
+    IlcSpvId arg1Id);
+
+IlcSpvId ilcSpvPutOp3(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId arg0Id,
+    IlcSpvId arg1Id,
+    IlcSpvId arg2Id);
+
+IlcSpvId ilcSpvPutOp4(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId arg0Id,
+    IlcSpvId arg1Id,
+    IlcSpvId arg2Id,
+    IlcSpvId arg3Id);
 
 IlcSpvId ilcSpvPutAtomicOp(
     IlcSpvModule* module,

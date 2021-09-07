@@ -813,22 +813,79 @@ IlcSpvId ilcSpvPutImageQueryLevels(
     return id;
 }
 
-IlcSpvId ilcSpvPutAlu(
+IlcSpvId ilcSpvPutOp1(
     IlcSpvModule* module,
     SpvOp op,
     IlcSpvId resultTypeId,
-    unsigned idCount,
-    const IlcSpvId* ids)
+    IlcSpvId arg0Id)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, op, 3 + idCount);
+    putInstr(buffer, op, 4);
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
-    for (int i = 0; i < idCount; i++) {
-        putWord(buffer, ids[i]);
-    }
+    putWord(buffer, arg0Id);
+    return id;
+}
+
+IlcSpvId ilcSpvPutOp2(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId arg0Id,
+    IlcSpvId arg1Id)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, op, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, arg0Id);
+    putWord(buffer, arg1Id);
+    return id;
+}
+
+IlcSpvId ilcSpvPutOp3(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId arg0Id,
+    IlcSpvId arg1Id,
+    IlcSpvId arg2Id)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, op, 6);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, arg0Id);
+    putWord(buffer, arg1Id);
+    putWord(buffer, arg2Id);
+    return id;
+}
+
+IlcSpvId ilcSpvPutOp4(
+    IlcSpvModule* module,
+    SpvOp op,
+    IlcSpvId resultTypeId,
+    IlcSpvId arg0Id,
+    IlcSpvId arg1Id,
+    IlcSpvId arg2Id,
+    IlcSpvId arg3Id)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, op, 7);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, arg0Id);
+    putWord(buffer, arg1Id);
+    putWord(buffer, arg2Id);
+    putWord(buffer, arg3Id);
     return id;
 }
 

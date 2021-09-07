@@ -205,8 +205,8 @@ static IlcSpvId emitShiftMask(
     const IlcSpvId maskConsistuentIds[] = { maskId, maskId, maskId, maskId };
     IlcSpvId maskCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->int4Id,
                                                           4, maskConsistuentIds);
-    const IlcSpvId andIds[] = { srcId, maskCompositeId };
-    return ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id, 2, andIds);
+    return ilcSpvPutOp2(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
+                        srcId, maskCompositeId);
 }
 
 static IlcSpvId emitVectorTrim(
@@ -545,8 +545,7 @@ static IlcSpvId loadSource(
             IlcSpvId rel4Id = loadSource(compiler, &src->srcs[0], COMP_MASK_XYZW,
                                          compiler->int4Id);
             IlcSpvId relId = emitVectorTrim(compiler, rel4Id, compiler->int4Id, 0, 1);
-            const IlcSpvId addIds[] = { indexId, relId };
-            indexId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
+            indexId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, indexId, relId);
         }
         ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
     } else {
@@ -629,9 +628,9 @@ static IlcSpvId loadSource(
         IlcSpvId negId = 0;
 
         if (typeId == compiler->float4Id) {
-            negId = ilcSpvPutAlu(compiler->module, SpvOpFNegate, compiler->float4Id, 1, &varId);
+            negId = ilcSpvPutOp1(compiler->module, SpvOpFNegate, compiler->float4Id, varId);
         } else if (typeId == compiler->int4Id) {
-            negId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id, 1, &varId);
+            negId = ilcSpvPutOp1(compiler->module, SpvOpSNegate, compiler->int4Id, varId);
         } else {
             assert(false);
         }
@@ -1417,8 +1416,7 @@ static void emitFloatOp(
                                        4, components);
     }   break;
     case IL_OP_ADD:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpFAdd, compiler->float4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpFAdd, compiler->float4Id, srcIds[0], srcIds[1]);
         break;
     case IL_OP_ASIN: {
         IlcSpvId asinId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Asin, compiler->float4Id,
@@ -1441,8 +1439,7 @@ static void emitFloatOp(
             LOGW("unhandled div zero op %d\n", instr->control);
         }
         // FIXME SPIR-V has undefined division by zero
-        resId = ilcSpvPutAlu(compiler->module, SpvOpFDiv, compiler->float4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpFDiv, compiler->float4Id, srcIds[0], srcIds[1]);
         break;
     case IL_OP_DP2:
     case IL_OP_DP3:
@@ -1451,8 +1448,8 @@ static void emitFloatOp(
         if (!ieee) {
             LOGW("unhandled non-IEEE dot product\n");
         }
-        IlcSpvId dotId = ilcSpvPutAlu(compiler->module, SpvOpDot, compiler->floatId,
-                                      instr->srcCount, srcIds);
+        IlcSpvId dotId = ilcSpvPutOp2(compiler->module, SpvOpDot, compiler->floatId,
+                                      srcIds[0], srcIds[1]);
         // Replicate dot product on all components
         resId = emitVectorGrow(compiler, dotId, compiler->floatId, 1);
     }   break;
@@ -1462,7 +1459,7 @@ static void emitFloatOp(
         IlcSpvWord op = instr->opcode == IL_OP_DSX ? (fine ? SpvOpDPdxFine : SpvOpDPdxCoarse)
                                                    : (fine ? SpvOpDPdyFine : SpvOpDPdyCoarse);
         ilcSpvPutCapability(compiler->module, SpvCapabilityDerivativeControl);
-        resId = ilcSpvPutAlu(compiler->module, op, compiler->float4Id, instr->srcCount, srcIds);
+        resId = ilcSpvPutOp1(compiler->module, op, compiler->float4Id, srcIds[0]);
     }   break;
     case IL_OP_FRC:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Fract, compiler->float4Id,
@@ -1500,26 +1497,23 @@ static void emitFloatOp(
         if (!ieee) {
             LOGW("unhandled non-IEEE mul\n");
         }
-        resId = ilcSpvPutAlu(compiler->module, SpvOpFMul, compiler->float4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpFMul, compiler->float4Id, srcIds[0], srcIds[1]);
     }   break;
     case IL_OP_FTOI:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertFToS, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp1(compiler->module, SpvOpConvertFToS, compiler->int4Id, srcIds[0]);
         resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
         break;
     case IL_OP_FTOU:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertFToU, compiler->uint4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp1(compiler->module, SpvOpConvertFToU, compiler->uint4Id, srcIds[0]);
         resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
         break;
     case IL_OP_ITOF:
         resId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
-        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertSToF, compiler->float4Id, 1, &resId);
+        resId = ilcSpvPutOp1(compiler->module, SpvOpConvertSToF, compiler->float4Id, resId);
         break;
     case IL_OP_UTOF:
         resId = ilcSpvPutBitcast(compiler->module, compiler->uint4Id, srcIds[0]);
-        resId = ilcSpvPutAlu(compiler->module, SpvOpConvertUToF, compiler->float4Id, 1, &resId);
+        resId = ilcSpvPutOp1(compiler->module, SpvOpConvertUToF, compiler->float4Id, resId);
         break;
     case IL_OP_ROUND_NEAR:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Round, compiler->float4Id,
@@ -1571,17 +1565,15 @@ static void emitFloatOp(
                                          1, &secondHalfId);
         IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
         IlcSpvId sixteenId = ilcSpvPutConstant(compiler->module, compiler->intId, 16);
-        const IlcSpvId argIds[][3] = {
-            { lsbId, zeroId, sixteenId },
-            { lsbId, sixteenId, sixteenId },
-            { msbId, zeroId, sixteenId },
-            { msbId, sixteenId, sixteenId },
-        };
         const IlcSpvId componentIds[] = {
-            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[0]),
-            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[1]),
-            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[2]),
-            ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId, 3, argIds[3]),
+            ilcSpvPutOp3(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
+                         lsbId, zeroId, sixteenId),
+            ilcSpvPutOp3(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
+                         lsbId, sixteenId, sixteenId),
+            ilcSpvPutOp3(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
+                         msbId, zeroId, sixteenId),
+            ilcSpvPutOp3(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
+                         msbId, sixteenId, sixteenId),
         };
         resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, componentIds);
         resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
@@ -1595,14 +1587,10 @@ static void emitFloatOp(
             emitVectorTrim(compiler, intSrcId, compiler->int4Id, 3, 1),
         };
         IlcSpvId sixteenId = ilcSpvPutConstant(compiler->module, compiler->intId, 16);
-        const IlcSpvId argIds[][4] = {
-            { intIds[0], intIds[1], sixteenId, sixteenId },
-            { intIds[2], intIds[3], sixteenId, sixteenId },
-        };
-        intIds[0] = ilcSpvPutAlu(compiler->module, SpvOpBitFieldInsert, compiler->intId,
-                                 4, argIds[0]);
-        intIds[2] = ilcSpvPutAlu(compiler->module, SpvOpBitFieldInsert, compiler->intId,
-                                 4, argIds[1]);
+        intIds[0] = ilcSpvPutOp4(compiler->module, SpvOpBitFieldInsert, compiler->intId,
+                                 intIds[0], intIds[1], sixteenId, sixteenId);
+        intIds[2] = ilcSpvPutOp4(compiler->module, SpvOpBitFieldInsert, compiler->intId,
+                                 intIds[2], intIds[3], sixteenId, sixteenId);
         IlcSpvId float2Id = ilcSpvPutVectorType(compiler->module, compiler->floatId, 2);
         IlcSpvId firstHalfId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450UnpackHalf2x16,
                                                float2Id, 1, &intIds[0]);
@@ -1649,8 +1637,8 @@ static void emitFloatComparisonOp(
         break;
     }
 
-    IlcSpvId condId = ilcSpvPutAlu(compiler->module, compOp, compiler->bool4Id,
-                                   instr->srcCount, srcIds);
+    IlcSpvId condId = ilcSpvPutOp2(compiler->module, compOp, compiler->bool4Id,
+                                   srcIds[0], srcIds[1]);
     IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatId, TRUE_LITERAL);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatId, FALSE_LITERAL);
     IlcSpvId true4Id = emitVectorGrow(compiler, trueId, compiler->floatId, 1);
@@ -1682,25 +1670,24 @@ static void emitIntegerOp(
 
     switch (instr->opcode) {
     case IL_OP_I_NOT:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpNot, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp1(compiler->module, SpvOpNot, compiler->int4Id, srcIds[0]);
         break;
     case IL_OP_I_OR:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseOr, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpBitwiseOr, compiler->int4Id,
+                             srcIds[0], srcIds[1]);
         break;
     case IL_OP_I_XOR:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseXor, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpBitwiseXor, compiler->int4Id,
+                             srcIds[0], srcIds[1]);
         break;
     case IL_OP_I_ADD:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->int4Id,
+                             srcIds[0], srcIds[1]);
         break;
     case IL_OP_I_MAD: {
-        IlcSpvId mulId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->int4Id, 2, srcIds);
-        IlcSpvId addIds[] = { mulId, srcIds[2] };
-        resId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->int4Id, 2, addIds);
+        IlcSpvId mulId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->int4Id,
+                                      srcIds[0], srcIds[1]);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->int4Id, mulId, srcIds[2]);
     } break;
     case IL_OP_I_MAX:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450SMax, compiler->int4Id,
@@ -1711,28 +1698,23 @@ static void emitIntegerOp(
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_I_MUL:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->int4Id, srcIds[0], srcIds[1]);
         break;
     case IL_OP_I_NEGATE:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpSNegate, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp1(compiler->module, SpvOpSNegate, compiler->int4Id, srcIds[0]);
         break;
     case IL_OP_U_DIV:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpUDiv, compiler->uint4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpUDiv, compiler->uint4Id, srcIds[0], srcIds[1]);
         break;
     case IL_OP_U_MOD:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpUMod, compiler->uint4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpUMod, compiler->uint4Id, srcIds[0], srcIds[1]);
         break;
     case IL_OP_U_MIN:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450UMin, compiler->uint4Id,
-                                instr->srcCount, srcIds);
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450UMin, compiler->uint4Id, 2, srcIds);
         break;
     case IL_OP_AND:
-        resId = ilcSpvPutAlu(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
-                             instr->srcCount, srcIds);
+        resId = ilcSpvPutOp2(compiler->module, SpvOpBitwiseAnd, compiler->int4Id,
+                             srcIds[0], srcIds[1]);
         break;
     case IL_OP_I_SHL:
     case IL_OP_I_SHR:
@@ -1745,8 +1727,8 @@ static void emitIntegerOp(
         } else {
             op = SpvOpShiftRightLogical;
         }
-        const IlcSpvId argIds[] = { srcIds[0], emitShiftMask(compiler, srcIds[1]) };
-        resId = ilcSpvPutAlu(compiler->module, op, compiler->int4Id, 2, argIds);
+        resId = ilcSpvPutOp2(compiler->module, op, compiler->int4Id,
+                             srcIds[0], emitShiftMask(compiler, srcIds[1]));
     }   break;
     case IL_OP_U_BIT_EXTRACT: {
         IlcSpvId widthsId = emitShiftMask(compiler, srcIds[0]);
@@ -1757,9 +1739,8 @@ static void emitIntegerOp(
             IlcSpvId widthId = emitVectorTrim(compiler, widthsId, compiler->int4Id, i, 1);
             IlcSpvId offsetId = emitVectorTrim(compiler, offsetsId, compiler->int4Id, i, 1);
             IlcSpvId baseId = emitVectorTrim(compiler, srcIds[2], compiler->int4Id, i, 1);
-            const IlcSpvId argIds[] = { baseId, offsetId, widthId };
-            bfId[i] = ilcSpvPutAlu(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
-                                   3, argIds);
+            bfId[i] = ilcSpvPutOp3(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
+                                   baseId, offsetId, widthId);
         }
         resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, bfId);
     }   break;
@@ -1772,9 +1753,8 @@ static void emitIntegerOp(
             IlcSpvId offsetId = emitVectorTrim(compiler, offsetsId, compiler->int4Id, i, 1);
             IlcSpvId insertId = emitVectorTrim(compiler, srcIds[2], compiler->int4Id, i, 1);
             IlcSpvId baseId = emitVectorTrim(compiler, srcIds[3], compiler->int4Id, i, 1);
-            const IlcSpvId argIds[] = { baseId, insertId, offsetId, widthId };
-            bfId[i] = ilcSpvPutAlu(compiler->module, SpvOpBitFieldInsert, compiler->intId,
-                                   4, argIds);
+            bfId[i] = ilcSpvPutOp4(compiler->module, SpvOpBitFieldInsert, compiler->intId,
+                                   baseId, insertId, offsetId, widthId);
         }
         resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, bfId);
     }   break;
@@ -1821,8 +1801,8 @@ static void emitIntegerComparisonOp(
         break;
     }
 
-    IlcSpvId condId = ilcSpvPutAlu(compiler->module, compOp, compiler->bool4Id,
-                                   instr->srcCount, srcIds);
+    IlcSpvId condId = ilcSpvPutOp2(compiler->module, compOp, compiler->bool4Id,
+                                   srcIds[0], srcIds[1]);
     IlcSpvId trueId = ilcSpvPutConstant(compiler->module, compiler->floatId, TRUE_LITERAL);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->floatId, FALSE_LITERAL);
     const IlcSpvId trueConsistuentIds[] = { trueId, trueId, trueId, trueId };
@@ -1853,8 +1833,8 @@ static void emitCmovLogical(
     IlcSpvId falseCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->int4Id,
                                                            4, falseConsistuentIds);
     IlcSpvId castId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, srcIds[0]);
-    const IlcSpvId compIds[] = { castId, falseCompositeId };
-    IlcSpvId condId = ilcSpvPutAlu(compiler->module, SpvOpINotEqual, compiler->bool4Id, 2, compIds);
+    IlcSpvId condId = ilcSpvPutOp2(compiler->module, SpvOpINotEqual, compiler->bool4Id,
+                                   castId, falseCompositeId);
     IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
                                      srcIds[1], srcIds[2]);
 
@@ -1881,9 +1861,8 @@ static IlcSpvId emitConditionCheck(
 {
     IlcSpvId xId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId falseId = ilcSpvPutConstant(compiler->module, compiler->intId, FALSE_LITERAL);
-    const IlcSpvId compIds[] = { xId, falseId };
-    return ilcSpvPutAlu(compiler->module, notZero ? SpvOpINotEqual : SpvOpIEqual, compiler->boolId,
-                        2, compIds);
+    SpvOp comparisonOp = notZero ? SpvOpINotEqual : SpvOpIEqual;
+    return ilcSpvPutOp2(compiler->module, comparisonOp, compiler->boolId, xId, falseId);
 }
 
 static void emitIf(
@@ -2189,8 +2168,8 @@ static void emitResinfo(
     if (ilReturnType) {
         storeDestination(compiler, dst, infoId, compiler->int4Id);
     } else {
-        IlcSpvId fInfoId = ilcSpvPutAlu(compiler->module, SpvOpConvertSToF, compiler->float4Id,
-                                        1, &infoId);
+        IlcSpvId fInfoId = ilcSpvPutOp1(compiler->module, SpvOpConvertSToF, compiler->float4Id,
+                                        infoId);
         storeDestination(compiler, dst, fInfoId, compiler->float4Id);
     }
 
@@ -2374,14 +2353,13 @@ static void emitLdsLoadVec(
     IlcSpvId offsetId = emitVectorTrim(compiler, offset4Id, compiler->int4Id, COMP_INDEX_X, 1);
 
     // addr = (index * stride + offset) / 4
-    const IlcSpvId mulIds[] = { indexId, resource->strideId };
-    IlcSpvId baseId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->intId, 2, mulIds);
-    const IlcSpvId addIds[] = { baseId, offsetId };
-    IlcSpvId byteAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
-    const IlcSpvId divIds[] = {
-        byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4)
-    };
-    IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
+    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId,
+                                   indexId, resource->strideId);
+    IlcSpvId byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                       baseId, offsetId);
+    IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
+    IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
+                                       byteAddrId, fourId);
 
     IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
@@ -2391,9 +2369,8 @@ static void emitLdsLoadVec(
     for (unsigned i = 0; i < 4; i++) {
         if (i > 0) {
             // Increment address
-            const IlcSpvId incrementIds[] = { wordAddrId, oneId };
-            wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId,
-                                      2, incrementIds);
+            wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                      wordAddrId, oneId);
         }
 
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
@@ -2427,14 +2404,13 @@ static void emitLdsStoreVec(
     IlcSpvId offsetId = emitVectorTrim(compiler, offset4Id, compiler->int4Id, COMP_INDEX_X, 1);
 
     // addr = (index * stride + offset) / 4
-    const IlcSpvId mulIds[] = { indexId, resource->strideId };
-    IlcSpvId baseId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->intId, 2, mulIds);
-    const IlcSpvId addIds[] = { baseId, offsetId };
-    IlcSpvId byteAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
-    const IlcSpvId divIds[] = {
-        byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4)
-    };
-    IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
+    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId,
+                                   indexId, resource->strideId);
+    IlcSpvId byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                       baseId, offsetId);
+    IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
+    IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
+                                       byteAddrId, fourId);
 
     IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
@@ -2448,9 +2424,8 @@ static void emitLdsStoreVec(
 
         if (i > 0) {
             // Increment address
-            const IlcSpvId incrementIds[] = { wordAddrId, oneId };
-            wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId,
-                                      2, incrementIds);
+            wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                      wordAddrId, oneId);
         }
 
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
@@ -2571,14 +2546,13 @@ static void emitStructuredSrvLoad(
     IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
 
     // addr = (index * stride + offset) / 4
-    const IlcSpvId mulIds[] = { indexId, resource->strideId };
-    IlcSpvId baseId = ilcSpvPutAlu(compiler->module, SpvOpIMul, compiler->intId, 2, mulIds);
-    const IlcSpvId addIds[] = { baseId, offsetId };
-    IlcSpvId byteAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId, 2, addIds);
-    const IlcSpvId divIds[] = {
-        byteAddrId, ilcSpvPutConstant(compiler->module, compiler->intId, 4)
-    };
-    IlcSpvId wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpSDiv, compiler->intId, 2, divIds);
+    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId,
+                                   indexId, resource->strideId);
+    IlcSpvId byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                       baseId, offsetId);
+    IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
+    IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
+                                       byteAddrId, fourId);
 
     // Read up to four components based on the destination mask
     IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
@@ -2595,9 +2569,8 @@ static void emitStructuredSrvLoad(
 
         if (i > 0) {
             // Increment address
-            const IlcSpvId incrementIds[] = { wordAddrId, oneId };
-            wordAddrId = ilcSpvPutAlu(compiler->module, SpvOpIAdd, compiler->intId,
-                                      2, incrementIds);
+            wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                      wordAddrId, oneId);
         }
 
         const IlcSpvId indexIds[] = { zeroId, wordAddrId };
