@@ -81,7 +81,7 @@ VkAccessFlags getVkAccessFlagsMemory(
 VkImageAspectFlags getVkImageAspectFlags(
     GR_IMAGE_ASPECT imageAspect);
 
-VkSampleCountFlagBits getVkSampleCountFlagBits(
+VkSampleCountFlags getVkSampleCountFlags(
     GR_UINT samples);
 
 VkBlendFactor getVkBlendFactor(

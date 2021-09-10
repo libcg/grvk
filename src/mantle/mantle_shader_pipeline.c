@@ -155,7 +155,8 @@ static VkRenderPass getVkRenderPass(
     const GrDevice* grDevice,
     const GR_PIPELINE_CB_TARGET_STATE* cbTargets,
     const GR_PIPELINE_DB_STATE* dbTarget,
-    const GrShader* grPixelShader)
+    const GrShader* grPixelShader,
+    VkSampleCountFlags sampleCountFlags)
 {
     VkRenderPass renderPass = VK_NULL_HANDLE;
     VkAttachmentDescription descriptions[GR_MAX_COLOR_TARGETS + 1];
@@ -176,7 +177,7 @@ static VkRenderPass getVkRenderPass(
         descriptions[descriptionCount] = (VkAttachmentDescription) {
             .flags = 0,
             .format = vkFormat,
-            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .samples = sampleCountFlags,
             .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
             .storeOp = (target->channelWriteMask & 0xF) != 0 ?
                        VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -224,7 +225,7 @@ static VkRenderPass getVkRenderPass(
         descriptions[descriptionCount] = (VkAttachmentDescription) {
             .flags = 0,
             .format = getVkFormat(format),
-            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .samples = sampleCountFlags,
             .loadOp = hasDepth ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .storeOp = hasDepth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .stencilLoadOp = hasStencil ?
@@ -282,6 +283,7 @@ static VkRenderPass getVkRenderPass(
 static VkPipeline getVkPipeline(
     const GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
+    const GrMsaaStateObject* grMsaaState,
     const GrRasterStateObject* grRasterState)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
@@ -352,10 +354,10 @@ static VkPipeline getVkPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT, // TODO implement MSAA
+        .rasterizationSamples = grMsaaState->sampleCountFlags,
         .sampleShadingEnable = VK_FALSE,
         .minSampleShading = 0.f,
-        .pSampleMask = NULL, // TODO implement MSAA
+        .pSampleMask = &grMsaaState->sampleMask,
         .alphaToCoverageEnable = createInfo->alphaToCoverageEnable,
         .alphaToOneEnable = VK_FALSE,
     };
@@ -453,7 +455,7 @@ static VkPipeline getVkPipeline(
         .pColorBlendState = &colorBlendStateCreateInfo,
         .pDynamicState = &dynamicStateCreateInfo,
         .layout = grPipeline->pipelineLayout,
-        .renderPass = grPipeline->renderPass,
+        .renderPass = grPipeline->renderPasses[grMsaaState->renderPassIndex],
         .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = 0,
@@ -473,6 +475,7 @@ static VkPipeline getVkPipeline(
 VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
+    const GrMsaaStateObject* grMsaaState,
     const GrRasterStateObject* grRasterState)
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
@@ -483,6 +486,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
         if (grColorBlendState == slot->grColorBlendState &&
+            grMsaaState == slot->grMsaaState &&
             grRasterState == slot->grRasterState) {
             vkPipeline = slot->pipeline;
             break;
@@ -490,7 +494,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     }
 
     if (vkPipeline == VK_NULL_HANDLE) {
-        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grRasterState);
+        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState);
 
         grPipeline->pipelineSlotCount++;
         grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,
@@ -498,6 +502,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
         grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1] = (PipelineSlot) {
             .pipeline = vkPipeline,
             .grColorBlendState = grColorBlendState,
+            .grMsaaState = grMsaaState,
             .grRasterState = grRasterState,
         };
     }
@@ -564,7 +569,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     GR_RESULT res = GR_SUCCESS;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkRenderPass renderPass = VK_NULL_HANDLE;
+    VkRenderPass renderPasses[MSAA_LEVEL_COUNT] = { VK_NULL_HANDLE };
 
     // TODO validate parameters
 
@@ -668,12 +673,18 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         goto bail;
     }
 
-    renderPass = getVkRenderPass(grDevice, pCreateInfo->cbState.target, &pCreateInfo->dbState,
-                                 (GrShader*)pCreateInfo->ps.shader);
-    if (renderPass == VK_NULL_HANDLE)
-    {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
+    for (unsigned i = 0; i < MSAA_LEVEL_COUNT; i++) {
+        VkSampleCountFlags sampleCountFlags = 1 << i;
+
+        renderPasses[i] = getVkRenderPass(grDevice, pCreateInfo->cbState.target,
+                                          &pCreateInfo->dbState, (GrShader*)pCreateInfo->ps.shader,
+                                          sampleCountFlags);
+        if (renderPasses[i] == VK_NULL_HANDLE)
+        {
+            // TODO free up previous render passes
+            res = GR_ERROR_OUT_OF_MEMORY;
+            goto bail;
+        }
     }
 
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
@@ -684,7 +695,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .pipelineSlots = NULL,
         .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
-        .renderPass = renderPass,
+        .renderPasses = { 0 }, // Initialized below
         .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayouts = { 0 }, // Initialized below
@@ -692,6 +703,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
+    memcpy(grPipeline->renderPasses, renderPasses, sizeof(renderPasses));
     updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
                                grPipeline->descriptorTypeCounts, COUNT_OF(stages), stages);
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
@@ -789,7 +801,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .pipelineSlots = pipelineSlot,
         .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
-        .renderPass = VK_NULL_HANDLE,
+        .renderPasses = { VK_NULL_HANDLE },
         .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = 1,
         .descriptorSetLayouts = { descriptorSetLayout },

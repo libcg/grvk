@@ -8,7 +8,8 @@
 #include "mantle/mantle.h"
 #include "amdilc.h"
 
-#define MAX_STAGE_COUNT 5 // VS, HS, DS, GS, PS
+#define MAX_STAGE_COUNT     5 // VS, HS, DS, GS, PS
+#define MSAA_LEVEL_COUNT    5 // 1, 2, 4, 8, 16x
 
 #define GET_OBJ_TYPE(obj) \
     (((GrBaseObject*)(obj))->grObjType)
@@ -58,6 +59,7 @@ typedef struct _GrDescriptorSet GrDescriptorSet;
 typedef struct _GrDevice GrDevice;
 typedef struct _GrFence GrFence;
 typedef struct _GrGpuMemory GrGpuMemory;
+typedef struct _GrMsaaStateObject GrMsaaStateObject;
 typedef struct _GrPipeline GrPipeline;
 typedef struct _GrRasterStateObject GrRasterStateObject;
 typedef struct _GrViewportStateObject GrViewportStateObject;
@@ -106,6 +108,7 @@ typedef struct _PipelineSlot
     VkPipeline pipeline;
     // TODO keep track of individual parameters to minimize pipeline count
     const GrColorBlendStateObject* grColorBlendState;
+    const GrMsaaStateObject* grMsaaState;
     const GrRasterStateObject* grRasterState;
 } PipelineSlot;
 
@@ -144,6 +147,7 @@ typedef struct _GrCmdBuffer {
     // Graphics dynamic state
     GrViewportStateObject* grViewportState;
     GrRasterStateObject* grRasterState;
+    GrMsaaStateObject* grMsaaState;
     GrDepthStencilStateObject* grDepthStencilState;
     GrColorBlendStateObject* grColorBlendState;
     // Render pass
@@ -250,6 +254,9 @@ typedef struct _GrImageView {
 
 typedef struct _GrMsaaStateObject {
     GrObject grObj;
+    unsigned renderPassIndex;
+    VkSampleCountFlags sampleCountFlags;
+    VkSampleMask sampleMask;
 } GrMsaaStateObject;
 
 typedef struct _GrPhysicalGpu {
@@ -265,7 +272,7 @@ typedef struct _GrPipeline {
     PipelineSlot* pipelineSlots;
     CRITICAL_SECTION pipelineSlotsMutex;
     VkPipelineLayout pipelineLayout;
-    VkRenderPass renderPass;
+    VkRenderPass renderPasses[MSAA_LEVEL_COUNT];
     unsigned descriptorTypeCounts[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1];
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
@@ -355,6 +362,7 @@ void grGpuMemoryBindBuffer(
 VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
+    const GrMsaaStateObject* grMsaaState,
     const GrRasterStateObject* grRasterState);
 
 #endif // GR_OBJECT_H_

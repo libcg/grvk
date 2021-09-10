@@ -289,10 +289,12 @@ static void grCmdBufferBeginRenderPass(
         return;
     }
 
+    VkRenderPass renderPass = grPipeline->renderPasses[grCmdBuffer->grMsaaState->renderPassIndex];
+
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = NULL,
-        .renderPass = grPipeline->renderPass,
+        .renderPass = renderPass,
         .framebuffer = grCmdBuffer->framebuffer,
         .renderArea = (VkRect2D) {
             .offset = { 0, 0 },
@@ -398,7 +400,10 @@ static void grCmdBufferUpdateResources(
         if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_GRAPHICS_FRAMEBUFFER) {
             grCmdBufferEndRenderPass(grCmdBuffer);
 
-            grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, grGraphicsPipeline->renderPass,
+            VkRenderPass renderPass =
+                grGraphicsPipeline->renderPasses[grCmdBuffer->grMsaaState->renderPassIndex];
+
+            grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, renderPass,
                                                         grCmdBuffer->attachmentCount,
                                                         grCmdBuffer->attachments,
                                                         grCmdBuffer->minExtent);
@@ -417,6 +422,7 @@ static void grCmdBufferUpdateResources(
             VkPipeline vkPipeline =
                 grPipelineFindOrCreateVkPipeline(grGraphicsPipeline,
                                                  grCmdBuffer->grColorBlendState,
+                                                 grCmdBuffer->grMsaaState,
                                                  grCmdBuffer->grRasterState);
 
             VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer,
@@ -461,7 +467,7 @@ GR_VOID grCmdBindPipeline(
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
-                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL));
+                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL));
 
         grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
     }
@@ -475,6 +481,8 @@ GR_VOID grCmdBindStateObject(
     LOGT("%p 0x%X %p\n", cmdBuffer, stateBindPoint, state);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    // TODO compare objects instead of just pointers
 
     switch ((GR_STATE_BIND_POINT)stateBindPoint) {
     case GR_STATE_BIND_VIEWPORT: {
@@ -554,9 +562,15 @@ GR_VOID grCmdBindStateObject(
         grCmdBuffer->grColorBlendState = colorBlendState;
         grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_PIPELINE;
     }   break;
-    case GR_STATE_BIND_MSAA:
-        // TODO
-        break;
+    case GR_STATE_BIND_MSAA: {
+        GrMsaaStateObject* msaaState = (GrMsaaStateObject*)state;
+        if (msaaState == grCmdBuffer->grMsaaState) {
+            break;
+        }
+
+        grCmdBuffer->grMsaaState = msaaState;
+        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_FRAMEBUFFER | FLAG_DIRTY_GRAPHICS_PIPELINE;
+    }   break;
     }
 }
 

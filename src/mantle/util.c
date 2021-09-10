@@ -532,7 +532,7 @@ VkImageAspectFlags getVkImageAspectFlags(
     return 0;
 }
 
-VkSampleCountFlagBits getVkSampleCountFlagBits(
+VkSampleCountFlags getVkSampleCountFlags(
     GR_UINT samples)
 {
     switch (samples) {
@@ -547,8 +547,6 @@ VkSampleCountFlagBits getVkSampleCountFlagBits(
         return VK_SAMPLE_COUNT_8_BIT;
     case 16:
         return VK_SAMPLE_COUNT_16_BIT;
-    case 32:
-        return VK_SAMPLE_COUNT_32_BIT;
     }
 
     LOGW("unsupported sample count %d\n", samples);

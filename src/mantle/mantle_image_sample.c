@@ -200,7 +200,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         },
         .mipLevels = pCreateInfo->mipLevels,
         .arrayLayers = pCreateInfo->arraySize,
-        .samples = getVkSampleCountFlagBits(pCreateInfo->samples),
+        .samples = getVkSampleCountFlags(pCreateInfo->samples),
         .tiling = getVkImageTiling(pCreateInfo->tiling),
         .usage  = getVkImageUsageFlags(pCreateInfo->usage),
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
