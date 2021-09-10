@@ -351,6 +351,8 @@ VkImageLayout getVkImageLayout(
     case GR_IMAGE_STATE_CLEAR:
         return quirkHas(QUIRK_IMAGE_WRONG_CLEAR_STATE) ?
                VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    case GR_IMAGE_STATE_DISCARD:
+        return VK_IMAGE_LAYOUT_UNDEFINED;
     default:
         break;
     }
@@ -460,6 +462,8 @@ VkAccessFlags getVkAccessFlagsImage(
                VK_ACCESS_SHADER_WRITE_BIT;
     case GR_IMAGE_STATE_CLEAR:
         return VK_ACCESS_TRANSFER_WRITE_BIT;
+    case GR_IMAGE_STATE_DISCARD:
+        return 0;
     default:
         break;
     }
