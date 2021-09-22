@@ -23,6 +23,7 @@
 typedef enum {
     RES_TYPE_GENERIC,
     RES_TYPE_LDS,
+    RES_TYPE_ATOMIC_COUNTER,
 } IlcResourceType;
 
 typedef enum {
@@ -389,7 +390,7 @@ static const IlcResource* findResource(
     return NULL;
 }
 
-static void addResource(
+static const IlcResource* addResource(
     IlcCompiler* compiler,
     const IlcResource* resource)
 {
@@ -406,6 +407,8 @@ static void addResource(
     compiler->resources = realloc(compiler->resources,
                                   sizeof(IlcResource) * compiler->resourceCount);
     compiler->resources[compiler->resourceCount - 1] = *resource;
+
+    return &compiler->resources[compiler->resourceCount - 1];
 }
 
 static const IlcSampler* findSampler(
@@ -457,7 +460,8 @@ static const IlcSampler* findOrCreateSampler(
         IlcSpvId samplerId = ilcSpvPutVariable(compiler->module, pointerId,
                                                SpvStorageClassUniformConstant);
 
-        emitBinding(compiler, samplerId, ilId, VK_DESCRIPTOR_TYPE_SAMPLER, NO_STRIDE_INDEX);
+        emitBinding(compiler, samplerId, ILC_BASE_SAMPLER_ID + ilId, VK_DESCRIPTOR_TYPE_SAMPLER,
+                    NO_STRIDE_INDEX);
 
         const IlcSampler newSampler = {
             .id = samplerId,
@@ -2542,6 +2546,69 @@ static void emitUavAtomicOp(
     }
 }
 
+static void emitAppendBufOp(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint16_t ilResourceId = GET_BITS(instr->control, 0, 14);
+
+    const IlcResource* resource = findResource(compiler, RES_TYPE_ATOMIC_COUNTER, 0);
+    const Destination* dst = &instr->dsts[0];
+
+    if (resource == NULL) {
+        // Lazily declare atomic counter buffer
+        IlcSpvId arrayId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->uintId, true);
+        IlcSpvId structId = ilcSpvPutStructType(compiler->module, 1, &arrayId);
+        IlcSpvId pointerId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                                  structId);
+        IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pointerId,
+                                                SpvStorageClassStorageBuffer);
+
+        IlcSpvWord arrayStride = sizeof(uint32_t);
+        IlcSpvWord memberOffset = 0;
+        ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationArrayStride, 1, &arrayStride);
+        ilcSpvPutDecoration(compiler->module, structId, SpvDecorationBlock, 0, NULL);
+        ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset,
+                                  1, &memberOffset);
+
+        ilcSpvPutName(compiler->module, arrayId, "atomicCounter");
+        emitBinding(compiler, resourceId, ILC_ATOMIC_COUNTER_ID, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                    NO_STRIDE_INDEX);
+
+        const IlcResource atomicCounterResource = {
+            .resType = RES_TYPE_ATOMIC_COUNTER,
+            .id = resourceId,
+            .typeId = 0,
+            .texelTypeId = 0,
+            .ilId = 0,
+            .ilType = IL_USAGE_PIXTEX_UNKNOWN,
+            .strideId = 0,
+        };
+
+        resource = addResource(compiler, &atomicCounterResource);
+    }
+
+    SpvOp op = instr->opcode == IL_OP_APPEND_BUF_ALLOC ? SpvOpAtomicIIncrement
+                                                       : SpvOpAtomicIDecrement;
+
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                              compiler->uintId);
+    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
+    IlcSpvId counterIndexId = ilcSpvPutConstant(compiler->module, compiler->intId, ilResourceId);
+    IlcSpvId indexIds[] = { zeroId, counterIndexId };
+    IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
+                                          2, indexIds);
+    IlcSpvId scopeId = ilcSpvPutConstant(compiler->module, compiler->intId, SpvScopeDevice);
+    IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                             SpvMemorySemanticsAcquireReleaseMask |
+                                             SpvMemorySemanticsUniformMemoryMask);
+    IlcSpvId readId = ilcSpvPutAtomicOp(compiler->module, op, compiler->uintId, ptrId,
+                                        scopeId, semanticsId, 0);
+    IlcSpvId resId = emitVectorGrow(compiler, readId, compiler->uintId, 1);
+
+    storeDestination(compiler, dst, resId, compiler->uint4Id);
+}
+
 static void emitStructuredSrvLoad(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2940,6 +3007,10 @@ static void emitInstr(
     case IL_OP_UAV_ADD:
     case IL_OP_UAV_READ_ADD:
         emitUavAtomicOp(compiler, instr);
+        break;
+    case IL_OP_APPEND_BUF_ALLOC:
+    case IL_OP_APPEND_BUF_CONSUME:
+        emitAppendBufOp(compiler, instr);
         break;
     case IL_OP_DCL_RAW_SRV:
     case IL_OP_DCL_STRUCT_SRV:

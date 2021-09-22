@@ -19,6 +19,65 @@ static char* getGrvkEngineName(
     return grvkEngineName;
 }
 
+static VkBuffer allocateAtomicCounterBuffer(
+    const GrDevice* grDevice,
+    unsigned slotCount)
+{
+    VkDeviceMemory vkMemory = VK_NULL_HANDLE;
+    VkBuffer vkBuffer = VK_NULL_HANDLE;
+    VkResult vkRes;
+
+    unsigned memoryTypeIndex = 0;
+
+    for (unsigned i = 0; i < grDevice->memoryProperties.memoryTypeCount; i++) {
+        if (grDevice->memoryProperties.memoryTypes[i].propertyFlags &
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+            memoryTypeIndex = i;
+            break;
+        }
+    }
+
+    const VkMemoryAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = NULL,
+        .allocationSize = slotCount * sizeof(uint32_t),
+        .memoryTypeIndex = memoryTypeIndex,
+    };
+
+    vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkAllocateMemory failed (%d)\n", vkRes);
+        return VK_NULL_HANDLE;
+    }
+
+    const VkBufferCreateInfo bufferCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .size = allocateInfo.allocationSize,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = NULL,
+    };
+
+    vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateBuffer failed (%d)\n", vkRes);
+        return VK_NULL_HANDLE;
+    }
+
+    vkRes = VKD.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
+        return VK_NULL_HANDLE;
+    }
+
+    return vkBuffer;
+}
+
 // Exported functions
 
 unsigned grDeviceGetQueueFamilyIndex(
@@ -267,13 +326,13 @@ GR_RESULT GR_STDCALL grGetGpuInfo(
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[0] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_QUEUE_UNIVERSAL,
             .queueCount = 1,
-            .maxAtomicCounters = 512,
+            .maxAtomicCounters = UNIVERSAL_ATOMIC_COUNTERS_COUNT,
             .supportsTimestamps = false, // TODO implement timestamps
         };
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[1] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_QUEUE_COMPUTE,
             .queueCount = 1,
-            .maxAtomicCounters = 1024,
+            .maxAtomicCounters = COMPUTE_ATOMIC_COUNTERS_COUNT,
             .supportsTimestamps = false, // TODO implement timestamps
         };
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[2] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
@@ -582,6 +641,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .universalQueueMutex = { 0 }, // Initialized below
         .computeQueueMutex = { 0 }, // Initialized below
         .dmaQueueMutex = { 0 }, // Initialized below
+        .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
+        .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
     };
 
@@ -589,6 +650,11 @@ GR_RESULT GR_STDCALL grCreateDevice(
     InitializeCriticalSectionAndSpinCount(&grDevice->universalQueueMutex, 0);
     InitializeCriticalSectionAndSpinCount(&grDevice->computeQueueMutex, 0);
     InitializeCriticalSectionAndSpinCount(&grDevice->dmaQueueMutex, 0);
+
+    grDevice->universalAtomicCounterBuffer =
+        allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
+    grDevice->computeAtomicCounterBuffer =
+        allocateAtomicCounterBuffer(grDevice, COMPUTE_ATOMIC_COUNTERS_COUNT);
 
     *pDevice = (GR_DEVICE)grDevice;
 

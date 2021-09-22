@@ -105,7 +105,9 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
         }
 
         uint32_t slotBinding = slotInfo->shaderEntityIndex;
-        if (slotInfo->slotObjectType != GR_SLOT_SHADER_SAMPLER) {
+        if (slotInfo->slotObjectType == GR_SLOT_SHADER_SAMPLER) {
+            slotBinding += ILC_BASE_SAMPLER_ID;
+        } else {
             slotBinding += ILC_BASE_RESOURCE_ID;
         }
 
@@ -135,6 +137,17 @@ static void updateVkDescriptorSet(
         return;
     }
 
+    const DescriptorSetSlot atomicCounterSlot = {
+        .type = SLOT_TYPE_MEMORY_VIEW,
+        .memoryView = {
+            .vkBufferView = VK_NULL_HANDLE,
+            .vkBuffer = grCmdBuffer->atomicCounterBuffer,
+            .offset = 0,
+            .range = VK_WHOLE_SIZE,
+            .stride = 0, // Unused
+        },
+    };
+
     VkDescriptorImageInfo* imageInfos = malloc(grShader->bindingCount *
                                                sizeof(VkDescriptorImageInfo));
     VkDescriptorBufferInfo* bufferInfos = malloc(grShader->bindingCount *
@@ -148,6 +161,8 @@ static void updateVkDescriptorSet(
         if (dynamicMapping->slotObjectType != GR_SLOT_UNUSED &&
             (binding->index == (ILC_BASE_RESOURCE_ID + dynamicMapping->shaderEntityIndex))) {
             slot = dynamicMemoryView;
+        } else if (binding->index == ILC_ATOMIC_COUNTER_ID) {
+            slot = &atomicCounterSlot;
         } else {
             slot = getDescriptorSetSlot(grDescriptorSet, slotOffset,
                                         &shaderInfo->descriptorSetMapping[0], binding->index);
@@ -1315,4 +1330,127 @@ GR_VOID GR_STDCALL grCmdResetQueryPool(
 
     VKD.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grQueryPool->queryPool,
                             startQuery, queryCount);
+}
+
+GR_VOID GR_STDCALL grCmdInitAtomicCounters(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM pipelineBindPoint,
+    GR_UINT startCounter,
+    GR_UINT counterCount,
+    const GR_UINT32* pData)
+{
+    LOGT("%p 0x%X %u %u %p\n", cmdBuffer, pipelineBindPoint, startCounter, counterCount, pData);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    VkDeviceSize offset = startCounter * sizeof(uint32_t);
+    VkDeviceSize size = counterCount * sizeof(uint32_t);
+
+    const VkBufferMemoryBarrier preUpdateBarrier = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = NULL,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
+        .offset = offset,
+        .size = size,
+    };
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, NULL, 1, &preUpdateBarrier, 0, NULL);
+
+    VKD.vkCmdUpdateBuffer(grCmdBuffer->commandBuffer, grCmdBuffer->atomicCounterBuffer,
+                          offset, size, pData);
+
+    const VkBufferMemoryBarrier postUpdateBarrier = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = NULL,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT |
+                         VK_ACCESS_SHADER_WRITE_BIT |
+                         VK_ACCESS_TRANSFER_READ_BIT |
+                         VK_ACCESS_TRANSFER_WRITE_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
+        .offset = offset,
+        .size = size,
+    };
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             0, 0, NULL, 1, &postUpdateBarrier, 0, NULL);
+}
+
+GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM pipelineBindPoint,
+    GR_UINT startCounter,
+    GR_UINT counterCount,
+    GR_GPU_MEMORY destMem,
+    GR_GPU_SIZE destOffset)
+{
+    LOGT("%p 0x%X %u %u %p %u\n",
+         cmdBuffer, pipelineBindPoint, startCounter, counterCount, destMem, destOffset);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    const VkBufferCopy bufferCopy = {
+        .srcOffset = startCounter * sizeof(uint32_t),
+        .dstOffset = destOffset,
+        .size = counterCount * sizeof(uint32_t),
+    };
+
+    const VkBufferMemoryBarrier preCopyBarrier = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = NULL,
+        .srcAccessMask = VK_ACCESS_SHADER_READ_BIT |
+                         VK_ACCESS_SHADER_WRITE_BIT |
+                         VK_ACCESS_TRANSFER_READ_BIT |
+                         VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
+        .offset = bufferCopy.srcOffset,
+        .size = bufferCopy.size,
+    };
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, NULL, 1, &preCopyBarrier, 0, NULL);
+
+    VKD.vkCmdCopyBuffer(grCmdBuffer->commandBuffer,
+                        grCmdBuffer->atomicCounterBuffer, grDstGpuMemory->buffer, 1, &bufferCopy);
+
+    const VkBufferMemoryBarrier postCopyBarrier = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .pNext = NULL,
+        .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT |
+                         VK_ACCESS_SHADER_WRITE_BIT |
+                         VK_ACCESS_TRANSFER_READ_BIT |
+                         VK_ACCESS_TRANSFER_WRITE_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
+        .offset = bufferCopy.srcOffset,
+        .size = bufferCopy.size,
+    };
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             0, 0, NULL, 1, &postCopyBarrier, 0, NULL);
 }

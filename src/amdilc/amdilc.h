@@ -6,8 +6,10 @@
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
-// TODO get rid of this
-#define ILC_BASE_RESOURCE_ID    (16) // Samplers use 0-15
+// TODO pack resource IDs
+#define ILC_ATOMIC_COUNTER_ID  (0)  // 0
+#define ILC_BASE_SAMPLER_ID    (1)  // 1-16
+#define ILC_BASE_RESOURCE_ID   (17) // 17+
 
 #define ILC_MAX_STRIDE_CONSTANTS    (8)
 

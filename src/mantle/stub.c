@@ -138,16 +138,6 @@ GR_VOID GR_STDCALL grCmdWriteTimestamp(
     LOGW("STUB\n");
 }
 
-GR_VOID GR_STDCALL grCmdInitAtomicCounters(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM pipelineBindPoint,
-    GR_UINT startCounter,
-    GR_UINT counterCount,
-    const GR_UINT32* pData)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID GR_STDCALL grCmdLoadAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,
@@ -155,17 +145,6 @@ GR_VOID GR_STDCALL grCmdLoadAtomicCounters(
     GR_UINT counterCount,
     GR_GPU_MEMORY srcMem,
     GR_GPU_SIZE srcOffset)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM pipelineBindPoint,
-    GR_UINT startCounter,
-    GR_UINT counterCount,
-    GR_GPU_MEMORY destMem,
-    GR_GPU_SIZE destOffset)
 {
     LOGW("STUB\n");
 }

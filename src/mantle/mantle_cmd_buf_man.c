@@ -73,11 +73,21 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         return getGrResult(vkRes);
     }
 
+    VkBuffer atomicCounterBuffer;
+    if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
+        atomicCounterBuffer = grDevice->universalAtomicCounterBuffer;
+    } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
+        atomicCounterBuffer = grDevice->computeAtomicCounterBuffer;
+    } else {
+        atomicCounterBuffer = VK_NULL_HANDLE;
+    }
+
     GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
     *grCmdBuffer = (GrCmdBuffer) {
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
+        .atomicCounterBuffer = atomicCounterBuffer,
         .isBuilding = false,
         .bindPoints = { { 0 }, { 0 } },
         .grViewportState = NULL,

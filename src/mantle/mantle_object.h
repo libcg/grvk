@@ -11,6 +11,9 @@
 #define MAX_STAGE_COUNT     5 // VS, HS, DS, GS, PS
 #define MSAA_LEVEL_COUNT    5 // 1, 2, 4, 8, 16x
 
+#define UNIVERSAL_ATOMIC_COUNTERS_COUNT (512)
+#define COMPUTE_ATOMIC_COUNTERS_COUNT   (1024)
+
 #define GET_OBJ_TYPE(obj) \
     (((GrBaseObject*)(obj))->grObjType)
 
@@ -145,6 +148,7 @@ typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
+    VkBuffer atomicCounterBuffer;
     bool isBuilding;
     // Graphics and compute bind points
     BindPoint bindPoints[2];
@@ -217,6 +221,8 @@ typedef struct _GrDevice {
     CRITICAL_SECTION universalQueueMutex;
     CRITICAL_SECTION computeQueueMutex;
     CRITICAL_SECTION dmaQueueMutex;
+    VkBuffer universalAtomicCounterBuffer;
+    VkBuffer computeAtomicCounterBuffer;
     GrBorderColorPalette* grBorderColorPalette;
 } GrDevice;
 

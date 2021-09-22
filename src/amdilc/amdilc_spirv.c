@@ -901,13 +901,15 @@ IlcSpvId ilcSpvPutAtomicOp(
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     IlcSpvId id = ilcSpvAllocId(module);
-    putInstr(buffer, op, 7);
+    putInstr(buffer, op, 6 + (valueId != 0));
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, pointerId);
     putWord(buffer, memoryId);
     putWord(buffer, semanticsId);
-    putWord(buffer, valueId);
+    if (valueId != 0) {
+        putWord(buffer, valueId);
+    }
     return id;
 }
 
