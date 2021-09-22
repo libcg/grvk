@@ -46,6 +46,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_DCL_OUTPUT] = { IL_DCL_OUTPUT, 1, 0, 0 },
     [IL_DCL_INPUT] = { IL_DCL_INPUT, 1, 0, 0 },
     [IL_DCL_RESOURCE] = { IL_DCL_RESOURCE, 0, 0, 1 },
+    [IL_OP_DISCARD_LOGICALZ] = { IL_OP_DISCARD_LOGICALZ, 0, 1, 0 },
     [IL_OP_DISCARD_LOGICALNZ] = { IL_OP_DISCARD_LOGICALNZ, 0, 1, 0 },
     [IL_OP_LOAD] = { IL_OP_LOAD, 1, 1, 0 },
     [IL_OP_RESINFO] = { IL_OP_RESINFO, 1, 1, 0 },
