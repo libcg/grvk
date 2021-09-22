@@ -139,9 +139,12 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
         case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
         case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
         case GR_OBJ_TYPE_DESCRIPTOR_SET:
+        case GR_OBJ_TYPE_EVENT:
+        case GR_OBJ_TYPE_FENCE:
         case GR_OBJ_TYPE_IMAGE_VIEW:
         case GR_OBJ_TYPE_PIPELINE:
         case GR_OBJ_TYPE_QUERY_POOL:
+        case GR_OBJ_TYPE_QUEUE_SEMAPHORE:
             // Mantle spec: "Not all objects have memory requirements, in which case it is valid
             // for the requirements structure to return zero size and alignment, and no heaps."
             *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
@@ -249,8 +252,12 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
         case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
         case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
         case GR_OBJ_TYPE_DESCRIPTOR_SET:
+        case GR_OBJ_TYPE_EVENT:
+        case GR_OBJ_TYPE_FENCE:
         case GR_OBJ_TYPE_IMAGE_VIEW:
         case GR_OBJ_TYPE_PIPELINE:
+        case GR_OBJ_TYPE_QUERY_POOL:
+        case GR_OBJ_TYPE_QUEUE_SEMAPHORE:
             // Nothing to do
             break;
         default:
