@@ -58,6 +58,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_PIPELINE:
         // TODO
         break;
+    case GR_OBJ_TYPE_QUERY_POOL: {
+        GrQueryPool* grQueryPool = (GrQueryPool*)grObject;
+
+        VKD.vkDestroyQueryPool(grDevice->device, grQueryPool->queryPool, NULL);
+    } break;
     case GR_OBJ_TYPE_RASTER_STATE_OBJECT:
         // Nothing to do
         break;
