@@ -231,6 +231,24 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
         return GR_ERROR_INVALID_HANDLE;
     }
 
+    // Mantle spec: "Binding memory to an object automatically unbinds any previously bound memory."
+    if (grObject->grGpuMemory != NULL) {
+        GrGpuMemory* grBoundGpuMemory = grObject->grGpuMemory;
+
+        // Vulkan doesn't allow unbinding, only remove the bound object reference
+        EnterCriticalSection(&grBoundGpuMemory->boundObjectsMutex);
+        for (unsigned i = 0; i < grBoundGpuMemory->boundObjectCount; i++) {
+            if (grBoundGpuMemory->boundObjects[i] == grObject) {
+                // Skip realloc
+                memmove(&grBoundGpuMemory->boundObjects[i], &grBoundGpuMemory->boundObjects[i + 1],
+                        (grBoundGpuMemory->boundObjectCount - i - 1) * sizeof(GrObject*));
+                grBoundGpuMemory->boundObjectCount--;
+                break;
+            }
+        }
+        LeaveCriticalSection(&grBoundGpuMemory->boundObjectsMutex);
+    }
+
     if (grGpuMemory != NULL) {
         // Bind memory
         GrObjectType objType = GET_OBJ_TYPE(grObject);
@@ -265,38 +283,20 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
             return GR_ERROR_UNAVAILABLE;
         }
 
+        if (vkRes != VK_SUCCESS) {
+            LOGW("binding failed (%d)\n", objType);
+        }
+
+        // Add bound object reference
         EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
         grGpuMemory->boundObjectCount++;
         grGpuMemory->boundObjects = realloc(grGpuMemory->boundObjects,
                                             grGpuMemory->boundObjectCount * sizeof(GrObject*));
         grGpuMemory->boundObjects[grGpuMemory->boundObjectCount - 1] = grObject;
         LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
-
-        if (grObject->grGpuMemory != NULL) {
-            LOGW("re-bound object\n");
-        }
-        grObject->grGpuMemory = grGpuMemory;
-
-        if (vkRes != VK_SUCCESS) {
-            LOGW("binding failed (%d)\n", objType);
-        }
-    } else {
-        // Unbind memory.. sort of
-        grGpuMemory = grObject->grGpuMemory;
-        grObject->grGpuMemory = NULL;
-
-        EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
-        for (unsigned i = 0; i < grGpuMemory->boundObjectCount; i++) {
-            if (grGpuMemory->boundObjects[i] == grObject) {
-                // Remove object reference (skipping realloc)
-                memmove(&grGpuMemory->boundObjects[i], &grGpuMemory->boundObjects[i + 1],
-                        (grGpuMemory->boundObjectCount - i - 1) * sizeof(GrObject*));
-                grGpuMemory->boundObjectCount--;
-                i--;
-            }
-        }
-        LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
     }
+
+    grObject->grGpuMemory = grGpuMemory;
 
     return getGrResult(vkRes);
 }
