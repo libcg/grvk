@@ -431,14 +431,9 @@ GR_RESULT GR_STDCALL grCreateDevice(
         goto bail;
     }
 
-    VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures separateDsLayouts = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES,
-        .pNext = NULL,
-        .separateDepthStencilLayouts = VK_TRUE,
-    };
     VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicState = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
-        .pNext = &separateDsLayouts,
+        .pNext = NULL,
         .extendedDynamicState = VK_TRUE,
     };
     VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
@@ -446,13 +441,20 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = &extendedDynamicState,
         .shaderDemoteToHelperInvocation = VK_TRUE,
     };
+    VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .pNext = &demoteToHelperInvocation,
+        .samplerMirrorClampToEdge = VK_TRUE,
+        .separateDepthStencilLayouts = VK_TRUE,
+    };
     VkPhysicalDeviceFeatures2 deviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &demoteToHelperInvocation,
+        .pNext = &vulkan12DeviceFeatures,
         .features = {
             .imageCubeArray = VK_TRUE,
             .geometryShader = VK_TRUE,
             .tessellationShader = VK_TRUE,
+            .sampleRateShading = VK_TRUE,
             .dualSrcBlend = VK_TRUE,
             .logicOp = VK_TRUE,
             .depthClamp = VK_TRUE,
