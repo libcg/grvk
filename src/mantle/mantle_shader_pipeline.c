@@ -202,7 +202,8 @@ static VkRenderPass getVkRenderPass(
         format.channelFormat == GR_CH_FMT_UNDEFINED &&
         format.numericFormat == GR_NUM_FMT_UNDEFINED &&
         grPixelShader != NULL) {
-        if (!strcmp(grPixelShader->name, "ps_6c8b07ccd38a7fca675aff99b410efbe5e70d3b2")) {
+        if (!strcmp(grPixelShader->name, "ps_63767863368f7d005981cbe8c26ba168d4063f2e") ||
+            !strcmp(grPixelShader->name, "ps_6c8b07ccd38a7fca675aff99b410efbe5e70d3b2")) {
             format.channelFormat = GR_CH_FMT_R32G8;
             format.numericFormat = GR_NUM_FMT_DS;
         } else if (!strcmp(grPixelShader->name, "ps_c8c16de62224f3a32a04185565da4396b2f363f2")) {
