@@ -44,11 +44,18 @@ GR_RESULT GR_STDCALL grCreateImageView(
     bool useIdentity = false;
 
     if (isStorageImage) {
+        // Some games apply non-identity swizzles on unused color channels. Clean it up.
         if (pCreateInfo->channels.r == GR_CHANNEL_SWIZZLE_R &&
-            pCreateInfo->channels.g == GR_CHANNEL_SWIZZLE_ZERO &&
-            pCreateInfo->channels.b == GR_CHANNEL_SWIZZLE_ZERO &&
-            pCreateInfo->channels.a == GR_CHANNEL_SWIZZLE_ZERO &&
-            (grImage->format == VK_FORMAT_R8_UNORM || grImage->format == VK_FORMAT_R32_UINT)) {
+            (grImage->format == VK_FORMAT_R8_UNORM ||
+             grImage->format == VK_FORMAT_R32_UINT)) {
+            // 1-channel format identity
+            useIdentity = true;
+        } else if (pCreateInfo->channels.r == GR_CHANNEL_SWIZZLE_R &&
+                   pCreateInfo->channels.g == GR_CHANNEL_SWIZZLE_G &&
+                   (grImage->format == VK_FORMAT_R16G16_SFLOAT ||
+                    grImage->format == VK_FORMAT_R32G32_UINT ||
+                    grImage->format == VK_FORMAT_R32G32_SFLOAT)) {
+            // 2-channel format identity
             useIdentity = true;
         } else if (pCreateInfo->channels.r != GR_CHANNEL_SWIZZLE_R ||
                    pCreateInfo->channels.g != GR_CHANNEL_SWIZZLE_G ||
