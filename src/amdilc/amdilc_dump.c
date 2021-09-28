@@ -221,6 +221,46 @@ static const char* mIlTsOutputPrimitiveNames[IL_TS_OUTPUT_LAST] = {
     "triangle_ccw",
 };
 
+// Table 12.11 in GCN3 ISA book
+static const char* mIlBufDataFormatNames[16] = {
+    "0?",
+    "8",
+    "16",
+    "8_8",
+    "32",
+    "16_16",
+    "10_11_11",
+    "11_11_10",
+    "10_10_10_2",
+    "2_10_10_10",
+    "8_8_8_8",
+    "32_32",
+    "16_16_16_16",
+    "32_32_32",
+    "32_32_32_32",
+    "15?"
+};
+
+// Table 12.10 in GCN3 ISA book is similar
+static const char* mIlBufNumFormatNames[16] = {
+    "0?",
+    "unorm",
+    "snorm",
+    "3?",
+    "4?",
+    "uint",
+    "sint",
+    "float",
+    "8?",
+    "9?",
+    "10?",
+    "11?",
+    "12?",
+    "13?",
+    "14?",
+    "15?"
+};
+
 static void dumpSource(
     FILE* file,
     const Source* src);
@@ -843,8 +883,18 @@ static void dumpInstruction(
                 GET_BITS(instr->control, 0, 13), instr->extras[0]);
         break;
     case IL_OP_SRV_STRUCT_LOAD:
-        fprintf(file, "srv_struct_load%s_id(%u)",
-                GET_BIT(instr->control, 12) ? "_ext" : "", GET_BITS(instr->control, 0, 7));
+        if (GET_BIT(instr->control, 12)) {
+            LOGW("unhandled indexed resource ID for srv_struct_load\n");
+        }
+        if (!GET_BIT(instr->control, 15)) {
+            fprintf(file, "srv_struct_load_id(%u)", GET_BITS(instr->control, 0, 7));
+        } else {
+            uint8_t dfmt = GET_BITS(instr->primModifier, 0, 3);
+            uint8_t nfmt = GET_BITS(instr->primModifier, 4, 7);
+            fprintf(file, "srv_struct_load_buf_dfmt(%s)_buf_nfmt(%s)_id(%u)",
+                    mIlBufDataFormatNames[dfmt], mIlBufNumFormatNames[nfmt],
+                    GET_BITS(instr->control, 0, 7));
+        }
         break;
     case IL_DCL_LDS:
         fprintf(file, "dcl_lds_id(%u) %u",
