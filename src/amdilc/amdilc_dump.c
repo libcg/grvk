@@ -140,7 +140,7 @@ static const char* mIlImportUsageNames[IL_IMPORTUSAGE_LAST] = {
     "color",
     "backcolor",
     "fog",
-    "pixelSampleCoverage",
+    "pixel_sample_coverage",
     "generic",
     "clipdistance",
     "culldistance",
@@ -150,16 +150,16 @@ static const char* mIlImportUsageNames[IL_IMPORTUSAGE_LAST] = {
     "isfrontface",
     "lod",
     "coloring",
-    "nodeColoring",
+    "node_coloring",
     "normal",
-    "rendertargetArrayIndex",
-    "viewportArrayIndex",
+    "rendertarget_array_index",
+    "viewport_array_index",
     "undefined",
-    "sampleIndex",
-    "edgeTessfactor",
-    "insideTessfactor",
-    "detailTessfactor",
-    "densityTessfactor",
+    "sample_index",
+    "edge_tessfactor",
+    "inside_tessfactor",
+    "detail_tessfactor",
+    "density_tessfactor",
 };
 
 static const char* mIlPixTexUsageNames[IL_USAGE_PIXTEX_LAST] = {
@@ -174,9 +174,9 @@ static const char* mIlPixTexUsageNames[IL_USAGE_PIXTEX_LAST] = {
     "1darray",
     "2darray",
     "2darraymsaa",
-    "2dPlusW",
-    "cubemapPlusW",
-    "cubemapArray",
+    "2dplusw",
+    "cubemapplusw",
+    "cubemaparray",
 };
 
 static const char* mIlElementFormatNames[IL_ELEMENTFORMAT_LAST] = {
@@ -265,38 +265,6 @@ static void dumpSource(
     FILE* file,
     const Source* src);
 
-static bool hasRegisterNumber(
-    uint8_t registerType)
-{
-    // AMDIL spec, table 5.8
-    switch (registerType) {
-    case IL_REGTYPE_CLIP:
-    case IL_REGTYPE_CONST_BOOL:
-    case IL_REGTYPE_CONST_BUFF:
-    case IL_REGTYPE_CONST_FLOAT:
-    case IL_REGTYPE_CONST_INT:
-    case IL_REGTYPE_INDEX:
-    case IL_REGTYPE_INPUT:
-    case IL_REGTYPE_INPUT_ARG:
-    case IL_REGTYPE_INTERP:
-    case IL_REGTYPE_ITEMP:
-    case IL_REGTYPE_LITERAL:
-    case IL_REGTYPE_OUTPUT:
-    case IL_REGTYPE_OUTPUT_ARG:
-    case IL_REGTYPE_PCOLOR:
-    case IL_REGTYPE_PINPUT:
-    case IL_REGTYPE_PRICOLOR:
-    case IL_REGTYPE_PS_OUT_FOG:
-    case IL_REGTYPE_SECCOLOR:
-    case IL_REGTYPE_TEMP:
-    case IL_REGTYPE_TEXCOORD:
-    case IL_REGTYPE_VERTEX:
-        return true;
-    default:
-        return false;
-    }
-}
-
 static const char* getComponentName(
     const char* name,
     uint8_t mask)
@@ -333,11 +301,10 @@ static void dumpDestination(
             dst->clamp ? "_sat" : "",
             mIlRegTypeNames[dst->registerType]);
 
-    if (hasRegisterNumber(dst->registerType)) {
-        fprintf(file, "%u", dst->registerNum);
-    } else if (dst->registerType == IL_REGTYPE_INPUTCP ||
-               dst->registerType == IL_REGTYPE_PATCHCONST) {
+    if (dst->registerType == IL_REGTYPE_INPUTCP) {
         fprintf(file, "[%u]", dst->registerNum);
+    } else {
+        fprintf(file, "%u", dst->registerNum);
     }
 
     if (dst->registerType == IL_REGTYPE_ITEMP ||
@@ -403,12 +370,12 @@ static void dumpSource(
         srcCount--;
     }
 
-    if (hasRegisterNumber(src->registerType)) {
+    if (src->registerType == IL_REGTYPE_INPUTCP) {
+        if (srcCount == 0) {
+            fprintf(file, "[%u]", src->registerNum);
+        }
+    } else {
         fprintf(file, "%u", src->registerNum);
-    } else if (srcCount == 0 &&
-               (src->registerType == IL_REGTYPE_INPUTCP ||
-                src->registerType == IL_REGTYPE_PATCHCONST)) {
-        fprintf(file, "[%u]", src->registerNum);
     }
 
     if (src->registerType == IL_REGTYPE_ITEMP ||
@@ -446,7 +413,7 @@ static void dumpSource(
 
     if (src->registerType == IL_REGTYPE_INPUTCP) {
         // Last source is reserved for the attribute number
-        fprintf(file, "[%u]", src->srcs[src->srcCount - 1].registerNum);
+        fprintf(file, "[%u]", src->srcs[srcCount].registerNum);
     }
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
@@ -911,10 +878,10 @@ static void dumpInstruction(
         fprintf(file, "ubit_extract");
         break;
     case IL_DCL_NUM_ICP:
-        fprintf(file, "dcl_num_icp %u", instr->extras[0]);
+        fprintf(file, "dcl_num_icp%u", instr->extras[0]);
         break;
     case IL_DCL_NUM_OCP:
-        fprintf(file, "dcl_num_ocp %u", instr->extras[0]);
+        fprintf(file, "dcl_num_ocp%u", instr->extras[0]);
         break;
     case IL_OP_HS_FORK_PHASE:
         fprintf(file, "hs_fork_phase %u", instr->control);
@@ -926,14 +893,13 @@ static void dumpInstruction(
         fprintf(file, "endphase");
         break;
     case IL_DCL_TS_DOMAIN:
-        fprintf(file, "dcl_ts_domain ts_domain_%s", mIlTsDomainNames[instr->control]);
+        fprintf(file, "dcl_ts_domain_%s", mIlTsDomainNames[instr->control]);
         break;
     case IL_DCL_TS_PARTITION:
-        fprintf(file, "dcl_ts_partition ts_partition_%s", mIlTsPartitionNames[instr->control]);
+        fprintf(file, "dcl_ts_partition_%s", mIlTsPartitionNames[instr->control]);
         break;
     case IL_DCL_TS_OUTPUT_PRIMITIVE:
-        fprintf(file, "dcl_ts_output_primitive ts_output_primitive_%s",
-                mIlTsOutputPrimitiveNames[instr->control]);
+        fprintf(file, "dcl_ts_output_primitive_%s", mIlTsOutputPrimitiveNames[instr->control]);
         break;
     case IL_OP_U_BIT_INSERT:
         fprintf(file, "ubit_insert");
