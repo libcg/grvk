@@ -452,6 +452,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = &vulkan12DeviceFeatures,
         .features = {
             .imageCubeArray = VK_TRUE,
+            .independentBlend = VK_TRUE,
             .geometryShader = VK_TRUE,
             .tessellationShader = VK_TRUE,
             .sampleRateShading = VK_TRUE,
