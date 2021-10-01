@@ -277,14 +277,20 @@ static unsigned decodeDestination(
     } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
         dst->relativeSrcCount = dimension ? 2 : 1;
         dst->relativeSrcs = malloc(dst->relativeSrcCount * sizeof(Source));
-        for (unsigned i = 0; i < dst->relativeSrcCount; i++) {
-            idx += decodeSource(&dst->relativeSrcs[i], &token[idx]);
+        idx += decodeSource(&dst->relativeSrcs[0], &token[idx]);
+        // the immediate after the first addr reg
+        if (dst->hasImmediate) {
+            dst->immediate = token[idx];
+            idx++;
+        }
+        if (dst->relativeSrcCount > 1) {
+            idx += decodeSource(&dst->relativeSrcs[1], &token[idx]);
         }
     } else {
         assert(false);
     }
 
-    if (dst->hasImmediate) {
+    if (dst->hasImmediate && relativeAddress != IL_ADDR_REG_RELATIVE) {
         dst->immediate = token[idx];
         idx++;
     }
@@ -355,14 +361,20 @@ static unsigned decodeSource(
     } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
         src->srcCount = dimension ? 2 : 1;
         src->srcs = malloc(src->srcCount * sizeof(Source));
-        for (unsigned i = 0; i < src->srcCount; i++) {
-            idx += decodeSource(&src->srcs[i], &token[idx]);
+        idx += decodeSource(&src->srcs[0], &token[idx]);
+        // the immediate after the first addr reg
+        if (src->hasImmediate) {
+            src->immediate = token[idx];
+            idx++;
+        }
+        if (src->srcCount > 1) {
+            idx += decodeSource(&src->srcs[1], &token[idx]);
         }
     } else {
         assert(false);
     }
 
-    if (src->hasImmediate) {
+    if (src->hasImmediate && relativeAddress != IL_ADDR_REG_RELATIVE) {
         src->immediate = token[idx];
         idx++;
     }
