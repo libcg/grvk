@@ -2576,31 +2576,34 @@ static void emitStructuredSrvLoad(
 
     // Read up to four components based on the destination mask
     IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
-    IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
                                               resource->texelTypeId);
     IlcSpvId fZeroId = ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL);
-    IlcSpvWord constituents[] = { fZeroId, fZeroId, fZeroId, fZeroId };
+    IlcSpvId constituentIds[] = { fZeroId, fZeroId, fZeroId, fZeroId };
 
     for (unsigned i = 0; i < 4; i++) {
+        IlcSpvId addrId;
+
         if (dst->component[i] == IL_MODCOMP_NOWRITE) {
-            break;
+            continue;
         }
 
-        if (i > 0) {
-            // Increment address
-            wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
-                                      wordAddrId, oneId);
+        if (i == 0) {
+            addrId = wordAddrId;
+        } else {
+            IlcSpvId offsetId = ilcSpvPutConstant(compiler->module, compiler->intId, i);
+            addrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                  wordAddrId, offsetId);
         }
 
-        const IlcSpvId indexIds[] = { zeroId, wordAddrId };
+        const IlcSpvId indexIds[] = { zeroId, addrId };
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
                                               2, indexIds);
-        constituents[i] = ilcSpvPutLoad(compiler->module, resource->texelTypeId, ptrId);
+        constituentIds[i] = ilcSpvPutLoad(compiler->module, resource->texelTypeId, ptrId);
     }
 
     IlcSpvId loadId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id,
-                                                  4, constituents);
+                                                  4, constituentIds);
     storeDestination(compiler, dst, loadId, compiler->float4Id);
 }
 
