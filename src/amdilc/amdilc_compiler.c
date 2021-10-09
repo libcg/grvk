@@ -2199,7 +2199,7 @@ static void emitSample(
     IlcSpvId drefId = 0;
     SpvImageOperandsMask operandsMask = 0;
     unsigned operandIdCount = 0;
-    IlcSpvId operandIds[2];
+    IlcSpvId operandIds[3];
 
     if (instr->opcode == IL_OP_SAMPLE) {
         sampleOp = SpvOpImageSampleImplicitLod;
@@ -2240,6 +2240,26 @@ static void emitSample(
         operandIdCount++;
     } else {
         assert(false);
+    }
+
+    if (instr->addressOffset != 0) {
+        float u = (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f;
+        float v = (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f;
+        float w = (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f;
+        if (u != (int)u || v != (int)v || w != (int)w) {
+            LOGW("non-integer offsets %g %g %g\n", u, v, w);
+        }
+        operandsMask |= SpvImageOperandsConstOffsetMask;
+        const IlcSpvId constantIds[] = {
+            ilcSpvPutConstant(compiler->module, compiler->intId, u),
+            ilcSpvPutConstant(compiler->module, compiler->intId, v),
+            ilcSpvPutConstant(compiler->module, compiler->intId, w),
+        };
+        IlcSpvId offsetsTypeId = ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
+        IlcSpvId offsetsId = ilcSpvPutConstantComposite(compiler->module, offsetsTypeId,
+                                                        dimCount, constantIds);
+        operandIds[operandIdCount] = offsetsId;
+        operandIdCount++;
     }
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
