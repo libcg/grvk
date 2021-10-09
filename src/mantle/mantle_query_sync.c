@@ -351,7 +351,7 @@ GR_RESULT GR_STDCALL grGetEventStatus(
     GrDevice* grDevice = GET_OBJ_DEVICE(grEvent);
 
     VkResult res = VKD.vkGetEventStatus(grDevice->device, grEvent->event);
-    if (res != VK_EVENT_SET && res != VK_EVENT_SET) {
+    if (res != VK_EVENT_RESET && res != VK_EVENT_SET) {
         LOGE("vkGetEventStatus failed (%d)\n", res);
     }
 
