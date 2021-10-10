@@ -1232,7 +1232,7 @@ static void emitUav(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    bool isStructured = instr->opcode == IL_OP_DCL_STRUCT_UAV;
+    bool isStructured = instr->opcode == IL_OP_DCL_STRUCT_UAV || instr->opcode == IL_OP_DCL_TYPELESS_UAV;
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
     IlcSpvId arrayId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->floatId, true);
