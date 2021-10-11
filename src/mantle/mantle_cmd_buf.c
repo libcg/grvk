@@ -871,6 +871,23 @@ GR_VOID GR_STDCALL grCmdDispatch(
     VKD.vkCmdDispatch(grCmdBuffer->commandBuffer, x, y, z);
 }
 
+GR_VOID GR_STDCALL grCmdDispatchIndirect(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_GPU_MEMORY mem,
+    GR_GPU_SIZE offset)
+{
+    LOGT("%p %p %u\n", cmdBuffer, mem, offset);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+
+    grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
+    grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grGpuMemory);
+
+    VKD.vkCmdDispatchIndirect(grCmdBuffer->commandBuffer, grGpuMemory->buffer, offset);
+}
+
 GR_VOID GR_STDCALL grCmdCopyMemory(
     GR_CMD_BUFFER cmdBuffer,
     GR_GPU_MEMORY srcMem,

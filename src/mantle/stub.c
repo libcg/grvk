@@ -112,14 +112,6 @@ GR_RESULT GR_STDCALL grOpenPeerImage(
 
 // Command Buffer Building Functions
 
-GR_VOID GR_STDCALL grCmdDispatchIndirect(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_GPU_MEMORY mem,
-    GR_GPU_SIZE offset)
-{
-    LOGW("STUB\n");
-}
-
 GR_VOID GR_STDCALL grCmdResolveImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE srcImage,
