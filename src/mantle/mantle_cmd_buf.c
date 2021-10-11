@@ -638,7 +638,9 @@ GR_VOID GR_STDCALL grCmdBindIndexData(
     LOGT("%p %p %u 0x%X\n", cmdBuffer, mem, offset, indexType);
     const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    const GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
+
+    grGpuMemoryBindBuffer(grGpuMemory);
 
     VKD.vkCmdBindIndexBuffer(grCmdBuffer->commandBuffer, grGpuMemory->buffer, offset,
                              getVkIndexType(indexType));
