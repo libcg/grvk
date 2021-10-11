@@ -668,6 +668,7 @@ GR_RESULT GR_STDCALL grCreateShader(
         free(ilcShader.code);
         free(ilcShader.bindings);
         free(ilcShader.inputs);
+        free(ilcShader.outputLocations);
         free(ilcShader.name);
         return getGrResult(res);
     }
@@ -683,6 +684,8 @@ GR_RESULT GR_STDCALL grCreateShader(
         .bindings = ilcShader.bindings,
         .inputCount = ilcShader.inputCount,
         .inputs = ilcShader.inputs,
+        .outputCount = ilcShader.outputCount,
+        .outputLocations = ilcShader.outputLocations,
         .name = ilcShader.name,
     };
 
