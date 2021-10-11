@@ -524,6 +524,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
             .multiViewport = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
             .fragmentStoresAndAtomics = VK_TRUE,
+            .occlusionQueryPrecise = VK_TRUE,
         },
     };
 

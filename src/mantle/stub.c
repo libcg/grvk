@@ -58,19 +58,6 @@ GR_RESULT GR_STDCALL grLoadPipeline(
     return GR_UNSUPPORTED;
 }
 
-// Query and Synchronization Functions
-
-GR_RESULT GR_STDCALL grGetQueryPoolResults(
-    GR_QUERY_POOL queryPool,
-    GR_UINT startQuery,
-    GR_UINT queryCount,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 // Multi-Device Management Functions
 
 GR_RESULT GR_STDCALL grOpenSharedMemory(
@@ -138,32 +125,6 @@ GR_VOID GR_STDCALL grCmdMemoryAtomic(
     GR_GPU_SIZE destOffset,
     GR_UINT64 srcData,
     GR_ENUM atomicOp)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID GR_STDCALL grCmdBeginQuery(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT slot,
-    GR_FLAGS flags)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID GR_STDCALL grCmdEndQuery(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT slot)
-{
-    LOGW("STUB\n");
-}
-
-GR_VOID GR_STDCALL grCmdResetQueryPool(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_QUERY_POOL queryPool,
-    GR_UINT startQuery,
-    GR_UINT queryCount)
 {
     LOGW("STUB\n");
 }

@@ -52,12 +52,63 @@ GR_RESULT GR_STDCALL grCreateQueryPool(
     *grQueryPool = (GrQueryPool) {
         .grObj = { GR_OBJ_TYPE_QUERY_POOL, grDevice },
         .queryPool = vkQueryPool,
+        .queryType = createInfo.queryType,
     };
 
     *pQueryPool = (GR_QUERY_POOL)grQueryPool;
 
     return GR_SUCCESS;
 }
+
+GR_RESULT GR_STDCALL grGetQueryPoolResults(
+    GR_QUERY_POOL queryPool,
+    GR_UINT startQuery,
+    GR_UINT queryCount,
+    GR_SIZE* pDataSize,
+    GR_VOID* pData)
+{
+    LOGT("%p %d %d %p %p\n", queryPool, startQuery, queryCount, pDataSize, pData);
+    GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+    if (grQueryPool == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grQueryPool) != GR_OBJ_TYPE_QUERY_POOL) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    if (pDataSize == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grQueryPool);
+
+    //TODO: always give uint64_t sizes if using occlusion queries
+    if (pData == NULL) {
+        *pDataSize = queryCount * (grQueryPool->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS ?  sizeof(GR_PIPELINE_STATISTICS_DATA) : sizeof(uint64_t));
+        return GR_SUCCESS;
+    } else if (grQueryPool->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS &&
+               *pDataSize != (queryCount * sizeof(GR_PIPELINE_STATISTICS_DATA))) {
+        LOGE("expected memory size of %d, got %d\n", queryCount * sizeof(GR_PIPELINE_STATISTICS_DATA), *pDataSize);
+        return GR_ERROR_INVALID_MEMORY_SIZE;
+    } else if (*pDataSize != (queryCount * sizeof(uint64_t))) {
+        LOGE("expected memory size of %d, got %d\n", queryCount * sizeof(uint64_t), *pDataSize);
+        return GR_ERROR_INVALID_MEMORY_SIZE;
+    }
+    VkResult vkRes = VKD.vkGetQueryPoolResults(
+        grDevice->device,
+        grQueryPool->queryPool,
+        startQuery,
+        queryCount,
+        *pDataSize,
+        pData,
+        grQueryPool->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS ? sizeof(GR_PIPELINE_STATISTICS_DATA) : sizeof(uint64_t),
+        VK_QUERY_RESULT_64_BIT);
+    if (grQueryPool->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && vkRes == VK_SUCCESS) {
+        LOGW("query pipeline statistics fields shuffle is unimplemented\n");
+    }
+    return getGrResult(vkRes);
+}
+
+
 
 GR_RESULT GR_STDCALL grCreateFence(
     GR_DEVICE device,

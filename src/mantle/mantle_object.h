@@ -318,6 +318,7 @@ typedef struct _GrShader {
 typedef struct _GrQueryPool {
     GrObject grObj;
     VkQueryPool queryPool;
+    VkQueryType queryType;
 } GrQueryPool;
 
 typedef struct _GrQueue {
