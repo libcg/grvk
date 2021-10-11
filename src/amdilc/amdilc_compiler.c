@@ -916,6 +916,7 @@ static void emitOutput(
     }
 
     IlcSpvId outputId = 0;
+    IlcSpvId componentTypeId = compiler->floatId;
     IlcSpvId outputTypeId = 0;
     unsigned outputComponentCount = 0;
     const char* outputPrefix = NULL;
@@ -947,6 +948,17 @@ static void emitOutput(
         // TODO explore what Re-Z really means
         ilcSpvPutExecMode(compiler->module, compiler->entryPointId, SpvExecutionModeDepthReplacing,
                           0, NULL);
+    } else if (dst->registerType == IL_REGTYPE_OMASK) {
+        componentTypeId = compiler->intId;
+        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
+        outputTypeId = ilcSpvPutArrayType(compiler->module, compiler->intId, oneId);
+
+        outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
+
+        IlcSpvWord builtInType = SpvBuiltInSampleMask;
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
+
+        outputPrefix = "oSampleMask";
     } else {
         LOGW("unhandled output register type\n");
         assert(false);
@@ -955,7 +967,7 @@ static void emitOutput(
     const IlcRegister reg = {
         .id = outputId,
         .typeId = outputTypeId,
-        .componentTypeId = compiler->floatId,
+        .componentTypeId = componentTypeId,
         .componentCount = outputComponentCount,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
