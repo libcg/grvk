@@ -400,4 +400,10 @@ IlcSpvId ilcSpvPutGLSLOp(
 void ilcSpvPutDemoteToHelperInvocation(
     IlcSpvModule* module);
 
+void ilcSpvUnwrapBuffer(
+    IlcSpvBuffer* buffer,
+    const IlcSpvWord* src,
+    unsigned wordCount);
+
+unsigned getBufferIndex(SpvOp opCode);
 #endif // AMDILC_SPIRV_H_

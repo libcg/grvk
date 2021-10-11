@@ -501,6 +501,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
     unsigned stageCount = 0;
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo[COUNT_OF(stages)];
+    VkShaderModule tessellationControlShader = VK_NULL_HANDLE;
     VkShaderModule recompiledGeometryShader = VK_NULL_HANDLE;
 
     for (int i = 0; i < COUNT_OF(stages); i++) {
@@ -519,6 +520,25 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         VkShaderModule shaderModule = grShader->shaderModule;
         LOGT("linking shader %s\n", grShader->name == NULL ? "no_name" : grShader->name);
 
+        if (stage->flags == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT && stages[0].shader->shader != GR_NULL_HANDLE) {
+            GrShader* grVertexShader = (GrShader*)stages[0].shader->shader;
+            IlcRecompiledShader recompiledShader = ilcRecompileShader(grShader->code, grShader->codeSize,
+                                                                      grVertexShader->outputLocations, grVertexShader->outputCount);
+            const VkShaderModuleCreateInfo tessShaderCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .codeSize = recompiledShader.codeSize,
+                .pCode = recompiledShader.code,
+            };
+            VkResult vkRes = VKD.vkCreateShaderModule(grDevice->device, &tessShaderCreateInfo, NULL, &tessellationControlShader);
+            free(recompiledShader.code);
+            if (vkRes != VK_SUCCESS) {
+                res = getGrResult(vkRes);
+                goto bail;
+            }
+            shaderModule = tessellationControlShader;
+        }
         shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
@@ -637,6 +657,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .descriptorSetLayouts = { 0 }, // Initialized below
         .shaderInfos = { { 0 } }, // Initialized below
         .dynamicOffsetCount = dynamicOffsetCount,
+        .tessellationModule = tessellationControlShader,
         .patchedGeometryModule = recompiledGeometryShader,
     };
 
@@ -650,6 +671,9 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     return GR_SUCCESS;
 
 bail:
+    if (tessellationControlShader != VK_NULL_HANDLE) {
+        VKD.vkDestroyShaderModule(grDevice->device, tessellationControlShader, NULL);
+    }
     if (recompiledGeometryShader != VK_NULL_HANDLE) {
         VKD.vkDestroyShaderModule(grDevice->device, recompiledGeometryShader, NULL);
     }
