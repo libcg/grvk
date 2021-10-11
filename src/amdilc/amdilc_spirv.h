@@ -181,6 +181,12 @@ IlcSpvId ilcSpvPutVariable(
     IlcSpvId resultTypeId,
     IlcSpvWord storageClass);
 
+IlcSpvId ilcSpvPutVariableWithInitializer(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord storageClass,
+    IlcSpvId initializerId);
+
 IlcSpvId ilcSpvPutImageTexelPointer(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
@@ -333,6 +339,12 @@ IlcSpvId ilcSpvPutBitcast(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId operandId);
+
+void ilcSpvPutEmitVertex(
+    IlcSpvModule* module);
+
+void ilcSpvPutEndPrimitive(
+    IlcSpvModule* module);
 
 IlcSpvId ilcSpvPutSelect(
     IlcSpvModule* module,

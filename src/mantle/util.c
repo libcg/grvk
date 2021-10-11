@@ -849,7 +849,6 @@ VkPrimitiveTopology getVkPrimitiveTopology(
     case GR_TOPOLOGY_TRIANGLE_STRIP:
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
     case GR_TOPOLOGY_RECT_LIST:
-        LOGW("unsupported rectangle list topology\n");
         // TODO implement using VK_NV_fill_rectangle?
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     case GR_TOPOLOGY_QUAD_LIST:

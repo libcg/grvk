@@ -545,6 +545,23 @@ IlcSpvId ilcSpvPutVariable(
     return id;
 }
 
+IlcSpvId ilcSpvPutVariableWithInitializer(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord storageClass,
+    IlcSpvId initializerId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_VARIABLES];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpVariable, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, storageClass);
+    putWord(buffer, initializerId);
+    return id;
+}
+
 IlcSpvId ilcSpvPutImageTexelPointer(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
@@ -959,6 +976,22 @@ IlcSpvId ilcSpvPutBitcast(
     putWord(buffer, id);
     putWord(buffer, operandId);
     return id;
+}
+
+void ilcSpvPutEmitVertex(
+    IlcSpvModule* module)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpEmitVertex, 1);
+}
+
+void ilcSpvPutEndPrimitive(
+    IlcSpvModule* module)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpEndPrimitive, 1);
 }
 
 IlcSpvId ilcSpvPutSelect(

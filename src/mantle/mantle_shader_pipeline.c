@@ -454,12 +454,12 @@ GR_RESULT GR_STDCALL grCreateShader(
         return getGrResult(res);
     }
 
-    free(ilcShader.code);
-
     GrShader* grShader = malloc(sizeof(GrShader));
     *grShader = (GrShader) {
         .grObj = { GR_OBJ_TYPE_SHADER, grDevice },
         .shaderModule = vkShaderModule,
+        .code = ilcShader.code,
+        .codeSize = ilcShader.codeSize,
         .bindingCount = ilcShader.bindingCount,
         .bindings = ilcShader.bindings,
         .inputCount = ilcShader.inputCount,
@@ -501,6 +501,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
     unsigned stageCount = 0;
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo[COUNT_OF(stages)];
+    VkShaderModule recompiledGeometryShader = VK_NULL_HANDLE;
 
     for (int i = 0; i < COUNT_OF(stages); i++) {
         Stage* stage = &stages[i];
@@ -515,13 +516,15 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         }
 
         GrShader* grShader = (GrShader*)stage->shader->shader;
+        VkShaderModule shaderModule = grShader->shaderModule;
+        LOGT("linking shader %s\n", grShader->name == NULL ? "no_name" : grShader->name);
 
         shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
             .stage = stage->flags,
-            .module = grShader->shaderModule,
+            .module = shaderModule,
             .pName = "main",
             .pSpecializationInfo = NULL,
         };
@@ -529,6 +532,39 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         stageCount++;
     }
 
+    if (pCreateInfo->iaState.topology == GR_TOPOLOGY_RECT_LIST) {
+        if (stages[3].shader->shader == GR_NULL_HANDLE) {
+            GrShader* grPixelShader = (GrShader*)stages[4].shader->shader;
+            IlcShader geomShader = ilcCompileRectangleGeometryShader(
+                grPixelShader == NULL ? 0 : grPixelShader->inputCount,
+                grPixelShader == NULL ? NULL : grPixelShader->inputs);
+            const VkShaderModuleCreateInfo geomShaderCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .codeSize = geomShader.codeSize,
+                .pCode = geomShader.code,
+            };
+            VkResult vkRes = VKD.vkCreateShaderModule(grDevice->device, &geomShaderCreateInfo, NULL, &recompiledGeometryShader);
+            free(geomShader.code);
+            if (vkRes != VK_SUCCESS) {
+                res = getGrResult(vkRes);
+                goto bail;
+            }
+            shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .stage = VK_SHADER_STAGE_GEOMETRY_BIT,
+                .module = recompiledGeometryShader,
+                .pName = "main",
+                .pSpecializationInfo = NULL,
+            };
+            stageCount++;
+        } else {
+            LOGW("unhandled geometry shader stage with RECT_LIST topology\n");
+        }
+    }
     // TODO implement
     if (pCreateInfo->cbState.dualSourceBlendEnable) {
         LOGW("dual source blend is not implemented\n");
@@ -601,6 +637,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .descriptorSetLayouts = { 0 }, // Initialized below
         .shaderInfos = { { 0 } }, // Initialized below
         .dynamicOffsetCount = dynamicOffsetCount,
+        .patchedGeometryModule = recompiledGeometryShader,
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
@@ -613,6 +650,9 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     return GR_SUCCESS;
 
 bail:
+    if (recompiledGeometryShader != VK_NULL_HANDLE) {
+        VKD.vkDestroyShaderModule(grDevice->device, recompiledGeometryShader, NULL);
+    }
     for (unsigned i = 0; i < COUNT_OF(descriptorSetLayouts); i++) {
         VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayouts[i], NULL);
     }

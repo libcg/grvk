@@ -341,6 +341,8 @@ typedef struct _GrSampler {
 typedef struct _GrShader {
     GrObject grObj;
     VkShaderModule shaderModule;
+    uint32_t* code;
+    unsigned codeSize;
     unsigned bindingCount;
     IlcBinding* bindings;
     unsigned inputCount;

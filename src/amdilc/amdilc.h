@@ -42,6 +42,10 @@ IlcShader ilcCompileShader(
     const void* code,
     unsigned size);
 
+IlcShader ilcCompileRectangleGeometryShader(
+    unsigned inputCount,
+    const IlcInput* passthroughInputs);
+
 void ilcDisassembleShader(
     FILE* file,
     const void* code,
