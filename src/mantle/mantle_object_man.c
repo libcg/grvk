@@ -121,6 +121,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
         VKD.vkDestroyShaderModule(grDevice->device, grShader->shaderModule, NULL);
         free(grShader->bindings);
         free(grShader->inputs);
+        free(grShader->outputLocations);
         free(grShader->name);
     }   break;
     case GR_OBJ_TYPE_QUERY_POOL: {
