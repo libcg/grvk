@@ -159,4 +159,13 @@ VkImageSubresourceRange getVkImageSubresourceRange(
     GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
     bool multiplyCubeLayers);
 
+bool isVkFormatDepth(
+    VkFormat format);
+
+bool isVkFormatStencil(
+    VkFormat format);
+
+bool isVkFormatDepthStencil(
+    VkFormat format);
+
 #endif // MANTLE_INTERNAL_H_

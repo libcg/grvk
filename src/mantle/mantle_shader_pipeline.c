@@ -139,129 +139,14 @@ static VkPipelineLayout getVkPipelineLayout(
     return layout;
 }
 
-static VkRenderPass getVkRenderPass(
-    const GrDevice* grDevice,
-    const GR_PIPELINE_CB_TARGET_STATE* cbTargets,
-    const GR_PIPELINE_DB_STATE* dbTarget,
-    const GrShader* grPixelShader,
-    VkSampleCountFlags sampleCountFlags)
-{
-    VkRenderPass renderPass = VK_NULL_HANDLE;
-    VkAttachmentDescription descriptions[GR_MAX_COLOR_TARGETS + 1];
-    VkAttachmentReference colorReferences[GR_MAX_COLOR_TARGETS];
-    VkAttachmentReference depthStencilReference;
-    unsigned descriptionCount = 0;
-    unsigned colorReferenceCount = 0;
-    bool hasDepthStencil = false;
-
-    for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
-        const GR_PIPELINE_CB_TARGET_STATE* target = &cbTargets[i];
-        VkFormat vkFormat = getVkFormat(target->format);
-
-        if (vkFormat == VK_FORMAT_UNDEFINED) {
-            continue;
-        }
-
-        descriptions[descriptionCount] = (VkAttachmentDescription) {
-            .flags = 0,
-            .format = vkFormat,
-            .samples = sampleCountFlags,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        colorReferences[colorReferenceCount] = (VkAttachmentReference) {
-            .attachment = descriptionCount,
-            .layout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        descriptionCount++;
-        colorReferenceCount++;
-    }
-
-    GR_FORMAT format = dbTarget->format;
-
-    if (quirkHas(QUIRK_MISSING_DEPTH_STENCIL_TARGET) &&
-        format.channelFormat == GR_CH_FMT_UNDEFINED &&
-        format.numericFormat == GR_NUM_FMT_UNDEFINED &&
-        grPixelShader != NULL) {
-        if (!strcmp(grPixelShader->name, "ps_63767863368f7d005981cbe8c26ba168d4063f2e") ||
-            !strcmp(grPixelShader->name, "ps_6c8b07ccd38a7fca675aff99b410efbe5e70d3b2")) {
-            format.channelFormat = GR_CH_FMT_R32G8;
-            format.numericFormat = GR_NUM_FMT_DS;
-        } else if (!strcmp(grPixelShader->name, "ps_c8c16de62224f3a32a04185565da4396b2f363f2")) {
-            format.channelFormat = GR_CH_FMT_R16;
-            format.numericFormat = GR_NUM_FMT_DS;
-        }
-    }
-
-    if (!(format.channelFormat == GR_CH_FMT_UNDEFINED &&
-          format.numericFormat == GR_NUM_FMT_UNDEFINED)) {
-        descriptions[descriptionCount] = (VkAttachmentDescription) {
-            .flags = 0,
-            .format = getVkFormat(format),
-            .samples = sampleCountFlags,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        depthStencilReference = (VkAttachmentReference) {
-            .attachment = descriptionCount,
-            .layout = VK_IMAGE_LAYOUT_GENERAL,
-        };
-
-        descriptionCount++;
-        hasDepthStencil = true;
-    }
-
-    const VkSubpassDescription subpass = {
-        .flags = 0,
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .inputAttachmentCount = 0,
-        .pInputAttachments = NULL,
-        .colorAttachmentCount = colorReferenceCount,
-        .pColorAttachments = colorReferences,
-        .pResolveAttachments = NULL,
-        .pDepthStencilAttachment = hasDepthStencil ? &depthStencilReference : NULL,
-        .preserveAttachmentCount = 0,
-        .pPreserveAttachments = NULL,
-    };
-
-    const VkRenderPassCreateInfo renderPassCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .attachmentCount = descriptionCount,
-        .pAttachments = descriptions,
-        .subpassCount = 1,
-        .pSubpasses = &subpass,
-        .dependencyCount = 0,
-        .pDependencies = NULL,
-    };
-
-    VkResult res = VKD.vkCreateRenderPass(grDevice->device, &renderPassCreateInfo, NULL,
-                                          &renderPass);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateRenderPass failed (%d)\n", res);
-        return VK_NULL_HANDLE;
-    }
-
-    return renderPass;
-}
-
 static VkPipeline getVkPipeline(
+    VkRenderPass renderPass,
     const GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState)
+    const GrRasterStateObject* grRasterState,
+    const VkFormat* vkAttachmentFormats,
+    unsigned totalAttachmentCount)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
     const PipelineCreateInfo* createInfo = grPipeline->createInfo;
@@ -356,25 +241,30 @@ static VkPipeline getVkPipeline(
 
     unsigned attachmentCount = 0;
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
-
-    for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+    // cap the maximum attachment count, as depth attachment always comes last
+    totalAttachmentCount = min(GR_MAX_COLOR_TARGETS, totalAttachmentCount);
+    for (unsigned i = 0; i < totalAttachmentCount; i++) {
         const VkPipelineColorBlendAttachmentState* blendState = &grColorBlendState->states[i];
         VkColorComponentFlags colorWriteMask = createInfo->colorWriteMasks[i];
-
-        if (colorWriteMask == ~0u) {
+        VkFormat vkFormat = vkAttachmentFormats[i];
+        if (isVkFormatDepthStencil(vkFormat)) {
+            // could just break though
             continue;
         }
-
-        attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
-            .blendEnable = blendState->blendEnable,
-            .srcColorBlendFactor = blendState->srcColorBlendFactor,
-            .dstColorBlendFactor = blendState->dstColorBlendFactor,
-            .colorBlendOp = blendState->colorBlendOp,
-            .srcAlphaBlendFactor = blendState->srcAlphaBlendFactor,
-            .dstAlphaBlendFactor = blendState->dstAlphaBlendFactor,
-            .alphaBlendOp = blendState->alphaBlendOp,
-            .colorWriteMask = colorWriteMask,
-        };
+        if (colorWriteMask == ~0u) {
+            continue;
+        } else {
+            attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = blendState->blendEnable,
+                .srcColorBlendFactor = blendState->srcColorBlendFactor,
+                .dstColorBlendFactor = blendState->dstColorBlendFactor,
+                .colorBlendOp = blendState->colorBlendOp,
+                .srcAlphaBlendFactor = blendState->srcAlphaBlendFactor,
+                .dstAlphaBlendFactor = blendState->dstAlphaBlendFactor,
+                .alphaBlendOp = blendState->alphaBlendOp,
+                .colorWriteMask = colorWriteMask,
+            };
+        }
         attachmentCount++;
     }
 
@@ -432,59 +322,98 @@ static VkPipeline getVkPipeline(
         .pColorBlendState = &colorBlendStateCreateInfo,
         .pDynamicState = &dynamicStateCreateInfo,
         .layout = grPipeline->pipelineLayout,
-        .renderPass = grPipeline->renderPasses[grMsaaState->renderPassIndex],
+        .renderPass = renderPass,
         .subpass = 0,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex = 0,
     };
 
+    LOGT("creating vkPipeline %p\n", renderPass);
     vkRes = VKD.vkCreateGraphicsPipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
                                           NULL, &vkPipeline);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateGraphicsPipelines failed (%d)\n", vkRes);
     }
-
+    LOGT("vkPipeline created successfuly\n");
     return vkPipeline;
 }
 
 // Exported Functions
 
 VkPipeline grPipelineFindOrCreateVkPipeline(
+    VkRenderPass renderPass,
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState)
+    const GrRasterStateObject* grRasterState,
+    const VkFormat* attachmentFormats,
+    unsigned attachmentCount)
 {
+    LOGT("%p\n", grPipeline);
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
-    EnterCriticalSection(&grPipeline->pipelineSlotsMutex);
+    AcquireSRWLockShared(&grPipeline->pipelineSlotsLock);
 
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
         if (grColorBlendState == slot->grColorBlendState &&
             grMsaaState == slot->grMsaaState &&
-            grRasterState == slot->grRasterState) {
+            grRasterState == slot->grRasterState &&
+            attachmentCount == slot->attachmentCount &&
+            memcmp(slot->attachmentFormats, attachmentFormats, sizeof(VkFormat) * attachmentCount) == 0) {
             vkPipeline = slot->pipeline;
             break;
         }
     }
 
+    ReleaseSRWLockShared(&grPipeline->pipelineSlotsLock);
+
     if (vkPipeline == VK_NULL_HANDLE) {
-        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState);
+        LOGT("creating pipeline: %p\n", grPipeline);
+        vkPipeline = getVkPipeline(renderPass, grPipeline, grColorBlendState, grMsaaState, grRasterState, attachmentFormats, attachmentCount);
 
-        grPipeline->pipelineSlotCount++;
-        grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,
-                                            grPipeline->pipelineSlotCount * sizeof(PipelineSlot));
-        grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1] = (PipelineSlot) {
-            .pipeline = vkPipeline,
-            .grColorBlendState = grColorBlendState,
-            .grMsaaState = grMsaaState,
-            .grRasterState = grRasterState,
-        };
+        AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
+        // search for the pipeline slot again
+        VkPipeline conflictedVkPipeline = VK_NULL_HANDLE;
+        for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
+            const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
+
+            if (grColorBlendState == slot->grColorBlendState &&
+                grMsaaState == slot->grMsaaState &&
+                grRasterState == slot->grRasterState &&
+                attachmentCount == slot->attachmentCount &&
+                memcmp(slot->attachmentFormats, attachmentFormats, sizeof(VkFormat) * attachmentCount) == 0) {
+                conflictedVkPipeline = slot->pipeline;
+                break;
+            }
+        }
+
+        if (conflictedVkPipeline == VK_NULL_HANDLE) {
+            grPipeline->pipelineSlotCount++;
+            grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,
+                                                grPipeline->pipelineSlotCount * sizeof(PipelineSlot));
+            grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1] = (PipelineSlot) {
+                .pipeline = vkPipeline,
+                .grColorBlendState = grColorBlendState,
+                .grMsaaState = grMsaaState,
+                .grRasterState = grRasterState,
+                .attachmentFormats = {},
+                .attachmentCount = attachmentCount,
+            };
+            memcpy(grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1].attachmentFormats, attachmentFormats, sizeof(VkFormat) * attachmentCount);
+        }
+        ReleaseSRWLockExclusive(&grPipeline->pipelineSlotsLock);
+        if (conflictedVkPipeline != VK_NULL_HANDLE) {
+            LOGT("found existing pipeline after creating new one %p\n", conflictedVkPipeline);
+            GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
+            // destroy newly created pipeline outside of mutex scope
+            VKD.vkDestroyPipeline(grDevice->device, vkPipeline, NULL);
+            vkPipeline = conflictedVkPipeline;
+        }
+    } else {
+        LOGT("found existing pipeline %p\n", vkPipeline);
     }
-
-    LeaveCriticalSection(&grPipeline->pipelineSlotsMutex);
 
     return vkPipeline;
 }
@@ -546,7 +475,6 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     GR_RESULT res = GR_SUCCESS;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkRenderPass renderPasses[MSAA_LEVEL_COUNT] = { VK_NULL_HANDLE };
     unsigned dynamicOffsetCount = 0;
 
     // TODO validate parameters
@@ -624,6 +552,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .stageCreateInfos = { { 0 } }, // Initialized below
         .topology = getVkPrimitiveTopology(pCreateInfo->iaState.topology),
         .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
+        .depthAttachmentEnable = pCreateInfo->dbState.format.channelFormat != GR_CH_FMT_UNDEFINED || pCreateInfo->dbState.format.numericFormat != GR_NUM_FMT_UNDEFINED,
         .depthClipEnable = !!pCreateInfo->rsState.depthClipEnable,
         .alphaToCoverageEnable = !!pCreateInfo->cbState.alphaToCoverageEnable,
         .logicOpEnable = pCreateInfo->cbState.logicOp != GR_LOGIC_OP_COPY,
@@ -652,37 +581,20 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         goto bail;
     }
 
-    for (unsigned i = 0; i < MSAA_LEVEL_COUNT; i++) {
-        VkSampleCountFlags sampleCountFlags = 1 << i;
-
-        renderPasses[i] = getVkRenderPass(grDevice, pCreateInfo->cbState.target,
-                                          &pCreateInfo->dbState, (GrShader*)pCreateInfo->ps.shader,
-                                          sampleCountFlags);
-        if (renderPasses[i] == VK_NULL_HANDLE)
-        {
-            // TODO free up previous render passes
-            res = GR_ERROR_OUT_OF_MEMORY;
-            goto bail;
-        }
-    }
-
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .createInfo = pipelineCreateInfo,
         .pipelineSlotCount = 0,
         .pipelineSlots = NULL,
-        .pipelineSlotsMutex = { 0 }, // Initialized below
+        .pipelineSlotsLock = SRWLOCK_INIT,
         .pipelineLayout = pipelineLayout,
-        .renderPasses = { 0 }, // Initialized below
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayouts = { 0 }, // Initialized below
         .shaderInfos = { { 0 } }, // Initialized below
         .dynamicOffsetCount = dynamicOffsetCount,
     };
 
-    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
-    memcpy(grPipeline->renderPasses, renderPasses, sizeof(renderPasses));
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
         grPipeline->descriptorSetLayouts[i] = descriptorSetLayouts[i];
         copyPipelineShader(&grPipeline->shaderInfos[i], stages[i].shader);
@@ -777,16 +689,14 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .createInfo = NULL,
         .pipelineSlotCount = 1,
         .pipelineSlots = pipelineSlot,
-        .pipelineSlotsMutex = { 0 }, // Initialized below
+        .pipelineSlotsLock = SRWLOCK_INIT,
         .pipelineLayout = pipelineLayout,
-        .renderPasses = { VK_NULL_HANDLE },
         .stageCount = 1,
         .descriptorSetLayouts = { descriptorSetLayout },
         .shaderInfos = { { 0 } }, // Initialized below
         .dynamicOffsetCount = dynamicOffsetCount,
     };
 
-    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
 
     *pPipeline = (GR_PIPELINE)grPipeline;

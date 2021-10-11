@@ -644,6 +644,11 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
+        .renderPassPool = {
+            .renderPasses = NULL,
+            .renderPassCount = 0,
+            .renderPassLock = SRWLOCK_INIT,
+        },
     };
 
     // Allow queue muxing when the driver doesn't expose certain queue types
@@ -682,6 +687,14 @@ GR_RESULT GR_STDCALL grDestroyDevice(
     } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
+
+    // handle render pass context
+    AcquireSRWLockExclusive(&grDevice->renderPassPool.renderPassLock);
+    for (unsigned i = 0; i < grDevice->renderPassPool.renderPassCount; ++i) {
+        VKD.vkDestroyRenderPass(grDevice->device, grDevice->renderPassPool.renderPasses[i].renderPass, NULL);
+    }
+    free(grDevice->renderPassPool.renderPasses);
+    ReleaseSRWLockExclusive(&grDevice->renderPassPool.renderPassLock);
 
     VKD.vkDestroyDevice(grDevice->device, NULL);
     free(grDevice);

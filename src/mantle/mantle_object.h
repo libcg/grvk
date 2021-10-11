@@ -103,6 +103,7 @@ typedef struct _PipelineCreateInfo
     VkPipelineShaderStageCreateInfo stageCreateInfos[MAX_STAGE_COUNT];
     VkPrimitiveTopology topology;
     uint32_t patchControlPoints;
+    bool depthAttachmentEnable;
     bool depthClipEnable;
     bool alphaToCoverageEnable;
     bool logicOpEnable;
@@ -113,10 +114,13 @@ typedef struct _PipelineCreateInfo
 typedef struct _PipelineSlot
 {
     VkPipeline pipeline;
+    VkRenderPass renderPass;
     // TODO keep track of individual parameters to minimize pipeline count
     const GrColorBlendStateObject* grColorBlendState;
     const GrMsaaStateObject* grMsaaState;
     const GrRasterStateObject* grRasterState;
+    VkFormat attachmentFormats[GR_MAX_COLOR_TARGETS + 1];
+    unsigned attachmentCount;
 } PipelineSlot;
 
 // Base object
@@ -137,6 +141,11 @@ typedef struct _GrBorderColorPalette {
     float* data;
 } GrBorderColorPalette;
 
+typedef struct _GrCmdFramebufferState {
+    VkRenderPass renderPass;
+    VkFramebuffer framebuffer;
+} GrCmdFramebufferState;
+
 typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandPool commandPool;
@@ -152,9 +161,11 @@ typedef struct _GrCmdBuffer {
     GrDepthStencilStateObject* grDepthStencilState;
     GrColorBlendStateObject* grColorBlendState;
     // Render pass
-    VkFramebuffer framebuffer;
+    GrCmdFramebufferState framebufferState;
     unsigned attachmentCount;
     VkImageView attachments[GR_MAX_COLOR_TARGETS + 1]; // Extra depth target
+    VkFormat attachmentFormats[GR_MAX_COLOR_TARGETS + 1];
+    VkImageLayout attachmentLayouts[GR_MAX_COLOR_TARGETS + 1];
     VkExtent3D minExtent;
     bool hasActiveRenderPass;
     // Resource tracking
@@ -205,6 +216,22 @@ typedef struct _GrDescriptorSet {
     DescriptorSetSlot* slots;
 } GrDescriptorSet;
 
+typedef struct _GrRenderPassState {
+    VkRenderPass renderPass;
+    VkFormat attachmentFormats[GR_MAX_COLOR_TARGETS + 1];
+    VkImageLayout attachmentLayouts[GR_MAX_COLOR_TARGETS + 1];
+    bool attachmentUsed[GR_MAX_COLOR_TARGETS + 1];
+    unsigned attachmentCount;
+    VkSampleCountFlags sampleCountFlags;
+} GrRenderPassState;
+
+// TODO: implement hash map (just like in dxvk)
+typedef struct _GrRenderPassPool {
+    GrRenderPassState* renderPasses;
+    unsigned renderPassCount;
+    SRWLOCK renderPassLock;
+} GrRenderPassPool;
+
 typedef struct _GrDevice {
     GrBaseObject grBaseObj;
     VULKAN_DEVICE vkd;
@@ -220,6 +247,7 @@ typedef struct _GrDevice {
     VkBuffer universalAtomicCounterBuffer;
     VkBuffer computeAtomicCounterBuffer;
     GrBorderColorPalette* grBorderColorPalette;
+    GrRenderPassPool renderPassPool;
 } GrDevice;
 
 typedef struct _GrEvent {
@@ -264,7 +292,6 @@ typedef struct _GrImageView {
 
 typedef struct _GrMsaaStateObject {
     GrObject grObj;
-    unsigned renderPassIndex;
     VkSampleCountFlags sampleCountFlags;
     VkSampleMask sampleMask;
 } GrMsaaStateObject;
@@ -280,13 +307,14 @@ typedef struct _GrPipeline {
     PipelineCreateInfo* createInfo;
     unsigned pipelineSlotCount;
     PipelineSlot* pipelineSlots;
-    CRITICAL_SECTION pipelineSlotsMutex;
+    SRWLOCK pipelineSlotsLock;
     VkPipelineLayout pipelineLayout;
-    VkRenderPass renderPasses[MSAA_LEVEL_COUNT];
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
     GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
     unsigned dynamicOffsetCount;
+    VkShaderModule tessellationModule;
+    VkShaderModule patchedGeometryModule;
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
@@ -378,9 +406,12 @@ unsigned grImageGetBufferDepthPitch(
     unsigned mipLevel);
 
 VkPipeline grPipelineFindOrCreateVkPipeline(
+    VkRenderPass renderPass,
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState);
+    const GrRasterStateObject* grRasterState,
+    const VkFormat* attachmentFormats,
+    unsigned attachmentCount);
 
 #endif // GR_OBJECT_H_

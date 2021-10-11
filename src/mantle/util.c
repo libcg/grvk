@@ -1047,3 +1047,26 @@ VkImageSubresourceRange getVkImageSubresourceRange(
                       VK_REMAINING_ARRAY_LAYERS : subresourceRange.arraySize * layerFactor,
     };
 }
+
+bool isVkFormatDepth(
+    VkFormat vkFormat)
+{
+    return vkFormat == VK_FORMAT_D16_UNORM ||
+        vkFormat == VK_FORMAT_D32_SFLOAT ||
+        vkFormat == VK_FORMAT_D16_UNORM_S8_UINT ||
+        vkFormat == VK_FORMAT_D32_SFLOAT_S8_UINT;
+}
+
+bool isVkFormatStencil(
+    VkFormat vkFormat)
+{
+    return vkFormat == VK_FORMAT_S8_UINT ||
+        vkFormat == VK_FORMAT_D16_UNORM_S8_UINT ||
+        vkFormat == VK_FORMAT_D32_SFLOAT_S8_UINT;
+}
+
+bool isVkFormatDepthStencil(
+    VkFormat format)
+{
+    return isVkFormatDepth(format) || isVkFormatStencil(format);
+}

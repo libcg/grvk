@@ -114,7 +114,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .grMsaaState = NULL,
         .grDepthStencilState = NULL,
         .grColorBlendState = NULL,
-        .framebuffer = VK_NULL_HANDLE,
+        .framebufferState = { VK_NULL_HANDLE, VK_NULL_HANDLE },
         .attachmentCount = 0,
         .attachments = { VK_NULL_HANDLE },
         .minExtent = { 0, 0, 0 },
