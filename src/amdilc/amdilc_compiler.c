@@ -2548,9 +2548,34 @@ static void emitStructuredSrvLoad(
 {
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
     bool indexedResourceId = GET_BIT(instr->control, 12);
+    bool primModifierPresent = GET_BIT(instr->control, 15);
 
     if (indexedResourceId) {
         LOGW("unhandled indexed resource ID\n");
+    }
+
+    unsigned wordCount = 4;
+    unsigned elemCount = 1; // Elements per word
+    uint8_t numFormat = IL_BUF_NUM_FMT_FLOAT;
+
+    if (primModifierPresent) {
+        uint8_t dfmt = GET_BITS(instr->primModifier, 0, 3);
+        uint8_t nfmt = GET_BITS(instr->primModifier, 4, 7);
+
+        switch (dfmt) {
+        case IL_BUF_DATA_FMT_32:            wordCount = 1; elemCount = 1; break;
+        case IL_BUF_DATA_FMT_16_16:         wordCount = 1; elemCount = 2; break;
+        case IL_BUF_DATA_FMT_8_8_8_8:       wordCount = 1; elemCount = 4; break;
+        case IL_BUF_DATA_FMT_32_32:         wordCount = 2; elemCount = 1; break;
+        case IL_BUF_DATA_FMT_16_16_16_16:   wordCount = 2; elemCount = 2; break;
+        case IL_BUF_DATA_FMT_32_32_32:      wordCount = 3; elemCount = 1; break;
+        case IL_BUF_DATA_FMT_32_32_32_32:   wordCount = 4; elemCount = 1; break;
+        default:
+            LOGE("unhandled SRV data format %u %u\n", dfmt, nfmt);
+            assert(false);
+        }
+
+        numFormat = nfmt;
     }
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
@@ -2574,17 +2599,19 @@ static void emitStructuredSrvLoad(
     IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
                                        byteAddrId, fourId);
 
-    // Read up to four components based on the destination mask
+    // Read data words as 32-bit floats
+    // TODO redeclare resources based on type to avoid type conversions
     IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
                                               resource->texelTypeId);
     IlcSpvId fZeroId = ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL);
-    IlcSpvId constituentIds[] = { fZeroId, fZeroId, fZeroId, fZeroId };
+    IlcSpvId fWordIds[] = { fZeroId, fZeroId, fZeroId, fZeroId };
 
-    for (unsigned i = 0; i < 4; i++) {
+    for (unsigned i = 0; i < wordCount; i++) {
         IlcSpvId addrId;
 
-        if (dst->component[i] == IL_MODCOMP_NOWRITE) {
+        if (elemCount == 1 && dst->component[i] == IL_MODCOMP_NOWRITE) {
+            // Skip read if each element is a whole word and this component is not written to dst
             continue;
         }
 
@@ -2599,12 +2626,95 @@ static void emitStructuredSrvLoad(
         const IlcSpvId indexIds[] = { zeroId, addrId };
         IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
                                               2, indexIds);
-        constituentIds[i] = ilcSpvPutLoad(compiler->module, resource->texelTypeId, ptrId);
+        fWordIds[i] = ilcSpvPutLoad(compiler->module, resource->texelTypeId, ptrId);
     }
 
-    IlcSpvId loadId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id,
-                                                  4, constituentIds);
-    storeDestination(compiler, dst, loadId, compiler->float4Id);
+    IlcSpvId resId = 0;
+
+    if ((numFormat == IL_BUF_NUM_FMT_UNORM && elemCount > 1) ||
+        (numFormat == IL_BUF_NUM_FMT_SNORM && elemCount > 1) ||
+        (numFormat == IL_BUF_NUM_FMT_FLOAT && elemCount > 1)) {
+        // Unpack words into 2 or 4 float values each
+        IlcSpvWord op = 0;
+        IlcSpvId opResTypeId = ilcSpvPutVectorType(compiler->module, compiler->floatId, elemCount);
+        IlcSpvId opResIds[2] = { 0 };
+
+        if (numFormat == IL_BUF_NUM_FMT_UNORM) {
+            op = elemCount == 4 ? GLSLstd450UnpackUnorm4x8 : GLSLstd450UnpackUnorm2x16;
+        } else if (numFormat == IL_BUF_NUM_FMT_SNORM) {
+            op = elemCount == 4 ? GLSLstd450UnpackSnorm4x8 : GLSLstd450UnpackSnorm2x16;
+        } else if (numFormat == IL_BUF_NUM_FMT_FLOAT && elemCount == 2) {
+            op = GLSLstd450UnpackHalf2x16;
+        } else {
+            assert(false);
+        }
+
+        for (unsigned i = 0; i < wordCount; i++) {
+            IlcSpvId wordId = ilcSpvPutBitcast(compiler->module, compiler->intId, fWordIds[i]);
+            opResIds[i] = ilcSpvPutGLSLOp(compiler->module, op, opResTypeId, 1, &wordId);
+        }
+
+        if (wordCount == 1 && elemCount == 4) {
+            // 1x4, copy
+            resId = opResIds[0];
+        } else if (wordCount == 1 && elemCount < 4) {
+            // 1x2, grow to 1x4
+            resId = emitVectorGrow(compiler, opResIds[0], compiler->floatId, elemCount);
+        } else {
+            // 2x2, merge into 1x4
+            const IlcSpvWord components[] = { 0, 1, 2, 3 };
+            resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id,
+                                           opResIds[0], opResIds[1], 4, components);
+        }
+    } else if ((numFormat == IL_BUF_NUM_FMT_UINT && elemCount > 1) ||
+               (numFormat == IL_BUF_NUM_FMT_SINT && elemCount > 1)) {
+        // Extract words into 2 or 4 integer values each
+        unsigned elemWidth = 32 / elemCount;
+        bool isSigned = numFormat == IL_BUF_NUM_FMT_SINT;
+        IlcSpvWord op = isSigned ? SpvOpBitFieldSExtract : SpvOpBitFieldUExtract;
+        IlcSpvId widthId = ilcSpvPutConstant(compiler->module, compiler->intId, elemWidth);
+        IlcSpvId compIds[4] = { 0 };
+
+        unsigned compCount = 0;
+        for (unsigned i = 0; i < wordCount; i++) {
+            IlcSpvId wordId = ilcSpvPutBitcast(compiler->module, compiler->intId, fWordIds[i]);
+
+            for (unsigned j = 0; j < elemCount; j++) {
+                IlcSpvId offsetId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                                      j * elemWidth);
+                compIds[compCount] = ilcSpvPutOp3(compiler->module, op, compiler->intId,
+                                                  wordId, offsetId, widthId);
+                compCount++;
+            }
+        }
+
+        IlcSpvId typeId = ilcSpvPutVectorType(compiler->module, compiler->intId, compCount);
+        resId = ilcSpvPutCompositeConstruct(compiler->module, typeId, compCount, compIds);
+
+        if (compCount < 4) {
+            resId = emitVectorGrow(compiler, resId, compiler->intId, compCount);
+        }
+
+        resId = ilcSpvPutOp1(compiler->module, isSigned ? SpvOpConvertUToF : SpvOpConvertSToF,
+                             compiler->float4Id, resId);
+    } else if (numFormat == IL_BUF_NUM_FMT_UINT ||
+               numFormat == IL_BUF_NUM_FMT_SINT ||
+               numFormat == IL_BUF_NUM_FMT_FLOAT) {
+        // Each word is a component of float4
+        resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, fWordIds);
+
+        if (numFormat == IL_BUF_NUM_FMT_UINT || numFormat == IL_BUF_NUM_FMT_SINT) {
+            // Convert integers to float
+            IlcSpvWord op = numFormat == IL_BUF_NUM_FMT_UINT ? SpvOpConvertUToF : SpvOpConvertSToF;
+            resId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, resId);
+            resId = ilcSpvPutOp1(compiler->module, op, compiler->float4Id, resId);
+        }
+    } else {
+        LOGE("unhandled SRV format %ux%u %u\n", wordCount, elemCount, numFormat);
+        assert(false);
+    }
+
+    storeDestination(compiler, dst, resId, compiler->float4Id);
 }
 
 static void emitImplicitInput(

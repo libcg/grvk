@@ -993,6 +993,35 @@ enum IL_UAV_READ_TYPE
   IL_UAV_FORCE_UNCACHED = 2
 };
 
+// GRVK definitions
+
+enum ILBufDataFormat
+{
+  IL_BUF_DATA_FMT_8 = 1,
+  IL_BUF_DATA_FMT_16 = 2,
+  IL_BUF_DATA_FMT_8_8 = 3,
+  IL_BUF_DATA_FMT_32 = 4,
+  IL_BUF_DATA_FMT_16_16 = 5,
+  IL_BUF_DATA_FMT_10_11_11 = 6,
+  IL_BUF_DATA_FMT_11_11_10 = 7,
+  IL_BUF_DATA_FMT_10_10_10_2 = 8,
+  IL_BUF_DATA_FMT_2_10_10_10 = 9,
+  IL_BUF_DATA_FMT_8_8_8_8 = 10,
+  IL_BUF_DATA_FMT_32_32 = 11,
+  IL_BUF_DATA_FMT_16_16_16_16 = 12,
+  IL_BUF_DATA_FMT_32_32_32 = 13,
+  IL_BUF_DATA_FMT_32_32_32_32 = 14,
+};
+
+enum IlBufNumFormat
+{
+  IL_BUF_NUM_FMT_UNORM = 1,
+  IL_BUF_NUM_FMT_SNORM = 2,
+  IL_BUF_NUM_FMT_UINT = 5,
+  IL_BUF_NUM_FMT_SINT = 6,
+  IL_BUF_NUM_FMT_FLOAT = 7,
+};
+
 #ifdef __cplusplus
 }
 #endif
