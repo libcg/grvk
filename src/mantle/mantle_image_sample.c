@@ -206,7 +206,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = NULL,
-        .initialLayout = isTarget ? getVkImageLayout(GR_IMAGE_STATE_UNINITIALIZED) :
+        .initialLayout = isTarget ? getVkImageLayout(GR_IMAGE_STATE_UNINITIALIZED, false) :
                                     VK_IMAGE_LAYOUT_PREINITIALIZED,
     };
 

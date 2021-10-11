@@ -353,7 +353,8 @@ unsigned getVkFormatTileSize(
 }
 
 VkImageLayout getVkImageLayout(
-    GR_IMAGE_STATE imageState)
+    GR_IMAGE_STATE imageState,
+    bool isImageDepthStencil)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_DATA_TRANSFER:
@@ -449,7 +450,8 @@ VkImageUsageFlags getVkImageUsageFlags(
 }
 
 VkAccessFlags getVkAccessFlagsImage(
-    GR_IMAGE_STATE imageState)
+    GR_IMAGE_STATE imageState,
+    bool isImageDepthStencil)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_DATA_TRANSFER:
