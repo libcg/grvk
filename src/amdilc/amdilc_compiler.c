@@ -37,8 +37,11 @@ typedef struct {
     IlcSpvId id;
     IlcSpvId interfaceId;
     IlcSpvId typeId;
+    IlcSpvId vecTypeId;
     IlcSpvId componentTypeId;
     unsigned componentCount;
+    unsigned arrayItemCount;
+    unsigned arrayItemOffset;//for use with arrayed registers like InnerTessLevel, which has offsets
     uint32_t ilType; // ILRegType
     uint32_t ilNum;
     uint8_t ilImportUsage; // Input/output only
@@ -374,10 +377,11 @@ static const IlcRegister* addRegister(
     const IlcRegister* reg,
     const char* identifier)
 {
-    char name[32];
-    snprintf(name, sizeof(name), "%s%u", identifier, reg->ilNum);
-    ilcSpvPutName(compiler->module, reg->id, name);
-
+    if (reg->interfaceId != 0) {
+        char name[32];
+        snprintf(name, sizeof(name), "%s%u", identifier, reg->ilNum);
+        ilcSpvPutName(compiler->module, reg->id, name);
+    }
     compiler->regCount++;
     compiler->regs = realloc(compiler->regs, sizeof(IlcRegister) * compiler->regCount);
     compiler->regs[compiler->regCount - 1] = *reg;
@@ -433,8 +437,10 @@ static const IlcRegister* findOrCreateRegister(
             .id = tempId,
             .interfaceId = tempId,
             .typeId = tempTypeId,
+            .vecTypeId = tempTypeId,
             .componentTypeId = compiler->floatId,
             .componentCount = 4,
+            .arrayItemCount = 0,
             .ilType = type,
             .ilNum = num,
             .ilImportUsage = 0,
@@ -593,19 +599,28 @@ static IlcSpvId loadSource(
 {
     const IlcRegister* reg;
 
+    uint32_t regNum = src->registerNum;// = src->srcCount == 0 ? src->registerNum : src->srcs[src->srcCount - 1].registerNum;
+    if (src->srcCount > 0) {
+        //idk how to select register here
+        for (unsigned i = 0; i < src->srcCount; ++i) {
+            if (src->srcs[i].registerType == src->registerType) {
+                regNum = src->srcs[i].registerNum;
+            }
+        }
+    }
     if ((src->swizzle[0] == IL_COMPSEL_0 || src->swizzle[0] == IL_COMPSEL_1) &&
         (src->swizzle[1] == IL_COMPSEL_0 || src->swizzle[1] == IL_COMPSEL_1) &&
         (src->swizzle[2] == IL_COMPSEL_0 || src->swizzle[2] == IL_COMPSEL_1) &&
         (src->swizzle[3] == IL_COMPSEL_0 || src->swizzle[3] == IL_COMPSEL_1)) {
         // We're reading only 0 or 1s so it's safe to create a temporary register
         // Example: r4096.0001 as seen in 3DMark shader
-        reg = findOrCreateRegister(compiler, src->registerType, src->registerNum);
+        reg = findOrCreateRegister(compiler, src->registerType, regNum);
     } else {
-        reg = findRegister(compiler, src->registerType, src->registerNum);
+        reg = findRegister(compiler, src->registerType, regNum);
     }
 
     if (reg == NULL) {
-        LOGE("source register %d %d not found\n", src->registerType, src->registerNum);
+        LOGE("source register %d %d not found\n", src->registerType, regNum);
         return 0;
     }
 
@@ -614,7 +629,7 @@ static IlcSpvId loadSource(
         src->registerType == IL_REGTYPE_IMMED_CONST_BUFF) {
         // 1D arrays
         IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
-                                                  reg->typeId);
+                                                  reg->vecTypeId);
         IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId,
                                              src->hasImmediate ? src->immediate : 0);
         if (src->srcCount > 0) {
@@ -635,7 +650,7 @@ static IlcSpvId loadSource(
         ptrId = reg->id;
     }
 
-    IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->typeId, ptrId);
+    IlcSpvId varId = ilcSpvPutLoad(compiler->module, reg->vecTypeId, ptrId);
     IlcSpvId componentTypeId = 0;
 
     if (reg->componentTypeId == compiler->boolId) {
@@ -747,10 +762,11 @@ static void storeDestination(
         return;
     }
 
-    if (typeId != reg->typeId && reg->componentCount == 4) {
+    if (typeId != reg->vecTypeId && reg->componentCount == 4) {
         // Need to cast to the expected type
-        varId = ilcSpvPutBitcast(compiler->module, reg->typeId, varId);
+        varId = ilcSpvPutBitcast(compiler->module, reg->vecTypeId, varId);
     }
+    //TODO: cast to other types
 
     IlcSpvId ptrId = 0;
     if (dst->registerType == IL_REGTYPE_ITEMP) {
@@ -772,16 +788,34 @@ static void storeDestination(
         }
         ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
     } else {
+        if (dst->hasImmediate) {
+            LOGW("unhandled immediate\n");
+        }
         if (dst->absoluteSrc != NULL) {
             LOGW("unhandled absolute source\n");
         }
         if (dst->relativeSrcCount > 0) {
-            LOGW("unhandled relative source (%u)\n", dst->relativeSrcCount);
+            if (dst->relativeSrcCount == 1 && reg->arrayItemCount > 0) {
+                IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, reg->vecTypeId);
+
+                IlcSpvId indexId = loadSource(compiler, &dst->relativeSrcs[0], COMP_MASK_XYZW, compiler->int4Id);
+                indexId = emitVectorTrim(compiler, indexId, compiler->int4Id, COMP_INDEX_X, 1);
+                // HACK: helps to handle the cases with dcl_array of gl_TessLevel stuff
+                ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, (reg->vecTypeId == reg->typeId) ? reg->interfaceId : reg->id, 1, &indexId);
+            } else {
+                if (reg->arrayItemCount == 0) {
+                    LOGW("expected to have arrayed type on register %d\n", dst->registerNum);
+                }
+                ptrId = reg->id;
+                LOGW("unhandled relative source (%u) for type %u\n", dst->relativeSrcCount, dst->registerType);
+            }
+        } else if (reg->arrayItemCount > 0 && reg->vecTypeId != reg->typeId) {
+            IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, reg->vecTypeId);
+            IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, reg->arrayItemOffset);
+            ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
+        } else {
+            ptrId = reg->id;
         }
-        if (dst->hasImmediate) {
-            LOGW("unhandled immediate\n");
-        }
-        ptrId = reg->id;
     }
 
     if (dst->shiftScale != IL_SHIFT_NONE) {
@@ -830,7 +864,7 @@ static void storeDestination(
         (dst->component[2] == IL_MODCOMP_0 || dst->component[2] == IL_MODCOMP_1) ||
         (dst->component[3] == IL_MODCOMP_0 || dst->component[3] == IL_MODCOMP_1)) {
         // Select components from {x, y, z, w, 0.f, 1.f}
-        IlcSpvId zeroOneId = emitZeroOneVector(compiler, compiler->floatId);
+        IlcSpvId zeroOneId = emitZeroOneVector(compiler, reg->componentTypeId);
 
         const IlcSpvWord components[] = {
             dst->component[0] == IL_MODCOMP_0 ? 4 : (dst->component[0] == IL_MODCOMP_1 ? 5 : 0),
@@ -905,9 +939,11 @@ static void emitConstBuffer(
     const IlcRegister constBufferReg = {
         .id = arrayId,
         .interfaceId = arrayId,
-        .typeId = typeId,
+        .typeId = arrayTypeId,
+        .vecTypeId = typeId,
         .componentTypeId = compiler->floatId,
         .componentCount = 4,
+        .arrayItemCount = arraySize,
         .ilType = IL_REGTYPE_IMMED_CONST_BUFF,
         .ilNum = 0,
         .ilImportUsage = 0,
@@ -935,8 +971,10 @@ static void emitIndexedTempArray(
         .id = arrayId,
         .interfaceId = arrayId,
         .typeId = compiler->float4Id,
+        .vecTypeId = compiler->float4Id,
         .componentTypeId = compiler->floatId,
         .componentCount = 4,
+        .arrayItemCount = arraySize,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
@@ -965,15 +1003,16 @@ static void emitLiteral(
     };
     IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, literalTypeId,
                                                       4, consistuentIds);
-
     ilcSpvPutStore(compiler->module, literalId, compositeId);
 
     const IlcRegister reg = {
         .id = literalId,
         .interfaceId = literalId,
         .typeId = literalTypeId,
+        .vecTypeId = literalTypeId,
         .componentTypeId = compiler->floatId,
         .componentCount = 4,
+        .arrayItemCount = 0,
         .ilType = src->registerType,
         .ilNum = src->registerNum,
         .ilImportUsage = 0,
@@ -1016,8 +1055,11 @@ static void emitOutput(
     IlcSpvId outputId = 0;
     IlcSpvId outputInterfaceId = 0;
     IlcSpvId outputComponentTypeId = 0;
+    IlcSpvId outputVectorTypeId = 0;
     IlcSpvId outputTypeId = 0;
     unsigned outputComponentCount = 0;
+    unsigned outputArrayItemCount = 0;
+    unsigned outputArrayItemOffset = 0;
     const char* outputPrefix = NULL;
 
     if (dst->registerType == IL_REGTYPE_OUTPUT && importUsage == IL_IMPORTUSAGE_CLIPDISTANCE) {
@@ -1041,6 +1083,7 @@ static void emitOutput(
         outputPrefix = "o";
     } else if (dst->registerType == IL_REGTYPE_OUTPUT) {
         outputTypeId = compiler->float4Id;
+        outputVectorTypeId = outputTypeId;
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
         outputInterfaceId = outputId;
         outputComponentTypeId = compiler->floatId;
@@ -1089,18 +1132,21 @@ static void emitOutput(
         outputComponentCount = 1;
         outputPrefix = "oMask";
     } else {
-        LOGW("unhandled output register type %u\n", dst->registerType);
+        LOGE("unhandled output register type %d %d\n", dst->registerType, importUsage);
         assert(false);
     }
 
     const IlcRegister reg = {
         .id = outputId,
-        .interfaceId = outputInterfaceId,
+        .interfaceId = (dupeReg != NULL) ? 0 : outputInterfaceId,
         .typeId = outputTypeId,
+        .vecTypeId = outputVectorTypeId == 0 ? outputTypeId : outputVectorTypeId,
         .componentTypeId = outputComponentTypeId,
         .componentCount = outputComponentCount,
+        .arrayItemCount = outputArrayItemCount,
+        .arrayItemOffset = outputArrayItemOffset,
         .ilType = dst->registerType,
-        .ilNum = dst->registerNum,
+        .ilNum = dst->absoluteSrc == NULL ? dst->registerNum : dst->absoluteSrc->registerNum,
         .ilImportUsage = importUsage,
         .ilInterpMode = 0,
     };
@@ -1117,7 +1163,9 @@ static void emitInput(
     IlcSpvId inputId = 0;
     IlcSpvId inputTypeId = 0;
     IlcSpvId inputComponentTypeId = 0;
+    unsigned inputArrayItemCount = 0;
     unsigned inputComponentCount = 0;
+    IlcSpvId inputVecTypeId = 0;
 
     assert(instr->dstCount == 1 &&
            instr->srcCount == 0 &&
@@ -1130,6 +1178,7 @@ static void emitInput(
            dst->shiftScale == IL_SHIFT_NONE);
 
     const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    const char* name = "v";
     if (dupeReg != NULL) {
         // Inputs are allowed to be redeclared with different components.
         // Can be safely ignored as long as the import usage and interp mode are equivalent.
@@ -1225,17 +1274,20 @@ static void emitInput(
 
     const IlcRegister reg = {
         .id = inputId,
-        .interfaceId = inputId,
+        .interfaceId = (dupeReg != NULL) ? 0 : inputId,
         .typeId = inputTypeId,
+        .vecTypeId = inputVecTypeId == 0 ? inputTypeId : inputVecTypeId,
         .componentTypeId = inputComponentTypeId,
         .componentCount = inputComponentCount,
+        .arrayItemCount = inputArrayItemCount,
+        .arrayItemOffset = 0,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
         .ilInterpMode = interpMode,
     };
 
-    addRegister(compiler, &reg, "v");
+    addRegister(compiler, &reg, name);
 }
 
 static void emitResource(
@@ -3242,7 +3294,6 @@ static void emitStructuredSrvLoad(
     storeDestination(compiler, dst, resId, compiler->float4Id);
 }
 
-
 static void finalizeVertexStage(
     IlcCompiler* compiler)
 {
@@ -3258,8 +3309,11 @@ static void finalizeVertexStage(
             .id = outputId,
             .interfaceId = outputId,
             .typeId = posReg->typeId,
+            .vecTypeId = posReg->vecTypeId,
             .componentTypeId = posReg->componentTypeId,
             .componentCount = posReg->componentCount,
+            .arrayItemCount = 0,
+            .arrayItemOffset = 0,
             .ilType = IL_REGTYPE_OUTPUT,
             .ilNum = posReg->ilNum,//idk what to place here (not needed :) )
             .ilImportUsage = IL_IMPORTUSAGE_GENERIC,
@@ -3295,8 +3349,10 @@ static void emitImplicitInput(
         .id = inputId,
         .interfaceId = inputId,
         .typeId = inputTypeId,
+        .vecTypeId = inputTypeId,
         .componentTypeId = componentTypeId,
         .componentCount = componentCount,
+        .arrayItemCount = 0,
         .ilType = ilType,
         .ilNum = 0,
         .ilImportUsage = 0,
@@ -3602,25 +3658,38 @@ static void emitEntryPoint(
 
     for (int i = 0; i < compiler->regCount; i++) {
         const IlcRegister* reg = &compiler->regs[i];
-
+        if (reg->interfaceId == 0) {
+            continue;
+        }
         interfaces[interfaceIndex] = reg->interfaceId;
         interfaceIndex++;
+        if (compiler->regs[i].id == 0) {
+            LOGW("got empty reg %d %d %d\n", compiler->regs[i].ilNum, compiler->regs[i].ilType, compiler->regs[i].ilImportUsage);
+        }
+
     }
     for (int i = 0; i < compiler->resourceCount; i++) {
         const IlcResource* resource = &compiler->resources[i];
 
         interfaces[interfaceIndex] = resource->id;
+        if (compiler->resources[i].id == 0) {
+            LOGW("got empty sampler %d\n", resource->id);
+        }
+
         interfaceIndex++;
     }
     for (int i = 0; i < compiler->samplerCount; i++) {
         const IlcSampler* sampler = &compiler->samplers[i];
 
         interfaces[interfaceIndex] = sampler->id;
+        if (compiler->regs[i].id == 0) {
+            LOGW("got empty sampler %d\n", sampler->id);
+        }
         interfaceIndex++;
     }
 
     ilcSpvPutEntryPoint(compiler->module, compiler->entryPointId, execution, name,
-                        interfaceCount, interfaces);
+                        interfaceIndex, interfaces);
     ilcSpvPutName(compiler->module, compiler->entryPointId, name);
 
     switch (compiler->kernel->shaderType) {
