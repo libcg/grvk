@@ -536,6 +536,12 @@ VkAccessFlags getVkAccessFlagsMemory(
         return VK_ACCESS_TRANSFER_WRITE_BIT;
     case GR_MEMORY_STATE_DISCARD:
         return 0;
+    case GR_MEMORY_STATE_DATA_TRANSFER_SOURCE:
+        return VK_ACCESS_TRANSFER_READ_BIT |
+               VK_ACCESS_HOST_READ_BIT;
+    case GR_MEMORY_STATE_DATA_TRANSFER_DESTINATION:
+        return VK_ACCESS_TRANSFER_WRITE_BIT |
+               VK_ACCESS_HOST_WRITE_BIT;
     default:
         break;
     }
