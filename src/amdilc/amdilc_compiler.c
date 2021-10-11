@@ -105,6 +105,7 @@ typedef struct {
     unsigned inputCount;
     IlcInput* inputs;
     IlcSpvId entryPointId;
+    IlcSpvId stageFunctionId;
     IlcSpvId uintId;
     IlcSpvId uint4Id;
     IlcSpvId intId;
@@ -3320,6 +3321,7 @@ static void emitInstr(
         if (compiler->isInFunction) {
             ilcSpvPutFunctionEnd(compiler->module);
             compiler->isInFunction = false;
+            compiler->isAfterReturn = false;
         }
         break;
     case IL_OP_ENDIF:
@@ -3562,6 +3564,7 @@ IlcShader ilcCompileKernel(
         .inputCount = 0,
         .inputs = NULL,
         .entryPointId = ilcSpvAllocId(&module),
+        .stageFunctionId = (compiler.kernel->shaderType != IL_SHADER_HULL && compiler.kernel->shaderType != IL_SHADER_DOMAIN) ? ilcSpvAllocId(&module) : 0,
         .uintId = uintId,
         .uint4Id = ilcSpvPutVectorType(&module, uintId, 4),
         .intId = intId,
@@ -3579,22 +3582,67 @@ IlcShader ilcCompileKernel(
         .samplers = NULL,
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
-        .isInFunction = true,
+        .isInFunction = false,
         .isAfterReturn = false,
     };
 
     emitImplicitInputs(&compiler);
-    emitFunc(&compiler, compiler.entryPointId);
 
     if (compiler.kernel->shaderType == IL_SHADER_HULL ||
         compiler.kernel->shaderType == IL_SHADER_DOMAIN) {
         LOGW("unhandled hull/domain shader type\n");
-        ilcSpvPutReturn(compiler.module);
-        ilcSpvPutFunctionEnd(compiler.module);
     } else {
+        compiler.isInFunction = true;
+        emitFunc(&compiler, compiler.stageFunctionId);
+        const char* stageFunctionName = "stage_main";
+        switch (compiler.kernel->shaderType) {
+        case IL_SHADER_VERTEX:
+            stageFunctionName = "vs_main";
+            break;
+        case IL_SHADER_GEOMETRY:
+            stageFunctionName = "gs_main";
+            break;
+        case IL_SHADER_PIXEL:
+            stageFunctionName = "ps_main";
+            break;
+        case IL_SHADER_COMPUTE:
+            stageFunctionName = "cs_main";
+            break;
+        default:
+            break;
+        }
+        ilcSpvPutName(compiler.module, compiler.stageFunctionId, stageFunctionName);
+
         for (int i = 0; i < kernel->instrCount; i++) {
             emitInstr(&compiler, &kernel->instrs[i]);
         }
+        // close stage main function if not yet ended
+        if (compiler.isInFunction) {
+            if (!compiler.isAfterReturn) {
+                ilcSpvPutReturn(compiler.module);
+                compiler.isAfterReturn = true;
+            }
+            ilcSpvPutFunctionEnd(compiler.module);
+            compiler.isInFunction = false;
+        }
+    }
+
+    compiler.isInFunction = true;
+    compiler.isAfterReturn = false;
+    emitFunc(&compiler, compiler.entryPointId);
+    if (compiler.stageFunctionId != 0) {
+        IlcSpvId voidTypeId = ilcSpvPutVoidType(compiler.module);
+        // call stage main
+        ilcSpvPutFunctionCall(compiler.module, voidTypeId, compiler.stageFunctionId, 0, NULL);
+    }
+    // close real main function
+    if (compiler.isInFunction) {
+        if (!compiler.isAfterReturn) {
+            ilcSpvPutReturn(compiler.module);
+            compiler.isAfterReturn = true;
+        }
+        ilcSpvPutFunctionEnd(compiler.module);
+        compiler.isInFunction = false;
     }
 
     emitEntryPoint(&compiler);
