@@ -1658,6 +1658,10 @@ static void emitFloatOp(
         break;
     }
 
+    if (instr->preciseMask != 0) {
+        ilcSpvPutDecoration(compiler->module, resId, SpvDecorationNoContraction, 0, NULL);
+    }
+
     storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
 }
 

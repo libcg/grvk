@@ -131,6 +131,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_DCL_GLOBAL_FLAGS] = { IL_DCL_GLOBAL_FLAGS, 0, 0, 0 },
     [IL_OP_DCL_TYPED_UAV] = { IL_OP_DCL_TYPED_UAV, 0, 0, 1 }, // Undocumented
     [IL_OP_DCL_TYPELESS_UAV] = { IL_OP_DCL_TYPELESS_UAV, 0, 0, 2 }, // Undocumented
+    [IL_OP_PREFIX] = { IL_OP_PREFIX, 0, 0, 0 },
     [IL_UNK_660] = { IL_UNK_660, 1, 0, 0 }, // FIXME undocumented
 };
 
