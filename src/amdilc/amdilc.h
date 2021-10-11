@@ -19,11 +19,22 @@ typedef struct _IlcBinding {
     int strideIndex; // Stride location in push constants (<0 means non-existent)
 } IlcBinding;
 
+
+typedef struct _IlcInput {
+    uint32_t locationIndex;
+    uint32_t interpolationType;
+} IlcInput;
+
+
 typedef struct _IlcShader {
     unsigned codeSize;
     uint32_t* code;
     unsigned bindingCount;
     IlcBinding* bindings;
+    unsigned inputCount;
+    IlcInput* inputs;
+    unsigned outputCount;
+    uint32_t* outputLocations;
     char* name;
 } IlcShader;
 

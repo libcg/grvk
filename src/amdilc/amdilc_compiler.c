@@ -84,6 +84,10 @@ typedef struct {
     IlcSpvModule* module;
     unsigned bindingCount;
     IlcBinding* bindings;
+    unsigned inputCount;
+    IlcInput* inputs;
+    unsigned outputCount;
+    uint32_t* outputLocations;
     IlcSpvId entryPointId;
     IlcSpvId stageFunctionId;
     IlcSpvId uintId;
@@ -912,6 +916,30 @@ static void emitLiteral(
     addRegister(compiler, &reg, "l");
 }
 
+static void emitGenericInputInfo(
+    IlcCompiler* compiler,
+    uint32_t location,
+    uint32_t interpolationType)
+{
+    // emit output info
+    compiler->inputCount++;
+    compiler->inputs = realloc(compiler->inputs, compiler->inputCount * sizeof(IlcInput));
+    compiler->inputs[compiler->inputCount - 1] = (IlcInput){
+        .locationIndex = location,
+        .interpolationType = interpolationType,
+    };
+}
+
+static void emitGenericOutputInfo(
+    IlcCompiler* compiler,
+    uint32_t location)
+{
+    // emit output info
+    compiler->outputCount++;
+    compiler->outputLocations = realloc(compiler->outputLocations, compiler->outputCount * sizeof(uint32_t));
+    compiler->outputLocations[compiler->outputCount - 1] = location;
+}
+
 static void emitOutput(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -950,6 +978,7 @@ static void emitOutput(
         } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
             IlcSpvWord locationIdx = dst->registerNum;
             ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
+            emitGenericOutputInfo(compiler, locationIdx);
         } else {
             LOGW("unhandled import usage %d\n", importUsage);
         }
@@ -1047,6 +1076,7 @@ static void emitInput(
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
+        emitGenericInputInfo(compiler, locationIdx, interpMode);
     } else if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID ||
                importUsage == IL_IMPORTUSAGE_VERTEXID ||
                importUsage == IL_IMPORTUSAGE_INSTANCEID ||
@@ -3027,6 +3057,8 @@ static void finalizeVertexStage(
         };
 
         addRegister(compiler, &reg, "oPos");
+        // store output location
+        emitGenericOutputInfo(compiler, locationIdx);
     }
 }
 
@@ -3397,6 +3429,10 @@ IlcShader ilcCompileKernel(
         .module = &module,
         .bindingCount = 0,
         .bindings = NULL,
+        .inputCount = 0,
+        .inputs = NULL,
+        .outputCount = 0,
+        .outputLocations = NULL,
         .entryPointId = ilcSpvAllocId(&module),
         .stageFunctionId = (compiler.kernel->shaderType != IL_SHADER_HULL && compiler.kernel->shaderType != IL_SHADER_DOMAIN) ? ilcSpvAllocId(&module) : 0,
         .uintId = uintId,
@@ -3495,6 +3531,10 @@ IlcShader ilcCompileKernel(
         .code = module.buffer[ID_MAIN].words,
         .bindingCount = compiler.bindingCount,
         .bindings = compiler.bindings,
+        .inputCount = compiler.inputCount,
+        .inputs = compiler.inputs,
+        .outputCount = compiler.outputCount,
+        .outputLocations = compiler.outputLocations,
         .name = strdup(name),
     };
 }

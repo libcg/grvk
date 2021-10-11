@@ -518,6 +518,10 @@ GR_RESULT GR_STDCALL grCreateShader(
     if (res != VK_SUCCESS) {
         LOGE("vkCreateShaderModule failed (%d)\n", res);
         free(ilcShader.code);
+        free(ilcShader.outputLocations);
+        free(ilcShader.inputs);
+        free(ilcShader.bindings);
+        free(ilcShader.name);
         return getGrResult(res);
     }
 
@@ -529,6 +533,10 @@ GR_RESULT GR_STDCALL grCreateShader(
         .shaderModule = vkShaderModule,
         .bindingCount = ilcShader.bindingCount,
         .bindings = ilcShader.bindings,
+        .inputCount = ilcShader.inputCount,
+        .inputs = ilcShader.inputs,
+        .outputCount = ilcShader.outputCount,
+        .outputLocations = ilcShader.outputLocations,
         .name = ilcShader.name,
     };
 
