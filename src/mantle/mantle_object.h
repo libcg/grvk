@@ -309,6 +309,8 @@ typedef struct _GrPipeline {
     unsigned dynamicOffsetCount;
     unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS];
     UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS];
+    VkShaderModule tessellationModule;
+    VkShaderModule rectangleShaderModule;
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
@@ -336,6 +338,8 @@ typedef struct _GrShader {
     GrObject grObj;
     unsigned refCount;
     VkShaderModule shaderModule;
+    uint32_t* code;
+    unsigned codeSize;
     unsigned bindingCount;
     IlcBinding* bindings;
     unsigned inputCount;

@@ -1168,3 +1168,44 @@ void ilcSpvPutDemoteToHelperInvocation(
 
     putInstr(buffer, SpvOpDemoteToHelperInvocationEXT, 1);
 }
+
+void ilcSpvUnwrapBuffer(
+    IlcSpvBuffer* buffer,
+    const IlcSpvWord* src,
+    unsigned wordCount)
+{
+    IlcSpvBuffer srcBuffer = (IlcSpvBuffer) {
+        .words = src,
+        .wordCount = wordCount,
+    };
+    putBuffer(buffer, &srcBuffer);
+}
+
+unsigned getBufferIndex(SpvOp opCode) {
+    if (opCode == SpvOpCapability) {
+        return ID_CAPABILITIES;
+    } else if (opCode == SpvOpExtension) {
+        return ID_EXTENSIONS;
+    } else if (opCode == SpvOpExtInstImport) {
+        return ID_EXT_INST_IMPORTS;
+    } else if (opCode == SpvOpMemoryModel) {
+        return ID_MEMORY_MODEL;
+    } else if (opCode == SpvOpEntryPoint) {
+        return ID_ENTRY_POINTS;
+    } else if (opCode == SpvOpExecutionMode) {
+        return ID_EXEC_MODES;
+    } else if (opCode == SpvOpSource || opCode == SpvOpName || opCode == SpvOpString) {
+        return ID_DEBUG;
+    } else if (opCode == SpvOpDecorate || opCode == SpvOpMemberDecorate) {
+        return ID_DECORATIONS;
+    } else if (opCode == SpvOpTypeStruct || opCode == SpvOpTypeArray || opCode == SpvOpTypePointer) {
+        return ID_TYPES_WITH_CONSTANTS;
+    } else if ((opCode >= SpvOpTypeVoid && opCode <= SpvOpTypeForwardPointer) || opCode == SpvOpTypeNamedBarrier || opCode == SpvOpTypePipeStorage) {
+        return ID_TYPES;
+    } else if ((opCode >= SpvOpConstantTrue && opCode <= SpvOpSpecConstantOp) || opCode == SpvOpUndef) {
+        return ID_CONSTANTS;
+    } else if (opCode == SpvOpVariable) {
+        return ID_VARIABLES;
+    }
+    return ID_CODE;
+}

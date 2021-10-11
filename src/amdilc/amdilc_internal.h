@@ -91,4 +91,10 @@ IlcShader ilcCompileKernel(
     const Kernel* kernel,
     const char* name);
 
+IlcRecompiledShader ilcRecompileKernel(
+    const uint32_t* spirvWords,
+    unsigned wordCount,
+    const unsigned* inputPassthroughLocations,
+    unsigned passthroughCount);
+
 #endif // AMDILC_INTERNAL_H_
