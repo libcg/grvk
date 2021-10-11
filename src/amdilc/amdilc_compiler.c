@@ -347,6 +347,22 @@ static const IlcRegister* findRegister(
     return NULL;
 }
 
+static const IlcRegister* findRegisterByType(
+    IlcCompiler* compiler,
+    uint32_t type,
+    uint32_t importUsage)
+{
+    for (int i = 0; i < compiler->regCount; i++) {
+        const IlcRegister* reg = &compiler->regs[i];
+
+        if (reg->ilType == type && reg->ilImportUsage == importUsage) {
+            return reg;
+        }
+    }
+
+    return NULL;
+}
+
 static const IlcRegister* findOrCreateRegister(
     IlcCompiler* compiler,
     uint32_t type,
@@ -2987,6 +3003,33 @@ static void emitStructuredSrvLoad(
     storeDestination(compiler, dst, resId, compiler->float4Id);
 }
 
+
+static void finalizeVertexStage(
+    IlcCompiler* compiler)
+{
+    const IlcRegister* posReg = findRegisterByType(compiler, IL_REGTYPE_OUTPUT, IL_IMPORTUSAGE_POS);
+    if (posReg != NULL) {
+        IlcSpvId outputId = emitVariable(compiler, posReg->typeId, SpvStorageClassOutput);
+        IlcSpvId locationIdx = posReg->ilNum;
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationInvariant, 0, NULL);
+        IlcSpvId loadedPosId = ilcSpvPutLoad(compiler->module, posReg->typeId, posReg->id);
+        ilcSpvPutStore(compiler->module, outputId, loadedPosId);
+        const IlcRegister reg = {
+            .id = outputId,
+            .typeId = posReg->typeId,
+            .componentTypeId = posReg->componentTypeId,
+            .componentCount = posReg->componentCount,
+            .ilType = IL_REGTYPE_OUTPUT,
+            .ilNum = posReg->ilNum,//idk what to place here (not needed :) )
+            .ilImportUsage = IL_IMPORTUSAGE_GENERIC,
+            .ilInterpMode = 0,
+        };
+
+        addRegister(compiler, &reg, "oPos");
+    }
+}
+
 static void emitImplicitInput(
     IlcCompiler* compiler,
     SpvBuiltIn spvBuiltIn,
@@ -3425,6 +3468,9 @@ IlcShader ilcCompileKernel(
         IlcSpvId voidTypeId = ilcSpvPutVoidType(compiler.module);
         // call stage main
         ilcSpvPutFunctionCall(compiler.module, voidTypeId, compiler.stageFunctionId, 0, NULL);
+    }
+    if (compiler.kernel->shaderType == IL_SHADER_VERTEX) {
+        finalizeVertexStage(&compiler);
     }
     // close real main function
     if (compiler.isInFunction) {
