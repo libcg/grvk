@@ -998,14 +998,15 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
         bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
+        bool isFormatDepthStencil = isVkFormatDepthStencil(grImage->format);
 
         barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = NULL,
-            .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState),
-            .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState),
-            .oldLayout = getVkImageLayout(stateTransition->oldState),
-            .newLayout = getVkImageLayout(stateTransition->newState),
+            .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState, isFormatDepthStencil),
+            .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState, isFormatDepthStencil),
+            .oldLayout = getVkImageLayout(stateTransition->oldState, isFormatDepthStencil),
+            .newLayout = getVkImageLayout(stateTransition->newState, isFormatDepthStencil),
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = grImage->image,
@@ -1207,8 +1208,8 @@ GR_VOID GR_STDCALL grCmdCopyImage(
         }
 
         VKD.vkCmdCopyImage(grCmdBuffer->commandBuffer,
-                           grSrcImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
-                           grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                           grSrcImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER, false),
+                           grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER, false),// image format isn't used
                            regionCount, vkRegions);
 
         STACK_ARRAY_FINISH(vkRegions);
@@ -1255,7 +1256,7 @@ GR_VOID GR_STDCALL grCmdCopyImage(
 
         VKD.vkCmdCopyBufferToImage(grCmdBuffer->commandBuffer,
                                    grSrcImage->buffer, grDstImage->image,
-                                   getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                                   getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER, false),
                                    regionCount, vkRegions);
 
         STACK_ARRAY_FINISH(vkRegions);
@@ -1308,7 +1309,7 @@ GR_VOID GR_STDCALL grCmdCopyMemoryToImage(
     }
 
     VKD.vkCmdCopyBufferToImage(grCmdBuffer->commandBuffer, grSrcGpuMemory->buffer,
-                               grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                               grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER, false),
                                regionCount, vkRegions);
 
     STACK_ARRAY_FINISH(vkRegions);
@@ -1360,7 +1361,7 @@ GR_VOID GR_STDCALL grCmdCopyImageToMemory(
     }
 
     VKD.vkCmdCopyImageToBuffer(grCmdBuffer->commandBuffer, grSrcImage->image,
-                               getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+                               getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER, false),
                                grDstGpuMemory->buffer, regionCount, vkRegions);
 
     STACK_ARRAY_FINISH(vkRegions);
@@ -1430,7 +1431,7 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
-                             getVkImageLayout(GR_IMAGE_STATE_CLEAR),
+                             getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
                              &vkColor, rangeCount, vkRanges);
 
     STACK_ARRAY_FINISH(vkRanges);
@@ -1464,7 +1465,7 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
-                             getVkImageLayout(GR_IMAGE_STATE_CLEAR),
+                             getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
                              &vkColor, rangeCount, vkRanges);
 
     STACK_ARRAY_FINISH(vkRanges);
@@ -1499,7 +1500,7 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
     }
 
     VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,
-                                    getVkImageLayout(GR_IMAGE_STATE_CLEAR), &depthStencilValue,
+                                    getVkImageLayout(GR_IMAGE_STATE_CLEAR, false), &depthStencilValue,
                                     rangeCount, vkRanges);
 
     STACK_ARRAY_FINISH(vkRanges);

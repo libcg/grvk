@@ -106,7 +106,7 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
                 .imageInfo = {
                     .sampler = VK_NULL_HANDLE,
                     .imageView = grImageView->imageView,
-                    .imageLayout = getVkImageLayout(info->state),
+                    .imageLayout = getVkImageLayout(info->state, isVkFormatDepthStencil(grImageView->format)),
                 },
             },
         };
