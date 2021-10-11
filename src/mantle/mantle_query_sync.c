@@ -52,11 +52,72 @@ GR_RESULT GR_STDCALL grCreateQueryPool(
     *grQueryPool = (GrQueryPool) {
         .grObj = { GR_OBJ_TYPE_QUERY_POOL, grDevice },
         .queryPool = vkQueryPool,
+        .queryType = createInfo.queryType,
     };
 
     *pQueryPool = (GR_QUERY_POOL)grQueryPool;
 
     return GR_SUCCESS;
+}
+
+GR_RESULT GR_STDCALL grGetQueryPoolResults(
+    GR_QUERY_POOL queryPool,
+    GR_UINT startQuery,
+    GR_UINT queryCount,
+    GR_SIZE* pDataSize,
+    GR_VOID* pData)
+{
+    LOGT("%p %u %u %p %p\n", queryPool, startQuery, queryCount, pDataSize, pData);
+    GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+
+    if (grQueryPool == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grQueryPool) != GR_OBJ_TYPE_QUERY_POOL) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (pDataSize == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grQueryPool);
+    unsigned elemSize = grQueryPool->queryType == VK_QUERY_TYPE_OCCLUSION ?
+                        sizeof(uint64_t) : sizeof(GR_PIPELINE_STATISTICS_DATA);
+
+    if (pData == NULL) {
+        *pDataSize = queryCount * elemSize;
+        return GR_SUCCESS;
+    } else if (*pDataSize < queryCount * elemSize) {
+        return GR_ERROR_INVALID_MEMORY_SIZE;
+    }
+
+    VkResult vkRes = VKD.vkGetQueryPoolResults(grDevice->device, grQueryPool->queryPool,
+                                               startQuery, queryCount, *pDataSize, pData,
+                                               elemSize, VK_QUERY_RESULT_64_BIT);
+    if (vkRes != VK_SUCCESS && vkRes != VK_NOT_READY) {
+        LOGE("vkGetQueryPoolResults failed (%d)\n", vkRes);
+    } else if (vkRes == VK_SUCCESS && grQueryPool->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS) {
+        GR_PIPELINE_STATISTICS_DATA* stats = (GR_PIPELINE_STATISTICS_DATA*)pData;
+
+        // Reorder results to match Mantle (see VkQueryPipelineStatisticFlags)
+        for (unsigned i = 0; i < queryCount; i++) {
+            const uint64_t* vkStat = &((uint64_t*)pData)[11 * i];
+
+            stats[i] = (GR_PIPELINE_STATISTICS_DATA) {
+                .psInvocations  = vkStat[7],
+                .cPrimitives    = vkStat[6],
+                .cInvocations   = vkStat[5],
+                .vsInvocations  = vkStat[2],
+                .gsInvocations  = vkStat[3],
+                .gsPrimitives   = vkStat[4],
+                .iaPrimitives   = vkStat[1],
+                .iaVertices     = vkStat[0],
+                .hsInvocations  = vkStat[8],
+                .dsInvocations  = vkStat[9],
+                .csInvocations  = vkStat[10],
+            };
+        }
+    }
+
+    return getGrResult(vkRes);
 }
 
 GR_RESULT GR_STDCALL grCreateFence(

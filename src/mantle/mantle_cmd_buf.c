@@ -1271,3 +1271,48 @@ GR_VOID GR_STDCALL grCmdResetEvent(
     VKD.vkCmdResetEvent(grCmdBuffer->commandBuffer, grEvent->event,
                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 }
+
+GR_VOID GR_STDCALL grCmdBeginQuery(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_QUERY_POOL queryPool,
+    GR_UINT slot,
+    GR_FLAGS flags)
+{
+    LOGT("%p %p %u 0x%X\n", cmdBuffer, queryPool, slot, flags);
+    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+
+    VKD.vkCmdBeginQuery(grCmdBuffer->commandBuffer, grQueryPool->queryPool, slot,
+                        flags & GR_QUERY_IMPRECISE_DATA ? 0 : VK_QUERY_CONTROL_PRECISE_BIT);
+}
+
+GR_VOID GR_STDCALL grCmdEndQuery(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_QUERY_POOL queryPool,
+    GR_UINT slot)
+{
+    LOGT("%p %p %u\n", cmdBuffer, queryPool, slot);
+    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+
+    VKD.vkCmdEndQuery(grCmdBuffer->commandBuffer, grQueryPool->queryPool, slot);
+}
+
+GR_VOID GR_STDCALL grCmdResetQueryPool(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_QUERY_POOL queryPool,
+    GR_UINT startQuery,
+    GR_UINT queryCount)
+{
+    LOGT("%p %p %u %u\n", cmdBuffer, queryPool, startQuery, queryCount);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    VKD.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grQueryPool->queryPool,
+                            startQuery, queryCount);
+}

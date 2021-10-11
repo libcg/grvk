@@ -523,6 +523,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
             .fillModeNonSolid = VK_TRUE,
             .multiViewport = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
+            .occlusionQueryPrecise = VK_TRUE,
+            .pipelineStatisticsQuery = VK_TRUE,
             .fragmentStoresAndAtomics = VK_TRUE,
         },
     };
