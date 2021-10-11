@@ -115,8 +115,8 @@ static VkRenderPass getVkRenderPass(
                 .storeOp = hasDepth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
                 .stencilLoadOp = hasStencil ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = hasStencil ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .initialLayout = vkImageLayouts[i],
+                .finalLayout = vkImageLayouts[i],
             };
 
             depthStencilReference = (VkAttachmentReference) {
@@ -134,8 +134,8 @@ static VkRenderPass getVkRenderPass(
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
-                .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .initialLayout = vkImageLayouts[i],
+                .finalLayout = vkImageLayouts[i],
             };
 
             colorReferences[colorReferenceCount] = (VkAttachmentReference) {
@@ -952,7 +952,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         if (grColorTargetView != NULL) {
             attachments[attachmentCount] = grColorTargetView->imageView;
             vkFormats[attachmentCount] = grColorTargetView->format;
-            vkImageLayouts[attachmentCount] = VK_IMAGE_LAYOUT_GENERAL;
+            vkImageLayouts[attachmentCount] = getVkImageLayout(pColorTargets[i].colorTargetState, false);
             attachmentCount++;
         }
     }
