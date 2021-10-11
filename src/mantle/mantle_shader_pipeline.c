@@ -427,6 +427,9 @@ GR_RESULT GR_STDCALL grCreateShader(
     if (res != VK_SUCCESS) {
         LOGE("vkCreateShaderModule failed (%d)\n", res);
         free(ilcShader.code);
+        free(ilcShader.bindings);
+        free(ilcShader.inputs);
+        free(ilcShader.name);
         return getGrResult(res);
     }
 
@@ -438,6 +441,8 @@ GR_RESULT GR_STDCALL grCreateShader(
         .shaderModule = vkShaderModule,
         .bindingCount = ilcShader.bindingCount,
         .bindings = ilcShader.bindings,
+        .inputCount = ilcShader.inputCount,
+        .inputs = ilcShader.inputs,
         .name = ilcShader.name,
     };
 
@@ -455,7 +460,9 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     GR_RESULT res = GR_SUCCESS;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkShaderModule rectangleShaderModule = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
+    VkResult vkRes;
 
     // TODO validate parameters
 
@@ -494,6 +501,50 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
             .flags = 0,
             .stage = stage->flags,
             .module = grShader->shaderModule,
+            .pName = "main",
+            .pSpecializationInfo = NULL,
+        };
+
+        stageCount++;
+    }
+
+    // Use a geometry shader to emulate RECT_LIST primitive topology
+    if (pCreateInfo->iaState.topology == GR_TOPOLOGY_RECT_LIST) {
+        if (stages[1].shader->shader != GR_NULL_HANDLE ||
+            stages[2].shader->shader != GR_NULL_HANDLE ||
+            stages[3].shader->shader != GR_NULL_HANDLE) {
+            LOGE("unhandled RECT_LIST topology with predefined HS, DS or GS shaders\n");
+            assert(false);
+        }
+
+        GrShader* grPixelShader = (GrShader*)stages[4].shader->shader;
+        IlcShader rectangleShader = ilcCompileRectangleGeometryShader(
+            grPixelShader != NULL ? grPixelShader->inputCount : 0,
+            grPixelShader != NULL ? grPixelShader->inputs : NULL);
+
+        const VkShaderModuleCreateInfo rectangleShaderModuleCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .codeSize = rectangleShader.codeSize,
+            .pCode = rectangleShader.code,
+        };
+
+        vkRes = VKD.vkCreateShaderModule(grDevice->device, &rectangleShaderModuleCreateInfo, NULL,
+                                         &rectangleShaderModule);
+        free(rectangleShader.code);
+
+        if (vkRes != VK_SUCCESS) {
+            res = getGrResult(vkRes);
+            goto bail;
+        }
+
+        shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .stage = VK_SHADER_STAGE_GEOMETRY_BIT,
+            .module = rectangleShaderModule,
             .pName = "main",
             .pSpecializationInfo = NULL,
         };
@@ -560,6 +611,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         goto bail;
     }
 
+    // TODO keep track of rectangle shader module
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
@@ -588,6 +640,7 @@ bail:
         VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayouts[i], NULL);
     }
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
+    VKD.vkDestroyShaderModule(grDevice->device, rectangleShaderModule, NULL);
     return res;
 }
 

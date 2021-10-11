@@ -318,6 +318,8 @@ typedef struct _GrShader {
     VkShaderModule shaderModule;
     unsigned bindingCount;
     IlcBinding* bindings;
+    unsigned inputCount;
+    IlcInput* inputs;
     char* name;
 } GrShader;
 

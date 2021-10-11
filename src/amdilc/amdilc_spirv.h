@@ -330,6 +330,12 @@ IlcSpvId ilcSpvPutSelect(
     IlcSpvId obj1Id,
     IlcSpvId obj2Id);
 
+void ilcSpvPutEmitVertex(
+    IlcSpvModule* module);
+
+void ilcSpvPutEndPrimitive(
+    IlcSpvModule* module);
+
 void ilcSpvPutControlBarrier(
     IlcSpvModule* module,
     IlcSpvId executionId,

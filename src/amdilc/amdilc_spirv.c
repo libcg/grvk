@@ -947,6 +947,22 @@ IlcSpvId ilcSpvPutSelect(
     return id;
 }
 
+void ilcSpvPutEmitVertex(
+    IlcSpvModule* module)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpEmitVertex, 1);
+}
+
+void ilcSpvPutEndPrimitive(
+    IlcSpvModule* module)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpEndPrimitive, 1);
+}
+
 void ilcSpvPutControlBarrier(
     IlcSpvModule* module,
     IlcSpvId executionId,

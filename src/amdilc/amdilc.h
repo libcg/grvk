@@ -19,17 +19,28 @@ typedef struct _IlcBinding {
     int strideIndex; // Stride location in push constants (<0 means non-existent)
 } IlcBinding;
 
+typedef struct _IlcInput {
+    uint32_t locationIndex;
+    uint8_t interpMode;
+} IlcInput;
+
 typedef struct _IlcShader {
     unsigned codeSize;
     uint32_t* code;
     unsigned bindingCount;
     IlcBinding* bindings;
+    unsigned inputCount;
+    IlcInput* inputs;
     char* name;
 } IlcShader;
 
 IlcShader ilcCompileShader(
     const void* code,
     unsigned size);
+
+IlcShader ilcCompileRectangleGeometryShader(
+    unsigned psInputCount,
+    const IlcInput* psInputs);
 
 void ilcDisassembleShader(
     FILE* file,

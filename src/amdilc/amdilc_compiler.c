@@ -84,6 +84,8 @@ typedef struct {
     IlcSpvModule* module;
     unsigned bindingCount;
     IlcBinding* bindings;
+    unsigned inputCount;
+    IlcInput* inputs;
     IlcSpvId entryPointId;
     IlcSpvId uintId;
     IlcSpvId uint4Id;
@@ -1069,6 +1071,14 @@ static void emitInput(
 
         IlcSpvWord locationIdx = dst->registerNum;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
+
+        // Register generic input
+        compiler->inputCount++;
+        compiler->inputs = realloc(compiler->inputs, compiler->inputCount * sizeof(IlcInput));
+        compiler->inputs[compiler->inputCount - 1] = (IlcInput) {
+            .locationIndex = locationIdx,
+            .interpMode = interpMode,
+        };
     } else if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID ||
                importUsage == IL_IMPORTUSAGE_VERTEXID ||
                importUsage == IL_IMPORTUSAGE_INSTANCEID ||
@@ -3264,6 +3274,8 @@ IlcShader ilcCompileKernel(
         .module = &module,
         .bindingCount = 0,
         .bindings = NULL,
+        .inputCount = 0,
+        .inputs = NULL,
         .entryPointId = ilcSpvAllocId(&module),
         .uintId = uintId,
         .uint4Id = ilcSpvPutVectorType(&module, uintId, 4),
@@ -3313,6 +3325,8 @@ IlcShader ilcCompileKernel(
         .code = module.buffer[ID_MAIN].words,
         .bindingCount = compiler.bindingCount,
         .bindings = compiler.bindings,
+        .inputCount = compiler.inputCount,
+        .inputs = compiler.inputs,
         .name = strdup(name),
     };
 }
