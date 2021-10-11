@@ -489,12 +489,45 @@ void ilcSpvPutFunction(
     putWord(buffer, type);
 }
 
+IlcSpvId ilcSpvPutFunctionParameter(
+    IlcSpvModule* module,
+    IlcSpvId resultType)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpFunctionParameter, 3);
+    putWord(buffer, resultType);
+    putWord(buffer, id);
+    return id;
+}
+
+
 void ilcSpvPutFunctionEnd(
     IlcSpvModule* module)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     putInstr(buffer, SpvOpFunctionEnd, 1);
+}
+
+IlcSpvId ilcSpvPutFunctionCall(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId functionId,
+    unsigned paramCount,
+    IlcSpvId* parameters)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+    IlcSpvId id = ilcSpvAllocId(module);
+
+    putInstr(buffer, SpvOpFunctionCall, 4 + paramCount);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, functionId);
+    for (unsigned i = 0; i < paramCount; ++i) {
+        putWord(buffer, parameters[i]);
+    }
+    return id;
 }
 
 IlcSpvId ilcSpvPutVariable(
