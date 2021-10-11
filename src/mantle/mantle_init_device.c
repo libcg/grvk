@@ -644,12 +644,18 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
+        .renderPassPool = {
+            .renderPasses = NULL,
+            .renderPassCount = 0,
+            .renderPassMutex = {},
+        },
     };
 
     // Allow queue muxing when the driver doesn't expose certain queue types
     InitializeCriticalSectionAndSpinCount(&grDevice->universalQueueMutex, 0);
     InitializeCriticalSectionAndSpinCount(&grDevice->computeQueueMutex, 0);
     InitializeCriticalSectionAndSpinCount(&grDevice->dmaQueueMutex, 0);
+    InitializeCriticalSection(&grDevice->renderPassPool.renderPassMutex);
 
     grDevice->universalAtomicCounterBuffer =
         allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
@@ -683,6 +689,15 @@ GR_RESULT GR_STDCALL grDestroyDevice(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
+    // handle render pass context
+    EnterCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    for (unsigned i = 0; i < grDevice->renderPassPool.renderPassCount; ++i) {
+        VKD.vkDestroyRenderPass(grDevice->device, grDevice->renderPassPool.renderPasses[i].renderPass, NULL);
+    }
+    free(grDevice->renderPassPool.renderPasses);
+    LeaveCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+
+    DeleteCriticalSection(&grDevice->renderPassPool.renderPassMutex);
     VKD.vkDestroyDevice(grDevice->device, NULL);
     free(grDevice);
 

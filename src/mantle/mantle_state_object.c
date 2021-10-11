@@ -227,17 +227,9 @@ GR_RESULT GR_STDCALL grCreateMsaaState(
 
     // TODO validate args
 
-    unsigned renderPassIndex;
-    for (renderPassIndex = 0;; renderPassIndex++) {
-        if ((1 << renderPassIndex) >= pCreateInfo->samples) {
-            break;
-        }
-    }
-
     GrMsaaStateObject* grMsaaStateObject = malloc(sizeof(GrMsaaStateObject));
     *grMsaaStateObject = (GrMsaaStateObject) {
         .grObj = { GR_OBJ_TYPE_MSAA_STATE_OBJECT, grDevice },
-        .renderPassIndex = renderPassIndex,
         .sampleCountFlags = getVkSampleCountFlags(pCreateInfo->samples),
         .sampleMask = pCreateInfo->sampleMask,
     };

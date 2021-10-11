@@ -6,9 +6,188 @@
 typedef enum _DirtyFlags {
     FLAG_DIRTY_DESCRIPTOR_SETS      = 1u << 0,
     FLAG_DIRTY_FRAMEBUFFER          = 1u << 1,
-    FLAG_DIRTY_PIPELINE             = 1u << 2,
-    FLAG_DIRTY_DYNAMIC_OFFSET       = 1u << 3,
+    FLAG_DIRTY_RENDER_PASS          = 1u << 2,
+    FLAG_DIRTY_PIPELINE             = 1u << 3,
+    FLAG_DIRTY_DYNAMIC_OFFSET       = 1u << 4,
 } DirtyFlags;
+
+static VkRenderPass addRenderPass(
+    GrDevice* grDevice,
+    VkRenderPass newRenderPass,
+    const VkFormat* vkFormats,
+    const bool* attachmentUsed,
+    const VkImageLayout* vkImageLayouts,
+    unsigned attachmentCount,
+    VkSampleCountFlags sampleCountFlags)
+{
+    VkRenderPass foundPass = VK_NULL_HANDLE;
+    EnterCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    for (unsigned i = 0; i < grDevice->renderPassPool.renderPassCount; ++i) {
+        if (attachmentCount == grDevice->renderPassPool.renderPasses[i].attachmentCount &&
+            sampleCountFlags == grDevice->renderPassPool.renderPasses[i].sampleCountFlags &&
+            memcmp(grDevice->renderPassPool.renderPasses[i].attachmentFormats, vkFormats, sizeof(VkFormat) * attachmentCount) == 0 &&
+            memcmp(grDevice->renderPassPool.renderPasses[i].attachmentUsed, attachmentUsed, sizeof(bool) * attachmentCount) == 0 &&
+            memcmp(grDevice->renderPassPool.renderPasses[i].attachmentLayouts, vkImageLayouts, sizeof(VkImageLayout) * attachmentCount) == 0) {
+            foundPass = grDevice->renderPassPool.renderPasses[i].renderPass;
+            break;
+        }
+    }
+    if (foundPass == VK_NULL_HANDLE) {
+        foundPass = newRenderPass;
+        grDevice->renderPassPool.renderPassCount++;
+        grDevice->renderPassPool.renderPasses = realloc(grDevice->renderPassPool.renderPasses,
+                                                                               sizeof(GrRenderPassState) * grDevice->renderPassPool.renderPassCount);
+        grDevice->renderPassPool.renderPasses[grDevice->renderPassPool.renderPassCount - 1] = (GrRenderPassState) {
+            .renderPass = newRenderPass,
+            .attachmentFormats = {},
+            .attachmentUsed = {},
+            .attachmentLayouts = {},
+            .attachmentCount = attachmentCount,
+            .sampleCountFlags = sampleCountFlags,
+        };
+        memcpy(grDevice->renderPassPool.renderPasses[grDevice->renderPassPool.renderPassCount - 1].attachmentFormats, vkFormats, attachmentCount * sizeof(VkFormat));
+        memcpy(grDevice->renderPassPool.renderPasses[grDevice->renderPassPool.renderPassCount - 1].attachmentUsed, attachmentUsed, attachmentCount * sizeof(bool));
+        memcpy(grDevice->renderPassPool.renderPasses[grDevice->renderPassPool.renderPassCount - 1].attachmentLayouts, vkImageLayouts, attachmentCount * sizeof(VkImageLayout));
+    }
+    LeaveCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    return foundPass;
+}
+
+static VkRenderPass findRenderPass(
+    GrDevice* grDevice,
+    const VkFormat* vkFormats,
+    const bool* attachmentUsed,
+    const VkImageLayout* vkImageLayouts,
+    unsigned attachmentCount,
+    VkSampleCountFlags sampleCountFlags)
+{
+    VkRenderPass foundPass = VK_NULL_HANDLE;
+    EnterCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    for (unsigned i = 0; i < grDevice->renderPassPool.renderPassCount; ++i) {
+        if (attachmentCount == grDevice->renderPassPool.renderPasses[i].attachmentCount &&
+            sampleCountFlags == grDevice->renderPassPool.renderPasses[i].sampleCountFlags &&
+            memcmp(grDevice->renderPassPool.renderPasses[i].attachmentFormats, vkFormats, sizeof(VkFormat) * attachmentCount) == 0 &&
+            memcmp(grDevice->renderPassPool.renderPasses[i].attachmentUsed, attachmentUsed, sizeof(bool) * attachmentCount) == 0 &&
+            memcmp(grDevice->renderPassPool.renderPasses[i].attachmentLayouts, vkImageLayouts, sizeof(VkImageLayout) * attachmentCount) == 0) {
+            foundPass = grDevice->renderPassPool.renderPasses[i].renderPass;
+            break;
+        }
+    }
+    LeaveCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    return foundPass;
+}
+
+static VkRenderPass getVkRenderPass(
+    GrDevice* grDevice,
+    const VkFormat* vkFormats,
+    const bool* attachmentUsed,
+    const VkImageLayout* vkImageLayouts,
+    unsigned attachmentCount,
+    VkSampleCountFlags sampleCountFlags)
+{
+    LOGT("%p %p %d %d\n", grDevice, vkFormats, attachmentCount, sampleCountFlags);
+    VkRenderPass renderPass = findRenderPass(grDevice, vkFormats, attachmentUsed, vkImageLayouts, attachmentCount, sampleCountFlags);
+    if (renderPass != VK_NULL_HANDLE) {
+        LOGT("found existing render pass %p\n", renderPass);
+        return renderPass;
+    }
+    VkAttachmentDescription descriptions[GR_MAX_COLOR_TARGETS + 1];
+    VkAttachmentReference colorReferences[GR_MAX_COLOR_TARGETS];
+    VkAttachmentReference depthStencilReference;
+    unsigned descriptionCount = 0;
+    unsigned colorReferenceCount = 0;
+    bool hasDepthStencil = false;
+
+    for (int i = 0; i < attachmentCount; i++) {
+        if (!attachmentUsed[i]) {
+            continue;
+        }
+        VkFormat vkFormat = vkFormats[i];
+        bool hasDepth = isVkFormatDepth(vkFormat);
+        bool hasStencil = isVkFormatStencil(vkFormat);
+        hasDepthStencil = hasStencil || hasDepth;
+        if (hasDepth || hasStencil) {
+            descriptions[descriptionCount] = (VkAttachmentDescription) {
+                .flags = 0,
+                .format = vkFormat,
+                .samples = sampleCountFlags,
+                .loadOp = hasDepth ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .storeOp = hasDepth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .stencilLoadOp = hasStencil ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = hasStencil ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+            };
+
+            depthStencilReference = (VkAttachmentReference) {
+                .attachment = descriptionCount,
+                .layout = vkImageLayouts[i],
+            };
+
+            descriptionCount++;
+        } else {
+            descriptions[descriptionCount] = (VkAttachmentDescription) {
+                .flags = 0,
+                .format = vkFormat,
+                .samples = sampleCountFlags,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
+            };
+
+            colorReferences[colorReferenceCount] = (VkAttachmentReference) {
+                .attachment = descriptionCount,
+                .layout = vkImageLayouts[i],
+            };
+
+            descriptionCount++;
+            colorReferenceCount++;
+        }
+    }
+
+    const VkSubpassDescription subpass = {
+        .flags = 0,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = NULL,
+        .colorAttachmentCount = colorReferenceCount,
+        .pColorAttachments = colorReferences,
+        .pResolveAttachments = NULL,
+        .pDepthStencilAttachment = hasDepthStencil ? &depthStencilReference : NULL,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = NULL,
+    };
+
+    const VkRenderPassCreateInfo renderPassCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .attachmentCount = descriptionCount,
+        .pAttachments = descriptions,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 0,
+        .pDependencies = NULL,
+    };
+
+    LOGT("creating render pass with %d\n", descriptionCount);
+    VkResult res = VKD.vkCreateRenderPass(grDevice->device, &renderPassCreateInfo, NULL,
+                                          &renderPass);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateRenderPass failed (%d)\n", res);
+        return VK_NULL_HANDLE;
+    }
+
+    VkRenderPass allocatedRenderPass = addRenderPass(grDevice, renderPass, vkFormats, attachmentUsed, vkImageLayouts, attachmentCount, sampleCountFlags);
+    if (allocatedRenderPass != renderPass) {
+        LOGT("got conflict while render pass slot allocation\n");
+        VKD.vkDestroyRenderPass(grDevice->device, renderPass, NULL);
+    }
+    return allocatedRenderPass;
+}
 
 static VkFramebuffer getVkFramebuffer(
     const GrDevice* grDevice,
@@ -38,6 +217,47 @@ static VkFramebuffer getVkFramebuffer(
     }
 
     return framebuffer;
+}
+
+static VkImageLayout getDepthStencilVkImageLayout(
+    GR_IMAGE_STATE depthState,
+    GR_IMAGE_STATE stencilState)
+{
+    switch (depthState) {
+    case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
+        switch (stencilState) {
+        case GR_IMAGE_STATE_UNINITIALIZED:
+            // don't know why bf4 uses this layout here
+            //return VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
+            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
+            return VK_IMAGE_LAYOUT_GENERAL;
+        case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
+            return VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
+        default:
+            break;
+        }
+        break;
+    case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
+        return VK_IMAGE_LAYOUT_GENERAL;
+    case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
+        switch (stencilState) {
+        case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
+            return VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL;
+        case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
+            return VK_IMAGE_LAYOUT_GENERAL;
+        case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
+        case GR_IMAGE_STATE_UNINITIALIZED:
+            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        default:
+            break;
+        }
+        default:
+            break;
+    }
+    LOGW("unhandled depthStencil state combination %d %d\n", depthState, stencilState);
+    return VK_IMAGE_LAYOUT_GENERAL;
 }
 
 static VkDescriptorPool getVkDescriptorPool(
@@ -205,20 +425,16 @@ static void grCmdBufferBeginRenderPass(
     GrCmdBuffer* grCmdBuffer)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    const GrPipeline* grPipeline =
-        grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
 
     if (grCmdBuffer->hasActiveRenderPass) {
         return;
     }
 
-    VkRenderPass renderPass = grPipeline->renderPasses[grCmdBuffer->grMsaaState->renderPassIndex];
-
     const VkRenderPassBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = NULL,
-        .renderPass = renderPass,
-        .framebuffer = grCmdBuffer->framebuffer,
+        .renderPass = grCmdBuffer->framebufferState.renderPass,
+        .framebuffer = grCmdBuffer->framebufferState.framebuffer,
         .renderArea = (VkRect2D) {
             .offset = { 0, 0 },
             .extent = { grCmdBuffer->minExtent.width, grCmdBuffer->minExtent.height },
@@ -323,7 +539,7 @@ static void grCmdBufferUpdateResources(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint vkBindPoint)
 {
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
     GrPipeline* grPipeline = bindPoint->grPipeline;
     uint32_t dirtyFlags = bindPoint->dirtyFlags;
@@ -336,30 +552,81 @@ static void grCmdBufferUpdateResources(
         grCmdBufferBindDescriptorSets(grCmdBuffer, vkBindPoint);
     }
 
+    if (dirtyFlags & FLAG_DIRTY_RENDER_PASS) {
+        bool attachmentUsed[GR_MAX_COLOR_TARGETS + 1];
+        for (unsigned i = 0; i < grCmdBuffer->attachmentCount; ++i) {
+            VkFormat vkFormat = grCmdBuffer->attachmentFormats[i];
+            bool hasDepthStencil = vkFormat == VK_FORMAT_S8_UINT ||
+                vkFormat == VK_FORMAT_D16_UNORM ||
+                vkFormat == VK_FORMAT_D32_SFLOAT ||
+                vkFormat == VK_FORMAT_D16_UNORM_S8_UINT ||
+                vkFormat == VK_FORMAT_D32_SFLOAT_S8_UINT;
+            if (hasDepthStencil) {
+                attachmentUsed[i] = quirkHas(QUIRK_MISSING_DEPTH_STENCIL_TARGET) || grPipeline->createInfo->depthAttachmentEnable;
+                // since depthstencil attachment comes last, just break
+                break;
+            } else {
+                attachmentUsed[i] = (grPipeline->createInfo->colorWriteMasks[i] != ~0u);
+            }
+        }
+        VkRenderPass renderPass = getVkRenderPass(grDevice,
+                                                  grCmdBuffer->attachmentFormats,
+                                                  attachmentUsed,
+                                                  grCmdBuffer->attachmentLayouts,
+                                                  grCmdBuffer->attachmentCount,
+                                                  grCmdBuffer->grMsaaState->sampleCountFlags);
+        if (renderPass != grCmdBuffer->framebufferState.renderPass) {
+            grCmdBuffer->framebufferState.renderPass = renderPass;
+            dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
+        }
+    }
+
     if (dirtyFlags & FLAG_DIRTY_FRAMEBUFFER) {
         grCmdBufferEndRenderPass(grCmdBuffer);
 
-        VkRenderPass renderPass =
-            grPipeline->renderPasses[grCmdBuffer->grMsaaState->renderPassIndex];
-
-        grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, renderPass,
-                                                    grCmdBuffer->attachmentCount,
-                                                    grCmdBuffer->attachments,
-                                                    grCmdBuffer->minExtent);
+        unsigned fboAttachments = 0;
+        VkImageView vkImageViews[COUNT_OF(grCmdBuffer->attachments)];
+        for (unsigned i = 0; i < grCmdBuffer->attachmentCount; ++i) {
+            VkFormat vkFormat = grCmdBuffer->attachmentFormats[i];
+            bool hasDepthStencil = vkFormat == VK_FORMAT_S8_UINT ||
+                vkFormat == VK_FORMAT_D16_UNORM ||
+                vkFormat == VK_FORMAT_D32_SFLOAT ||
+                vkFormat == VK_FORMAT_D16_UNORM_S8_UINT ||
+                vkFormat == VK_FORMAT_D32_SFLOAT_S8_UINT;
+            if (hasDepthStencil) {
+                if (quirkHas(QUIRK_MISSING_DEPTH_STENCIL_TARGET) || grPipeline->createInfo->depthAttachmentEnable) {
+                    vkImageViews[fboAttachments++] = grCmdBuffer->attachments[i];
+                }
+                // since depthstencil attachment comes last, just break
+                break;
+            } else if (grPipeline->createInfo->colorWriteMasks[i] != ~0u) {
+                vkImageViews[fboAttachments++] = grCmdBuffer->attachments[i];
+            }
+        }
+        VkFramebuffer framebuffer = getVkFramebuffer(grDevice, grCmdBuffer->framebufferState.renderPass,
+                                                     //grCmdBuffer->attachmentCount,
+                                                     fboAttachments,
+                                                     vkImageViews,//grCmdBuffer->attachments,
+                                                     grCmdBuffer->minExtent);
+        grCmdBuffer->framebufferState.framebuffer = framebuffer;
 
         // Track framebuffer
         grCmdBuffer->framebufferCount++;
         grCmdBuffer->framebuffers =
             realloc(grCmdBuffer->framebuffers,
                     grCmdBuffer->framebufferCount * sizeof(VkFramebuffer));
-        grCmdBuffer->framebuffers[grCmdBuffer->framebufferCount - 1] = grCmdBuffer->framebuffer;
+        grCmdBuffer->framebuffers[grCmdBuffer->framebufferCount - 1] = framebuffer;
     }
 
     if (dirtyFlags & FLAG_DIRTY_PIPELINE) {
-        VkPipeline vkPipeline = grPipelineFindOrCreateVkPipeline(grPipeline,
-                                                                 grCmdBuffer->grColorBlendState,
-                                                                 grCmdBuffer->grMsaaState,
-                                                                 grCmdBuffer->grRasterState);
+        VkPipeline vkPipeline =
+            grPipelineFindOrCreateVkPipeline(grCmdBuffer->framebufferState.renderPass,
+                                             grPipeline,
+                                             grCmdBuffer->grColorBlendState,
+                                             grCmdBuffer->grMsaaState,
+                                             grCmdBuffer->grRasterState,
+                                             grCmdBuffer->attachmentFormats,
+                                             grCmdBuffer->attachmentCount);
 
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, vkPipeline);
     }
@@ -389,11 +656,12 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
 
     if (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
         bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS |
-                                 FLAG_DIRTY_PIPELINE;
+            FLAG_DIRTY_RENDER_PASS |
+            FLAG_DIRTY_PIPELINE;
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
-                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL));
+                              grPipelineFindOrCreateVkPipeline(VK_NULL_HANDLE, grPipeline, NULL, NULL, NULL, NULL, 0));
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
     }
@@ -509,15 +777,13 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         }
 
         if (grCmdBuffer->grMsaaState == NULL ||
-            msaaState->renderPassIndex != grCmdBuffer->grMsaaState->renderPassIndex) {
-            bindPoint->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
+            msaaState->sampleCountFlags != grCmdBuffer->grMsaaState->sampleCountFlags) {
+            bindPoint->dirtyFlags |= FLAG_DIRTY_RENDER_PASS | FLAG_DIRTY_PIPELINE;
         }
         if (grCmdBuffer->grMsaaState == NULL ||
-            msaaState->sampleCountFlags != grCmdBuffer->grMsaaState->sampleCountFlags ||
             msaaState->sampleMask != grCmdBuffer->grMsaaState->sampleMask) {
             bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
         }
-
         grCmdBuffer->grMsaaState = msaaState;
     }   break;
     }
@@ -678,11 +944,15 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     // Copy attachments
     unsigned attachmentCount = 0;
     VkImageView attachments[COUNT_OF(grCmdBuffer->attachments)];
+    VkFormat vkFormats[COUNT_OF(grCmdBuffer->attachmentFormats)];
+    VkImageLayout vkImageLayouts[COUNT_OF(grCmdBuffer->attachmentLayouts)];
     for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
         if (grColorTargetView != NULL) {
             attachments[attachmentCount] = grColorTargetView->imageView;
+            vkFormats[attachmentCount] = grColorTargetView->format;
+            vkImageLayouts[attachmentCount] = VK_IMAGE_LAYOUT_GENERAL;
             attachmentCount++;
         }
     }
@@ -691,19 +961,23 @@ GR_VOID GR_STDCALL grCmdBindTargets(
 
         if (grDepthStencilView != NULL) {
             attachments[attachmentCount] = grDepthStencilView->imageView;
+            vkFormats[attachmentCount] = grDepthStencilView->format;
+            vkImageLayouts[attachmentCount] = getDepthStencilVkImageLayout(pDepthTarget->depthState, pDepthTarget->stencilState);
             attachmentCount++;
         }
     }
 
     if (memcmp(&minExtent, &grCmdBuffer->minExtent, sizeof(minExtent)) != 0 ||
         attachmentCount != grCmdBuffer->attachmentCount ||
+        memcmp(vkImageLayouts, grCmdBuffer->attachmentLayouts, attachmentCount * sizeof(VkImageLayout)) != 0 ||
         memcmp(attachments, grCmdBuffer->attachments, attachmentCount * sizeof(VkImageView)) != 0) {
         // Targets have changed
         grCmdBuffer->minExtent = minExtent;
         grCmdBuffer->attachmentCount = attachmentCount;
         memcpy(grCmdBuffer->attachments, attachments, attachmentCount * sizeof(VkImageView));
-
-        bindPoint->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
+        memcpy(grCmdBuffer->attachmentFormats, vkFormats, attachmentCount * sizeof(VkFormat));
+        memcpy(grCmdBuffer->attachmentLayouts, vkImageLayouts, attachmentCount * sizeof(VkImageLayout));
+        bindPoint->dirtyFlags |= FLAG_DIRTY_RENDER_PASS | FLAG_DIRTY_FRAMEBUFFER;
     }
 }
 
