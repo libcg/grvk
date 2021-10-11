@@ -81,6 +81,18 @@ GR_RESULT GR_STDCALL grDestroyObject(
         free(grViewportStateObject->viewports);
         free(grViewportStateObject->scissors);
     }   break;
+    case GR_OBJ_TYPE_EVENT:
+        GrEvent* grEvent = (GrEvent*)grObject;
+        VKD.vkDestroyEvent(grDevice->device, grEvent->event, NULL);
+        break;
+    case GR_OBJ_TYPE_FENCE:
+        GrFence* grFence = (GrFence*)grObject;
+        VKD.vkDestroyFence(grDevice->device, grFence->fence, NULL);
+        break;
+    case GR_OBJ_TYPE_QUEUE_SEMAPHORE:
+        GrQueueSemaphore* grQueueSemaphore = (GrQueueSemaphore*)grObject;
+        VKD.vkDestroySemaphore(grDevice->device, grQueueSemaphore->semaphore, NULL);
+        break;
     default:
         LOGW("unsupported object type %u\n", grObject->grObjType);
         return GR_ERROR_INVALID_OBJECT_TYPE;
