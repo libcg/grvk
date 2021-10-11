@@ -165,3 +165,12 @@ void ilcDisassembleShader(
     freeKernel(kernel);
     free(kernel);
 }
+
+IlcRecompiledShader ilcRecompileShader(
+    const void* code,
+    unsigned size,
+    const unsigned* inputPassthroughLocations,
+    unsigned passthroughCount)
+{
+    return ilcRecompileKernel(code, size / sizeof(uint32_t), inputPassthroughLocations, passthroughCount);
+}
