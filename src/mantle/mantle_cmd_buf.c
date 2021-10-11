@@ -886,10 +886,12 @@ GR_VOID GR_STDCALL grCmdCopyImage(
     GrImage* grDstImage = (GrImage*)destImage;
     unsigned srcTileSize = getVkFormatTileSize(grSrcImage->format);
     unsigned dstTileSize = getVkFormatTileSize(grDstImage->format);
+    unsigned extentTileSize = srcTileSize > dstTileSize ? dstTileSize : srcTileSize;
 
     if (quirkHas(QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS)) {
         srcTileSize = 1;
         dstTileSize = 1;
+        extentTileSize = 1;
     }
 
     grCmdBufferEndRenderPass(grCmdBuffer);
@@ -914,8 +916,8 @@ GR_VOID GR_STDCALL grCmdCopyImage(
                     region->destOffset.z,
                 },
                 .extent = {
-                    region->extent.width * dstTileSize,
-                    region->extent.height * dstTileSize,
+                    region->extent.width * extentTileSize,
+                    region->extent.height * extentTileSize,
                     region->extent.depth,
                 },
             };
