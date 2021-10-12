@@ -2695,20 +2695,12 @@ static void emitStructuredSrvLoad(
             resId = emitVectorGrow(compiler, resId, compiler->intId, compCount);
         }
 
-        resId = ilcSpvPutOp1(compiler->module, isSigned ? SpvOpConvertUToF : SpvOpConvertSToF,
-                             compiler->float4Id, resId);
+        resId = ilcSpvPutBitcast(compiler->module, compiler->float4Id, resId);
     } else if (numFormat == IL_BUF_NUM_FMT_UINT ||
                numFormat == IL_BUF_NUM_FMT_SINT ||
                numFormat == IL_BUF_NUM_FMT_FLOAT) {
         // Each word is a component of float4
         resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id, 4, fWordIds);
-
-        if (numFormat == IL_BUF_NUM_FMT_UINT || numFormat == IL_BUF_NUM_FMT_SINT) {
-            // Convert integers to float
-            IlcSpvWord op = numFormat == IL_BUF_NUM_FMT_UINT ? SpvOpConvertUToF : SpvOpConvertSToF;
-            resId = ilcSpvPutBitcast(compiler->module, compiler->int4Id, resId);
-            resId = ilcSpvPutOp1(compiler->module, op, compiler->float4Id, resId);
-        }
     } else {
         LOGE("unhandled SRV format %ux%u %u\n", wordCount, elemCount, numFormat);
         assert(false);
