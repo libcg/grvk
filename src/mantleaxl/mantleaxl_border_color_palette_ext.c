@@ -22,12 +22,19 @@ GR_RESULT GR_STDCALL grCreateBorderColorPalette(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    LOGW("semi-stub\n");
     GrBorderColorPalette* grBorderColorPalette = malloc(sizeof(GrBorderColorPalette));
     *grBorderColorPalette = (GrBorderColorPalette) {
         .grObj = { GR_OBJ_TYPE_BORDER_COLOR_PALETTE, grDevice },
         .size = pCreateInfo->paletteSize,
+        .data = malloc(4 * pCreateInfo->paletteSize * sizeof(float)),
     };
+
+    // HACK: pass the palette through GrDevice so we don't have to defer sampler creation
+    if (grDevice->grBorderColorPalette != NULL) {
+        LOGW("multiple border color palettes are not supported\n");
+    } else {
+        grDevice->grBorderColorPalette = grBorderColorPalette;
+    }
 
     *pPalette = (GR_BORDER_COLOR_PALETTE)grBorderColorPalette;
     return GR_SUCCESS;
@@ -52,6 +59,17 @@ GR_RESULT GR_STDCALL grUpdateBorderColorPalette(
         return GR_ERROR_INVALID_VALUE;
     }
 
-    LOGW("semi-stub\n");
+    memcpy(&grBorderColorPalette->data[4 * firstEntry], pEntries, 4 * entryCount * sizeof(float));
+
     return GR_SUCCESS;
+}
+
+GR_VOID grCmdBindBorderColorPalette(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM pipelineBindPoint,
+    GR_BORDER_COLOR_PALETTE palette)
+{
+    LOGT("%p 0x%X %p\n", cmdBuffer, pipelineBindPoint, palette);
+
+    // No-op
 }

@@ -127,6 +127,7 @@ typedef struct _GrObject {
 typedef struct _GrBorderColorPalette {
     GrObject grObj;
     unsigned size;
+    float* data;
 } GrBorderColorPalette;
 
 typedef struct _GrCmdBuffer {
@@ -212,6 +213,7 @@ typedef struct _GrDevice {
     unsigned universalQueueFamilyIndex;
     unsigned computeQueueFamilyIndex;
     unsigned dmaQueueFamilyIndex;
+    GrBorderColorPalette* grBorderColorPalette;
 } GrDevice;
 
 typedef struct _GrEvent {

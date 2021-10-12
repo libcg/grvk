@@ -431,9 +431,15 @@ GR_RESULT GR_STDCALL grCreateDevice(
         goto bail;
     }
 
+    VkPhysicalDeviceCustomBorderColorFeaturesEXT customBorderColor = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT,
+        .pNext = NULL,
+        .customBorderColors = VK_TRUE,
+        .customBorderColorWithoutFormat = VK_TRUE,
+    };
     VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicState = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
-        .pNext = NULL,
+        .pNext = &customBorderColor,
         .extendedDynamicState = VK_TRUE,
     };
     VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
@@ -467,6 +473,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
     };
 
     const char *deviceExtensions[] = {
+        VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
         VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -514,7 +521,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .memoryProperties = memoryProperties,
         .universalQueueFamilyIndex = universalQueueFamilyIndex,
         .computeQueueFamilyIndex = computeQueueFamilyIndex,
-        .dmaQueueFamilyIndex = dmaQueueFamilyIndex
+        .dmaQueueFamilyIndex = dmaQueueFamilyIndex,
+        .grBorderColorPalette = NULL,
     };
 
     *pDevice = (GR_DEVICE)grDevice;

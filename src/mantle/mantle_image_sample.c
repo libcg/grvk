@@ -383,9 +383,26 @@ GR_RESULT GR_STDCALL grCreateSampler(
         return GR_ERROR_INVALID_POINTER;
     }
 
+    int customColorIndex = -1;
+    VkBorderColor vkBorderColor = getVkBorderColor(pCreateInfo->borderColor, &customColorIndex);
+    VkClearColorValue colorValue = { 0 };
+
+    if (customColorIndex >= 0) {
+        float* data = &grDevice->grBorderColorPalette->data[4 * customColorIndex];
+
+        memcpy(colorValue.float32, data, 4 * sizeof(float));
+    }
+
+    const VkSamplerCustomBorderColorCreateInfoEXT borderColorCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .customBorderColor = colorValue,
+        .format = VK_FORMAT_UNDEFINED,
+    };
+
     const VkSamplerCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .pNext = NULL,
+        .pNext = customColorIndex >= 0 ? &borderColorCreateInfo : NULL,
         .flags = 0,
         .magFilter = getVkFilterMag(pCreateInfo->filter),
         .minFilter = getVkFilterMin(pCreateInfo->filter),
@@ -400,7 +417,7 @@ GR_RESULT GR_STDCALL grCreateSampler(
         .compareOp = getVkCompareOp(pCreateInfo->compareFunc),
         .minLod = pCreateInfo->minLod,
         .maxLod = pCreateInfo->maxLod,
-        .borderColor = getVkBorderColor(pCreateInfo->borderColor),
+        .borderColor = vkBorderColor,
         .unnormalizedCoordinates = VK_FALSE,
     };
 

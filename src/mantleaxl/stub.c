@@ -1,16 +1,6 @@
 #include "mantle/mantleExt.h"
 #include "logger.h"
 
-// Border Color Palette Extension Functions
-
-GR_VOID grCmdBindBorderColorPalette(
-    GR_CMD_BUFFER cmdBuffer,
-    GR_ENUM pipelineBindPoint,
-    GR_BORDER_COLOR_PALETTE palette)
-{
-    LOGW("STUB\n");
-}
-
 // Advanced Multisampling Extnension Functions
 
 GR_RESULT GR_STDCALL grCreateAdvancedMsaaState(

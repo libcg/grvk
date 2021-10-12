@@ -136,7 +136,8 @@ VkSamplerAddressMode getVkSamplerAddressMode(
     GR_TEX_ADDRESS texAddress);
 
 VkBorderColor getVkBorderColor(
-    GR_BORDER_COLOR_TYPE borderColorType);
+    GR_BORDER_COLOR_TYPE borderColorType,
+    int* customColorIndex);
 
 VkQueryType getVkQueryType(
     GR_QUERY_TYPE queryType);

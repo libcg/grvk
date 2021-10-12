@@ -1,6 +1,8 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "mantle_internal.h"
 
+#define CUSTOM_BORDER_COLOR_BASE_INDEX  (0x30A000)
+
 #define PACK_FORMAT(channel, numeric) \
     ((channel) << 16 | (numeric))
 
@@ -972,7 +974,8 @@ VkSamplerAddressMode getVkSamplerAddressMode(
 }
 
 VkBorderColor getVkBorderColor(
-    GR_BORDER_COLOR_TYPE borderColorType)
+    GR_BORDER_COLOR_TYPE borderColorType,
+    int* customColorIndex)
 {
     switch (borderColorType) {
     case GR_BORDER_COLOR_WHITE:
@@ -981,6 +984,12 @@ VkBorderColor getVkBorderColor(
         return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
     case GR_BORDER_COLOR_OPAQUE_BLACK:
         return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+    }
+
+    if (borderColorType >= CUSTOM_BORDER_COLOR_BASE_INDEX &&
+        borderColorType < CUSTOM_BORDER_COLOR_BASE_INDEX + 4096) {
+        *customColorIndex = borderColorType - CUSTOM_BORDER_COLOR_BASE_INDEX;
+        return VK_BORDER_COLOR_FLOAT_CUSTOM_EXT;
     }
 
     LOGW("unsupported border color type 0x%X\n", borderColorType);
