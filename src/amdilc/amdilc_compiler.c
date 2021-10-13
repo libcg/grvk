@@ -1245,20 +1245,21 @@ static void emitTypedUav(
 
     IlcSpvId sampledTypeId = 0;
     SpvImageFormat spvImageFormat = SpvImageFormatUnknown;
+    // AMD IL doesn't specify the type of each component in UAV aside from X,
+    // but there can be more components than 1, so just leave image format as Unknown
     if (fmtx == IL_ELEMENTFORMAT_SINT) {
         sampledTypeId = compiler->intId;
-        spvImageFormat = SpvImageFormatR32i;
     } else if (fmtx == IL_ELEMENTFORMAT_UINT) {
         sampledTypeId = compiler->uintId;
-        spvImageFormat = SpvImageFormatR32ui;
     } else if (fmtx == IL_ELEMENTFORMAT_FLOAT) {
         sampledTypeId = compiler->floatId;
-        spvImageFormat = SpvImageFormatRgba32f;
     } else {
         LOGE("unhandled format %d\n", fmtx);
         assert(false);
     }
 
+    ilcSpvPutCapability(compiler->module, SpvCapabilityStorageImageReadWithoutFormat);
+    ilcSpvPutCapability(compiler->module, SpvCapabilityStorageImageWriteWithoutFormat);
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim,
                                           0, isArrayed(type), isMultisampled(type), 2,
                                           spvImageFormat);
