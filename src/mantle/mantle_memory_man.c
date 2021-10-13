@@ -170,7 +170,7 @@ GR_RESULT GR_STDCALL grAllocMemory(
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext = NULL,
             .allocationSize = pAllocInfo->size,
-            .memoryTypeIndex = pAllocInfo->heaps[i],
+            .memoryTypeIndex = grDevice->memoryProperties.memoryTypes[pAllocInfo->heaps[i]].typeIndex,
         };
 
         vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);

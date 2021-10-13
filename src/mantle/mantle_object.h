@@ -204,12 +204,24 @@ typedef struct _GrDescriptorSet {
     DescriptorSetSlot* slots;
 } GrDescriptorSet;
 
+typedef struct _FilteredVkMemoryType {
+    uint32_t                 typeIndex;
+    VkMemoryPropertyFlags    propertyFlags;
+    uint32_t                 heapIndex;
+} FilteredVkMemoryType;
+typedef struct _FilteredVkPhysicalDeviceMemoryProperties {
+    uint32_t                memoryTypeCount;
+    FilteredVkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
+    uint32_t                memoryHeapCount;
+    VkMemoryHeap            memoryHeaps[VK_MAX_MEMORY_HEAPS];
+} FilteredVkPhysicalDeviceMemoryProperties;
+
 typedef struct _GrDevice {
     GrBaseObject grBaseObj;
     VULKAN_DEVICE vkd;
     VkDevice device;
     VkPhysicalDevice physicalDevice;
-    VkPhysicalDeviceMemoryProperties memoryProperties;
+    FilteredVkPhysicalDeviceMemoryProperties memoryProperties;
     unsigned universalQueueFamilyIndex;
     unsigned computeQueueFamilyIndex;
     unsigned dmaQueueFamilyIndex;

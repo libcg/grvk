@@ -512,13 +512,28 @@ GR_RESULT GR_STDCALL grCreateDevice(
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vki.vkGetPhysicalDeviceMemoryProperties(grPhysicalGpu->physicalDevice, &memoryProperties);
 
+    FilteredVkPhysicalDeviceMemoryProperties filteredMemoryProperties;
+    filteredMemoryProperties.memoryHeapCount = memoryProperties.memoryHeapCount;
+    memcpy(filteredMemoryProperties.memoryHeaps, memoryProperties.memoryHeaps, sizeof(VkMemoryHeap) * memoryProperties.memoryHeapCount);
+    filteredMemoryProperties.memoryTypeCount = 0;
+    for (int i = 0; i < memoryProperties.memoryTypeCount; i++) {
+        VkMemoryType *memoryType = &memoryProperties.memoryTypes[i];
+        if (memoryType->propertyFlags != 0) {
+            FilteredVkMemoryType *filteredMemoryType = &filteredMemoryProperties.memoryTypes[filteredMemoryProperties.memoryTypeCount];
+            filteredMemoryType->heapIndex = memoryType->heapIndex;
+            filteredMemoryType->propertyFlags = memoryType->propertyFlags;
+            filteredMemoryType->typeIndex = i;
+            filteredMemoryProperties.memoryTypeCount++;
+        }
+    }
+
     GrDevice* grDevice = malloc(sizeof(GrDevice));
     *grDevice = (GrDevice) {
         .grBaseObj = { GR_OBJ_TYPE_DEVICE },
         .vkd = vkd,
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
-        .memoryProperties = memoryProperties,
+        .memoryProperties = filteredMemoryProperties,
         .universalQueueFamilyIndex = universalQueueFamilyIndex,
         .computeQueueFamilyIndex = computeQueueFamilyIndex,
         .dmaQueueFamilyIndex = dmaQueueFamilyIndex,

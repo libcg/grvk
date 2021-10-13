@@ -133,6 +133,21 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
                 VKD.vkGetBufferMemoryRequirements(grDevice->device, grImage->buffer, &memReqs);
             }
 
+            FilteredVkPhysicalDeviceMemoryProperties *memoryProps = &grDevice->memoryProperties;
+            int memoryTypeBits = 0;
+            for (int memoryType = 0; memoryType < VK_MAX_MEMORY_TYPES; memoryType++) {
+                if ((memReqs.memoryTypeBits & memoryType) == 0)
+                    continue;
+
+                for (int i = 0; i < memoryProps->memoryTypeCount; i++) {
+                    FilteredVkMemoryType *filteredMemoryType = &memoryProps->memoryTypes[i];
+                    if (filteredMemoryType->typeIndex == memoryType) {
+                        memoryTypeBits |= i;
+                    }
+                }
+            }
+            memReqs.memoryTypeBits = memoryTypeBits;
+
             *grMemReqs = getGrMemoryRequirements(memReqs);
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
