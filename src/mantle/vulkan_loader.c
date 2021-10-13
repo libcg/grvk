@@ -199,6 +199,8 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkUpdateDescriptorSetWithTemplate);
     LOAD_VULKAN_DEV_FN(vkd, device, vkUpdateDescriptorSets);
     LOAD_VULKAN_DEV_FN(vkd, device, vkWaitForFences);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkBindBufferMemory2);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkBindImageMemory2);
 
 #ifdef VK_KHR_dynamic_rendering
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginRenderingKHR);

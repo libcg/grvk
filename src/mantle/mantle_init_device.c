@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "mantle_internal.h"
+#include "mantle_object.h"
 
 #define NVIDIA_VENDOR_ID 0x10de
 #define INVALID_QUEUE_INDEX (~0u)
@@ -161,6 +162,7 @@ GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
         GrPhysicalGpu* grPhysicalGpu = malloc(sizeof(GrPhysicalGpu));
         *grPhysicalGpu = (GrPhysicalGpu) {
             .grBaseObj = { GR_OBJ_TYPE_PHYSICAL_GPU },
+            .instance = vkInstance,
             .physicalDevice = physicalDevices[i],
             .physicalDeviceProps = { 0 }, // Initialized below
         };
@@ -604,6 +606,172 @@ GR_RESULT GR_STDCALL grCreateDevice(
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vki.vkGetPhysicalDeviceMemoryProperties(grPhysicalGpu->physicalDevice, &memoryProperties);
 
+    VkMemoryPropertyFlags memTypeRetainMask = 0;
+    VkMemoryRequirements reqs;
+    VkBufferCreateInfo bufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .size = 16,
+        .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = NULL
+    };
+    VkBuffer buffer;
+    vkd.vkCreateBuffer(vkDevice, &bufferInfo, NULL, &buffer);
+    vkd.vkGetBufferMemoryRequirements(vkDevice, buffer, &reqs);
+    vkd.vkDestroyBuffer(vkDevice, buffer, NULL);
+    memTypeRetainMask |= reqs.memoryTypeBits;
+
+    VkImageCreateInfo imageInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .extent = {
+            .width = 16,
+            .height = 16,
+            .depth = 1,
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
+            | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = NULL,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+    };
+    VkImage image;
+    vkd.vkCreateImage(vkDevice, &imageInfo, NULL, &image);
+    vkd.vkGetImageMemoryRequirements(vkDevice, image, &reqs);
+    vkd.vkDestroyImage(vkDevice, image, NULL);
+    memTypeRetainMask |= reqs.memoryTypeBits;
+
+    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_LINEAR;
+    vkd.vkCreateImage(vkDevice, &imageInfo, NULL, &image);
+    vkd.vkGetImageMemoryRequirements(vkDevice, image, &reqs);
+    vkd.vkDestroyImage(vkDevice, image, NULL);
+    memTypeRetainMask |= reqs.memoryTypeBits;
+
+    GrvkMemoryHeaps heaps = {
+        .heapCount = 0
+    };
+
+    for (int i = 0; i < memoryProperties.memoryTypeCount && heaps.heapCount < 8; i++) {
+        VkMemoryType *memoryType = &memoryProperties.memoryTypes[i];
+        if (memoryType->propertyFlags == 0)
+            continue;
+
+        GrvkMemoryHeap heap = {
+            .vkMemoryTypeIndex = i,
+            .vkMemoryHeapIndex = memoryType->heapIndex,
+            .vkPropertyFlags = memoryType->propertyFlags,
+            .size = memoryProperties.memoryHeaps[memoryType->heapIndex].size,
+        };
+        heaps.heaps[heaps.heapCount] = heap;
+        heaps.heapCount++;
+    }
+
+    for (int i = 0; i < memoryProperties.memoryTypeCount && heaps.heapCount < 8; i++) {
+        VkMemoryType *memoryType = &memoryProperties.memoryTypes[i];
+        if (memoryType->propertyFlags != 0 || (memTypeRetainMask & (1 << i)) == 0)
+            continue;
+
+        GrvkMemoryHeap heap = {
+            .vkMemoryTypeIndex = i,
+            .vkMemoryHeapIndex = memoryType->heapIndex,
+            .vkPropertyFlags = memoryType->propertyFlags,
+            .size = memoryProperties.memoryHeaps[memoryType->heapIndex].size,
+        };
+        heaps.heaps[heaps.heapCount] = heap;
+        heaps.heapCount++;
+    }
+
+    bool virtualizeMemory = props->vendorID == NVIDIA_VENDOR_ID;
+
+    VmaAllocator allocator;
+    if (virtualizeMemory) {
+        VkMemoryPropertyFlags mask = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+        memset(&heaps, 0, sizeof(GrvkMemoryHeaps));
+        VkMemoryPropertyFlags requestedHeaps[4];
+        requestedHeaps[0] = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        requestedHeaps[1] = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+        requestedHeaps[2] = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        requestedHeaps[3] = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+        for (int i = 0; i < 4; i++) {
+            for (int memTypeI = 0; memTypeI < memoryProperties.memoryTypeCount; memTypeI++) {
+                VkMemoryType *memoryType = &memoryProperties.memoryTypes[memTypeI];
+                if ((memoryType->propertyFlags & mask) == requestedHeaps[i]) {
+                    LOGD("Mantle heap %d mapped to Vulkan memory type: %d\n", heaps.heapCount, memTypeI);
+                    GrvkMemoryHeap *heap = &heaps.heaps[heaps.heapCount];
+                    heaps.heapCount++;
+                    heap->vkMemoryTypeIndex = memTypeI;
+                    heap->vkMemoryHeapIndex = memoryType->heapIndex;
+                    heap->size = memoryProperties.memoryHeaps[memoryType->heapIndex].size;
+                    heap->vkPropertyFlags = requestedHeaps[i];
+                }
+            }
+        }
+        if (heaps.heaps[3].vkMemoryTypeIndex == UINT_MAX) {
+            heaps.heapCount = 3;
+        }
+
+        VmaVulkanFunctions vkFuncs = {
+            .vkGetPhysicalDeviceProperties = vki.vkGetPhysicalDeviceProperties,
+            .vkGetPhysicalDeviceMemoryProperties = vki.vkGetPhysicalDeviceMemoryProperties,
+            .vkAllocateMemory = vkd.vkAllocateMemory,
+            .vkFreeMemory = vkd.vkFreeMemory,
+            .vkMapMemory = vkd.vkMapMemory,
+            .vkUnmapMemory = vkd.vkUnmapMemory,
+            .vkFlushMappedMemoryRanges = vkd.vkFlushMappedMemoryRanges,
+            .vkInvalidateMappedMemoryRanges = vkd.vkInvalidateMappedMemoryRanges,
+            .vkBindBufferMemory = vkd.vkBindBufferMemory,
+            .vkBindImageMemory = vkd.vkBindImageMemory,
+            .vkGetBufferMemoryRequirements = vkd.vkGetBufferMemoryRequirements,
+            .vkGetImageMemoryRequirements = vkd.vkGetImageMemoryRequirements,
+            .vkCreateBuffer = vkd.vkCreateBuffer,
+            .vkDestroyBuffer = vkd.vkDestroyBuffer,
+            .vkCreateImage = vkd.vkCreateImage,
+            .vkDestroyImage = vkd.vkDestroyImage,
+            .vkCmdCopyBuffer = vkd.vkCmdCopyBuffer,
+            .vkGetBufferMemoryRequirements2KHR = vkd.vkGetBufferMemoryRequirements2,
+            .vkGetImageMemoryRequirements2KHR = vkd.vkGetImageMemoryRequirements2,
+            .vkBindBufferMemory2KHR = vkd.vkBindBufferMemory2,
+            .vkBindImageMemory2KHR = vkd.vkBindImageMemory2,
+            .vkGetPhysicalDeviceMemoryProperties2KHR = vki.vkGetPhysicalDeviceMemoryProperties2,
+        };
+
+        VmaAllocatorCreateInfo allocatorInfo = {
+            .vulkanApiVersion = VK_API_VERSION_1_2,
+            .physicalDevice = grPhysicalGpu->physicalDevice,
+            .device = vkDevice,
+            .instance = grPhysicalGpu->instance,
+            .flags = 0,
+            .preferredLargeHeapBlockSize = 0,
+            .pAllocationCallbacks = NULL,
+            .pDeviceMemoryCallbacks = NULL,
+            .frameInUseCount = 0,
+            .pHeapSizeLimit = NULL,
+            .pRecordSettings = NULL,
+            .pTypeExternalMemoryHandleTypes = NULL,
+            .pVulkanFunctions = &vkFuncs,
+        };
+        vkRes = vmaCreateAllocator(&allocatorInfo, &allocator);
+        if (vkRes != VK_SUCCESS) {
+            LOGE("vmaCreateAllocator failed (%d)\n", vkRes);
+            res = GR_ERROR_INITIALIZATION_FAILED;
+            goto bail;
+        }
+    }
+
     GrDevice* grDevice = malloc(sizeof(GrDevice));
     *grDevice = (GrDevice) {
         .grBaseObj = { GR_OBJ_TYPE_DEVICE },
@@ -617,6 +785,9 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
+        .heaps = heaps,
+        .virtualizeMemory = virtualizeMemory,
+        .allocator = allocator,
     };
 
     if (universalQueueFamilyIndex != INVALID_QUEUE_INDEX) {

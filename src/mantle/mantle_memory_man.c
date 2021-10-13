@@ -35,8 +35,27 @@ void grGpuMemoryBindBuffer(
         assert(false);
     }
 
-    vkRes = VKD.vkBindBufferMemory(grDevice->device, grGpuMemory->buffer,
-                                   grGpuMemory->deviceMemory, 0);
+    if (!grDevice->virtualizeMemory) {
+        vkRes = VKD.vkBindBufferMemory(grDevice->device, grGpuMemory->buffer,
+                                    grGpuMemory->deviceMemory, 0);
+    } else {
+        if (grGpuMemory->allocation == VK_NULL_HANDLE) {
+            // Allocate memory
+            VmaAllocationCreateInfo allocationInfo = {
+                .flags = 0,
+                .usage = 0,
+                .requiredFlags = grDevice->heaps.heaps[grGpuMemory->heapIndex].vkPropertyFlags,
+                .preferredFlags = 0,
+                .memoryTypeBits = 0,
+                .pool = VK_NULL_HANDLE,
+                .pUserData = NULL,
+                .priority = 1.0f
+            };
+            vkRes = vmaAllocateMemoryForBuffer(grDevice->allocator, grGpuMemory->buffer,
+                                            &allocationInfo, &grGpuMemory->allocation, NULL);
+        }
+        vkRes = vmaBindBufferMemory(grDevice->allocator, grGpuMemory->allocation, grGpuMemory->buffer);
+    }
     if (vkRes != VK_SUCCESS) {
         LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
         assert(false);
@@ -60,7 +79,8 @@ GR_RESULT GR_STDCALL grGetMemoryHeapCount(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    *pCount = grDevice->memoryProperties.memoryTypeCount;
+    *pCount = grDevice->heaps.heapCount;
+
     return GR_SUCCESS;
 }
 
@@ -86,7 +106,7 @@ GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
         return GR_ERROR_INVALID_MEMORY_SIZE;
     }
 
-    if (heapId >= grDevice->memoryProperties.memoryTypeCount) {
+    if (heapId >= grDevice->heaps.heapCount) {
         return GR_ERROR_INVALID_ORDINAL;
     }
 
@@ -96,8 +116,7 @@ GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
         return GR_SUCCESS;
     }
 
-    VkMemoryPropertyFlags flags = grDevice->memoryProperties.memoryTypes[heapId].propertyFlags;
-    uint32_t vkHeapIndex = grDevice->memoryProperties.memoryTypes[heapId].heapIndex;
+    VkMemoryPropertyFlags flags = grDevice->heaps.heaps[heapId].vkPropertyFlags;
     bool deviceLocal = (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
     bool hostVisible = (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
     bool hostCoherent = (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
@@ -110,7 +129,7 @@ GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
     // https://gpuopen.com/learn/vulkan-device-memory/
     *(GR_MEMORY_HEAP_PROPERTIES*)pData = (GR_MEMORY_HEAP_PROPERTIES) {
         .heapMemoryType = deviceLocal ? GR_HEAP_MEMORY_LOCAL : GR_HEAP_MEMORY_REMOTE,
-        .heapSize = grDevice->memoryProperties.memoryHeaps[vkHeapIndex].size,
+        .heapSize = grDevice->heaps.heaps[heapId].size,
         .pageSize = 65536, // 19.4.3
         .flags = (hostVisible ? GR_MEMORY_HEAP_CPU_VISIBLE : 0) |
                  (hostCoherent ? GR_MEMORY_HEAP_CPU_GPU_COHERENT : 0) |
@@ -162,14 +181,65 @@ GR_RESULT GR_STDCALL grAllocMemory(
     VkDeviceMemory vkMemory = VK_NULL_HANDLE;
 
     // Try to allocate from the best heap
+    int heapIndex = -1;
     vkRes = VK_ERROR_UNKNOWN;
     for (int i = 0; i < pAllocInfo->heapCount; i++) {
+        int heapId = pAllocInfo->heaps[i];
+
+        if (grDevice->virtualizeMemory) {
+            bool hostVisible = (grDevice->heaps.heaps[heapId].vkPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+            bool deviceLocal = (grDevice->heaps.heaps[heapId].vkPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
+
+            VmaAllocation allocation = VK_NULL_HANDLE;
+            if (hostVisible) {
+                VmaAllocationCreateInfo allocationInfo = {
+                    .flags = 0,
+                    .usage = 0,
+                    .requiredFlags = grDevice->heaps.heaps[heapId].vkPropertyFlags & ~VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                    .preferredFlags = deviceLocal ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0,
+                    .memoryTypeBits = 1 << grDevice->heaps.heaps[heapId].vkMemoryTypeIndex,
+                    .pool = VK_NULL_HANDLE,
+                    .pUserData = NULL,
+                    .priority = 1.0f
+                };
+                VkMemoryRequirements reqs = {
+                    .size = pAllocInfo->size,
+                    .alignment = pAllocInfo->alignment,
+                    .memoryTypeBits = ~0,
+                };
+                vkRes = vmaAllocateMemory(grDevice->allocator, &reqs,
+                                            &allocationInfo, &allocation, NULL);
+
+                if (vkRes != VK_SUCCESS) {
+                    LOGE("no suitable heap was found, heap: %d\n", heapId);
+                    return GR_ERROR_OUT_OF_GPU_MEMORY;
+                }
+            }
+
+            GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
+            *grGpuMemory = (GrGpuMemory) {
+                .grObj = { GR_OBJ_TYPE_GPU_MEMORY, grDevice },
+                .deviceMemory = VK_NULL_HANDLE,
+                .deviceSize = pAllocInfo->size,
+                .buffer = VK_NULL_HANDLE, // Created on demand
+                .heapIndex = pAllocInfo->heaps[0],
+                .allocation = allocation,
+            };
+            if (hostVisible) {
+                grGpuMemoryBindBuffer(grGpuMemory);
+            }
+
+            *pMem = (GR_GPU_MEMORY)grGpuMemory;
+            return GR_SUCCESS;
+        }
+
         const VkMemoryAllocateInfo allocateInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext = NULL,
             .allocationSize = pAllocInfo->size,
-            .memoryTypeIndex = pAllocInfo->heaps[i],
+            .memoryTypeIndex = grDevice->heaps.heaps[heapId].vkMemoryTypeIndex,
         };
+        heapIndex = heapId;
 
         vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
         if (vkRes == VK_SUCCESS) {
@@ -193,6 +263,8 @@ GR_RESULT GR_STDCALL grAllocMemory(
         .deviceMemory = vkMemory,
         .deviceSize = pAllocInfo->size,
         .buffer = VK_NULL_HANDLE, // Created on demand
+        .heapIndex = heapIndex,
+        .allocation = VK_NULL_HANDLE,
     };
     grGpuMemoryBindBuffer(grGpuMemory);
 
@@ -215,7 +287,13 @@ GR_RESULT GR_STDCALL grFreeMemory(
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
     VKD.vkDestroyBuffer(grDevice->device, grGpuMemory->buffer, NULL);
-    VKD.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
+    if (grGpuMemory->deviceMemory != VK_NULL_HANDLE) {
+        VKD.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
+    }
+
+    if (grGpuMemory->allocation == VK_NULL_HANDLE) {
+        vmaFreeMemory(grDevice->allocator, grGpuMemory->allocation);
+    }
     free(grGpuMemory);
 
     return GR_SUCCESS;
@@ -241,8 +319,14 @@ GR_RESULT GR_STDCALL grMapMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
-    VkResult vkRes = VKD.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
-                                     0, VK_WHOLE_SIZE, 0, ppData);
+    VkResult vkRes;
+    if (!grDevice->virtualizeMemory) {
+        vkRes = VKD.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
+                                        0, VK_WHOLE_SIZE, 0, ppData);
+    } else {
+        vkRes = vmaMapMemory(grDevice->allocator, grGpuMemory->allocation, ppData);
+    }
+
     if (vkRes != VK_SUCCESS) {
         LOGE("vkMapMemory failed (%d)\n", vkRes);
     }
@@ -264,7 +348,11 @@ GR_RESULT GR_STDCALL grUnmapMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
-    VKD.vkUnmapMemory(grDevice->device, grGpuMemory->deviceMemory);
+    if (!grDevice->virtualizeMemory) {
+        VKD.vkUnmapMemory(grDevice->device, grGpuMemory->deviceMemory);
+    } else {
+        vmaUnmapMemory(grDevice->allocator, grGpuMemory->allocation);
+    }
 
     return GR_SUCCESS;
 }

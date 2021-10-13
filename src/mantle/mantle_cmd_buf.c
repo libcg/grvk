@@ -713,7 +713,9 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
+    unsigned bufferBarrierCount = 0;
     STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
+    STACK_ARRAY(VkBufferMemoryBarrier, bufferBarriers, 128, transitionCount);
     VkPipelineStageFlags srcStageMask = 0;
     VkPipelineStageFlags dstStageMask = 0;
 
@@ -721,6 +723,25 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
         bool isDepthStencil = isVkFormatDepthStencil(grImage->format);
+
+        if (grImage->buffer != VK_NULL_HANDLE) {
+            bufferBarriers[bufferBarrierCount] = (VkBufferMemoryBarrier) {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+                .pNext = NULL,
+                .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState, false),
+                .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState, false),
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .buffer = grImage->buffer,
+                .offset = 0,
+                .size = VK_WHOLE_SIZE,
+            };
+            bufferBarrierCount++;
+        }
+
+        if (grImage->image == VK_NULL_HANDLE) {
+            continue;
+        }
 
         barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -741,8 +762,9 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
     }
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer, srcStageMask, dstStageMask,
-                             0, 0, NULL, 0, NULL, transitionCount, barriers);
+                             0, 0, NULL, bufferBarrierCount, bufferBarriers, transitionCount, barriers);
 
+    STACK_ARRAY_FINISH(bufferBarriers);
     STACK_ARRAY_FINISH(barriers);
 }
 

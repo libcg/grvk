@@ -32,7 +32,7 @@ GR_RESULT GR_STDCALL grCreateViewportState(
             viewport->maxDepth < 0.f || viewport->maxDepth > 1.f ||
             viewport->minDepth >= viewport->maxDepth) {
             LOGW("invalid viewport parameters %g %g %g %g %g %g\n",
-                 viewport->originX, viewport->originY, viewport->width, viewport->height,
+                 viewport->originX, viewport->originY, max(1.f, viewport->width), max(1.f, viewport->height),
                  viewport->minDepth, viewport->maxDepth);
             free(vkViewports);
             return GR_ERROR_INVALID_VALUE;

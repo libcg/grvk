@@ -103,6 +103,7 @@ GR_RESULT GR_STDCALL grCreateImageView(
     GrImageView* grImageView = malloc(sizeof(GrImageView));
     *grImageView = (GrImageView) {
         .grObj = { GR_OBJ_TYPE_IMAGE_VIEW, grDevice },
+        .image = grImage,
         .imageView = vkImageView,
         .format = createInfo.format,
     };
@@ -166,6 +167,7 @@ GR_RESULT GR_STDCALL grCreateColorTargetView(
     GrColorTargetView* grColorTargetView = malloc(sizeof(GrColorTargetView));
     *grColorTargetView = (GrColorTargetView) {
         .grObj = { GR_OBJ_TYPE_COLOR_TARGET_VIEW, grDevice },
+        .image = grImage,
         .imageView = vkImageView,
         .extent = {
             MIP(grImage->extent.width, pCreateInfo->mipLevel),

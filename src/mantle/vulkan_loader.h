@@ -181,6 +181,8 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkUpdateDescriptorSets);
     VULKAN_FN(vkUpdateDescriptorSetWithTemplate);
     VULKAN_FN(vkWaitForFences);
+    VULKAN_FN(vkBindBufferMemory2);
+    VULKAN_FN(vkBindImageMemory2);
 
 #ifdef VK_KHR_dynamic_rendering
     VULKAN_FN(vkCmdBeginRenderingKHR);

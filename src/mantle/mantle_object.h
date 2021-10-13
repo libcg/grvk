@@ -8,6 +8,8 @@
 #include "mantle/mantle.h"
 #include "amdilc.h"
 
+#include "vk_mem_alloc.h"
+
 #define MAX_STAGE_COUNT     5 // VS, HS, DS, GS, PS
 #define MSAA_LEVEL_COUNT    5 // 1, 2, 4, 8, 16x
 
@@ -182,13 +184,6 @@ typedef struct _GrColorBlendStateObject {
     float blendConstants[4];
 } GrColorBlendStateObject;
 
-typedef struct _GrColorTargetView {
-    GrObject grObj;
-    VkImageView imageView;
-    VkExtent3D extent;
-    VkFormat format;
-} GrColorTargetView;
-
 typedef struct _GrDepthStencilStateObject {
     GrObject grObj;
     VkBool32 depthTestEnable;
@@ -215,6 +210,17 @@ typedef struct _GrDescriptorSet {
     DescriptorSetSlot* slots;
 } GrDescriptorSet;
 
+typedef struct _GrvkMemoryHeap {
+    unsigned vkMemoryTypeIndex;
+    unsigned vkMemoryHeapIndex;
+    VkDeviceSize size;
+    VkMemoryPropertyFlags vkPropertyFlags;
+} GrvkMemoryHeap;
+typedef struct _GrvkMemoryHeaps {
+    GrvkMemoryHeap heaps[GR_MAX_MEMORY_HEAPS];
+    unsigned heapCount;
+} GrvkMemoryHeaps;
+
 typedef struct _GrDevice {
     GrBaseObject grBaseObj;
     VULKAN_DEVICE vkd;
@@ -227,6 +233,9 @@ typedef struct _GrDevice {
     VkBuffer universalAtomicCounterBuffer;
     VkBuffer computeAtomicCounterBuffer;
     GrBorderColorPalette* grBorderColorPalette;
+    GrvkMemoryHeaps heaps;
+    bool virtualizeMemory;
+    VmaAllocator allocator;
 } GrDevice;
 
 typedef struct _GrEvent {
@@ -245,6 +254,8 @@ typedef struct _GrGpuMemory {
     VkDeviceMemory deviceMemory;
     VkDeviceSize deviceSize;
     VkBuffer buffer;
+    int heapIndex;
+    VmaAllocation allocation;
 } GrGpuMemory;
 
 typedef struct _GrImage {
@@ -257,10 +268,22 @@ typedef struct _GrImage {
     VkFormat format;
     VkImageUsageFlags usage;
     bool multiplyCubeLayers;
+    bool isCube;
+    VmaAllocation imageAllocation;
+    VmaAllocation bufferAllocation;
 } GrImage;
+
+typedef struct _GrColorTargetView {
+    GrObject grObj;
+    GrImage *image;
+    VkImageView imageView;
+    VkExtent3D extent;
+    VkFormat format;
+} GrColorTargetView;
 
 typedef struct _GrImageView {
     GrObject grObj;
+    GrImage *image;
     VkImageView imageView;
     VkFormat format;
 } GrImageView;
@@ -273,6 +296,7 @@ typedef struct _GrMsaaStateObject {
 
 typedef struct _GrPhysicalGpu {
     GrBaseObject grBaseObj;
+    VkInstance instance;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceProperties physicalDeviceProps;
 } GrPhysicalGpu;

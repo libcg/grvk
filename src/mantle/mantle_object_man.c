@@ -1,4 +1,5 @@
 #include "mantle_internal.h"
+#include "mantle_object.h"
 
 // Generic API Object Management functions
 
@@ -59,8 +60,18 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_IMAGE: {
         GrImage* grImage = (GrImage*)grObject;
 
-        VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
-        VKD.vkDestroyBuffer(grDevice->device, grImage->buffer, NULL);
+        if (grImage->image != VK_NULL_HANDLE) {
+            VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
+        }
+        if (grImage->buffer != VK_NULL_HANDLE) {
+            VKD.vkDestroyBuffer(grDevice->device, grImage->buffer, NULL);
+        }
+        if (grImage->imageAllocation != VK_NULL_HANDLE) {
+            vmaFreeMemory(grDevice->allocator, grImage->imageAllocation);
+        }
+        if (grImage->bufferAllocation != VK_NULL_HANDLE) {
+            vmaFreeMemory(grDevice->allocator, grImage->bufferAllocation);
+        }
 
         grQueueRemoveInitialImage(grImage);
         grWsiDestroyImage(grImage);
@@ -153,13 +164,13 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
             GrImage* grImage = (GrImage*)grBaseObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
 
-            if (grImage->image != VK_NULL_HANDLE) {
-                VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
-            } else {
+            if (grImage->buffer != VK_NULL_HANDLE) {
                 VKD.vkGetBufferMemoryRequirements(grDevice->device, grImage->buffer, &memReqs);
+            } else {
+                VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
             }
 
-            *grMemReqs = getGrMemoryRequirements(memReqs);
+            *grMemReqs = getGrMemoryRequirements(grDevice, memReqs);
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
         case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
@@ -276,12 +287,74 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
             GrImage* grImage = (GrImage*)grObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
-            if (grImage->image != VK_NULL_HANDLE) {
-                vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
-                                              grGpuMemory->deviceMemory, offset);
+            if (!grDevice->virtualizeMemory) {
+                if (grImage->image != VK_NULL_HANDLE) {
+                    vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
+                                                grGpuMemory->deviceMemory, offset);
+                } else {
+                    vkRes = VKD.vkBindBufferMemory(grDevice->device, grImage->buffer,
+                                                grGpuMemory->deviceMemory, offset);
+                }
             } else {
-                vkRes = VKD.vkBindBufferMemory(grDevice->device, grImage->buffer,
-                                               grGpuMemory->deviceMemory, offset);
+                const GrvkMemoryHeap *heap = &grDevice->heaps.heaps[grGpuMemory->heapIndex];
+                bool hostVisible = (heap->vkPropertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+                bool deviceLocal = (heap->vkPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
+
+                VmaAllocationCreateInfo allocationInfo = {
+                    .flags = 0,
+                    .usage = 0,
+                    .requiredFlags = heap->vkPropertyFlags & ~VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                    .preferredFlags = deviceLocal ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : 0,
+                    .memoryTypeBits = 0,
+                    .pool = VK_NULL_HANDLE,
+                    .pUserData = NULL,
+                    .priority = 1.0f
+                };
+                if (!hostVisible) {
+                    if (grImage->image != VK_NULL_HANDLE)
+                    {
+                        vkRes = vmaAllocateMemoryForImage(grDevice->allocator, grImage->image,
+                                                        &allocationInfo, &grImage->imageAllocation, NULL);
+                        if (vkRes == VK_SUCCESS) {
+                            vkRes = vmaBindImageMemory(grDevice->allocator, grImage->imageAllocation,
+                                                            grImage->image);
+                        }
+                        if (grImage->buffer != VK_NULL_HANDLE) {
+                            // The image is not host visible, so we don't need the buffer
+                            VKD.vkDestroyBuffer(grDevice->device, grImage->buffer, NULL);
+                            grImage->buffer = VK_NULL_HANDLE;
+                        }
+                    } else {
+                        vkRes = vmaAllocateMemoryForBuffer(grDevice->allocator, grImage->buffer,
+                                                        &allocationInfo, &grImage->bufferAllocation, NULL);
+                        if (vkRes == VK_SUCCESS) {
+                            vkRes = vmaBindBufferMemory(grDevice->allocator, grImage->bufferAllocation,
+                                                            grImage->buffer);
+                        }
+                    }
+                } else {
+                    if (grImage->buffer != VK_NULL_HANDLE)
+                    {
+                        vkRes = vmaBindBufferMemory2(grDevice->allocator, grGpuMemory->allocation,
+                                                        offset, grImage->buffer, NULL);
+
+                        if (vkRes == VK_SUCCESS && grImage->image != VK_NULL_HANDLE)
+                        {
+                            allocationInfo.requiredFlags &= ~(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+                            vkRes = vmaAllocateMemoryForImage(grDevice->allocator, grImage->image,
+                                                            &allocationInfo, &grImage->imageAllocation, NULL);
+
+                            if (vkRes == VK_SUCCESS) {
+                                vkRes = vmaBindImageMemory(grDevice->allocator, grImage->imageAllocation,
+                                                               grImage->image);
+                            }
+                        }
+                    } else {
+                        vkRes = vmaBindImageMemory2(grDevice->allocator, grGpuMemory->allocation,
+                                                        offset, grImage->image, NULL);
+                    }
+                }
             }
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:

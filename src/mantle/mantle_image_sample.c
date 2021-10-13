@@ -129,6 +129,7 @@ GR_RESULT GR_STDCALL grCreateImage(
     LOGT("%p %p %p\n", device, pCreateInfo, pImage);
     GrDevice* grDevice = (GrDevice*)device;
     VkImage vkImage = VK_NULL_HANDLE;
+    VkBuffer vkBuffer = VK_NULL_HANDLE;
     VkResult vkRes;
 
     if (grDevice == NULL) {
@@ -180,12 +181,15 @@ GR_RESULT GR_STDCALL grCreateImage(
                    pCreateInfo->extent.depth == 1 &&
                    pCreateInfo->arraySize % 6 == 0 &&
                    pCreateInfo->samples == 1;
+    bool isLinearTransferImage = pCreateInfo->samples <= 1 &&
+        pCreateInfo->tiling == GR_LINEAR_TILING &&
+        pCreateInfo->usage == 0;
 
     if ((pCreateInfo->flags & ~GR_IMAGE_CREATE_VIEW_FORMAT_CHANGE) != 0) {
         LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
     }
 
-    const VkImageCreateInfo createInfo = {
+    VkImageCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = NULL,
         .flags = (pCreateInfo->flags & GR_IMAGE_CREATE_VIEW_FORMAT_CHANGE ?
@@ -210,12 +214,17 @@ GR_RESULT GR_STDCALL grCreateImage(
                                   : VK_IMAGE_LAYOUT_PREINITIALIZED,
     };
 
-    // Use a buffer for linear transfer-only images
-    if (pCreateInfo->samples <= 1 &&
-        pCreateInfo->tiling == GR_LINEAR_TILING &&
-        pCreateInfo->usage == 0) {
-        VkBuffer vkBuffer = VK_NULL_HANDLE;
+    bool formatSupported = checkFormatSupport(grDevice->physicalDevice, &createInfo);
+    if (!formatSupported && createInfo.tiling == VK_IMAGE_TILING_LINEAR) {
+        LOGW("Falling back to optimal tiling\n");
+        createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        if (!checkFormatSupport(grDevice->physicalDevice, &createInfo)) {
+            LOGE("Format still not supported\n");
+        }
+    }
 
+    // Use a buffer for linear transfer-only images
+    if (isLinearTransferImage || !formatSupported) {
         unsigned size = grImageGetBufferOffset(createInfo.extent, createInfo.format,
                                                0, createInfo.arrayLayers, createInfo.mipLevels);
 
@@ -236,34 +245,14 @@ GR_RESULT GR_STDCALL grCreateImage(
             LOGE("vkCreateBuffer failed (%d)\n", vkRes);
             return getGrResult(vkRes);
         }
-
-        GrImage* grImage = malloc(sizeof(GrImage));
-        *grImage = (GrImage) {
-            .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
-            .image = VK_NULL_HANDLE,
-            .buffer = vkBuffer,
-            .imageType = createInfo.imageType,
-            .extent = createInfo.extent,
-            .arrayLayers = createInfo.arrayLayers,
-            .format = createInfo.format,
-            .usage = createInfo.usage,
-            .multiplyCubeLayers = false,
-        };
-
-        *pImage = (GR_IMAGE)grImage;
-        return GR_SUCCESS;
     }
 
-    bool formatSupported = checkFormatSupport(grDevice->physicalDevice, createInfo);
-    if (!formatSupported) {
-        LOGW("unsupported format 0x%X for image type 0x%X, tiling 0x%X and usage 0x%X\n",
-             pCreateInfo->format, pCreateInfo->imageType, pCreateInfo->tiling, pCreateInfo->usage);
-    }
-
-    vkRes = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkCreateImage failed (%d)\n", vkRes);
-        return getGrResult(vkRes);
+    if (!isLinearTransferImage) {
+        vkRes = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
+        if (vkRes != VK_SUCCESS) {
+            LOGE("vkCreateImage failed (%d)\n", vkRes);
+            return getGrResult(vkRes);
+        }
     }
 
     // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
@@ -272,13 +261,16 @@ GR_RESULT GR_STDCALL grCreateImage(
     *grImage = (GrImage) {
         .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
         .image = vkImage,
-        .buffer = VK_NULL_HANDLE,
+        .buffer = vkBuffer,
         .imageType = createInfo.imageType,
         .extent = createInfo.extent,
         .arrayLayers = createInfo.arrayLayers,
         .format = createInfo.format,
         .usage = createInfo.usage,
         .multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && isCubic,
+        .isCube = isCubic,
+        .bufferAllocation = VK_NULL_HANDLE,
+        .imageAllocation = VK_NULL_HANDLE,
     };
 
     if (!isTarget) {

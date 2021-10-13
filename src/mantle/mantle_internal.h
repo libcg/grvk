@@ -54,6 +54,7 @@ GR_FORMAT_FEATURE_FLAGS getGrFormatFeatureFlags(
     VkFormatFeatureFlags vkFeatureFlags);
 
 GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
+    GrDevice *grDevice,
     VkMemoryRequirements vkMemReqs);
 
 VkFormat getVkFormat(
@@ -176,5 +177,7 @@ void grQueueRemoveInitialImage(
 
 void grWsiDestroyImage(
     GrImage* grImage);
+
+bool checkFormatSupport(VkPhysicalDevice physicalDevice, const VkImageCreateInfo *createInfo);
 
 #endif // MANTLE_INTERNAL_H_
