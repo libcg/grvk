@@ -1532,12 +1532,12 @@ static void emitFloatOp(
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_EXP_VEC:
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Exp, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Exp2, compiler->float4Id,
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_LOG_VEC:
         // FIXME handle log(0)
-        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Log, compiler->float4Id,
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450Log2, compiler->float4Id,
                                 instr->srcCount, srcIds);
         break;
     case IL_OP_RSQ_VEC:
