@@ -106,6 +106,8 @@ typedef struct {
     IlcSpvModule* module;
     unsigned bindingCount;
     IlcBinding* bindings;
+    unsigned atomicUavCount;
+    uint16_t* atomicUavs;
     unsigned inputCount;
     IlcInput* inputs;
     unsigned outputCount;
@@ -1517,15 +1519,30 @@ static void emitTypedUav(
     // but there can be more components than 1, so just leave image format as Unknown
     if (fmtx == IL_ELEMENTFORMAT_SINT) {
         sampledTypeId = compiler->intId;
+        spvImageFormat = SpvImageFormatR32i;
     } else if (fmtx == IL_ELEMENTFORMAT_UINT) {
         sampledTypeId = compiler->uintId;
+        spvImageFormat = SpvImageFormatR32ui;
     } else if (fmtx == IL_ELEMENTFORMAT_FLOAT) {
         sampledTypeId = compiler->floatId;
+        spvImageFormat = SpvImageFormatR32f;
     } else {
         LOGE("unhandled format %d\n", fmtx);
         assert(false);
     }
 
+    bool isAtomicUav = false;
+    for (unsigned i = 0; i < compiler->atomicUavCount; ++i) {
+        if (id == compiler->atomicUavs[i]) {
+            isAtomicUav = true;
+            break;
+        }
+    }
+    if (!isAtomicUav) {
+        // set image format only for atomic images, since atomic operations are only being used,
+        // if image contains single component
+        spvImageFormat = SpvImageFormatUnknown;
+    }
     ilcSpvPutCapability(compiler->module, SpvCapabilityStorageImageReadWithoutFormat);
     ilcSpvPutCapability(compiler->module, SpvCapabilityStorageImageWriteWithoutFormat);
     IlcSpvId imageId = ilcSpvPutImageType(compiler->module, sampledTypeId, spvDim,
@@ -3991,6 +4008,15 @@ static void emitInstr(
     }
 }
 
+bool isUavAtomicOperation(
+    const Instruction* instr)
+{
+    return instr->opcode == IL_OP_UAV_ADD ||
+        instr->opcode ==IL_OP_UAV_READ_ADD ||
+        instr->opcode == IL_OP_UAV_UMAX ||
+        instr->opcode == IL_OP_UAV_READ_UMAX;
+}
+
 static void emitEntryPoint(
     IlcCompiler* compiler)
 {
@@ -4094,6 +4120,8 @@ IlcShader ilcCompileKernel(
         .module = &module,
         .bindingCount = 0,
         .bindings = NULL,
+        .atomicUavCount = 0,
+        .atomicUavs = NULL,
         .inputCount = 0,
         .inputs = NULL,
         .outputCount = 0,
@@ -4143,6 +4171,20 @@ IlcShader ilcCompileKernel(
         } else if (kernel->instrs[i].opcode == IL_DCL_NUM_ICP &&
                    kernel->instrs[i].extraCount > 0) {
             compiler.inputControlPointSize = kernel->instrs[i].extras[0];
+        } else if (isUavAtomicOperation(&kernel->instrs[i])) {
+            uint16_t ilResourceId = GET_BITS(kernel->instrs[i].control, 0, 14);
+            bool resourceFound = false;
+            for (unsigned j = 0; j < compiler.atomicUavCount; j++) {
+                if (compiler.atomicUavs[j] == ilResourceId) {
+                    resourceFound = true;
+                    break;
+                }
+            }
+            if (!resourceFound) {
+                compiler.atomicUavCount++;
+                compiler.atomicUavs = realloc(compiler.atomicUavs, compiler.atomicUavCount * sizeof(uint16_t));
+                compiler.atomicUavs[compiler.atomicUavCount - 1] = ilResourceId;
+            }
         }
     }
 
@@ -4241,6 +4283,7 @@ IlcShader ilcCompileKernel(
     free(compiler.controlFlowBlocks);
     free(compiler.forkPhases);
     free(compiler.joinPhases);
+    free(compiler.atomicUavs);
     ilcSpvFinish(&module);
 
     return (IlcShader) {
