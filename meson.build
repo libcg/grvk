@@ -8,6 +8,10 @@ grvk_msvc     = grvk_compiler.get_id() == 'msvc'
 
 grvk_include_path = include_directories('./include')
 
+if grvk_compiler.has_link_argument('-Wl,--file-alignment=4096')
+  add_global_link_arguments('-Wl,--file-alignment=4096', language: 'c')
+endif
+
 if cpu_family == 'x86_64'
   dll_variant = '64'
   grvk_library_path = meson.source_root() + '/lib'
