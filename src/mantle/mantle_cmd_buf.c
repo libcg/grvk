@@ -882,9 +882,14 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
 
     STACK_ARRAY(VkBufferMemoryBarrier, barriers, 128, transitionCount);
 
+    VkPipelineStageFlags srcStageFlags = 0;
+    VkPipelineStageFlags dstStageFlags = 0;
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)stateTransition->mem;
+
+        srcStageFlags |= getVkPipelineStageFlagsMemory(stateTransition->oldState);
+        dstStageFlags |= getVkPipelineStageFlagsMemory(stateTransition->newState);
 
         barriers[i] = (VkBufferMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -900,8 +905,8 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
     }
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             srcStageFlags,
+                             dstStageFlags,
                              0, 0, NULL, transitionCount, barriers, 0, NULL);
 
     STACK_ARRAY_FINISH(barriers);
@@ -994,12 +999,17 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
 
     STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
 
+    VkPipelineStageFlags srcStageFlags = 0;
+    VkPipelineStageFlags dstStageFlags = 0;
+
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
         bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
         bool isFormatDepthStencil = isVkFormatDepthStencil(grImage->format);
 
+        srcStageFlags |= getVkPipelineStageFlagsImage(stateTransition->oldState);
+        dstStageFlags |= getVkPipelineStageFlagsImage(stateTransition->newState);
         barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = NULL,
@@ -1016,8 +1026,8 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
     }
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             srcStageFlags,
+                             dstStageFlags,
                              0, 0, NULL, 0, NULL, transitionCount, barriers);
 
     STACK_ARRAY_FINISH(barriers);
@@ -1520,7 +1530,7 @@ GR_VOID GR_STDCALL grCmdSetEvent(
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdSetEvent(grCmdBuffer->commandBuffer, grEvent->event,
-                      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+                      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 }
 
 GR_VOID GR_STDCALL grCmdResetEvent(
@@ -1535,7 +1545,7 @@ GR_VOID GR_STDCALL grCmdResetEvent(
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdResetEvent(grCmdBuffer->commandBuffer, grEvent->event,
-                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+                        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 }
 
 GR_VOID GR_STDCALL grCmdBeginQuery(

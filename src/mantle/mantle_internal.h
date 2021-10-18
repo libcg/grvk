@@ -80,9 +80,15 @@ VkImageType getVkImageType(
 VkImageUsageFlags getVkImageUsageFlags(
     GR_IMAGE_USAGE_FLAGS imageUsageFlags);
 
+VkPipelineStageFlags getVkPipelineStageFlagsImage(
+    GR_IMAGE_STATE imageState);
+
 VkAccessFlags getVkAccessFlagsImage(
     GR_IMAGE_STATE imageState,
     bool isImageDepthStencil);
+
+VkPipelineStageFlags getVkPipelineStageFlagsMemory(
+    GR_MEMORY_STATE memoryState);
 
 VkAccessFlags getVkAccessFlagsMemory(
     GR_MEMORY_STATE memoryState);

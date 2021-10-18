@@ -340,7 +340,7 @@ GR_RESULT GR_STDCALL grWaitQueueSemaphore(
 
     const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
 
-    VkPipelineStageFlags stageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    VkPipelineStageFlags stageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
