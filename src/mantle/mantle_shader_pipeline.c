@@ -7,47 +7,122 @@ typedef struct _Stage {
 } Stage;
 
 static void copyDescriptorSetMapping(
-    GR_DESCRIPTOR_SET_MAPPING* dst,
-    const GR_DESCRIPTOR_SET_MAPPING* src);
+    GrDescriptorSetMapping* dst,
+    unsigned* pTotalDescriptorBindingCount,
+    const GR_DESCRIPTOR_SET_MAPPING* src,
+    unsigned bindingCount,
+    const IlcBinding* bindings);
 
-static void copyDescriptorSlotInfo(
-    GR_DESCRIPTOR_SLOT_INFO* dst,
-    const GR_DESCRIPTOR_SLOT_INFO* src)
+static bool copyDescriptorSlotInfo(
+    GrPipelineDescriptorSlotInfo* dst,
+    unsigned* pTotalDescriptorBindingCount,
+    const GR_DESCRIPTOR_SLOT_INFO* src,
+    unsigned descriptorIndex,
+    unsigned bindingCount,
+    const IlcBinding* bindings)
 {
     dst->slotObjectType = src->slotObjectType;
+    dst->descriptorSlotIndex = descriptorIndex;
+    dst->descriptorType = -1;
     if (src->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
         // Go down one level...
-        dst->pNextLevelSet = malloc(sizeof(GR_DESCRIPTOR_SET_MAPPING));
-        copyDescriptorSetMapping((GR_DESCRIPTOR_SET_MAPPING*)dst->pNextLevelSet,
-                                 src->pNextLevelSet);
-    } else {
-        dst->shaderEntityIndex = src->shaderEntityIndex;
+        dst->pNextLevelSet = malloc(sizeof(GrDescriptorSetMapping));
+        copyDescriptorSetMapping((GrDescriptorSetMapping*)dst->pNextLevelSet,
+                                 pTotalDescriptorBindingCount,
+                                 src->pNextLevelSet,
+                                 bindingCount,
+                                 bindings);
+    } else if (src->slotObjectType != GR_SLOT_UNUSED) {
+        (*pTotalDescriptorBindingCount)++;
+        dst->bindingIndex = src->shaderEntityIndex;
+
+        if (src->slotObjectType != GR_SLOT_SHADER_SAMPLER) {
+            dst->bindingIndex += ILC_BASE_RESOURCE_ID;
+        } else {
+            dst->bindingIndex += ILC_BASE_SAMPLER_ID;
+        }
+        for (unsigned i = 0; i < bindingCount; ++i) {
+            const IlcBinding* binding = &bindings[i];
+            if (binding->index == dst->bindingIndex) {
+                dst->descriptorType = binding->descriptorType;
+                dst->strideIndex = binding->strideIndex;
+                break;
+            }
+        }
+        if (dst->descriptorType == -1) {
+            (*pTotalDescriptorBindingCount)--;
+            LOGT("failed to find appropriate descriptor type in bindings for index %d\n", src->shaderEntityIndex);
+            return false;
+        }
     }
+    return true;
 }
 
 static void copyDescriptorSetMapping(
-    GR_DESCRIPTOR_SET_MAPPING* dst,
-    const GR_DESCRIPTOR_SET_MAPPING* src)
+    GrDescriptorSetMapping* dst,
+    unsigned* pTotalDescriptorBindingCount,
+    const GR_DESCRIPTOR_SET_MAPPING* src,
+    unsigned bindingCount,
+    const IlcBinding* bindings)
 {
-    dst->descriptorCount = src->descriptorCount;
-    dst->pDescriptorInfo = malloc(src->descriptorCount * sizeof(GR_DESCRIPTOR_SLOT_INFO));
+    unsigned usedDescriptorCount = 0;
     for (unsigned i = 0; i < src->descriptorCount; i++) {
-        copyDescriptorSlotInfo((GR_DESCRIPTOR_SLOT_INFO*)&dst->pDescriptorInfo[i],
-                               &src->pDescriptorInfo[i]);
+        //TODO: also validate bindings here
+        if (src->pDescriptorInfo[i].slotObjectType != GR_SLOT_UNUSED) {
+            usedDescriptorCount++;
+        }
+    }
+    dst->descriptorSlotCount = usedDescriptorCount;
+    dst->pDescriptorInfo = malloc(usedDescriptorCount * sizeof(GrPipelineDescriptorSlotInfo));
+    for (unsigned i = 0, j = 0; i < src->descriptorCount; i++) {
+        if (src->pDescriptorInfo[i].slotObjectType == GR_SLOT_UNUSED) {
+            continue;
+        }
+        bool slotAllocated = copyDescriptorSlotInfo((GrPipelineDescriptorSlotInfo*)&dst->pDescriptorInfo[j],
+                               pTotalDescriptorBindingCount,
+                               &src->pDescriptorInfo[i],
+                               i,
+                               bindingCount,
+                               bindings);
+        if (slotAllocated) {
+            j++;
+        } else {
+            dst->descriptorSlotCount--;
+        }
     }
 }
 
 static void copyPipelineShader(
-    GR_PIPELINE_SHADER* dst,
+    GrPipelineShaderInfo* dst,
     const GR_PIPELINE_SHADER* src)
 {
-    dst->shader = src->shader;
+    const GrShader* grShader = (const GrShader*)src->shader;
+    dst->dynamicMemoryViewMapping.slotObjectType = GR_SLOT_UNUSED;
+    dst->atomicCounterInfo.atomicCounterBufferUsed = false;
+    dst->hasShaderAttached = grShader != NULL;
+    if (grShader == NULL) {
+        return;
+    }
     for (unsigned i = 0; i < COUNT_OF(dst->descriptorSetMapping); i++) {
-        copyDescriptorSetMapping(&dst->descriptorSetMapping[i], &src->descriptorSetMapping[i]);
+        copyDescriptorSetMapping(&dst->descriptorSetMapping[i], &dst->descriptorBindingCount[i], &src->descriptorSetMapping[i], grShader->bindingCount, grShader->bindings);
     }
     dst->linkConstBufferCount = 0; // Ignored
     dst->pLinkConstBufferInfo = NULL; // Ignored
-    dst->dynamicMemoryViewMapping = src->dynamicMemoryViewMapping;
+
+    for (unsigned i = 0; i < grShader->bindingCount; ++i) {
+        const IlcBinding* binding = &grShader->bindings[i];
+        if (binding->index == (ILC_BASE_RESOURCE_ID + src->dynamicMemoryViewMapping.shaderEntityIndex) &&
+            src->dynamicMemoryViewMapping.slotObjectType != GR_SLOT_UNUSED) {
+            // set dynamic memory type usage  only if shader uses it
+            dst->dynamicMemoryViewMapping.slotObjectType = src->dynamicMemoryViewMapping.slotObjectType;
+            dst->dynamicMemoryViewMapping.descriptorType = binding->descriptorType;
+            dst->dynamicMemoryViewMapping.bindingIndex = binding->index;
+            dst->dynamicMemoryViewMapping.strideIndex = binding->strideIndex;
+        } else if (binding->index == ILC_ATOMIC_COUNTER_ID) {
+            dst->atomicCounterInfo.bindingIndex = binding->index;
+            dst->atomicCounterInfo.atomicCounterBufferUsed = true;
+        }
+    }
 }
 
 static VkDescriptorSetLayout getVkDescriptorSetLayout(

@@ -276,6 +276,47 @@ typedef struct _GrPhysicalGpu {
     VkPhysicalDeviceProperties physicalDeviceProps;
 } GrPhysicalGpu;
 
+typedef struct _GrDescriptorSetMapping GrDescriptorSetMapping;
+
+typedef struct  _GrPipelineDescriptorSlotInfo {
+    unsigned descriptorSlotIndex;
+    GR_ENUM slotObjectType;
+    VkDescriptorType descriptorType;
+    union
+    {
+        struct {
+            GR_UINT bindingIndex;
+            GR_INT strideIndex;
+        };
+        const GrDescriptorSetMapping* pNextLevelSet;
+    };
+} GrPipelineDescriptorSlotInfo;
+
+typedef struct _GrDescriptorSetMapping {
+    unsigned descriptorSlotCount;
+    const GrPipelineDescriptorSlotInfo* pDescriptorInfo;
+} GrDescriptorSetMapping;
+
+typedef struct {
+    GR_ENUM slotObjectType;
+    VkDescriptorType descriptorType;
+    unsigned bindingIndex;
+    GR_INT strideIndex;
+} GrDynamicMemoryViewSlot;
+
+typedef struct _GrPipelineShaderInfo {
+    bool hasShaderAttached;
+    unsigned descriptorBindingCount[GR_MAX_DESCRIPTOR_SETS];
+    GrDescriptorSetMapping descriptorSetMapping[GR_MAX_DESCRIPTOR_SETS];
+    unsigned linkConstBufferCount;
+    const GR_LINK_CONST_BUFFER* pLinkConstBufferInfo;
+    GrDynamicMemoryViewSlot dynamicMemoryViewMapping;
+    struct {
+        bool atomicCounterBufferUsed;
+        unsigned bindingIndex;
+    } atomicCounterInfo;
+} GrPipelineShaderInfo;
+
 typedef struct _GrPipeline {
     GrObject grObj;
     PipelineCreateInfo* createInfo;
@@ -285,7 +326,7 @@ typedef struct _GrPipeline {
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
-    GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
+    GrPipelineShaderInfo shaderInfos[MAX_STAGE_COUNT];
     unsigned dynamicOffsetCount;
 } GrPipeline;
 
