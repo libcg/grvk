@@ -7,6 +7,7 @@ typedef enum _DirtyFlags {
     FLAG_DIRTY_DESCRIPTOR_SETS      = 1u << 0,
     FLAG_DIRTY_FRAMEBUFFER          = 1u << 1,
     FLAG_DIRTY_PIPELINE             = 1u << 2,
+    FLAG_DIRTY_DYNAMIC_OFFSET       = 1u << 3,
 } DirtyFlags;
 
 static VkFramebuffer getVkFramebuffer(
@@ -254,6 +255,12 @@ static void updateVkDescriptorSet(
             };
             writes[i].pBufferInfo = &bufferInfos[i];
 
+            if (slot == dynamicMemoryView) {
+                // Buffer offset is passed during descriptor set binding
+                writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+                bufferInfos[i].offset = 0;
+            }
+
             if (binding->strideIndex >= 0) {
                 // Pass memory view stride through push constants
                 uint32_t stride = slot->memoryView.stride;
@@ -375,10 +382,46 @@ static void grCmdBufferUpdateDescriptorSets(
                               grCmdBuffer->bindPoint[bindPoint].grDescriptorSet,
                               &grCmdBuffer->bindPoint[bindPoint].dynamicMemoryView);
     }
+}
+
+static void grCmdBufferBindDescriptorSets(
+    GrCmdBuffer* grCmdBuffer,
+    VkPipelineBindPoint bindPoint)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+
+    uint32_t dynamicOffsetCount = 0;
+    uint32_t dynamicOffsets[MAX_STAGE_COUNT];
+
+    // Find dynamic offsets used in this pipeline
+    // TODO move out of hot path
+    for (unsigned i = 0; i < grPipeline->stageCount; i++) {
+        const GrShader* grShader = (GrShader*)grPipeline->shaderInfos[i].shader;
+        const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping =
+            &grPipeline->shaderInfos[i].dynamicMemoryViewMapping;
+
+        if (grShader == NULL || dynamicMapping->slotObjectType == GR_SLOT_UNUSED) {
+            continue;
+        }
+
+        // We have to make sure the dynamic slot matches one shader binding in this pipeline stage
+        for (unsigned j = 0; j < grShader->bindingCount; j++) {
+            IlcBinding* binding = &grShader->bindings[j];
+
+            if (binding->index == (ILC_BASE_RESOURCE_ID + dynamicMapping->shaderEntityIndex)) {
+                dynamicOffsets[dynamicOffsetCount] =
+                    grCmdBuffer->bindPoint[bindPoint].dynamicMemoryView.memoryView.offset;
+                dynamicOffsetCount++;
+                break;
+            }
+        }
+    }
 
     VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipelineLayout,
                                 0, grPipeline->stageCount,
-                                grCmdBuffer->bindPoint[bindPoint].descriptorSets, 0, NULL);
+                                grCmdBuffer->bindPoint[bindPoint].descriptorSets,
+                                dynamicOffsetCount, dynamicOffsets);
 }
 
 static void grCmdBufferUpdateResources(
@@ -391,6 +434,10 @@ static void grCmdBufferUpdateResources(
 
     if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SETS) {
         grCmdBufferUpdateDescriptorSets(grCmdBuffer, bindPoint);
+    }
+
+    if (dirtyFlags & (FLAG_DIRTY_DESCRIPTOR_SETS | FLAG_DIRTY_DYNAMIC_OFFSET)) {
+        grCmdBufferBindDescriptorSets(grCmdBuffer, bindPoint);
     }
 
     if (dirtyFlags & FLAG_DIRTY_FRAMEBUFFER) {
@@ -575,6 +622,11 @@ GR_VOID GR_STDCALL grCmdBindDescriptorSet(
         LOGW("unsupported index %u\n", index);
     }
 
+    if (grDescriptorSet == grCmdBuffer->bindPoint[vkBindPoint].grDescriptorSet &&
+        slotOffset == grCmdBuffer->bindPoint[vkBindPoint].slotOffset) {
+        return;
+    }
+
     grCmdBuffer->bindPoint[vkBindPoint].grDescriptorSet = grDescriptorSet;
     grCmdBuffer->bindPoint[vkBindPoint].slotOffset = slotOffset;
 
@@ -590,21 +642,33 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
+    DescriptorSetSlot* dynamicSlot = &grCmdBuffer->bindPoint[vkBindPoint].dynamicMemoryView;
 
     // FIXME what is pMemView->state for?
+
+    bool dirtySlot = grGpuMemory->buffer != dynamicSlot->memoryView.vkBuffer ||
+                     pMemView->range != dynamicSlot->memoryView.range ||
+                     pMemView->stride != dynamicSlot->memoryView.stride;
+    bool dirtyOffset = pMemView->offset != dynamicSlot->memoryView.offset;
+
+    if (!dirtySlot && !dirtyOffset) {
+        return;
+    }
 
     grCmdBuffer->bindPoint[vkBindPoint].dynamicMemoryView = (DescriptorSetSlot) {
         .type = SLOT_TYPE_MEMORY_VIEW,
         .memoryView = {
             .vkBuffer = grGpuMemory->buffer,
-            .vkFormat = getVkFormat(pMemView->format),
+            .vkFormat = VK_FORMAT_UNDEFINED, // Only untyped buffers are allowed
             .offset = pMemView->offset,
             .range = pMemView->range,
             .stride = pMemView->stride,
         },
     };
 
-    grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+    grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |=
+        (dirtySlot ? FLAG_DIRTY_DESCRIPTOR_SETS : 0) |
+        (dirtyOffset ? FLAG_DIRTY_DYNAMIC_OFFSET : 0);
 }
 
 GR_VOID GR_STDCALL grCmdBindIndexData(

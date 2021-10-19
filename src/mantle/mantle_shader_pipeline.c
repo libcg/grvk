@@ -60,6 +60,8 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
     if (stage->shader->shader != GR_NULL_HANDLE) {
         const GrShader* grShader = stage->shader->shader;
+        const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicSlotInfo =
+            &stage->shader->dynamicMemoryViewMapping;
 
         bindingCount = grShader->bindingCount;
         bindings = malloc(bindingCount * sizeof(VkDescriptorSetLayoutBinding));
@@ -67,9 +69,18 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
         for (unsigned i = 0; i < grShader->bindingCount; i++) {
             const IlcBinding* binding = &grShader->bindings[i];
 
+            VkDescriptorType vkDescriptorType = binding->descriptorType;
+
+            if (dynamicSlotInfo->slotObjectType != GR_SLOT_UNUSED &&
+                dynamicSlotInfo->shaderEntityIndex + ILC_BASE_RESOURCE_ID == binding->index) {
+                // Use dynamic offsets for dynamic memory views to avoid invalidating
+                // descriptor sets each time the buffer offset changes
+                vkDescriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+            }
+
             bindings[i] = (VkDescriptorSetLayoutBinding) {
                 .binding = binding->index,
-                .descriptorType = binding->descriptorType,
+                .descriptorType = vkDescriptorType,
                 .descriptorCount = 1,
                 .stageFlags = stage->flags,
                 .pImmutableSamplers = NULL,

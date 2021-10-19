@@ -34,7 +34,7 @@ GR_VOID GR_STDCALL grBeginDescriptorSetUpdate(
 {
     LOGT("%p\n", descriptorSet);
 
-    // TODO dirty tracking
+    // No-op
 }
 
 GR_VOID GR_STDCALL grEndDescriptorSetUpdate(
@@ -42,7 +42,7 @@ GR_VOID GR_STDCALL grEndDescriptorSetUpdate(
 {
     LOGT("%p\n", descriptorSet);
 
-    // TODO update descriptors of bound pipelines
+    // No-op
 }
 
 GR_VOID GR_STDCALL grAttachSamplerDescriptors(
