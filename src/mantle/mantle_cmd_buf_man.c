@@ -20,7 +20,7 @@ void grCmdBufferResetState(
     free(grCmdBuffer->bufferViews);
 
     // Clear state
-    unsigned stateOffset = OFFSET_OF(GrCmdBuffer, dirtyFlags);
+    unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
 }
 
@@ -82,7 +82,6 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
-        .dirtyFlags = 0,
         .isBuilding = false,
         .bindPoint = { { 0 }, { 0 } },
         .grViewportState = NULL,

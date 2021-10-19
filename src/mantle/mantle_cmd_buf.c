@@ -4,10 +4,9 @@
 #define SETS_PER_POOL   (32)
 
 typedef enum _DirtyFlags {
-    FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS = 1,
-    FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS = 2,
-    FLAG_DIRTY_GRAPHICS_FRAMEBUFFER = 4,
-    FLAG_DIRTY_GRAPHICS_PIPELINE = 8,
+    FLAG_DIRTY_DESCRIPTOR_SETS      = 1u << 0,
+    FLAG_DIRTY_FRAMEBUFFER          = 1u << 1,
+    FLAG_DIRTY_PIPELINE             = 1u << 2,
 } DirtyFlags;
 
 static VkFramebuffer getVkFramebuffer(
@@ -387,58 +386,42 @@ static void grCmdBufferUpdateResources(
     VkPipelineBindPoint bindPoint)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+    uint32_t dirtyFlags = grCmdBuffer->bindPoint[bindPoint].dirtyFlags;
 
-    if (bindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
-        GrPipeline* grGraphicsPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
-
-        if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS) {
-            grCmdBufferUpdateDescriptorSets(grCmdBuffer, bindPoint);
-
-            grCmdBuffer->dirtyFlags &= ~FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS;
-        }
-
-        if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_GRAPHICS_FRAMEBUFFER) {
-            grCmdBufferEndRenderPass(grCmdBuffer);
-
-            VkRenderPass renderPass =
-                grGraphicsPipeline->renderPasses[grCmdBuffer->grMsaaState->renderPassIndex];
-
-            grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, renderPass,
-                                                        grCmdBuffer->attachmentCount,
-                                                        grCmdBuffer->attachments,
-                                                        grCmdBuffer->minExtent);
-
-            // Track framebuffer
-            grCmdBuffer->framebufferCount++;
-            grCmdBuffer->framebuffers =
-                realloc(grCmdBuffer->framebuffers,
-                        grCmdBuffer->framebufferCount * sizeof(VkFramebuffer));
-            grCmdBuffer->framebuffers[grCmdBuffer->framebufferCount - 1] = grCmdBuffer->framebuffer;
-
-            grCmdBuffer->dirtyFlags &= ~FLAG_DIRTY_GRAPHICS_FRAMEBUFFER;
-        }
-
-        if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_GRAPHICS_PIPELINE) {
-            VkPipeline vkPipeline =
-                grPipelineFindOrCreateVkPipeline(grGraphicsPipeline,
-                                                 grCmdBuffer->grColorBlendState,
-                                                 grCmdBuffer->grMsaaState,
-                                                 grCmdBuffer->grRasterState);
-
-            VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer,
-                                  VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline);
-
-            grCmdBuffer->dirtyFlags &= ~FLAG_DIRTY_GRAPHICS_PIPELINE;
-        }
-    } else if (bindPoint == VK_PIPELINE_BIND_POINT_COMPUTE) {
-        if (grCmdBuffer->dirtyFlags & FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS) {
-            grCmdBufferUpdateDescriptorSets(grCmdBuffer, bindPoint);
-
-            grCmdBuffer->dirtyFlags &= ~FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
-        }
-    } else {
-        assert(false);
+    if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SETS) {
+        grCmdBufferUpdateDescriptorSets(grCmdBuffer, bindPoint);
     }
+
+    if (dirtyFlags & FLAG_DIRTY_FRAMEBUFFER) {
+        grCmdBufferEndRenderPass(grCmdBuffer);
+
+        VkRenderPass renderPass =
+            grPipeline->renderPasses[grCmdBuffer->grMsaaState->renderPassIndex];
+
+        grCmdBuffer->framebuffer = getVkFramebuffer(grDevice, renderPass,
+                                                    grCmdBuffer->attachmentCount,
+                                                    grCmdBuffer->attachments,
+                                                    grCmdBuffer->minExtent);
+
+        // Track framebuffer
+        grCmdBuffer->framebufferCount++;
+        grCmdBuffer->framebuffers =
+            realloc(grCmdBuffer->framebuffers,
+                    grCmdBuffer->framebufferCount * sizeof(VkFramebuffer));
+        grCmdBuffer->framebuffers[grCmdBuffer->framebufferCount - 1] = grCmdBuffer->framebuffer;
+    }
+
+    if (dirtyFlags & FLAG_DIRTY_PIPELINE) {
+        VkPipeline vkPipeline = grPipelineFindOrCreateVkPipeline(grPipeline,
+                                                                 grCmdBuffer->grColorBlendState,
+                                                                 grCmdBuffer->grMsaaState,
+                                                                 grCmdBuffer->grRasterState);
+
+        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, vkPipeline);
+    }
+
+    grCmdBuffer->bindPoint[bindPoint].dirtyFlags = 0;
 }
 
 // Command Buffer Building Functions
@@ -460,16 +443,16 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
 
     grCmdBuffer->bindPoint[vkBindPoint].grPipeline = grPipeline;
 
-    if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS |
-                                   FLAG_DIRTY_GRAPHICS_FRAMEBUFFER |
-                                   FLAG_DIRTY_GRAPHICS_PIPELINE;
+    if (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS |
+                                                          FLAG_DIRTY_FRAMEBUFFER |
+                                                          FLAG_DIRTY_PIPELINE;
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
                               grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL));
 
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
+        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
     }
 }
 
@@ -481,6 +464,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
     LOGT("%p 0x%X %p\n", cmdBuffer, stateBindPoint, state);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    VkPipelineBindPoint vkBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     // TODO compare objects instead of just pointers
 
@@ -508,7 +492,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         VKD.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
         grCmdBuffer->grRasterState = rasterState;
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_PIPELINE;
+        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_PIPELINE;
     }   break;
     case GR_STATE_BIND_DEPTH_STENCIL: {
         GrDepthStencilStateObject* depthStencilState = (GrDepthStencilStateObject*)state;
@@ -560,7 +544,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
 
         VKD.vkCmdSetBlendConstants(grCmdBuffer->commandBuffer, colorBlendState->blendConstants);
         grCmdBuffer->grColorBlendState = colorBlendState;
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_PIPELINE;
+        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_PIPELINE;
     }   break;
     case GR_STATE_BIND_MSAA: {
         GrMsaaStateObject* msaaState = (GrMsaaStateObject*)state;
@@ -569,7 +553,8 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         }
 
         grCmdBuffer->grMsaaState = msaaState;
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_FRAMEBUFFER | FLAG_DIRTY_GRAPHICS_PIPELINE;
+        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER |
+                                                          FLAG_DIRTY_PIPELINE;
     }   break;
     }
 }
@@ -592,11 +577,8 @@ GR_VOID GR_STDCALL grCmdBindDescriptorSet(
 
     grCmdBuffer->bindPoint[vkBindPoint].grDescriptorSet = grDescriptorSet;
     grCmdBuffer->bindPoint[vkBindPoint].slotOffset = slotOffset;
-    if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS;
-    } else {
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
-    }
+
+    grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
 }
 
 GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
@@ -622,11 +604,7 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
         },
     };
 
-    if (pipelineBindPoint == GR_PIPELINE_BIND_POINT_GRAPHICS) {
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_DESCRIPTOR_SETS;
-    } else {
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_COMPUTE_DESCRIPTOR_SETS;
-    }
+    grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
 }
 
 GR_VOID GR_STDCALL grCmdBindIndexData(
@@ -693,6 +671,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
 {
     LOGT("%p %u %p %p\n", cmdBuffer, colorTargetCount, pColorTargets, pDepthTarget);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    VkPipelineBindPoint vkBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     assert(colorTargetCount <= GR_MAX_COLOR_TARGETS);
 
@@ -744,7 +723,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         grCmdBuffer->minExtent = minExtent;
         grCmdBuffer->attachmentCount = attachmentCount;
         memcpy(grCmdBuffer->attachments, attachments, attachmentCount * sizeof(VkImageView));
-        grCmdBuffer->dirtyFlags |= FLAG_DIRTY_GRAPHICS_FRAMEBUFFER;
+
+        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
     }
 }
 

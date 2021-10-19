@@ -134,10 +134,10 @@ typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
-    unsigned dirtyFlags;
     bool isBuilding;
     // Graphics and compute bind points
     struct {
+        uint32_t dirtyFlags;
         GrPipeline* grPipeline;
         GrDescriptorSet* grDescriptorSet;
         unsigned slotOffset;
