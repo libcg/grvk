@@ -39,6 +39,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_DESCRIPTOR_SET: {
         GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)grObject;
 
+        grClearDescriptorSetSlots(grDescriptorSet, 0, grDescriptorSet->slotCount);
         free(grDescriptorSet->slots);
     }   break;
     case GR_OBJ_TYPE_IMAGE: {

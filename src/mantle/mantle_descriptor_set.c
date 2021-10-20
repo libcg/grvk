@@ -1,5 +1,14 @@
 #include "mantle_internal.h"
 
+static void releaseSlot(
+    const GrDevice* grDevice,
+    DescriptorSetSlot* slot)
+{
+    if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
+        VKD.vkDestroyBufferView(grDevice->device, slot->memoryView.vkBufferView, NULL);
+    }
+}
+
 // Descriptor Set Functions
 
 GR_RESULT GR_STDCALL grCreateDescriptorSet(
@@ -53,10 +62,13 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
 {
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pSamplers);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GrSampler* grSampler = (GrSampler*)pSamplers[i];
+
+        releaseSlot(grDevice, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_SAMPLER,
@@ -73,11 +85,14 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
 {
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pImageViews);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GR_IMAGE_VIEW_ATTACH_INFO* info = &pImageViews[i];
         const GrImageView* grImageView = (GrImageView*)info->view;
+
+        releaseSlot(grDevice, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_IMAGE_VIEW,
@@ -97,6 +112,8 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
 {
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pMemViews);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
+    VkResult vkRes;
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
@@ -105,11 +122,34 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
 
         grGpuMemoryBindBuffer(grGpuMemory);
 
+        VkFormat vkFormat = getVkFormat(info->format);
+        VkBufferView vkBufferView = VK_NULL_HANDLE;
+
+        if (vkFormat != VK_FORMAT_UNDEFINED) {
+            // Create buffer view for typed buffers
+            const VkBufferViewCreateInfo createInfo = {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .buffer = grGpuMemory->buffer,
+                .format = vkFormat,
+                .offset = info->offset,
+                .range = info->range,
+            };
+
+            vkRes = VKD.vkCreateBufferView(grDevice->device, &createInfo, NULL, &vkBufferView);
+            if (vkRes != VK_SUCCESS) {
+                LOGE("vkCreateBufferView failed (%d)\n", vkRes);
+            }
+        }
+
+        releaseSlot(grDevice, slot);
+
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_MEMORY_VIEW,
             .memoryView = {
+                .vkBufferView = vkBufferView,
                 .vkBuffer = grGpuMemory->buffer,
-                .vkFormat = getVkFormat(info->format),
                 .offset = info->offset,
                 .range = info->range,
                 .stride = info->stride,
@@ -126,10 +166,13 @@ GR_VOID GR_STDCALL grAttachNestedDescriptors(
 {
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pNestedDescriptorSets);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GR_DESCRIPTOR_SET_ATTACH_INFO* info = &pNestedDescriptorSets[i];
+
+        releaseSlot(grDevice, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_NESTED,
@@ -148,9 +191,12 @@ GR_VOID GR_STDCALL grClearDescriptorSetSlots(
 {
     LOGT("%p %u %u\n", descriptorSet, startSlot, slotCount);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
+
+        releaseSlot(grDevice, slot);
 
         slot->type = SLOT_TYPE_NONE;
     }

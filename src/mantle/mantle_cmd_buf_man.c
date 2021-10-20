@@ -12,12 +12,8 @@ void grCmdBufferResetState(
     for (unsigned i = 0; i < grCmdBuffer->framebufferCount; i++) {
         VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffers[i], NULL);
     }
-    for (unsigned i = 0; i < grCmdBuffer->bufferViewCount; i++) {
-        VKD.vkDestroyBufferView(grDevice->device, grCmdBuffer->bufferViews[i], NULL);
-    }
     free(grCmdBuffer->descriptorPools);
     free(grCmdBuffer->framebuffers);
-    free(grCmdBuffer->bufferViews);
 
     // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
@@ -98,8 +94,6 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .descriptorPools = NULL,
         .framebufferCount = 0,
         .framebuffers = NULL,
-        .bufferViewCount = 0,
-        .bufferViews = NULL,
         .submitFence = NULL,
     };
 
