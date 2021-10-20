@@ -119,9 +119,6 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GR_MEMORY_VIEW_ATTACH_INFO* info = &pMemViews[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)info->mem;
-
-        grGpuMemoryBindBuffer(grGpuMemory);
-
         VkFormat vkFormat = getVkFormat(info->format);
         VkBufferView vkBufferView = VK_NULL_HANDLE;
 
