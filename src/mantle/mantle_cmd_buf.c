@@ -351,39 +351,20 @@ static void grCmdBufferBindDescriptorSets(
     VkPipelineBindPoint bindPoint)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+    const GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+    const DescriptorSetSlot* dynamicMemoryView =
+        &grCmdBuffer->bindPoint[bindPoint].dynamicMemoryView;
 
-    uint32_t dynamicOffsetCount = 0;
     uint32_t dynamicOffsets[MAX_STAGE_COUNT];
 
-    // Find dynamic offsets used in this pipeline
-    // TODO move out of hot path
-    for (unsigned i = 0; i < grPipeline->stageCount; i++) {
-        const GrShader* grShader = (GrShader*)grPipeline->shaderInfos[i].shader;
-        const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping =
-            &grPipeline->shaderInfos[i].dynamicMemoryViewMapping;
-
-        if (grShader == NULL || dynamicMapping->slotObjectType == GR_SLOT_UNUSED) {
-            continue;
-        }
-
-        // We have to make sure the dynamic slot matches one shader binding in this pipeline stage
-        for (unsigned j = 0; j < grShader->bindingCount; j++) {
-            IlcBinding* binding = &grShader->bindings[j];
-
-            if (binding->index == (ILC_BASE_RESOURCE_ID + dynamicMapping->shaderEntityIndex)) {
-                dynamicOffsets[dynamicOffsetCount] =
-                    grCmdBuffer->bindPoint[bindPoint].dynamicMemoryView.memoryView.offset;
-                dynamicOffsetCount++;
-                break;
-            }
-        }
+    for (unsigned i = 0; i < grPipeline->dynamicOffsetCount; i++) {
+        dynamicOffsets[i] = dynamicMemoryView->memoryView.offset;
     }
 
     VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipelineLayout,
                                 0, grPipeline->stageCount,
                                 grCmdBuffer->bindPoint[bindPoint].descriptorSets,
-                                dynamicOffsetCount, dynamicOffsets);
+                                grPipeline->dynamicOffsetCount, dynamicOffsets);
 }
 
 static void grCmdBufferUpdateResources(

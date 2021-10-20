@@ -51,6 +51,7 @@ static void copyPipelineShader(
 }
 
 static VkDescriptorSetLayout getVkDescriptorSetLayout(
+    unsigned* dynamicOffsetCount,
     const GrDevice* grDevice,
     const Stage* stage)
 {
@@ -76,6 +77,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
                 // Use dynamic offsets for dynamic memory views to avoid invalidating
                 // descriptor sets each time the buffer offset changes
                 vkDescriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+                (*dynamicOffsetCount)++;
             }
 
             bindings[i] = (VkDescriptorSetLayoutBinding) {
@@ -557,6 +559,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkRenderPass renderPasses[MSAA_LEVEL_COUNT] = { VK_NULL_HANDLE };
+    unsigned dynamicOffsetCount = 0;
 
     // TODO validate parameters
 
@@ -647,7 +650,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
     // Create one descriptor set layout per stage
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
-        descriptorSetLayouts[i] = getVkDescriptorSetLayout(grDevice, &stages[i]);
+        descriptorSetLayouts[i] = getVkDescriptorSetLayout(&dynamicOffsetCount,
+                                                           grDevice, &stages[i]);
         if (descriptorSetLayouts[i] == VK_NULL_HANDLE) {
             res = GR_ERROR_OUT_OF_MEMORY;
             goto bail;
@@ -686,6 +690,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayouts = { 0 }, // Initialized below
         .shaderInfos = { { 0 } }, // Initialized below
+        .dynamicOffsetCount = dynamicOffsetCount,
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
@@ -718,6 +723,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
+    unsigned dynamicOffsetCount = 0;
 
     // TODO validate parameters
 
@@ -740,7 +746,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .pSpecializationInfo = NULL,
     };
 
-    descriptorSetLayout = getVkDescriptorSetLayout(grDevice, &stage);
+    descriptorSetLayout = getVkDescriptorSetLayout(&dynamicOffsetCount, grDevice, &stage);
     if (descriptorSetLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
@@ -789,6 +795,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .stageCount = 1,
         .descriptorSetLayouts = { descriptorSetLayout },
         .shaderInfos = { { 0 } }, // Initialized below
+        .dynamicOffsetCount = dynamicOffsetCount,
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);

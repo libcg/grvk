@@ -277,6 +277,7 @@ typedef struct _GrPipeline {
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
     GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
+    unsigned dynamicOffsetCount;
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
