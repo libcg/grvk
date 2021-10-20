@@ -274,7 +274,6 @@ typedef struct _GrPipeline {
     CRITICAL_SECTION pipelineSlotsMutex;
     VkPipelineLayout pipelineLayout;
     VkRenderPass renderPasses[MSAA_LEVEL_COUNT];
-    unsigned descriptorTypeCounts[VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1];
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
     GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];

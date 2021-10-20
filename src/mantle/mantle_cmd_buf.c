@@ -1,7 +1,7 @@
 #include "mantle_internal.h"
 #include "amdilc.h"
 
-#define SETS_PER_POOL   (32)
+#define SETS_PER_POOL   (2048)
 
 typedef enum _DirtyFlags {
     FLAG_DIRTY_DESCRIPTOR_SETS      = 1u << 0,
@@ -41,35 +41,28 @@ static VkFramebuffer getVkFramebuffer(
 }
 
 static VkDescriptorPool getVkDescriptorPool(
-    const GrDevice* grDevice,
-    unsigned stageCount,
-    unsigned descriptorTypeCountSize,
-    const unsigned* descriptorTypeCounts)
+    const GrDevice* grDevice)
 {
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
-    // Create pool sizes
-    unsigned descriptorPoolSizeCount = 0;
-    VkDescriptorPoolSize* descriptorPoolSizes = NULL;
-    for (unsigned i = 0; i < descriptorTypeCountSize; i++) {
-        if (descriptorTypeCounts[i] > 0) {
-            descriptorPoolSizeCount++;
-            descriptorPoolSizes = realloc(descriptorPoolSizes,
-                                          descriptorPoolSizeCount * sizeof(VkDescriptorPoolSize));
-            descriptorPoolSizes[descriptorPoolSizeCount - 1] = (VkDescriptorPoolSize) {
-                .type = i,
-                .descriptorCount = SETS_PER_POOL * descriptorTypeCounts[i],
-            };
-        }
-    }
+    // TODO rebalance
+    const VkDescriptorPoolSize poolSizes[] = {
+        { VK_DESCRIPTOR_TYPE_SAMPLER,                   SETS_PER_POOL },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,             SETS_PER_POOL },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,             SETS_PER_POOL },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,      SETS_PER_POOL },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,      SETS_PER_POOL },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,            SETS_PER_POOL },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,    SETS_PER_POOL },
+    };
 
     const VkDescriptorPoolCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .maxSets = SETS_PER_POOL * stageCount,
-        .poolSizeCount = descriptorPoolSizeCount,
-        .pPoolSizes = descriptorPoolSizes,
+        .maxSets = SETS_PER_POOL,
+        .poolSizeCount = COUNT_OF(poolSizes),
+        .pPoolSizes = poolSizes,
     };
 
     VkResult res = VKD.vkCreateDescriptorPool(grDevice->device, &createInfo, NULL, &descriptorPool);
@@ -78,7 +71,6 @@ static VkDescriptorPool getVkDescriptorPool(
         assert(false);
     }
 
-    free(descriptorPoolSizes);
     return descriptorPool;
 }
 
@@ -332,10 +324,7 @@ static void grCmdBufferUpdateDescriptorSets(
         }
 
         // Need a new pool
-        grCmdBuffer->bindPoint[bindPoint].descriptorPool =
-            getVkDescriptorPool(grDevice, grPipeline->stageCount,
-                                COUNT_OF(grPipeline->descriptorTypeCounts),
-                                grPipeline->descriptorTypeCounts);
+        grCmdBuffer->bindPoint[bindPoint].descriptorPool = getVkDescriptorPool(grDevice);
 
         // Track descriptor pool
         grCmdBuffer->descriptorPoolCount++;

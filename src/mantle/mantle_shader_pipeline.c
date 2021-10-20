@@ -137,31 +137,6 @@ static VkPipelineLayout getVkPipelineLayout(
     return layout;
 }
 
-static void updateDescriptorTypeCounts(
-    unsigned descriptorTypeCountSize,
-    unsigned* descriptorTypeCounts,
-    unsigned stageCount,
-    const Stage* stages)
-{
-    // Count descriptor types from shader bindings in all stages
-    for (unsigned i = 0; i < stageCount; i++) {
-        const GrShader* grShader = (GrShader*)stages[i].shader->shader;
-
-        if (grShader != NULL) {
-            for (unsigned j = 0; j < grShader->bindingCount; j++) {
-                const IlcBinding* binding = &grShader->bindings[j];
-
-                if (binding->descriptorType >= descriptorTypeCountSize) {
-                    LOGE("unexpected descriptor type %d\n", binding->descriptorType);
-                    assert(false);
-                }
-
-                descriptorTypeCounts[binding->descriptorType]++;
-            }
-        }
-    }
-}
-
 static VkRenderPass getVkRenderPass(
     const GrDevice* grDevice,
     const GR_PIPELINE_CB_TARGET_STATE* cbTargets,
@@ -708,7 +683,6 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPasses = { 0 }, // Initialized below
-        .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayouts = { 0 }, // Initialized below
         .shaderInfos = { { 0 } }, // Initialized below
@@ -716,8 +690,6 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     memcpy(grPipeline->renderPasses, renderPasses, sizeof(renderPasses));
-    updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
-                               grPipeline->descriptorTypeCounts, COUNT_OF(stages), stages);
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
         grPipeline->descriptorSetLayouts[i] = descriptorSetLayouts[i];
         copyPipelineShader(&grPipeline->shaderInfos[i], stages[i].shader);
@@ -814,15 +786,12 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPasses = { VK_NULL_HANDLE },
-        .descriptorTypeCounts = { 0 }, // Initialized below
         .stageCount = 1,
         .descriptorSetLayouts = { descriptorSetLayout },
         .shaderInfos = { { 0 } }, // Initialized below
     };
 
     InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
-    updateDescriptorTypeCounts(COUNT_OF(grPipeline->descriptorTypeCounts),
-                               grPipeline->descriptorTypeCounts, 1, &stage);
     copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
 
     *pPipeline = (GR_PIPELINE)grPipeline;
