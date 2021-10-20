@@ -254,7 +254,7 @@ static void grCmdBufferBeginRenderPass(
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     const GrPipeline* grPipeline =
-        grCmdBuffer->bindPoint[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
+        grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS].grPipeline;
 
     if (grCmdBuffer->hasActiveRenderPass) {
         return;
@@ -294,24 +294,25 @@ void grCmdBufferEndRenderPass(
 
 static void grCmdBufferUpdateDescriptorSets(
     GrCmdBuffer* grCmdBuffer,
-    VkPipelineBindPoint bindPoint)
+    VkPipelineBindPoint vkBindPoint)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    GrPipeline* grPipeline = bindPoint->grPipeline;
     VkResult vkRes;
 
     for (unsigned i = 0; i < 2; i++) {
-        if (grCmdBuffer->bindPoint[bindPoint].descriptorPool != VK_NULL_HANDLE) {
+        if (bindPoint->descriptorPool != VK_NULL_HANDLE) {
             const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                 .pNext = NULL,
-                .descriptorPool = grCmdBuffer->bindPoint[bindPoint].descriptorPool,
+                .descriptorPool = bindPoint->descriptorPool,
                 .descriptorSetCount = grPipeline->stageCount, // TODO optimize
                 .pSetLayouts = grPipeline->descriptorSetLayouts,
             };
 
             vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo,
-                                                 grCmdBuffer->bindPoint[bindPoint].descriptorSets);
+                                                 bindPoint->descriptorSets);
             if (vkRes == VK_SUCCESS) {
                 break;
             } else if (vkRes != VK_ERROR_OUT_OF_POOL_MEMORY) {
@@ -324,7 +325,7 @@ static void grCmdBufferUpdateDescriptorSets(
         }
 
         // Need a new pool
-        grCmdBuffer->bindPoint[bindPoint].descriptorPool = getVkDescriptorPool(grDevice);
+        bindPoint->descriptorPool = getVkDescriptorPool(grDevice);
 
         // Track descriptor pool
         grCmdBuffer->descriptorPoolCount++;
@@ -332,55 +333,52 @@ static void grCmdBufferUpdateDescriptorSets(
                                                grCmdBuffer->descriptorPoolCount *
                                                sizeof(VkDescriptorPool));
         grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] =
-            grCmdBuffer->bindPoint[bindPoint].descriptorPool;
+            bindPoint->descriptorPool;
     }
 
     for (unsigned i = 0; i < grPipeline->stageCount; i++) {
-        updateVkDescriptorSet(grDevice, grCmdBuffer,
-                              grCmdBuffer->bindPoint[bindPoint].descriptorSets[i],
-                              grPipeline->pipelineLayout,
-                              grCmdBuffer->bindPoint[bindPoint].slotOffset,
-                              &grPipeline->shaderInfos[i],
-                              grCmdBuffer->bindPoint[bindPoint].grDescriptorSet,
-                              &grCmdBuffer->bindPoint[bindPoint].dynamicMemoryView);
+        updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint->descriptorSets[i],
+                              grPipeline->pipelineLayout, bindPoint->slotOffset,
+                              &grPipeline->shaderInfos[i], bindPoint->grDescriptorSet,
+                              &bindPoint->dynamicMemoryView);
     }
 }
 
 static void grCmdBufferBindDescriptorSets(
     GrCmdBuffer* grCmdBuffer,
-    VkPipelineBindPoint bindPoint)
+    VkPipelineBindPoint vkBindPoint)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    const GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
-    const DescriptorSetSlot* dynamicMemoryView =
-        &grCmdBuffer->bindPoint[bindPoint].dynamicMemoryView;
+    const BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    const GrPipeline* grPipeline = bindPoint->grPipeline;
 
+    uint32_t dynamicOffset = bindPoint->dynamicMemoryView.memoryView.offset;
     uint32_t dynamicOffsets[MAX_STAGE_COUNT];
 
     for (unsigned i = 0; i < grPipeline->dynamicOffsetCount; i++) {
-        dynamicOffsets[i] = dynamicMemoryView->memoryView.offset;
+        dynamicOffsets[i] = dynamicOffset;
     }
 
-    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, bindPoint, grPipeline->pipelineLayout,
-                                0, grPipeline->stageCount,
-                                grCmdBuffer->bindPoint[bindPoint].descriptorSets,
+    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
+                                0, grPipeline->stageCount, bindPoint->descriptorSets,
                                 grPipeline->dynamicOffsetCount, dynamicOffsets);
 }
 
 static void grCmdBufferUpdateResources(
     GrCmdBuffer* grCmdBuffer,
-    VkPipelineBindPoint bindPoint)
+    VkPipelineBindPoint vkBindPoint)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    GrPipeline* grPipeline = grCmdBuffer->bindPoint[bindPoint].grPipeline;
-    uint32_t dirtyFlags = grCmdBuffer->bindPoint[bindPoint].dirtyFlags;
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    GrPipeline* grPipeline = bindPoint->grPipeline;
+    uint32_t dirtyFlags = bindPoint->dirtyFlags;
 
     if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SETS) {
-        grCmdBufferUpdateDescriptorSets(grCmdBuffer, bindPoint);
+        grCmdBufferUpdateDescriptorSets(grCmdBuffer, vkBindPoint);
     }
 
     if (dirtyFlags & (FLAG_DIRTY_DESCRIPTOR_SETS | FLAG_DIRTY_DYNAMIC_OFFSET)) {
-        grCmdBufferBindDescriptorSets(grCmdBuffer, bindPoint);
+        grCmdBufferBindDescriptorSets(grCmdBuffer, vkBindPoint);
     }
 
     if (dirtyFlags & FLAG_DIRTY_FRAMEBUFFER) {
@@ -408,10 +406,10 @@ static void grCmdBufferUpdateResources(
                                                                  grCmdBuffer->grMsaaState,
                                                                  grCmdBuffer->grRasterState);
 
-        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, bindPoint, vkPipeline);
+        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, vkPipeline);
     }
 
-    grCmdBuffer->bindPoint[bindPoint].dirtyFlags = 0;
+    bindPoint->dirtyFlags = 0;
 }
 
 // Command Buffer Building Functions
@@ -426,23 +424,24 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrPipeline* grPipeline = (GrPipeline*)pipeline;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
 
-    if (grPipeline == grCmdBuffer->bindPoint[vkBindPoint].grPipeline) {
+    if (grPipeline == bindPoint->grPipeline) {
         return;
     }
 
-    grCmdBuffer->bindPoint[vkBindPoint].grPipeline = grPipeline;
+    bindPoint->grPipeline = grPipeline;
 
     if (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
-        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS |
-                                                          FLAG_DIRTY_FRAMEBUFFER |
-                                                          FLAG_DIRTY_PIPELINE;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS |
+                                 FLAG_DIRTY_FRAMEBUFFER |
+                                 FLAG_DIRTY_PIPELINE;
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
                               grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL));
 
-        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
     }
 }
 
@@ -454,7 +453,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
     LOGT("%p 0x%X %p\n", cmdBuffer, stateBindPoint, state);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    VkPipelineBindPoint vkBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
     // TODO compare objects instead of just pointers
 
@@ -482,7 +481,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         VKD.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
         grCmdBuffer->grRasterState = rasterState;
-        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_PIPELINE;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
     }   break;
     case GR_STATE_BIND_DEPTH_STENCIL: {
         GrDepthStencilStateObject* depthStencilState = (GrDepthStencilStateObject*)state;
@@ -534,7 +533,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
 
         VKD.vkCmdSetBlendConstants(grCmdBuffer->commandBuffer, colorBlendState->blendConstants);
         grCmdBuffer->grColorBlendState = colorBlendState;
-        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_PIPELINE;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
     }   break;
     case GR_STATE_BIND_MSAA: {
         GrMsaaStateObject* msaaState = (GrMsaaStateObject*)state;
@@ -543,8 +542,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         }
 
         grCmdBuffer->grMsaaState = msaaState;
-        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER |
-                                                          FLAG_DIRTY_PIPELINE;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER | FLAG_DIRTY_PIPELINE;
     }   break;
     }
 }
@@ -560,20 +558,19 @@ GR_VOID GR_STDCALL grCmdBindDescriptorSet(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
 
     if (index != 0) {
         LOGW("unsupported index %u\n", index);
     }
 
-    if (grDescriptorSet == grCmdBuffer->bindPoint[vkBindPoint].grDescriptorSet &&
-        slotOffset == grCmdBuffer->bindPoint[vkBindPoint].slotOffset) {
+    if (grDescriptorSet == bindPoint->grDescriptorSet && slotOffset == bindPoint->slotOffset) {
         return;
     }
 
-    grCmdBuffer->bindPoint[vkBindPoint].grDescriptorSet = grDescriptorSet;
-    grCmdBuffer->bindPoint[vkBindPoint].slotOffset = slotOffset;
-
-    grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+    bindPoint->grDescriptorSet = grDescriptorSet;
+    bindPoint->slotOffset = slotOffset;
+    bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
 }
 
 GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
@@ -585,20 +582,21 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
-    DescriptorSetSlot* dynamicSlot = &grCmdBuffer->bindPoint[vkBindPoint].dynamicMemoryView;
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    DescriptorSetSlot* dynamicMemoryView = &bindPoint->dynamicMemoryView;
 
     // FIXME what is pMemView->state for?
 
-    bool dirtySlot = grGpuMemory->buffer != dynamicSlot->memoryView.vkBuffer ||
-                     pMemView->range != dynamicSlot->memoryView.range ||
-                     pMemView->stride != dynamicSlot->memoryView.stride;
-    bool dirtyOffset = pMemView->offset != dynamicSlot->memoryView.offset;
+    bool dirtySlot = grGpuMemory->buffer != dynamicMemoryView->memoryView.vkBuffer ||
+                     pMemView->range != dynamicMemoryView->memoryView.range ||
+                     pMemView->stride != dynamicMemoryView->memoryView.stride;
+    bool dirtyOffset = pMemView->offset != dynamicMemoryView->memoryView.offset;
 
     if (!dirtySlot && !dirtyOffset) {
         return;
     }
 
-    grCmdBuffer->bindPoint[vkBindPoint].dynamicMemoryView = (DescriptorSetSlot) {
+    *dynamicMemoryView = (DescriptorSetSlot) {
         .type = SLOT_TYPE_MEMORY_VIEW,
         .memoryView = {
             .vkBufferView = VK_NULL_HANDLE,
@@ -609,9 +607,8 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
         },
     };
 
-    grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |=
-        (dirtySlot ? FLAG_DIRTY_DESCRIPTOR_SETS : 0) |
-        (dirtyOffset ? FLAG_DIRTY_DYNAMIC_OFFSET : 0);
+    bindPoint->dirtyFlags |= (dirtySlot ? FLAG_DIRTY_DESCRIPTOR_SETS : 0) |
+                             (dirtyOffset ? FLAG_DIRTY_DYNAMIC_OFFSET : 0);
 }
 
 GR_VOID GR_STDCALL grCmdBindIndexData(
@@ -674,7 +671,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
 {
     LOGT("%p %u %p %p\n", cmdBuffer, colorTargetCount, pColorTargets, pDepthTarget);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    VkPipelineBindPoint vkBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
     assert(colorTargetCount <= GR_MAX_COLOR_TARGETS);
 
@@ -727,7 +724,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         grCmdBuffer->attachmentCount = attachmentCount;
         memcpy(grCmdBuffer->attachments, attachments, attachmentCount * sizeof(VkImageView));
 
-        grCmdBuffer->bindPoint[vkBindPoint].dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
     }
 }
 

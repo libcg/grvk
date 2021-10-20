@@ -89,6 +89,17 @@ typedef struct _DescriptorSetSlot
     };
 } DescriptorSetSlot;
 
+typedef struct _BindPoint
+{
+    uint32_t dirtyFlags;
+    GrPipeline* grPipeline;
+    GrDescriptorSet* grDescriptorSet;
+    unsigned slotOffset;
+    DescriptorSetSlot dynamicMemoryView;
+    VkDescriptorPool descriptorPool;
+    VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
+} BindPoint;
+
 typedef struct _PipelineCreateInfo
 {
     VkPipelineCreateFlags createFlags;
@@ -136,15 +147,7 @@ typedef struct _GrCmdBuffer {
     VkCommandBuffer commandBuffer;
     bool isBuilding;
     // Graphics and compute bind points
-    struct {
-        uint32_t dirtyFlags;
-        GrPipeline* grPipeline;
-        GrDescriptorSet* grDescriptorSet;
-        unsigned slotOffset;
-        DescriptorSetSlot dynamicMemoryView;
-        VkDescriptorPool descriptorPool;
-        VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
-    } bindPoint[2];
+    BindPoint bindPoints[2];
     // Graphics dynamic state
     GrViewportStateObject* grViewportState;
     GrRasterStateObject* grRasterState;

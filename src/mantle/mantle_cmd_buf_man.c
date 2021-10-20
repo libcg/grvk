@@ -79,7 +79,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
         .isBuilding = false,
-        .bindPoint = { { 0 }, { 0 } },
+        .bindPoints = { { 0 }, { 0 } },
         .grViewportState = NULL,
         .grRasterState = NULL,
         .grMsaaState = NULL,
