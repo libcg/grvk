@@ -1251,7 +1251,7 @@ static void emitUav(
         .texelTypeId = compiler->floatId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
-        .strideId = instr->extras[0],
+        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
     };
 
     addResource(compiler, &resource);
