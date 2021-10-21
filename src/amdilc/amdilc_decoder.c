@@ -360,7 +360,8 @@ static unsigned decodeSource(
 
 static unsigned decodeInstruction(
     Instruction* instr,
-    const Token* token)
+    const Token* token,
+    uint16_t prefixControl)
 {
     unsigned idx = 0;
 
@@ -369,6 +370,11 @@ static unsigned decodeInstruction(
     instr->opcode = GET_BITS(token[idx], 0, 15);
     instr->control = GET_BITS(token[idx], 16, 31);
     idx++;
+
+    if (instr->opcode == IL_OP_PREFIX) {
+        // Pass prefix info to the next instruction
+        return idx + decodeInstruction(instr, &token[idx], instr->control);
+    }
 
     if (instr->opcode >= IL_OP_LAST) {
         LOGE("invalid opcode %d\n", instr->opcode);
@@ -423,6 +429,8 @@ static unsigned decodeInstruction(
     memcpy(instr->extras, &token[idx], sizeof(Token) * instr->extraCount);
     idx += instr->extraCount;
 
+    instr->preciseMask = GET_BITS(prefixControl, 0, 3);
+
     return idx;
 }
 
@@ -441,7 +449,7 @@ Kernel* ilcDecodeStream(
     while (idx < count) {
         kernel->instrCount++;
         kernel->instrs = realloc(kernel->instrs, sizeof(Instruction) * kernel->instrCount);
-        idx += decodeInstruction(&kernel->instrs[kernel->instrCount - 1], &tokens[idx]);
+        idx += decodeInstruction(&kernel->instrs[kernel->instrCount - 1], &tokens[idx], 0);
     }
 
     return kernel;

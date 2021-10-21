@@ -947,6 +947,18 @@ static void dumpInstruction(
                 (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f);
     }
 
+    if (instr->preciseMask != 0) {
+        if (instr->preciseMask == 0xF) {
+            fprintf(file, "_prec");
+        } else {
+            fprintf(file, "_prec(%s%s%s%s)",
+                    GET_BIT(instr->preciseMask, 0) ? "x" : "",
+                    GET_BIT(instr->preciseMask, 1) ? "y" : "",
+                    GET_BIT(instr->preciseMask, 2) ? "z" : "",
+                    GET_BIT(instr->preciseMask, 3) ? "w" : "");
+        }
+    }
+
     assert(instr->dstCount <= 1);
     for (int i = 0; i < instr->dstCount; i++) {
         dumpDestination(file, &instr->dsts[i]);

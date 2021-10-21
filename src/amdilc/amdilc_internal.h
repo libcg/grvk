@@ -63,6 +63,7 @@ typedef struct {
     Source* srcs;
     unsigned extraCount;
     Token* extras;
+    uint8_t preciseMask;
 } Instruction;
 
 typedef struct {
