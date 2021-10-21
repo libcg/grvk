@@ -620,35 +620,35 @@ static void dumpInstruction(
                 GET_BIT(instr->control, 8) ? "_uint" : "");
         break;
     case IL_OP_SAMPLE:
-        if (GET_BITS(instr->control, 12, 15)) {
+        if (GET_BITS(instr->control, 12, 15) & 0xD) {
             LOGW("unhandled sample flags 0x%X\n", instr->control);
         }
         fprintf(file, "sample_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
     case IL_OP_SAMPLE_B:
-        if (GET_BITS(instr->control, 12, 15)) {
+        if (GET_BITS(instr->control, 12, 15) & 0xD) {
             LOGW("unhandled sample_b flags 0x%X\n", instr->control);
         }
         fprintf(file, "sample_b_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
     case IL_OP_SAMPLE_G:
-        if (GET_BITS(instr->control, 12, 15)) {
+        if (GET_BITS(instr->control, 12, 15) & 0xD) {
             LOGW("unhandled sample_g flags 0x%X\n", instr->control);
         }
         fprintf(file, "sample_g_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
     case IL_OP_SAMPLE_L:
-        if (GET_BITS(instr->control, 12, 15)) {
+        if (GET_BITS(instr->control, 12, 15) & 0xD) {
             LOGW("unhandled sample_l flags 0x%X\n", instr->control);
         }
         fprintf(file, "sample_l_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
     case IL_OP_SAMPLE_C_LZ:
-        if (GET_BITS(instr->control, 12, 15)) {
+        if (GET_BITS(instr->control, 12, 15) & 0xD) {
             LOGW("unhandled sample_c_lz flags 0x%X\n", instr->control);
         }
         fprintf(file, "sample_c_lz_resource(%u)_sampler(%u)",
@@ -789,12 +789,6 @@ static void dumpInstruction(
         if (instr->primModifier != 0) {
             fprintf(file, "_compselect(%s)", mIlComponentSelectNames[instr->primModifier]);
         }
-        if (instr->addressOffset != 0) {
-            fprintf(file, "_addroffimmi(%g,%g,%g)",
-                    (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f,
-                    (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f,
-                    (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f);
-        }
         break;
     case IL_OP_DCL_NUM_THREAD_PER_GROUP:
         fprintf(file, "dcl_num_thread_per_group");
@@ -910,12 +904,6 @@ static void dumpInstruction(
         }
         fprintf(file, "fetch4c_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
-        if (instr->addressOffset != 0) {
-            fprintf(file, "_addroffimmi(%g,%g,%g)",
-                    (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f,
-                    (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f,
-                    (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f);
-        }
         break;
     case IL_OP_F_2_F16:
         fprintf(file, "f2f16");
@@ -950,6 +938,13 @@ static void dumpInstruction(
     default:
         fprintf(file, "%u?\n", instr->opcode);
         return;
+    }
+
+    if (instr->addressOffset != 0) {
+        fprintf(file, "_addroffimmi(%g,%g,%g)",
+                (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f,
+                (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f,
+                (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f);
     }
 
     assert(instr->dstCount <= 1);
