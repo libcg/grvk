@@ -79,8 +79,10 @@ static void prepareImagesForDataTransfer(
         .pSignalSemaphores = NULL,
     };
 
+    EnterCriticalSection(grQueue->mutex);
     VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
     VKD.vkQueueWaitIdle(grQueue->queue); // TODO chain with a semaphore
+    LeaveCriticalSection(grQueue->mutex);
 
     VKD.vkDestroyCommandPool(grDevice->device, vkCommandPool, NULL);
     free(barriers);
@@ -158,6 +160,7 @@ GR_RESULT GR_STDCALL grGetDeviceQueue(
         .queueFamilyIndex = queueFamilyIndex,
         .globalMemRefCount = 0,
         .globalMemRefs = NULL,
+        .mutex = grDeviceGetQueueMutex(grDevice, queueType),
     };
 
     if (!mMemRefMutexInit) {
@@ -224,7 +227,10 @@ GR_RESULT GR_STDCALL grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
+    EnterCriticalSection(grQueue->mutex);
     res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
+    LeaveCriticalSection(grQueue->mutex);
+
     free(vkCommandBuffers);
 
     if (res != VK_SUCCESS) {
@@ -247,7 +253,9 @@ GR_RESULT GR_STDCALL grQueueWaitIdle(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
+    EnterCriticalSection(grQueue->mutex);
     VkResult res = VKD.vkQueueWaitIdle(grQueue->queue);
+    LeaveCriticalSection(grQueue->mutex);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueWaitIdle failed (%d)\n", res);
     }

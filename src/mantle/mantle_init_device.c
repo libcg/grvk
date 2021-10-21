@@ -29,18 +29,64 @@ unsigned grDeviceGetQueueFamilyIndex(
     case GR_QUEUE_UNIVERSAL:
         return grDevice->universalQueueFamilyIndex;
     case GR_QUEUE_COMPUTE:
-        return grDevice->computeQueueFamilyIndex;
+        // Fall back to universal queue if not available
+        if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            return grDevice->computeQueueFamilyIndex;
+        } else {
+            return grDevice->universalQueueFamilyIndex;
+        }
     }
 
     switch ((GR_EXT_QUEUE_TYPE)queueType) {
     case GR_EXT_QUEUE_DMA:
-        return grDevice->dmaQueueFamilyIndex;
+        // Fall back to compute or universal queue if not available
+        if (grDevice->dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            return grDevice->dmaQueueFamilyIndex;
+        } else if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            return grDevice->computeQueueFamilyIndex;
+        } else {
+            return grDevice->universalQueueFamilyIndex;
+        }
     case GR_EXT_QUEUE_TIMER:
         break; // TODO implement
     }
 
     LOGE("invalid queue type %d\n", queueType);
     return INVALID_QUEUE_INDEX;
+}
+
+CRITICAL_SECTION* grDeviceGetQueueMutex(
+    GrDevice* grDevice,
+    GR_QUEUE_TYPE queueType)
+{
+    switch (queueType) {
+    case GR_QUEUE_UNIVERSAL:
+        return &grDevice->universalQueueMutex;
+    case GR_QUEUE_COMPUTE:
+        // Fall back to universal queue if not available
+        if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            return &grDevice->computeQueueMutex;
+        } else {
+            return &grDevice->universalQueueMutex;
+        }
+    }
+
+    switch ((GR_EXT_QUEUE_TYPE)queueType) {
+    case GR_EXT_QUEUE_DMA:
+        // Fall back to universal or compute queue if not available
+        if (grDevice->dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            return &grDevice->dmaQueueMutex;
+        } else if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            return &grDevice->computeQueueMutex;
+        } else {
+            return &grDevice->universalQueueMutex;
+        }
+    case GR_EXT_QUEUE_TIMER:
+        break; // TODO implement
+    }
+
+    LOGE("invalid queue type %d\n", queueType);
+    return NULL;
 }
 
 // Initialization and Device Functions
@@ -380,6 +426,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         }
     }
 
+    unsigned queueCreateInfoCount = 0;
     VkDeviceQueueCreateInfo* queueCreateInfos =
         malloc(sizeof(VkDeviceQueueCreateInfo) * pCreateInfo->queueRecordCount);
     for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
@@ -411,13 +458,20 @@ GR_RESULT GR_STDCALL grCreateDevice(
         }
 
         if (requestedQueueFamilyIndex == INVALID_QUEUE_INDEX) {
-            LOGE("can't find requested queue type 0x%X with count %d\n",
-                 requestedQueue->queueType, requestedQueue->queueCount);
-            res = GR_ERROR_INVALID_VALUE;
-            // Bail after the loop to properly release memory
+            if (requestedQueue->queueType == GR_QUEUE_UNIVERSAL) {
+                LOGE("can't find requested queue type 0x%X with count %d\n",
+                     requestedQueue->queueType, requestedQueue->queueCount);
+                res = GR_ERROR_INVALID_VALUE;
+                // Bail after the loop to properly release memory
+            } else {
+                LOGW("can't find requested queue type 0x%X with count %d, "
+                     "falling back to universal or compute queue...\n",
+                     requestedQueue->queueType, requestedQueue->queueCount);
+                continue;
+            }
         }
 
-        queueCreateInfos[i] = (VkDeviceQueueCreateInfo) {
+        queueCreateInfos[queueCreateInfoCount] = (VkDeviceQueueCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
@@ -425,6 +479,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
             .queueCount = requestedQueue->queueCount,
             .pQueuePriorities = queuePriorities,
         };
+        queueCreateInfoCount++;
     }
 
     if (res != GR_SUCCESS) {
@@ -483,7 +538,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = &deviceFeatures,
         .flags = 0,
-        .queueCreateInfoCount = pCreateInfo->queueRecordCount,
+        .queueCreateInfoCount = queueCreateInfoCount,
         .pQueueCreateInfos = queueCreateInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
@@ -522,8 +577,16 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .universalQueueFamilyIndex = universalQueueFamilyIndex,
         .computeQueueFamilyIndex = computeQueueFamilyIndex,
         .dmaQueueFamilyIndex = dmaQueueFamilyIndex,
+        .universalQueueMutex = { 0 }, // Initialized below
+        .computeQueueMutex = { 0 }, // Initialized below
+        .dmaQueueMutex = { 0 }, // Initialized below
         .grBorderColorPalette = NULL,
     };
+
+    // Allow queue muxing when the driver doesn't expose certain queue types
+    InitializeCriticalSectionAndSpinCount(&grDevice->universalQueueMutex, 0);
+    InitializeCriticalSectionAndSpinCount(&grDevice->computeQueueMutex, 0);
+    InitializeCriticalSectionAndSpinCount(&grDevice->dmaQueueMutex, 0);
 
     *pDevice = (GR_DEVICE)grDevice;
 

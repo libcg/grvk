@@ -214,6 +214,9 @@ typedef struct _GrDevice {
     unsigned universalQueueFamilyIndex;
     unsigned computeQueueFamilyIndex;
     unsigned dmaQueueFamilyIndex;
+    CRITICAL_SECTION universalQueueMutex;
+    CRITICAL_SECTION computeQueueMutex;
+    CRITICAL_SECTION dmaQueueMutex;
     GrBorderColorPalette* grBorderColorPalette;
 } GrDevice;
 
@@ -323,6 +326,7 @@ typedef struct _GrQueue {
     unsigned queueFamilyIndex;
     unsigned globalMemRefCount;
     GR_MEMORY_REF* globalMemRefs;
+    CRITICAL_SECTION* mutex;
 } GrQueue;
 
 typedef struct _GrViewportStateObject {
@@ -345,6 +349,10 @@ void grCmdBufferResetState(
 
 unsigned grDeviceGetQueueFamilyIndex(
     const GrDevice* grDevice,
+    GR_QUEUE_TYPE queueType);
+
+CRITICAL_SECTION* grDeviceGetQueueMutex(
+    GrDevice* grDevice,
     GR_QUEUE_TYPE queueType);
 
 unsigned grImageGetBufferOffset(

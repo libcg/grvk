@@ -478,7 +478,9 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .pSignalSemaphores = &mCopySemaphore,
     };
 
+    EnterCriticalSection(grQueue->mutex);
     vkRes = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
+    LeaveCriticalSection(grQueue->mutex);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", vkRes);
         return getGrResult(vkRes);
@@ -495,8 +497,11 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .pResults = NULL,
     };
 
-    if (VKD.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo) != VK_SUCCESS) {
-        LOGE("vkQueuePresentKHR failed\n");
+    EnterCriticalSection(grQueue->mutex);
+    vkRes = VKD.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo);
+    LeaveCriticalSection(grQueue->mutex);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkQueuePresentKHR failed (%d)\n", vkRes);
         return GR_ERROR_OUT_OF_MEMORY; // TODO use better error code
     }
 
