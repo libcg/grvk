@@ -11,7 +11,6 @@ void grGpuMemoryBindBuffer(
         return;
     }
 
-    // TODO recreate the buffer for specific usages
     const VkBufferCreateInfo bufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = NULL,
@@ -24,7 +23,6 @@ void grGpuMemoryBindBuffer(
                  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
@@ -196,6 +194,7 @@ GR_RESULT GR_STDCALL grAllocMemory(
         .deviceSize = pAllocInfo->size,
         .buffer = VK_NULL_HANDLE, // Created on demand
     };
+    grGpuMemoryBindBuffer(grGpuMemory);
 
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
     return GR_SUCCESS;
