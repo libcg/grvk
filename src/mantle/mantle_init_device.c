@@ -650,7 +650,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .renderPassPool = {
             .renderPasses = NULL,
             .renderPassCount = 0,
-            .renderPassMutex = {},
+            .renderPassLock = SRWLOCK_INIT,
         },
     };
 
@@ -658,7 +658,6 @@ GR_RESULT GR_STDCALL grCreateDevice(
     InitializeCriticalSectionAndSpinCount(&grDevice->universalQueueMutex, 0);
     InitializeCriticalSectionAndSpinCount(&grDevice->computeQueueMutex, 0);
     InitializeCriticalSectionAndSpinCount(&grDevice->dmaQueueMutex, 0);
-    InitializeCriticalSection(&grDevice->renderPassPool.renderPassMutex);
 
     grDevice->universalAtomicCounterBuffer =
         allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
@@ -693,14 +692,13 @@ GR_RESULT GR_STDCALL grDestroyDevice(
     }
 
     // handle render pass context
-    EnterCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    AcquireSRWLockExclusive(&grDevice->renderPassPool.renderPassLock);
     for (unsigned i = 0; i < grDevice->renderPassPool.renderPassCount; ++i) {
         VKD.vkDestroyRenderPass(grDevice->device, grDevice->renderPassPool.renderPasses[i].renderPass, NULL);
     }
     free(grDevice->renderPassPool.renderPasses);
-    LeaveCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    ReleaseSRWLockExclusive(&grDevice->renderPassPool.renderPassLock);
 
-    DeleteCriticalSection(&grDevice->renderPassPool.renderPassMutex);
     VKD.vkDestroyDevice(grDevice->device, NULL);
     free(grDevice);
 

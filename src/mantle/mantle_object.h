@@ -229,7 +229,7 @@ typedef struct _GrRenderPassState {
 typedef struct _GrRenderPassPool {
     GrRenderPassState* renderPasses;
     unsigned renderPassCount;
-    CRITICAL_SECTION renderPassMutex;
+    SRWLOCK renderPassLock;
 } GrRenderPassPool;
 
 typedef struct _GrDevice {
@@ -348,7 +348,7 @@ typedef struct _GrPipeline {
     PipelineCreateInfo* createInfo;
     unsigned pipelineSlotCount;
     PipelineSlot* pipelineSlots;
-    CRITICAL_SECTION pipelineSlotsMutex;
+    SRWLOCK pipelineSlotsLock;
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];

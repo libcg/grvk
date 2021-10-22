@@ -21,7 +21,7 @@ static VkRenderPass addRenderPass(
     VkSampleCountFlags sampleCountFlags)
 {
     VkRenderPass foundPass = VK_NULL_HANDLE;
-    EnterCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    AcquireSRWLockExclusive(&grDevice->renderPassPool.renderPassLock);
     for (unsigned i = 0; i < grDevice->renderPassPool.renderPassCount; ++i) {
         if (attachmentCount == grDevice->renderPassPool.renderPasses[i].attachmentCount &&
             sampleCountFlags == grDevice->renderPassPool.renderPasses[i].sampleCountFlags &&
@@ -49,7 +49,7 @@ static VkRenderPass addRenderPass(
         memcpy(grDevice->renderPassPool.renderPasses[grDevice->renderPassPool.renderPassCount - 1].attachmentUsed, attachmentUsed, attachmentCount * sizeof(bool));
         memcpy(grDevice->renderPassPool.renderPasses[grDevice->renderPassPool.renderPassCount - 1].attachmentLayouts, vkImageLayouts, attachmentCount * sizeof(VkImageLayout));
     }
-    LeaveCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    ReleaseSRWLockExclusive(&grDevice->renderPassPool.renderPassLock);
     return foundPass;
 }
 
@@ -62,7 +62,7 @@ static VkRenderPass findRenderPass(
     VkSampleCountFlags sampleCountFlags)
 {
     VkRenderPass foundPass = VK_NULL_HANDLE;
-    EnterCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    AcquireSRWLockShared(&grDevice->renderPassPool.renderPassLock);
     for (unsigned i = 0; i < grDevice->renderPassPool.renderPassCount; ++i) {
         if (attachmentCount == grDevice->renderPassPool.renderPasses[i].attachmentCount &&
             sampleCountFlags == grDevice->renderPassPool.renderPasses[i].sampleCountFlags &&
@@ -73,7 +73,7 @@ static VkRenderPass findRenderPass(
             break;
         }
     }
-    LeaveCriticalSection(&grDevice->renderPassPool.renderPassMutex);
+    ReleaseSRWLockShared(&grDevice->renderPassPool.renderPassLock);
     return foundPass;
 }
 
