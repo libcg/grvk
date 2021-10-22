@@ -1172,3 +1172,44 @@ VkImageSubresourceRange getVkImageSubresourceRange(
                       VK_REMAINING_ARRAY_LAYERS : subresourceRange.arraySize * layerFactor,
     };
 }
+
+bool checkFormatSupport(VkPhysicalDevice physicalDevice, const VkImageCreateInfo *createInfo) {
+    VkImageFormatProperties imageFormatProperties;
+    VkResult vkRes = vki.vkGetPhysicalDeviceImageFormatProperties(physicalDevice,
+                                                            createInfo->format, createInfo->imageType,
+                                                            createInfo->tiling, createInfo->usage,
+                                                            createInfo->flags, &imageFormatProperties);
+    if (vkRes == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+        LOGW("unsupported format 0x%X for image type 0x%X, tiling 0x%X, usage 0x%X and flags: 0x%X\n",
+                createInfo->format, createInfo->imageType, createInfo->tiling, createInfo->usage, createInfo->flags);
+        return false;
+    } else if (vkRes != VK_SUCCESS) {
+        LOGE("vkGetPhysicalDeviceImageFormatProperties still failed (%d)\n", vkRes);
+        return false;
+    } else {
+        if (createInfo->extent.width > imageFormatProperties.maxExtent.width
+            || createInfo->extent.height > imageFormatProperties.maxExtent.height
+            || createInfo->extent.depth > imageFormatProperties.maxExtent.depth) {
+            LOGE("image extent %dx%dx%d exceeds max extent for format %dx%dx%d\n",
+                createInfo->extent.width, createInfo->extent.height, createInfo->extent.depth,
+                imageFormatProperties.maxExtent.width, imageFormatProperties.maxExtent.height, imageFormatProperties.maxExtent.depth);
+            return false;
+        }
+
+        if (createInfo->mipLevels > imageFormatProperties.maxMipLevels) {
+            LOGE("image mip levels %d exceeds max mip levels for format %d\n", createInfo->mipLevels, imageFormatProperties.maxMipLevels);
+            return false;
+        }
+
+        if (createInfo->arrayLayers > imageFormatProperties.maxArrayLayers) {
+            LOGE("image array layers %d exceeds max array layers for format %d\n", createInfo->arrayLayers, imageFormatProperties.maxArrayLayers);
+            return false;
+        }
+
+        if ((imageFormatProperties.sampleCounts & createInfo->samples) == 0) {
+            LOGE("sample count 0x%X is not supported for format. Supported sample counts: 0x%X\n", createInfo->samples, imageFormatProperties.sampleCounts);
+            return false;
+        }
+    }
+    return true;
+}

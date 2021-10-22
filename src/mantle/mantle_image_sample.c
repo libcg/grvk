@@ -254,17 +254,10 @@ GR_RESULT GR_STDCALL grCreateImage(
         return GR_SUCCESS;
     }
 
-    VkImageFormatProperties imageFormatProperties;
-    vkRes = vki.vkGetPhysicalDeviceImageFormatProperties(grDevice->physicalDevice,
-                                                         createInfo.format, createInfo.imageType,
-                                                         createInfo.tiling, createInfo.usage,
-                                                         createInfo.flags, &imageFormatProperties);
-    if (vkRes == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+    bool formatSupported = checkFormatSupport(grDevice->physicalDevice, createInfo);
+    if (!formatSupported) {
         LOGW("unsupported format 0x%X for image type 0x%X, tiling 0x%X and usage 0x%X\n",
              pCreateInfo->format, pCreateInfo->imageType, pCreateInfo->tiling, pCreateInfo->usage);
-    } else if (vkRes != VK_SUCCESS) {
-        LOGE("vkGetPhysicalDeviceImageFormatProperties failed (%d)\n", vkRes);
-        return getGrResult(vkRes);
     }
 
     vkRes = VKD.vkCreateImage(grDevice->device, &createInfo, NULL, &vkImage);
