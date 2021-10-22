@@ -77,6 +77,8 @@ typedef struct _DescriptorSetSlot
     union {
         struct {
             VkDescriptorImageInfo imageInfo;
+            VkImage image;
+            bool isLinearImageWithBuffer;
         } image;
         struct {
             VkBufferView bufferView;
@@ -145,39 +147,6 @@ typedef struct _GrBorderColorPalette {
     float* data;
 } GrBorderColorPalette;
 
-typedef struct _GrCmdBuffer {
-    GrObject grObj;
-    VkCommandPool commandPool;
-    VkCommandBuffer commandBuffer;
-    VkQueryPool timestampQueryPool;
-    DescriptorSetSlot atomicCounterSlot;
-    // Resource tracking
-    unsigned descriptorPoolCount;
-    VkDescriptorPool* descriptorPools;
-    // NOTE: grCmdBufferResetState resets everything past that point
-    bool isBuilding;
-    bool isRendering;
-    int descriptorPoolIndex;
-    GrFence* submitFence;
-    // Graphics and compute bind points
-    BindPoint bindPoints[2];
-    // Graphics dynamic state
-    GrViewportStateObject* grViewportState;
-    GrRasterStateObject* grRasterState;
-    GrMsaaStateObject* grMsaaState;
-    GrDepthStencilStateObject* grDepthStencilState;
-    GrColorBlendStateObject* grColorBlendState;
-    // Render pass
-    unsigned colorAttachmentCount;
-    VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
-    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
-    bool hasDepthStencil;
-    VkRenderingAttachmentInfoKHR depthAttachment;
-    VkRenderingAttachmentInfoKHR stencilAttachment;
-    VkFormat depthStencilFormat;
-    VkExtent3D minExtent;
-} GrCmdBuffer;
-
 typedef struct _GrColorBlendStateObject {
     GrObject grObj;
     VkPipelineColorBlendAttachmentState states[GR_MAX_COLOR_TARGETS];
@@ -196,19 +165,6 @@ typedef struct _GrDepthStencilStateObject {
     float minDepthBounds;
     float maxDepthBounds;
 } GrDepthStencilStateObject;
-
-typedef struct _GrDepthStencilView {
-    GrObject grObj;
-    VkImageView imageView;
-    VkExtent3D extent;
-    VkFormat format;
-} GrDepthStencilView;
-
-typedef struct _GrDescriptorSet {
-    GrObject grObj;
-    unsigned slotCount;
-    DescriptorSetSlot* slots;
-} GrDescriptorSet;
 
 typedef struct _GrvkMemoryHeap {
     unsigned vkMemoryTypeIndex;
@@ -272,6 +228,61 @@ typedef struct _GrImage {
     VmaAllocation imageAllocation;
     VmaAllocation bufferAllocation;
 } GrImage;
+
+typedef struct _GrCmdBuffer {
+    GrObject grObj;
+    VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
+    VkQueryPool timestampQueryPool;
+    DescriptorSetSlot atomicCounterSlot;
+    // Resource tracking
+    unsigned descriptorPoolCount;
+    VkDescriptorPool* descriptorPools;
+    // NOTE: grCmdBufferResetState resets everything past that point
+    bool isBuilding;
+    bool isRendering;
+    int descriptorPoolIndex;
+    GrFence* submitFence;
+    // Graphics and compute bind points
+    BindPoint bindPoints[2];
+    // Graphics dynamic state
+    GrViewportStateObject* grViewportState;
+    GrRasterStateObject* grRasterState;
+    GrMsaaStateObject* grMsaaState;
+    GrDepthStencilStateObject* grDepthStencilState;
+    GrColorBlendStateObject* grColorBlendState;
+    // Render pass
+    unsigned colorAttachmentCount;
+    VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
+    bool hasDepthStencil;
+    VkRenderingAttachmentInfoKHR depthAttachment;
+    VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkFormat depthStencilFormat;
+    VkExtent3D minExtent;
+    // Linear image tracking
+    GrImage** linearImages;
+    unsigned linearImageCount;
+    unsigned linearImageCapacity;
+} GrCmdBuffer;
+
+typedef struct _GrDescriptorSet {
+    GrObject grObj;
+    unsigned slotCount;
+    DescriptorSetSlot* slots;
+    // Linear image tracking
+    GrImage** linearImages;
+    unsigned linearImageCount;
+    unsigned linearImageCapacity;
+} GrDescriptorSet;
+
+typedef struct _GrDepthStencilView {
+    GrObject grObj;
+    GrImage* image;
+    VkImageView imageView;
+    VkExtent3D extent;
+    VkFormat format;
+} GrDepthStencilView;
 
 typedef struct _GrColorTargetView {
     GrObject grObj;

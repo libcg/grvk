@@ -314,6 +314,19 @@ static void grCmdBufferUpdateResources(
     bindPoint->dirtyFlags = 0;
 }
 
+void grCmdTrackImage(GrCmdBuffer* grCmdBuffer, GrImage* image) {
+    if (image->image == VK_NULL_HANDLE || image->buffer == VK_NULL_HANDLE) {
+        return;
+    }
+
+    if (grCmdBuffer->linearImageCapacity == grCmdBuffer->linearImageCount) {
+        grCmdBuffer->linearImageCapacity += 8;
+        grCmdBuffer->linearImages = realloc(grCmdBuffer->linearImages, sizeof(GrImage*) * grCmdBuffer->linearImageCapacity);
+    }
+    grCmdBuffer->linearImages[grCmdBuffer->linearImageCount] = image;
+    grCmdBuffer->linearImageCount++;
+}
+
 // Command Buffer Building Functions
 
 GR_VOID GR_STDCALL grCmdBindPipeline(
@@ -491,6 +504,15 @@ GR_VOID GR_STDCALL grCmdBindDescriptorSet(
     bindPoint->grDescriptorSet = grDescriptorSet;
     bindPoint->slotOffset = slotOffset;
     bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+
+    if (grDescriptorSet->linearImageCount != 0) {
+        if (grCmdBuffer->linearImageCapacity < grCmdBuffer->linearImageCount + grDescriptorSet->linearImageCount) {
+            grCmdBuffer->linearImageCapacity = max(grCmdBuffer->linearImageCount + grDescriptorSet->linearImageCount, grCmdBuffer->linearImageCapacity + 8);
+            grCmdBuffer->linearImages = realloc(grCmdBuffer->linearImages, grCmdBuffer->linearImageCapacity * sizeof(GrImage*));
+        }
+        memcpy(grCmdBuffer->linearImages + grCmdBuffer->linearImageCount, grDescriptorSet->linearImages, grDescriptorSet->linearImageCount * sizeof(GrImage*));
+        grCmdBuffer->linearImageCount += grDescriptorSet->linearImageCount;
+    }
 }
 
 GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
@@ -669,6 +691,15 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         minExtent.width = MIN(minExtent.width, grDepthStencilView->extent.width);
         minExtent.height = MIN(minExtent.height, grDepthStencilView->extent.height);
         minExtent.depth = MIN(minExtent.depth, grDepthStencilView->extent.depth);
+    }
+
+    for (unsigned i = 0; i < colorTargetCount; i++) {
+        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
+
+        if (grColorTargetView != NULL) {
+            GrImage* grImage = (GrImage*)grColorTargetView->image;
+            grCmdTrackImage(grCmdBuffer, grImage);
+        }
     }
 
     if (colorAttachmentCount != grCmdBuffer->colorAttachmentCount ||
@@ -918,6 +949,8 @@ GR_VOID GR_STDCALL grCmdCopyImage(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grSrcImage = (GrImage*)srcImage;
     GrImage* grDstImage = (GrImage*)destImage;
+    grCmdTrackImage(grCmdBuffer, grSrcImage);
+    grCmdTrackImage(grCmdBuffer, grDstImage);
     unsigned srcTileSize = getVkFormatTileSize(grSrcImage->format);
     unsigned dstTileSize = getVkFormatTileSize(grDstImage->format);
     unsigned extentTileSize = srcTileSize > dstTileSize ? dstTileSize : srcTileSize;
@@ -1025,6 +1058,7 @@ GR_VOID GR_STDCALL grCmdCopyMemoryToImage(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
     GrImage* grDstImage = (GrImage*)destImage;
+    grCmdTrackImage(grCmdBuffer, grDstImage);
     unsigned dstTileSize = getVkFormatTileSize(grDstImage->format);
 
     if (quirkHas(QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS)) {
@@ -1079,6 +1113,7 @@ GR_VOID GR_STDCALL grCmdCopyImageToMemory(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grSrcImage = (GrImage*)srcImage;
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
+    grCmdTrackImage(grCmdBuffer, grSrcImage);
     unsigned srcTileSize = getVkFormatTileSize(grSrcImage->format);
 
     if (quirkHas(QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS)) {
@@ -1170,6 +1205,7 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
+    grCmdTrackImage(grCmdBuffer, grImage);
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
@@ -1202,6 +1238,7 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
+    grCmdTrackImage(grCmdBuffer, grImage);
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
@@ -1234,6 +1271,7 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
+    grCmdTrackImage(grCmdBuffer, grImage);
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 

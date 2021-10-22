@@ -12,6 +12,12 @@ void grCmdBufferResetState(
         VKD.vkResetDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], 0);
     }
 
+    // Reset tracked linear images
+    grCmdBuffer->linearImageCount = 0;
+    free(grCmdBuffer->linearImages);
+    grCmdBuffer->linearImageCapacity = 8;
+    grCmdBuffer->linearImages = calloc(sizeof(GrImage*), grCmdBuffer->linearImageCapacity);
+
     // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
@@ -135,6 +141,9 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .stencilAttachment = { 0 },
         .depthStencilFormat = 0,
         .minExtent = { 0, 0, 0 },
+        .linearImages = calloc(sizeof(GrImage*), 8),
+        .linearImageCount = 0,
+        .linearImageCapacity = 8,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;

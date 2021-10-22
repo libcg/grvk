@@ -1,11 +1,36 @@
 #include "mantle_internal.h"
+#include "mantle_object.h"
 
 inline static void releaseSlot(
     const GrDevice* grDevice,
+    GrDescriptorSet* grDescriptorSet,
     DescriptorSetSlot* slot)
 {
     if (slot->type == SLOT_TYPE_BUFFER) {
         VKD.vkDestroyBufferView(grDevice->device, slot->buffer.bufferView, NULL);
+    } else if (slot->type == SLOT_TYPE_IMAGE && slot->image.isLinearImageWithBuffer) {
+        int indexToRemove = -1;
+        for (int i = 0; i < grDescriptorSet->linearImageCount; i++) {
+            GrImage* image = grDescriptorSet->linearImages[i];
+            if (slot->image.image == image->image) {
+                indexToRemove = i;
+                break;
+            }
+        }
+
+        if (indexToRemove == -1) {
+            LOGE("Failed to find entry in linear image list\n");
+            return;
+        }
+
+        if (indexToRemove != grDescriptorSet->linearImageCount - 1) {
+            memmove(
+                grDescriptorSet->linearImages + indexToRemove,
+                grDescriptorSet->linearImages + indexToRemove + 1,
+                (grDescriptorSet->linearImageCount - indexToRemove - 1) * sizeof(GrImage*)
+            );
+        }
+        grDescriptorSet->linearImageCount--;
     }
 }
 
@@ -32,6 +57,9 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
         .grObj = { GR_OBJ_TYPE_DESCRIPTOR_SET, grDevice },
         .slotCount = pCreateInfo->slots,
         .slots = calloc(pCreateInfo->slots, sizeof(DescriptorSetSlot)),
+        .linearImages = calloc(8, sizeof(GrImage*)),
+        .linearImageCount = 0,
+        .linearImageCapacity = 8,
     };
 
     *pDescriptorSet = (GR_DESCRIPTOR_SET)grDescriptorSet;
@@ -68,7 +96,7 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GrSampler* grSampler = (GrSampler*)pSamplers[i];
 
-        releaseSlot(grDevice, slot);
+        releaseSlot(grDevice, grDescriptorSet, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_IMAGE,
@@ -99,7 +127,17 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
         const GrImageView* grImageView = (GrImageView*)info->view;
         bool isDepthStencil = isVkFormatDepthStencil(grImageView->format);
 
-        releaseSlot(grDevice, slot);
+        bool isLinearImageWithBuffer = grImageView->image->buffer != VK_NULL_HANDLE && grImageView->image->image != VK_NULL_HANDLE;
+        if (isLinearImageWithBuffer) {
+            if (grDescriptorSet->linearImageCount == grDescriptorSet->linearImageCapacity) {
+                grDescriptorSet->linearImageCapacity += 8;
+                grDescriptorSet->linearImages = realloc(grDescriptorSet->linearImages, sizeof(GrImage*) * grDescriptorSet->linearImageCapacity);
+            }
+            grDescriptorSet->linearImages[grDescriptorSet->linearImageCount] = grImageView->image;
+            grDescriptorSet->linearImageCount++;
+        }
+
+        releaseSlot(grDevice, grDescriptorSet, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_IMAGE,
@@ -109,6 +147,8 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
                     .imageView = grImageView->imageView,
                     .imageLayout = getVkImageLayout(info->state, isDepthStencil),
                 },
+                .isLinearImageWithBuffer = isLinearImageWithBuffer,
+                .image = grImageView->image->image,
             },
         };
     }
@@ -135,7 +175,7 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
         VkFormat vkFormat = getVkFormat(info->format);
         VkBufferView vkBufferView = VK_NULL_HANDLE;
 
-        releaseSlot(grDevice, slot);
+        releaseSlot(grDevice, descriptorSet, slot);
 
         if (vkFormat != VK_FORMAT_UNDEFINED) {
             // Create buffer view for typed buffers
@@ -154,6 +194,8 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
                 LOGE("vkCreateBufferView failed (%d)\n", vkRes);
             }
         }
+
+        releaseSlot(grDevice, grDescriptorSet, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_BUFFER,
@@ -184,7 +226,7 @@ GR_VOID GR_STDCALL grAttachNestedDescriptors(
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GR_DESCRIPTOR_SET_ATTACH_INFO* info = &pNestedDescriptorSets[i];
 
-        releaseSlot(grDevice, slot);
+        releaseSlot(grDevice, grDescriptorSet, slot);
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_NESTED,
@@ -208,7 +250,7 @@ GR_VOID GR_STDCALL grClearDescriptorSetSlots(
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
 
-        releaseSlot(grDevice, slot);
+        releaseSlot(grDevice, grDescriptorSet, slot);
 
         slot->type = SLOT_TYPE_NONE;
     }
