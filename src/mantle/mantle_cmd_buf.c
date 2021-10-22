@@ -575,7 +575,7 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .buffer = grGpuMemory->buffer,
             .offset = stateTransition->offset,
-            .size = stateTransition->regionSize > 0 ? stateTransition->regionSize : VK_WHOLE_SIZE,
+            .size = stateTransition->regionSize > 0 ? min(grGpuMemory->deviceSize - stateTransition->offset, stateTransition->regionSize) : VK_WHOLE_SIZE,
         };
 
         srcStageMask |= getVkPipelineStageFlagsMemory(stateTransition->oldState);
