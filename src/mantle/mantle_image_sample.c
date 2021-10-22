@@ -194,9 +194,9 @@ GR_RESULT GR_STDCALL grCreateImage(
         .imageType = getVkImageType(pCreateInfo->imageType),
         .format = getVkFormat(pCreateInfo->format),
         .extent = {
-            .width = pCreateInfo->extent.width,
-            .height = pCreateInfo->extent.height,
-            .depth = pCreateInfo->extent.depth,
+            .width = max(1, pCreateInfo->extent.width),
+            .height = max(1, pCreateInfo->extent.height),
+            .depth = max(1, pCreateInfo->extent.depth),
         },
         .mipLevels = pCreateInfo->mipLevels,
         .arrayLayers = pCreateInfo->arraySize,
