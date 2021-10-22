@@ -745,6 +745,8 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     unsigned bufferBarrierCount = 0;
+    unsigned imageBarrierCount = 0;
+
     STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
     STACK_ARRAY(VkBufferMemoryBarrier, bufferBarriers, 128, transitionCount);
     VkPipelineStageFlags srcStageMask = 0;
@@ -768,19 +770,16 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
                 .size = VK_WHOLE_SIZE,
             };
             bufferBarrierCount++;
-        }
-
-        if (grImage->image == VK_NULL_HANDLE) {
             continue;
         }
 
-        barriers[i] = (VkImageMemoryBarrier) {
+        barriers[imageBarrierCount] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = NULL,
             .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState, isDepthStencil),
             .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState, isDepthStencil),
-            .oldLayout = getVkImageLayout(stateTransition->oldState, isDepthStencil),
-            .newLayout = getVkImageLayout(stateTransition->newState, isDepthStencil),
+            .oldLayout = grImage->buffer == VK_NULL_HANDLE ? getVkImageLayout(stateTransition->oldState, isDepthStencil) : VK_IMAGE_LAYOUT_GENERAL,
+            .newLayout = grImage->buffer == VK_NULL_HANDLE ? getVkImageLayout(stateTransition->newState, isDepthStencil) : VK_IMAGE_LAYOUT_GENERAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = grImage->image,
@@ -790,11 +789,11 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
 
         srcStageMask |= getVkPipelineStageFlagsImage(stateTransition->oldState);
         dstStageMask |= getVkPipelineStageFlagsImage(stateTransition->newState);
+        imageBarrierCount++;
     }
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer, srcStageMask, dstStageMask,
-                             0, 0, NULL, bufferBarrierCount, bufferBarriers, transitionCount, barriers);
-
+                             0, 0, NULL, bufferBarrierCount, bufferBarriers, imageBarrierCount, barriers);
     STACK_ARRAY_FINISH(bufferBarriers);
     STACK_ARRAY_FINISH(barriers);
 }

@@ -145,7 +145,7 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
                 .imageInfo = {
                     .sampler = VK_NULL_HANDLE,
                     .imageView = grImageView->imageView,
-                    .imageLayout = getVkImageLayout(info->state, isDepthStencil),
+                    .imageLayout = grImageView->image->buffer == VK_NULL_HANDLE ? getVkImageLayout(info->state, isDepthStencil) : VK_IMAGE_LAYOUT_GENERAL,
                 },
                 .isLinearImageWithBuffer = isLinearImageWithBuffer,
                 .image = grImageView->image->image,
