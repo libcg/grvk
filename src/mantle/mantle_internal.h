@@ -180,4 +180,7 @@ void grWsiDestroyImage(
 
 bool checkFormatSupport(VkPhysicalDevice physicalDevice, const VkImageCreateInfo *createInfo);
 
+bool isVkFormatDepth(VkFormat format);
+bool isVkFormatStencil(VkFormat format);
+
 #endif // MANTLE_INTERNAL_H_

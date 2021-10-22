@@ -770,7 +770,10 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
                 .size = VK_WHOLE_SIZE,
             };
             bufferBarrierCount++;
-            continue;
+
+            if (grImage->image == VK_NULL_HANDLE) {
+                continue;
+            }
         }
 
         barriers[imageBarrierCount] = (VkImageMemoryBarrier) {
@@ -784,7 +787,7 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = grImage->image,
             .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange,
-                                                           grImage->multiplyCubeLayers),
+                                                        grImage->multiplyCubeLayers),
         };
 
         srcStageMask |= getVkPipelineStageFlagsImage(stateTransition->oldState);

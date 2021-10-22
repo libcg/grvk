@@ -220,6 +220,7 @@ typedef struct _GrImage {
     VkBuffer buffer;
     VkImageType imageType;
     VkExtent3D extent;
+    unsigned mipLevels;
     unsigned arrayLayers;
     VkFormat format;
     VkImageUsageFlags usage;
@@ -278,7 +279,6 @@ typedef struct _GrDescriptorSet {
 
 typedef struct _GrDepthStencilView {
     GrObject grObj;
-    GrImage* image;
     VkImageView imageView;
     VkExtent3D extent;
     VkFormat format;
@@ -361,6 +361,11 @@ typedef struct _GrQueryPool {
     VkQueryPool queryPool;
     VkQueryType queryType;
 } GrQueryPool;
+
+typedef struct _GrvkPreparationCommandBuffer {
+    VkCommandBuffer commandBuffer;
+    VkFence fence;
+} GrvkPreparationCommandBuffer;
 
 typedef struct _GrQueue {
     GrObject grObj; // FIXME base object?

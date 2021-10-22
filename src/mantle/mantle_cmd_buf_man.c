@@ -212,6 +212,65 @@ GR_RESULT GR_STDCALL grEndCommandBuffer(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
+    if (grCmdBuffer->linearImageCount != 0) {
+        VkBufferImageCopy* regions = NULL;
+        int regionsCapacity = 0;
+        for (int i = 0; i < grCmdBuffer->linearImageCount; i++) {
+            GrImage* image = grCmdBuffer->linearImages[i];
+            int imageRegionsCount = image->arrayLayers * image->mipLevels;
+            if (regions == NULL) {
+                regions = malloc(sizeof(VkBufferImageCopy) * imageRegionsCount);
+                regionsCapacity = imageRegionsCount;
+            } else if (regionsCapacity < imageRegionsCount) {
+                regions = realloc(regions, sizeof(VkBufferImageCopy) * imageRegionsCount);
+                regionsCapacity = imageRegionsCount;
+            }
+            for (int a = 0; a < image->arrayLayers; a++) {
+                for (int m = 0; m < image->mipLevels; m++) {
+                    if (getVkFormatTileSize(image->format) != 1) {
+                        LOGE("Block compressed linear images aren't supported");
+                        continue;
+                    }
+
+                    VkImageAspectFlags aspectMask = 0;
+                    if (isVkFormatDepth(image->format)) {
+                        aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+                    }
+                    if (isVkFormatStencil(image->format)) {
+                        aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+                    }
+                    if (aspectMask == 0) {
+                        aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    }
+
+                    int layerIndex = a * image->mipLevels + m;
+                    regions[layerIndex] = (VkBufferImageCopy) {
+                        .bufferOffset = grImageGetBufferOffset(image->extent, image->format, a, image->arrayLayers, m),
+                        .bufferRowLength = 0,
+                        .imageSubresource.aspectMask = aspectMask,
+                        .imageSubresource.mipLevel = m,
+                        .imageSubresource.baseArrayLayer = a,
+                        .imageSubresource.layerCount = 1,
+                        .imageOffset = (VkOffset3D) {
+                            .x = 0,
+                            .y = 0,
+                            .z = 0,
+                        },
+                        .imageExtent = (VkExtent3D) {
+                            .width = max(1, image->extent.width >> m),
+                            .height = max(1, image->extent.height >> m),
+                            .depth = max(1, image->extent.depth >> m),
+                        },
+                    };
+                }
+            }
+            VKD.vkCmdCopyImageToBuffer(grCmdBuffer->commandBuffer, image->image, VK_IMAGE_LAYOUT_GENERAL, image->buffer, imageRegionsCount, regions);
+        }
+        if (regions != NULL) {
+            free(regions);
+        }
+    }
+
     VkResult res = VKD.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
     if (res != VK_SUCCESS) {
         LOGE("vkEndCommandBuffer failed (%d)\n", res);

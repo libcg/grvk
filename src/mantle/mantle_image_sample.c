@@ -264,6 +264,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .buffer = vkBuffer,
         .imageType = createInfo.imageType,
         .extent = createInfo.extent,
+        .mipLevels = createInfo.mipLevels,
         .arrayLayers = createInfo.arrayLayers,
         .format = createInfo.format,
         .usage = createInfo.usage,

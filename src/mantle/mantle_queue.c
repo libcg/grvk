@@ -24,7 +24,6 @@ static void prepareImagesForDataTransfer(
     };
 
     STACK_ARRAY(VkImageMemoryBarrier, barriers, 1024, imageCount);
-
     for (unsigned i = 0; i < imageCount; i++) {
         barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -45,6 +44,7 @@ static void prepareImagesForDataTransfer(
             },
         };
     }
+
 
     VKD.vkBeginCommandBuffer(vkCommandBuffer, &beginInfo);
     VKD.vkCmdPipelineBarrier(vkCommandBuffer,
@@ -75,8 +75,12 @@ static void prepareImagesForDataTransfer(
 static void checkMemoryReferences(
     GrQueue* grQueue,
     unsigned memRefCount,
-    const GR_MEMORY_REF* memRefs)
+    const GR_MEMORY_REF* memRefs,
+    GR_UINT cmdBufferCount,
+    const GR_CMD_BUFFER* pCmdBuffers)
 {
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
+
     AcquireSRWLockExclusive(&mInitialImagesLock);
 
     unsigned imageCount = 0;
@@ -110,6 +114,27 @@ static void checkMemoryReferences(
         }
     }
 
+
+    unsigned linearImageCapacity = 0;
+    for (unsigned i = 0; i < cmdBufferCount; i++) {
+        GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)pCmdBuffers[i];
+        if (grCmdBuffer->linearImageCount != 0) {
+            linearImageCapacity += grCmdBuffer->linearImageCount;
+        }
+    }
+
+    unsigned linearImageCount = 0;
+    STACK_ARRAY(GrImage*, linearImages, 64, linearImageCapacity);
+    if (linearImageCapacity > 0) {
+        for (unsigned i = 0; i < cmdBufferCount; i++) {
+            GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)pCmdBuffers[i];
+            for (int i = 0; i < grCmdBuffer->linearImageCount; i++) {
+                linearImages[linearImageCapacity] = grCmdBuffer->linearImages[i];
+                linearImageCapacity++;
+            }
+        }
+    }
+
     ReleaseSRWLockExclusive(&mInitialImagesLock);
 
     // Perform data transfer state transition
@@ -117,7 +142,87 @@ static void checkMemoryReferences(
         prepareImagesForDataTransfer(grQueue, imageCount, images);
     }
 
+    if (linearImageCount > 0) {
+        // Pick the next command buffer (and hope it's not pending...)
+        VkCommandBuffer vkCommandBuffer = grQueue->commandBuffers[grQueue->commandBufferIndex];
+        grQueue->commandBufferIndex = (grQueue->commandBufferIndex + 1) % IMAGE_PREP_CMD_BUFFER_COUNT;
+
+        const VkCommandBufferBeginInfo beginInfo = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext = NULL,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = NULL,
+        };
+        VKD.vkBeginCommandBuffer(vkCommandBuffer, &beginInfo);
+
+        VkBufferImageCopy* regions = NULL;
+        int regionsCapacity = 0;
+        for (int i = 0; i < linearImageCount; i++) {
+            GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)pCmdBuffers[i];
+            GrImage* image = grCmdBuffer->linearImages[i];
+            int imageRegionsCount = image->arrayLayers * image->mipLevels;
+            if (regions == NULL) {
+                regions = malloc(sizeof(VkBufferImageCopy) * imageRegionsCount);
+                regionsCapacity = imageRegionsCount;
+            } else if (regionsCapacity < imageRegionsCount) {
+                regions = realloc(regions, sizeof(VkBufferImageCopy) * imageRegionsCount);
+                regionsCapacity = imageRegionsCount;
+            }
+            for (int a = 0; a < image->arrayLayers; a++) {
+                for (int m = 0; m < image->mipLevels; m++) {
+                    if (getVkFormatTileSize(image->format) != 1) {
+                        LOGE("Block compressed linear images aren't supported");
+                        continue;
+                    }
+
+                    VkImageAspectFlags aspectMask = 0;
+                    if (isVkFormatDepth(image->format)) {
+                        aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+                    }
+                    if (isVkFormatStencil(image->format)) {
+                        aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+                    }
+                    if (aspectMask == 0) {
+                        aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    }
+
+                    int layerIndex = a * image->mipLevels + m;
+                    regions[layerIndex] = (VkBufferImageCopy) {
+                        .bufferOffset = grImageGetBufferOffset(image->extent, image->format, a, image->arrayLayers, m),
+                        .bufferRowLength = 0,
+                        .imageSubresource.aspectMask = aspectMask,
+                        .imageSubresource.mipLevel = m,
+                        .imageSubresource.baseArrayLayer = a,
+                        .imageSubresource.layerCount = 1,
+                        .imageOffset = (VkOffset3D) {
+                            .x = 0,
+                            .y = 0,
+                            .z = 0,
+                        },
+                        .imageExtent = (VkExtent3D) {
+                            .width = max(1, image->extent.width >> m),
+                            .height = max(1, image->extent.height >> m),
+                            .depth = max(1, image->extent.depth >> m),
+                        },
+                    };
+                }
+            }
+            VKD.vkCmdCopyBufferToImage(vkCommandBuffer, image->buffer,  image->image, VK_IMAGE_LAYOUT_GENERAL, imageRegionsCount, regions);
+            VkMemoryBarrier barrier = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+                .pNext = NULL,
+                .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT
+            };
+            VKD.vkCmdPipelineBarrier(vkCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, 0, 0, NULL);
+        }
+        if (regions != NULL) {
+            free(regions);
+        }
+    }
+
     STACK_ARRAY_FINISH(images);
+    STACK_ARRAY_FINISH(linearImages);
 }
 
 // Exported functions
@@ -267,7 +372,7 @@ GR_RESULT GR_STDCALL grQueueSubmit(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
 
-    checkMemoryReferences(grQueue, memRefCount, pMemRefs);
+    checkMemoryReferences(grQueue, memRefCount, pMemRefs, cmdBufferCount, pCmdBuffers);
 
     if (grFence != NULL) {
         vkFence = grFence->fence;
