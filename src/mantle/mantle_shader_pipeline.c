@@ -167,8 +167,7 @@ static VkRenderPass getVkRenderPass(
             .format = vkFormat,
             .samples = sampleCountFlags,
             .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = (target->channelWriteMask & 0xF) != 0 ?
-                       VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -202,25 +201,14 @@ static VkRenderPass getVkRenderPass(
 
     if (!(format.channelFormat == GR_CH_FMT_UNDEFINED &&
           format.numericFormat == GR_NUM_FMT_UNDEFINED)) {
-        // Table 10 in the API reference
-        bool hasDepth = format.channelFormat == GR_CH_FMT_R16 ||
-                        format.channelFormat == GR_CH_FMT_R32 ||
-                        format.channelFormat == GR_CH_FMT_R16G8 ||
-                        format.channelFormat == GR_CH_FMT_R32G8;
-        bool hasStencil = format.channelFormat == GR_CH_FMT_R8 ||
-                          format.channelFormat == GR_CH_FMT_R16G8 ||
-                          format.channelFormat == GR_CH_FMT_R32G8;
-
         descriptions[descriptionCount] = (VkAttachmentDescription) {
             .flags = 0,
             .format = getVkFormat(format),
             .samples = sampleCountFlags,
-            .loadOp = hasDepth ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .storeOp = hasDepth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .stencilLoadOp = hasStencil ?
-                             VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .stencilStoreOp = hasStencil ?
-                             VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE,
             .initialLayout = VK_IMAGE_LAYOUT_GENERAL,
             .finalLayout = VK_IMAGE_LAYOUT_GENERAL,
         };
