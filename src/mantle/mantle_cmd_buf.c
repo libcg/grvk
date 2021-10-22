@@ -543,6 +543,8 @@ GR_VOID GR_STDCALL grCmdBindIndexData(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
+    grGpuMemoryBindBuffer(grGpuMemory);
+
     VKD.vkCmdBindIndexBuffer(grCmdBuffer->commandBuffer, grGpuMemory->buffer, offset,
                              getVkIndexType(indexType));
 }
@@ -565,6 +567,8 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)stateTransition->mem;
+
+        grGpuMemoryBindBuffer(grGpuMemory);
 
         barriers[i] = (VkBufferMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -840,6 +844,7 @@ GR_VOID GR_STDCALL grCmdDispatchIndirect(
 
     grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
     grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grGpuMemory);
 
     VKD.vkCmdDispatchIndirect(grCmdBuffer->commandBuffer, grGpuMemory->buffer, offset);
 }
@@ -858,6 +863,8 @@ GR_VOID GR_STDCALL grCmdCopyMemory(
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
     grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grSrcGpuMemory);
+    grGpuMemoryBindBuffer(grDstGpuMemory);
 
     STACK_ARRAY(VkBufferCopy, vkRegions, 128, regionCount);
 
@@ -1003,6 +1010,7 @@ GR_VOID GR_STDCALL grCmdCopyMemoryToImage(
     }
 
     grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grSrcGpuMemory);
 
     STACK_ARRAY(VkBufferImageCopy, vkRegions, 128, regionCount);
 
@@ -1056,6 +1064,7 @@ GR_VOID GR_STDCALL grCmdCopyImageToMemory(
     }
 
     grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grDstGpuMemory);
 
     STACK_ARRAY(VkBufferImageCopy, vkRegions, 128, regionCount);
 
@@ -1102,6 +1111,7 @@ GR_VOID GR_STDCALL grCmdUpdateMemory(
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
     grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grDstGpuMemory);
 
     VKD.vkCmdUpdateBuffer(grCmdBuffer->commandBuffer, grDstGpuMemory->buffer, destOffset,
                           dataSize, pData);
@@ -1120,6 +1130,7 @@ GR_VOID GR_STDCALL grCmdFillMemory(
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
     grCmdBufferEndRenderPass(grCmdBuffer);
+    grGpuMemoryBindBuffer(grDstGpuMemory);
 
     VKD.vkCmdFillBuffer(grCmdBuffer->commandBuffer, grDstGpuMemory->buffer, destOffset,
                         fillSize, data);

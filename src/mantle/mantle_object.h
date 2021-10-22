@@ -375,6 +375,9 @@ unsigned grImageGetBufferDepthPitch(
     VkFormat format,
     unsigned mipLevel);
 
+void grGpuMemoryBindBuffer(
+    GrGpuMemory* grGpuMemory);
+
 VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
