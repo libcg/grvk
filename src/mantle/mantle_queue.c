@@ -1,8 +1,5 @@
 #include "mantle_internal.h"
 
-static CRITICAL_SECTION mMemRefMutex;
-static bool mMemRefMutexInit = false;
-
 static void prepareImagesForDataTransfer(
     const GrQueue* grQueue,
     unsigned imageCount,
@@ -163,11 +160,6 @@ GR_RESULT GR_STDCALL grGetDeviceQueue(
         .mutex = grDeviceGetQueueMutex(grDevice, queueType),
     };
 
-    if (!mMemRefMutexInit) {
-        InitializeCriticalSectionAndSpinCount(&mMemRefMutex, 0);
-        mMemRefMutexInit = true;
-    }
-
     *pQueue = (GR_QUEUE)grQueue;
     return GR_SUCCESS;
 }
@@ -190,10 +182,8 @@ GR_RESULT GR_STDCALL grQueueSubmit(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
 
-    EnterCriticalSection(&mMemRefMutex);
     checkMemoryReferences(grQueue, grQueue->globalMemRefCount, grQueue->globalMemRefs);
     checkMemoryReferences(grQueue, memRefCount, pMemRefs);
-    LeaveCriticalSection(&mMemRefMutex);
 
     if (grFence != NULL) {
         vkFence = grFence->fence;
@@ -299,10 +289,8 @@ GR_RESULT GR_STDCALL grQueueSetGlobalMemReferences(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    EnterCriticalSection(&mMemRefMutex);
     grQueue->globalMemRefCount = memRefCount;
     grQueue->globalMemRefs = (GR_MEMORY_REF*)pMemRefs;
-    LeaveCriticalSection(&mMemRefMutex);
 
     return GR_SUCCESS;
 }
