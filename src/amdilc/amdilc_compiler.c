@@ -24,6 +24,7 @@ typedef enum {
     RES_TYPE_GENERIC,
     RES_TYPE_LDS,
     RES_TYPE_ATOMIC_COUNTER,
+    RES_TYPE_PUSH_CONSTANTS,
 } IlcResourceType;
 
 typedef enum {
@@ -91,7 +92,6 @@ typedef struct {
     IlcSpvId float4Id;
     IlcSpvId boolId;
     IlcSpvId bool4Id;
-    IlcSpvId pushConstantsId;
     unsigned currentStrideIndex;
     unsigned regCount;
     IlcRegister* regs;
@@ -1300,14 +1300,15 @@ static void emitSrv(
             assert(false);
         }
 
-        if (compiler->pushConstantsId == 0) {
-            // Create push constants variable lazily
+        const IlcResource* pcResource = findResource(compiler, RES_TYPE_PUSH_CONSTANTS, 0);
+
+        if (pcResource == NULL) {
+            // Lazily create push constants resource
             IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->intId,
                                                   ILC_MAX_STRIDE_CONSTANTS);
             IlcSpvId arrayId = ilcSpvPutArrayType(compiler->module, compiler->intId, lengthId);
             IlcSpvId structId = ilcSpvPutStructType(compiler->module, 1, &arrayId);
-            compiler->pushConstantsId = emitVariable(compiler, structId,
-                                                     SpvStorageClassPushConstant);
+            IlcSpvId pcId = emitVariable(compiler, structId, SpvStorageClassPushConstant);
 
             IlcSpvWord arrayStride = sizeof(uint32_t);
             IlcSpvWord memberOffset = 0;
@@ -1316,6 +1317,18 @@ static void emitSrv(
             ilcSpvPutDecoration(compiler->module, structId, SpvDecorationBlock, 0, NULL);
             ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset,
                                       1, &memberOffset);
+
+            const IlcResource pushConstantsResource = {
+                .resType = RES_TYPE_PUSH_CONSTANTS,
+                .id = pcId,
+                .typeId = 0,
+                .texelTypeId = 0,
+                .ilId = 0,
+                .ilType = IL_USAGE_PIXTEX_UNKNOWN,
+                .strideId = 0,
+            };
+
+            pcResource = addResource(compiler, &pushConstantsResource);
         }
 
         IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPushConstant,
@@ -1324,8 +1337,8 @@ static void emitSrv(
             ilcSpvPutConstant(compiler->module, compiler->intId, 0),
             ilcSpvPutConstant(compiler->module, compiler->intId, compiler->currentStrideIndex),
         };
-        IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId,
-                                              compiler->pushConstantsId, 2, indexesId);
+        IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, pcResource->id,
+                                              2, indexesId);
         strideId = ilcSpvPutLoad(compiler->module, compiler->intId, ptrId);
 
         compiler->currentStrideIndex++;
@@ -3065,16 +3078,12 @@ static void emitEntryPoint(
         break;
     }
 
-    unsigned interfaceCount = (compiler->pushConstantsId != 0 ? 1 : 0) +
-                              compiler->regCount +
+    unsigned interfaceCount = compiler->regCount +
                               compiler->resourceCount +
                               compiler->samplerCount;
     IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
     unsigned interfaceIndex = 0;
-    if (compiler->pushConstantsId != 0) {
-        interfaces[interfaceIndex] = compiler->pushConstantsId;
-        interfaceIndex++;
-    }
+
     for (int i = 0; i < compiler->regCount; i++) {
         const IlcRegister* reg = &compiler->regs[i];
 
@@ -3139,7 +3148,6 @@ IlcShader ilcCompileKernel(
         .float4Id = ilcSpvPutVectorType(&module, floatId, 4),
         .boolId = boolId,
         .bool4Id = ilcSpvPutVectorType(&module, boolId, 4),
-        .pushConstantsId = 0,
         .currentStrideIndex = 0,
         .regCount = 0,
         .regs = NULL,
