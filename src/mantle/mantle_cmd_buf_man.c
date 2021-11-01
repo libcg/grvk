@@ -1,23 +1,42 @@
 #include "mantle_internal.h"
 
 void grCmdBufferResetState(
-    GrCmdBuffer* grCmdBuffer)
+    GrCmdBuffer* grCmdBuffer,
+    bool preserveDescriptorPools)
 {
+    // Release tracked resources
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    unsigned descriptorPoolCount = grCmdBuffer->descriptorPoolCount;
+    VkDescriptorPool* descriptorPools = grCmdBuffer->descriptorPools;
 
-    // Free up tracked resources
-    for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
-        VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
+    if (preserveDescriptorPools) {
+        for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
+            if (i > grCmdBuffer->descriptorPoolIndex) {
+                break;
+            }
+
+            VKD.vkResetDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], 0);
+        }
+    } else {
+        for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
+            VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
+        }
+        free(grCmdBuffer->descriptorPools);
     }
+
     for (unsigned i = 0; i < grCmdBuffer->framebufferCount; i++) {
         VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffers[i], NULL);
     }
-    free(grCmdBuffer->descriptorPools);
     free(grCmdBuffer->framebuffers);
 
     // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
+
+    if (preserveDescriptorPools) {
+        grCmdBuffer->descriptorPoolCount = descriptorPoolCount;
+        grCmdBuffer->descriptorPools = descriptorPools;
+    }
 }
 
 // Command Buffer Management Functions
@@ -100,6 +119,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .attachments = { VK_NULL_HANDLE },
         .minExtent = { 0, 0, 0 },
         .hasActiveRenderPass = false,
+        .descriptorPoolIndex = 0,
         .descriptorPoolCount = 0,
         .descriptorPools = NULL,
         .framebufferCount = 0,
@@ -149,7 +169,7 @@ GR_RESULT GR_STDCALL grBeginCommandBuffer(
         return getGrResult(res);
     }
 
-    grCmdBufferResetState(grCmdBuffer);
+    grCmdBufferResetState(grCmdBuffer, true);
     grCmdBuffer->isBuilding = true;
 
     return GR_SUCCESS;
@@ -211,7 +231,7 @@ GR_RESULT GR_STDCALL grResetCommandBuffer(
         return getGrResult(res);
     }
 
-    grCmdBufferResetState(grCmdBuffer);
+    grCmdBufferResetState(grCmdBuffer, false);
 
     return GR_SUCCESS;
 }

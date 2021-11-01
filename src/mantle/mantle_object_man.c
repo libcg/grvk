@@ -18,7 +18,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
         GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)grObject;
 
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
-        grCmdBufferResetState(grCmdBuffer);
+        grCmdBufferResetState(grCmdBuffer, false);
     }   break;
     case GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT:
         // Nothing to do

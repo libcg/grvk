@@ -99,7 +99,6 @@ typedef struct _BindPoint
     GrDescriptorSet* grDescriptorSet;
     unsigned slotOffset;
     DescriptorSetSlot dynamicMemoryView;
-    VkDescriptorPool descriptorPool;
     VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
 } BindPoint;
 
@@ -165,6 +164,7 @@ typedef struct _GrCmdBuffer {
     VkExtent3D minExtent;
     bool hasActiveRenderPass;
     // Resource tracking
+    unsigned descriptorPoolIndex;
     unsigned descriptorPoolCount;
     VkDescriptorPool* descriptorPools;
     unsigned framebufferCount;
@@ -352,7 +352,8 @@ void grCmdBufferEndRenderPass(
     GrCmdBuffer* grCmdBuffer);
 
 void grCmdBufferResetState(
-    GrCmdBuffer* grCmdBuffer);
+    GrCmdBuffer* grCmdBuffer,
+    bool preserveDescriptorPools);
 
 unsigned grDeviceGetQueueFamilyIndex(
     const GrDevice* grDevice,

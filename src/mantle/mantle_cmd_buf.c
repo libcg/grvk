@@ -317,11 +317,11 @@ static void grCmdBufferUpdateDescriptorSets(
     VkResult vkRes;
 
     for (unsigned i = 0; i < 2; i++) {
-        if (bindPoint->descriptorPool != VK_NULL_HANDLE) {
+        if (grCmdBuffer->descriptorPoolIndex < grCmdBuffer->descriptorPoolCount) {
             const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                 .pNext = NULL,
-                .descriptorPool = bindPoint->descriptorPool,
+                .descriptorPool = grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolIndex],
                 .descriptorSetCount = grPipeline->stageCount, // TODO optimize
                 .pSetLayouts = grPipeline->descriptorSetLayouts,
             };
@@ -336,19 +336,23 @@ static void grCmdBufferUpdateDescriptorSets(
             } else if (i > 0) {
                 LOGE("descriptor set allocation failed with a new pool\n");
                 assert(false);
+            } else {
+                // Use the next pool
+                grCmdBuffer->descriptorPoolIndex++;
             }
         }
 
-        // Need a new pool
-        bindPoint->descriptorPool = getVkDescriptorPool(grDevice);
+        if (grCmdBuffer->descriptorPoolIndex == grCmdBuffer->descriptorPoolCount) {
+            // Need to allocate a new pool
+            VkDescriptorPool descriptorPool = getVkDescriptorPool(grDevice);
 
-        // Track descriptor pool
-        grCmdBuffer->descriptorPoolCount++;
-        grCmdBuffer->descriptorPools = realloc(grCmdBuffer->descriptorPools,
-                                               grCmdBuffer->descriptorPoolCount *
-                                               sizeof(VkDescriptorPool));
-        grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] =
-            bindPoint->descriptorPool;
+            // Track descriptor pool
+            grCmdBuffer->descriptorPoolCount++;
+            grCmdBuffer->descriptorPools = realloc(grCmdBuffer->descriptorPools,
+                                                   grCmdBuffer->descriptorPoolCount *
+                                                   sizeof(VkDescriptorPool));
+            grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] = descriptorPool;
+        }
     }
 
     for (unsigned i = 0; i < grPipeline->stageCount; i++) {
