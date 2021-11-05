@@ -487,6 +487,7 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
                                          viewportState->viewportCount, viewportState->viewports);
         VKD.vkCmdSetScissorWithCountEXT(grCmdBuffer->commandBuffer, viewportState->scissorCount,
                                         viewportState->scissors);
+
         grCmdBuffer->grViewportState = viewportState;
     }   break;
     case GR_STATE_BIND_RASTER: {
@@ -499,8 +500,13 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         VKD.vkCmdSetFrontFaceEXT(grCmdBuffer->commandBuffer, rasterState->frontFace);
         VKD.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
+
+        if (grCmdBuffer->grRasterState == NULL ||
+            rasterState->polygonMode != grCmdBuffer->grRasterState->polygonMode) {
+            bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
+        }
+
         grCmdBuffer->grRasterState = rasterState;
-        bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
     }   break;
     case GR_STATE_BIND_DEPTH_STENCIL: {
         GrDepthStencilStateObject* depthStencilState = (GrDepthStencilStateObject*)state;
@@ -540,8 +546,9 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
                                      depthStencilState->back.writeMask);
         VKD.vkCmdSetStencilReference(grCmdBuffer->commandBuffer, VK_STENCIL_FACE_BACK_BIT,
                                      depthStencilState->back.reference);
-        VKD.vkCmdSetDepthBounds(grCmdBuffer->commandBuffer,
-                                depthStencilState->minDepthBounds, depthStencilState->maxDepthBounds);
+        VKD.vkCmdSetDepthBounds(grCmdBuffer->commandBuffer, depthStencilState->minDepthBounds,
+                                                            depthStencilState->maxDepthBounds);
+
         grCmdBuffer->grDepthStencilState = depthStencilState;
     }   break;
     case GR_STATE_BIND_COLOR_BLEND: {
@@ -551,8 +558,14 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         }
 
         VKD.vkCmdSetBlendConstants(grCmdBuffer->commandBuffer, colorBlendState->blendConstants);
+
+        if (grCmdBuffer->grColorBlendState == NULL ||
+            memcmp(colorBlendState->states, grCmdBuffer->grColorBlendState->states,
+                   sizeof(colorBlendState->states)) != 0) {
+            bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
+        }
+
         grCmdBuffer->grColorBlendState = colorBlendState;
-        bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
     }   break;
     case GR_STATE_BIND_MSAA: {
         GrMsaaStateObject* msaaState = (GrMsaaStateObject*)state;
@@ -560,8 +573,17 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
             break;
         }
 
+        if (grCmdBuffer->grMsaaState == NULL ||
+            msaaState->renderPassIndex != grCmdBuffer->grMsaaState->renderPassIndex) {
+            bindPoint->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
+        }
+        if (grCmdBuffer->grMsaaState == NULL ||
+            msaaState->sampleCountFlags != grCmdBuffer->grMsaaState->sampleCountFlags ||
+            msaaState->sampleMask != grCmdBuffer->grMsaaState->sampleMask) {
+            bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
+        }
+
         grCmdBuffer->grMsaaState = msaaState;
-        bindPoint->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER | FLAG_DIRTY_PIPELINE;
     }   break;
     }
 }
