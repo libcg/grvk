@@ -453,7 +453,6 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
 
     if (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
         bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS |
-                                 FLAG_DIRTY_FRAMEBUFFER |
                                  FLAG_DIRTY_PIPELINE;
     } else {
         // Pipeline creation isn't deferred for compute, bind now
