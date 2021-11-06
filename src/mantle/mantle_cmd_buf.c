@@ -150,7 +150,7 @@ static void updateVkDescriptorSet(
         },
     };
 
-    VkWriteDescriptorSet* writes = malloc(grShader->bindingCount * sizeof(VkWriteDescriptorSet));
+    STACK_ARRAY(VkWriteDescriptorSet, writes, 64, grShader->bindingCount);
 
     for (unsigned i = 0; i < grShader->bindingCount; i++) {
         const IlcBinding* binding = &grShader->bindings[i];
@@ -198,7 +198,7 @@ static void updateVkDescriptorSet(
 
     VKD.vkUpdateDescriptorSets(grDevice->device, grShader->bindingCount, writes, 0, NULL);
 
-    free(writes);
+    STACK_ARRAY_FINISH(writes);
 }
 
 static void grCmdBufferBeginRenderPass(
@@ -614,7 +614,8 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    VkBufferMemoryBarrier* barriers = malloc(transitionCount * sizeof(VkBufferMemoryBarrier));
+    STACK_ARRAY(VkBufferMemoryBarrier, barriers, 128, transitionCount);
+
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)stateTransition->mem;
@@ -636,7 +637,8 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, transitionCount, barriers, 0, NULL);
-    free(barriers);
+
+    STACK_ARRAY_FINISH(barriers);
 }
 
 // FIXME what are target states for?
@@ -716,7 +718,8 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    VkImageMemoryBarrier* barriers = malloc(transitionCount * sizeof(VkImageMemoryBarrier));
+    STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
+
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
@@ -741,7 +744,8 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, transitionCount, barriers);
-    free(barriers);
+
+    STACK_ARRAY_FINISH(barriers);
 }
 
 GR_VOID GR_STDCALL grCmdDraw(
@@ -861,7 +865,8 @@ GR_VOID GR_STDCALL grCmdCopyMemory(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    VkBufferCopy* vkRegions = malloc(regionCount * sizeof(VkBufferCopy));
+    STACK_ARRAY(VkBufferCopy, vkRegions, 128, regionCount);
+
     for (unsigned i = 0; i < regionCount; i++) {
         const GR_MEMORY_COPY* region = &pRegions[i];
 
@@ -875,7 +880,7 @@ GR_VOID GR_STDCALL grCmdCopyMemory(
     VKD.vkCmdCopyBuffer(grCmdBuffer->commandBuffer, grSrcGpuMemory->buffer, grDstGpuMemory->buffer,
                         regionCount, vkRegions);
 
-    free(vkRegions);
+    STACK_ARRAY_FINISH(vkRegions);
 }
 
 GR_VOID GR_STDCALL grCmdCopyImage(
@@ -901,7 +906,8 @@ GR_VOID GR_STDCALL grCmdCopyImage(
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     if (grSrcImage->image != VK_NULL_HANDLE) {
-        VkImageCopy* vkRegions = malloc(regionCount * sizeof(VkImageCopy));
+        STACK_ARRAY(VkImageCopy, vkRegions, 128, regionCount);
+
         for (unsigned i = 0; i < regionCount; i++) {
             const GR_IMAGE_COPY* region = &pRegions[i];
 
@@ -931,9 +937,10 @@ GR_VOID GR_STDCALL grCmdCopyImage(
                            grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
                            regionCount, vkRegions);
 
-        free(vkRegions);
+        STACK_ARRAY_FINISH(vkRegions);
     } else {
-        VkBufferImageCopy* vkRegions = malloc(regionCount * sizeof(VkBufferImageCopy));
+        STACK_ARRAY(VkBufferImageCopy, vkRegions, 128, regionCount);
+
         for (unsigned i = 0; i < regionCount; i++) {
             const GR_IMAGE_COPY* region = &pRegions[i];
 
@@ -977,7 +984,7 @@ GR_VOID GR_STDCALL grCmdCopyImage(
                                    getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
                                    regionCount, vkRegions);
 
-        free(vkRegions);
+        STACK_ARRAY_FINISH(vkRegions);
     }
 }
 
@@ -1001,7 +1008,8 @@ GR_VOID GR_STDCALL grCmdCopyMemoryToImage(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    VkBufferImageCopy* vkRegions = malloc(regionCount * sizeof(VkBufferImageCopy));
+    STACK_ARRAY(VkBufferImageCopy, vkRegions, 128, regionCount);
+
     for (unsigned i = 0; i < regionCount; i++) {
         const GR_MEMORY_IMAGE_COPY* region = &pRegions[i];
 
@@ -1029,7 +1037,7 @@ GR_VOID GR_STDCALL grCmdCopyMemoryToImage(
                                grDstImage->image, getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
                                regionCount, vkRegions);
 
-    free(vkRegions);
+    STACK_ARRAY_FINISH(vkRegions);
 }
 
 GR_VOID GR_STDCALL grCmdCopyImageToMemory(
@@ -1052,7 +1060,8 @@ GR_VOID GR_STDCALL grCmdCopyImageToMemory(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    VkBufferImageCopy* vkRegions = malloc(regionCount * sizeof(VkBufferImageCopy));
+    STACK_ARRAY(VkBufferImageCopy, vkRegions, 128, regionCount);
+
     for (unsigned i = 0; i < regionCount; i++) {
         const GR_MEMORY_IMAGE_COPY* region = &pRegions[i];
 
@@ -1080,7 +1089,7 @@ GR_VOID GR_STDCALL grCmdCopyImageToMemory(
                                getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
                                grDstGpuMemory->buffer, regionCount, vkRegions);
 
-    free(vkRegions);
+    STACK_ARRAY_FINISH(vkRegions);
 }
 
 GR_VOID GR_STDCALL grCmdUpdateMemory(
@@ -1138,8 +1147,9 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
         .float32 = { color[0], color[1], color[2], color[3] },
     };
 
-    VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
-    for (int i = 0; i < rangeCount; i++) {
+    STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
+
+    for (unsigned i = 0; i < rangeCount; i++) {
         bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
 
         vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
@@ -1149,7 +1159,7 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
                              getVkImageLayout(GR_IMAGE_STATE_CLEAR),
                              &vkColor, rangeCount, vkRanges);
 
-    free(vkRanges);
+    STACK_ARRAY_FINISH(vkRanges);
 }
 
 GR_VOID GR_STDCALL grCmdClearColorImageRaw(
@@ -1171,8 +1181,9 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
         .uint32 = { color[0], color[1], color[2], color[3] },
     };
 
-    VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
-    for (int i = 0; i < rangeCount; i++) {
+    STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
+
+    for (unsigned i = 0; i < rangeCount; i++) {
         bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
 
         vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
@@ -1182,7 +1193,7 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
                              getVkImageLayout(GR_IMAGE_STATE_CLEAR),
                              &vkColor, rangeCount, vkRanges);
 
-    free(vkRanges);
+    STACK_ARRAY_FINISH(vkRanges);
 }
 
 GR_VOID GR_STDCALL grCmdClearDepthStencil(
@@ -1205,8 +1216,9 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
         .stencil = stencil,
     };
 
-    VkImageSubresourceRange* vkRanges = malloc(rangeCount * sizeof(VkImageSubresourceRange));
-    for (int i = 0; i < rangeCount; i++) {
+    STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
+
+    for (unsigned i = 0; i < rangeCount; i++) {
         bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
 
         vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
@@ -1216,7 +1228,7 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
                                     getVkImageLayout(GR_IMAGE_STATE_CLEAR), &depthStencilValue,
                                     rangeCount, vkRanges);
 
-    free(vkRanges);
+    STACK_ARRAY_FINISH(vkRanges);
 }
 
 GR_VOID GR_STDCALL grCmdSetEvent(

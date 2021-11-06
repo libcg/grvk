@@ -39,6 +39,13 @@
 #define OFFSET_OF(struct, member) \
     (size_t)(&((struct*)0)->member)
 
+#define STACK_ARRAY(type, name, stackCount, count) \
+    type _stack_##name[stackCount]; \
+    type* name = (count) <= (stackCount) ? _stack_##name : malloc((count) * sizeof(type))
+
+#define STACK_ARRAY_FINISH(name) \
+   if (name != _stack_##name) free(name)
+
 GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
     VkPhysicalDeviceType type);
 

@@ -8,7 +8,6 @@ static void prepareImagesForDataTransfer(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
-    VkImageMemoryBarrier* barriers = malloc(imageCount * sizeof(VkImageMemoryBarrier));
 
     // TODO create command pool and buffer in advance
     const VkCommandPoolCreateInfo poolCreateInfo = {
@@ -37,6 +36,8 @@ static void prepareImagesForDataTransfer(
         .pInheritanceInfo = NULL,
     };
 
+    STACK_ARRAY(VkImageMemoryBarrier, barriers, 1024, imageCount);
+
     for (unsigned i = 0; i < imageCount; i++) {
         barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -64,6 +65,8 @@ static void prepareImagesForDataTransfer(
                              0, 0, NULL, 0, NULL, imageCount, barriers);
     VKD.vkEndCommandBuffer(vkCommandBuffer);
 
+    STACK_ARRAY_FINISH(barriers);
+
     const VkSubmitInfo submitInfo = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
@@ -82,7 +85,6 @@ static void prepareImagesForDataTransfer(
     LeaveCriticalSection(grQueue->mutex);
 
     VKD.vkDestroyCommandPool(grDevice->device, vkCommandPool, NULL);
-    free(barriers);
 }
 
 static void checkMemoryReferences(
@@ -197,7 +199,8 @@ GR_RESULT GR_STDCALL grQueueSubmit(
         grFence->submitted = true;
     }
 
-    VkCommandBuffer* vkCommandBuffers = malloc(sizeof(VkCommandBuffer) * cmdBufferCount);
+    STACK_ARRAY(VkCommandBuffer, vkCommandBuffers, 1024, cmdBufferCount);
+
     for (unsigned i = 0; i < cmdBufferCount; i++) {
         GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)pCmdBuffers[i];
 
@@ -221,7 +224,7 @@ GR_RESULT GR_STDCALL grQueueSubmit(
     res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
     LeaveCriticalSection(grQueue->mutex);
 
-    free(vkCommandBuffers);
+    STACK_ARRAY_FINISH(vkCommandBuffers);
 
     if (res != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", res);

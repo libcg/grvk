@@ -203,7 +203,8 @@ GR_RESULT GR_STDCALL grWaitForFences(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    VkFence* vkFences = malloc(sizeof(VkFence) * fenceCount);
+    STACK_ARRAY(VkFence, vkFences, 1024, fenceCount);
+
     for (unsigned i = 0; i < fenceCount; i++) {
         GrFence* grFence = (GrFence*)pFences[i];
 
@@ -219,7 +220,8 @@ GR_RESULT GR_STDCALL grWaitForFences(
     }
 
     VkResult res = VKD.vkWaitForFences(grDevice->device, fenceCount, vkFences, waitAll, vkTimeout);
-    free(vkFences);
+
+    STACK_ARRAY_FINISH(vkFences);
 
     if (res != VK_SUCCESS && res != VK_TIMEOUT) {
         LOGE("vkWaitForFences failed (%d)\n", res);
