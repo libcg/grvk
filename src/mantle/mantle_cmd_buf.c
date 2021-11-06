@@ -138,20 +138,18 @@ static void updateVkDescriptorSet(
     }
 
     const DescriptorSetSlot atomicCounterSlot = {
-        .type = SLOT_TYPE_MEMORY_VIEW,
-        .memoryView = {
-            .vkBufferView = VK_NULL_HANDLE,
-            .vkBuffer = grCmdBuffer->atomicCounterBuffer,
-            .offset = 0,
-            .range = VK_WHOLE_SIZE,
-            .stride = 0, // Unused
+        .type = SLOT_TYPE_BUFFER,
+        .buffer = {
+            .bufferView = VK_NULL_HANDLE,
+            .bufferInfo = {
+                .buffer = grCmdBuffer->atomicCounterBuffer,
+                .offset = 0,
+                .range = VK_WHOLE_SIZE,
+            },
+            .stride = 0, // Ignored
         },
     };
 
-    VkDescriptorImageInfo* imageInfos = malloc(grShader->bindingCount *
-                                               sizeof(VkDescriptorImageInfo));
-    VkDescriptorBufferInfo* bufferInfos = malloc(grShader->bindingCount *
-                                                 sizeof(VkDescriptorBufferInfo));
     VkWriteDescriptorSet* writes = malloc(grShader->bindingCount * sizeof(VkWriteDescriptorSet));
 
     for (unsigned i = 0; i < grShader->bindingCount; i++) {
@@ -180,87 +178,26 @@ static void updateVkDescriptorSet(
             .dstBinding = binding->index,
             .dstArrayElement = 0,
             .descriptorCount = 1,
-            .descriptorType = binding->descriptorType,
-            .pImageInfo = NULL, // Set below
-            .pBufferInfo = NULL, // Set below
-            .pTexelBufferView = NULL, // Set below
+            .descriptorType = slot == dynamicMemoryView ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC
+                                                        : binding->descriptorType,
+            .pImageInfo = &slot->image.imageInfo,
+            .pBufferInfo = &slot->buffer.bufferInfo,
+            .pTexelBufferView = &slot->buffer.bufferView,
         };
 
-        if (binding->descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER) {
-            if (slot->type != SLOT_TYPE_SAMPLER) {
-                LOGE("unexpected slot type %d for descriptor type %d\n",
-                     slot->type, binding->descriptorType);
-                assert(false);
-            }
+        if (slot->type == SLOT_TYPE_BUFFER && binding->strideIndex >= 0) {
+            // Pass buffer stride through push constants
+            uint32_t stride = slot->buffer.stride;
 
-            imageInfos[i] = (VkDescriptorImageInfo) {
-                .sampler = slot->sampler.vkSampler,
-                .imageView = VK_NULL_HANDLE,
-                .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            };
-            writes[i].pImageInfo = &imageInfos[i];
-        } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
-                   binding->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
-            if (slot->type != SLOT_TYPE_IMAGE_VIEW) {
-                LOGE("unexpected slot type %d for descriptor type %d\n",
-                     slot->type, binding->descriptorType);
-                assert(false);
-            }
-
-            imageInfos[i] = (VkDescriptorImageInfo) {
-                .sampler = VK_NULL_HANDLE,
-                .imageView = slot->imageView.vkImageView,
-                .imageLayout = slot->imageView.vkImageLayout,
-            };
-            writes[i].pImageInfo = &imageInfos[i];
-        } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
-                   binding->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER) {
-            if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
-                LOGE("unexpected slot type %d for descriptor type %d\n",
-                     slot->type, binding->descriptorType);
-                assert(false);
-            }
-
-            writes[i].pTexelBufferView = &slot->memoryView.vkBufferView;
-        } else if (binding->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER) {
-            if (slot->type != SLOT_TYPE_MEMORY_VIEW) {
-                LOGE("unexpected slot type %d for descriptor type %d\n",
-                     slot->type, binding->descriptorType);
-                assert(false);
-            }
-
-            bufferInfos[i] = (VkDescriptorBufferInfo) {
-                .buffer = slot->memoryView.vkBuffer,
-                .offset = slot->memoryView.offset,
-                .range = slot->memoryView.range,
-            };
-            writes[i].pBufferInfo = &bufferInfos[i];
-
-            if (slot == dynamicMemoryView) {
-                // Buffer offset is passed during descriptor set binding
-                writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-                bufferInfos[i].offset = 0;
-            }
-
-            if (binding->strideIndex >= 0) {
-                // Pass memory view stride through push constants
-                uint32_t stride = slot->memoryView.stride;
-
-                VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, vkPipelineLayout,
-                                       VK_SHADER_STAGE_VERTEX_BIT,
-                                       binding->strideIndex * sizeof(uint32_t),
-                                       sizeof(uint32_t), &stride);
-            }
-        } else {
-            LOGE("unhandled descriptor type %d\n", binding->descriptorType);
-            assert(false);
+            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, vkPipelineLayout,
+                                   VK_SHADER_STAGE_VERTEX_BIT,
+                                   binding->strideIndex * sizeof(uint32_t),
+                                   sizeof(uint32_t), &stride);
         }
     }
 
     VKD.vkUpdateDescriptorSets(grDevice->device, grShader->bindingCount, writes, 0, NULL);
 
-    free(imageInfos);
-    free(bufferInfos);
     free(writes);
 }
 
@@ -371,11 +308,10 @@ static void grCmdBufferBindDescriptorSets(
     const BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
     const GrPipeline* grPipeline = bindPoint->grPipeline;
 
-    uint32_t dynamicOffset = bindPoint->dynamicMemoryView.memoryView.offset;
     uint32_t dynamicOffsets[MAX_STAGE_COUNT];
 
     for (unsigned i = 0; i < grPipeline->dynamicOffsetCount; i++) {
-        dynamicOffsets[i] = dynamicOffset;
+        dynamicOffsets[i] = bindPoint->dynamicOffset;
     }
 
     VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
@@ -623,32 +559,33 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
     const GrGpuMemory* grGpuMemory = (GrGpuMemory*)pMemView->mem;
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
-    DescriptorSetSlot* dynamicMemoryView = &bindPoint->dynamicMemoryView;
 
     // FIXME what is pMemView->state for?
 
-    bool dirtySlot = grGpuMemory->buffer != dynamicMemoryView->memoryView.vkBuffer ||
-                     pMemView->range != dynamicMemoryView->memoryView.range ||
-                     pMemView->stride != dynamicMemoryView->memoryView.stride;
-    bool dirtyOffset = pMemView->offset != dynamicMemoryView->memoryView.offset;
+    if (pMemView->offset != bindPoint->dynamicOffset) {
+        bindPoint->dynamicOffset = pMemView->offset;
 
-    if (!dirtySlot && !dirtyOffset) {
-        return;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DYNAMIC_OFFSET;
     }
 
-    *dynamicMemoryView = (DescriptorSetSlot) {
-        .type = SLOT_TYPE_MEMORY_VIEW,
-        .memoryView = {
-            .vkBufferView = VK_NULL_HANDLE,
-            .vkBuffer = grGpuMemory->buffer,
-            .offset = pMemView->offset,
-            .range = pMemView->range,
-            .stride = pMemView->stride,
-        },
-    };
+    if (grGpuMemory->buffer != bindPoint->dynamicMemoryView.buffer.bufferInfo.buffer ||
+        pMemView->range != bindPoint->dynamicMemoryView.buffer.bufferInfo.range ||
+        pMemView->stride != bindPoint->dynamicMemoryView.buffer.stride) {
+        bindPoint->dynamicMemoryView = (DescriptorSetSlot) {
+            .type = SLOT_TYPE_BUFFER,
+            .buffer = {
+                .bufferView = VK_NULL_HANDLE,
+                .bufferInfo = {
+                    .buffer = grGpuMemory->buffer,
+                    .offset = 0,
+                    .range = pMemView->range,
+                },
+                .stride = pMemView->stride,
+            },
+        };
 
-    bindPoint->dirtyFlags |= (dirtySlot ? FLAG_DIRTY_DESCRIPTOR_SETS : 0) |
-                             (dirtyOffset ? FLAG_DIRTY_DYNAMIC_OFFSET : 0);
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+    }
 }
 
 GR_VOID GR_STDCALL grCmdBindIndexData(

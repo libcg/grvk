@@ -1,11 +1,11 @@
 #include "mantle_internal.h"
 
-static void releaseSlot(
+inline static void releaseSlot(
     const GrDevice* grDevice,
     DescriptorSetSlot* slot)
 {
-    if (slot->type == SLOT_TYPE_MEMORY_VIEW) {
-        VKD.vkDestroyBufferView(grDevice->device, slot->memoryView.vkBufferView, NULL);
+    if (slot->type == SLOT_TYPE_BUFFER) {
+        VKD.vkDestroyBufferView(grDevice->device, slot->buffer.bufferView, NULL);
     }
 }
 
@@ -71,8 +71,14 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
         releaseSlot(grDevice, slot);
 
         *slot = (DescriptorSetSlot) {
-            .type = SLOT_TYPE_SAMPLER,
-            .sampler.vkSampler = grSampler->sampler,
+            .type = SLOT_TYPE_IMAGE,
+            .image = {
+                .imageInfo = {
+                    .sampler = grSampler->sampler,
+                    .imageView = VK_NULL_HANDLE,
+                    .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                },
+            },
         };
     }
 }
@@ -95,10 +101,13 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
         releaseSlot(grDevice, slot);
 
         *slot = (DescriptorSetSlot) {
-            .type = SLOT_TYPE_IMAGE_VIEW,
-            .imageView = {
-                .vkImageView = grImageView->imageView,
-                .vkImageLayout = getVkImageLayout(info->state),
+            .type = SLOT_TYPE_IMAGE,
+            .image = {
+                .imageInfo = {
+                    .sampler = VK_NULL_HANDLE,
+                    .imageView = grImageView->imageView,
+                    .imageLayout = getVkImageLayout(info->state),
+                },
             },
         };
     }
@@ -122,6 +131,8 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
         VkFormat vkFormat = getVkFormat(info->format);
         VkBufferView vkBufferView = VK_NULL_HANDLE;
 
+        releaseSlot(grDevice, slot);
+
         if (vkFormat != VK_FORMAT_UNDEFINED) {
             // Create buffer view for typed buffers
             const VkBufferViewCreateInfo createInfo = {
@@ -140,15 +151,15 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
             }
         }
 
-        releaseSlot(grDevice, slot);
-
         *slot = (DescriptorSetSlot) {
-            .type = SLOT_TYPE_MEMORY_VIEW,
-            .memoryView = {
-                .vkBufferView = vkBufferView,
-                .vkBuffer = grGpuMemory->buffer,
-                .offset = info->offset,
-                .range = info->range,
+            .type = SLOT_TYPE_BUFFER,
+            .buffer = {
+                .bufferView = vkBufferView,
+                .bufferInfo = {
+                    .buffer = grGpuMemory->buffer,
+                    .offset = info->offset,
+                    .range = info->range,
+                },
                 .stride = info->stride,
             },
         };

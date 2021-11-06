@@ -50,9 +50,8 @@ typedef enum _GrObjectType {
 typedef enum _DescriptorSetSlotType
 {
     SLOT_TYPE_NONE,
-    SLOT_TYPE_SAMPLER,
-    SLOT_TYPE_IMAGE_VIEW,
-    SLOT_TYPE_MEMORY_VIEW,
+    SLOT_TYPE_IMAGE,
+    SLOT_TYPE_BUFFER,
     SLOT_TYPE_NESTED,
 } DescriptorSetSlotType;
 
@@ -72,19 +71,13 @@ typedef struct _DescriptorSetSlot
     DescriptorSetSlotType type;
     union {
         struct {
-            VkSampler vkSampler;
-        } sampler;
+            VkDescriptorImageInfo imageInfo;
+        } image;
         struct {
-            VkImageView vkImageView;
-            VkImageLayout vkImageLayout;
-        } imageView;
-        struct {
-            VkBufferView vkBufferView;
-            VkBuffer vkBuffer;
-            VkDeviceSize offset;
-            VkDeviceSize range;
+            VkBufferView bufferView;
+            VkDescriptorBufferInfo bufferInfo;
             VkDeviceSize stride;
-        } memoryView;
+        } buffer;
         struct {
             const GrDescriptorSet* nextSet;
             unsigned slotOffset;
@@ -99,6 +92,7 @@ typedef struct _BindPoint
     GrDescriptorSet* grDescriptorSet;
     unsigned slotOffset;
     DescriptorSetSlot dynamicMemoryView;
+    VkDeviceSize dynamicOffset;
     VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
 } BindPoint;
 
