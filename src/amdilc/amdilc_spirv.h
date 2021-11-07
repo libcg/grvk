@@ -149,11 +149,19 @@ IlcSpvId ilcSpvPutConstant(
     IlcSpvId resultTypeId,
     IlcSpvWord literal);
 
+IlcSpvId ilcSpvPutConstantUndef(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId);
+
 IlcSpvId ilcSpvPutConstantComposite(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     unsigned consistuentCount,
     const IlcSpvId* consistuents);
+
+IlcSpvId ilcSpvPutConstantTrue(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId);
 
 void ilcSpvPutFunction(
     IlcSpvModule* module,
@@ -322,6 +330,36 @@ IlcSpvId ilcSpvPutBitcast(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
     IlcSpvId operandId);
+
+IlcSpvId ilcSpvPutGroupNonUniformBallot(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId,
+    IlcSpvId predicateId);
+
+IlcSpvId ilcSpvPutGroupNonUniformBallotBitCount(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId,
+    SpvGroupOperation groupOperation,
+    IlcSpvId valueId);
+
+IlcSpvId ilcSpvPutGroupNonUniformElect(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId);
+
+IlcSpvId ilcSpvPutGroupNonUniformBroadcastFirst(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId,
+    IlcSpvId valueId);
+
+IlcSpvId ilcSpvPutPhi(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    unsigned argCount,
+    const IlcSpvId* args);
 
 IlcSpvId ilcSpvPutSelect(
     IlcSpvModule* module,
