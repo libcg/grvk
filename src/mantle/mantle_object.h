@@ -141,7 +141,7 @@ typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
-    VkBuffer atomicCounterBuffer;
+    DescriptorSetSlot atomicCounterSlot;
     bool isBuilding;
     // Graphics and compute bind points
     BindPoint bindPoints[2];

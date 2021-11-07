@@ -101,12 +101,25 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         atomicCounterBuffer = VK_NULL_HANDLE;
     }
 
+    const DescriptorSetSlot atomicCounterSlot = {
+        .type = SLOT_TYPE_BUFFER,
+        .buffer = {
+            .bufferView = VK_NULL_HANDLE,
+            .bufferInfo = {
+                .buffer = atomicCounterBuffer,
+                .offset = 0,
+                .range = VK_WHOLE_SIZE,
+            },
+            .stride = 0, // Ignored
+        },
+    };
+
     GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
     *grCmdBuffer = (GrCmdBuffer) {
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
-        .atomicCounterBuffer = atomicCounterBuffer,
+        .atomicCounterSlot = atomicCounterSlot,
         .isBuilding = false,
         .bindPoints = { { 0 }, { 0 } },
         .grViewportState = NULL,
