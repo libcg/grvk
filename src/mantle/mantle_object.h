@@ -181,11 +181,15 @@ typedef struct _GrColorBlendStateObject {
     float blendConstants[4];
 } GrColorBlendStateObject;
 
+typedef struct _GrImage GrImage;
+
 typedef struct _GrColorTargetView {
     GrObject grObj;
+    GrImage* grParentImage;
     VkImageView imageView;
     VkExtent3D extent;
     VkFormat format;
+    VkImageSubresourceRange subresourceRange;
 } GrColorTargetView;
 
 typedef struct _GrDepthStencilStateObject {
@@ -203,9 +207,11 @@ typedef struct _GrDepthStencilStateObject {
 
 typedef struct _GrDepthStencilView {
     GrObject grObj;
+    GrImage* grParentImage;
     VkImageView imageView;
     VkExtent3D extent;
     VkFormat format;
+    VkImageSubresourceRange subresourceRange;
 } GrDepthStencilView;
 
 typedef struct _GrDescriptorSet {
@@ -260,6 +266,7 @@ typedef struct _GrImage {
 
 typedef struct _GrImageView {
     GrObject grObj;
+    GrImage* grParentImage;
     VkImageView imageView;
     VkFormat format;
 } GrImageView;
