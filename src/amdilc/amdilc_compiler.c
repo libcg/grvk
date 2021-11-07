@@ -60,12 +60,14 @@ typedef struct {
 } IlcSampler;
 
 typedef struct {
+    IlcSpvId labelBeginId;
     IlcSpvId labelElseId;
     IlcSpvId labelEndId;
     bool hasElseBlock;
 } IlcIfElseBlock;
 
 typedef struct {
+    IlcSpvId labelBeginId;
     IlcSpvId labelHeaderId;
     IlcSpvId labelContinueId;
     IlcSpvId labelBreakId;
@@ -102,6 +104,7 @@ typedef struct {
     IlcSampler* samplers;
     unsigned controlFlowBlockCount;
     IlcControlFlowBlock* controlFlowBlocks;
+    IlcSpvId currentFunctionLabelId;
     bool isInFunction;
     bool isAfterReturn;
 } IlcCompiler;
@@ -496,6 +499,23 @@ static IlcControlFlowBlock popControlFlowBlock(
     compiler->controlFlowBlocks = realloc(compiler->controlFlowBlocks, size);
 
     return block;
+}
+
+static IlcSpvId getTopBlockLabel(
+    const IlcCompiler* compiler)
+{
+    if (compiler->controlFlowBlockCount > 0) {
+        const IlcControlFlowBlock* block = &compiler->controlFlowBlocks[compiler->controlFlowBlockCount - 1];
+        if (block->type == BLOCK_LOOP) {
+            return block->loop.labelBeginId;
+        } else if (block->type == BLOCK_IF_ELSE) {
+            return block->ifElse.hasElseBlock ? block->ifElse.labelElseId : block->ifElse.labelBeginId;
+        } else {
+            LOGE("invalid control flow block type %d\n", block->type);
+            assert(false);
+        }
+    }
+    return compiler->currentFunctionLabelId;
 }
 
 static const IlcControlFlowBlock* findControlFlowBlock(
@@ -1428,7 +1448,7 @@ static void emitFunc(
     IlcSpvId voidTypeId = ilcSpvPutVoidType(compiler->module);
     IlcSpvId funcTypeId = ilcSpvPutFunctionType(compiler->module, voidTypeId, 0, NULL);
     ilcSpvPutFunction(compiler->module, voidTypeId, id, SpvFunctionControlMaskNone, funcTypeId);
-    ilcSpvPutLabel(compiler->module, 0);
+    compiler->currentFunctionLabelId = ilcSpvPutLabel(compiler->module, 0);
 }
 
 static void emitFloatOp(
@@ -1923,17 +1943,17 @@ static void emitIf(
     const Instruction* instr)
 {
     const IlcIfElseBlock ifElseBlock = {
+        .labelBeginId = ilcSpvAllocId(compiler->module),
         .labelElseId = ilcSpvAllocId(compiler->module),
         .labelEndId = ilcSpvAllocId(compiler->module),
         .hasElseBlock = false,
     };
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
     IlcSpvId condId = emitConditionCheck(compiler, srcId, instr->opcode == IL_OP_IF_LOGICALNZ);
     ilcSpvPutSelectionMerge(compiler->module, ifElseBlock.labelEndId);
-    ilcSpvPutBranchConditional(compiler->module, condId, labelBeginId, ifElseBlock.labelElseId);
-    ilcSpvPutLabel(compiler->module, labelBeginId);
+    ilcSpvPutBranchConditional(compiler->module, condId, ifElseBlock.labelBeginId, ifElseBlock.labelElseId);
+    ilcSpvPutLabel(compiler->module, ifElseBlock.labelBeginId);
 
     const IlcControlFlowBlock block = {
         .type = BLOCK_IF_ELSE,
@@ -1970,6 +1990,7 @@ static void emitWhile(
     const Instruction* instr)
 {
     const IlcLoopBlock loopBlock = {
+        .labelBeginId = ilcSpvAllocId(compiler->module),
         .labelHeaderId = ilcSpvAllocId(compiler->module),
         .labelContinueId = ilcSpvAllocId(compiler->module),
         .labelBreakId = ilcSpvAllocId(compiler->module),
@@ -1980,9 +2001,8 @@ static void emitWhile(
 
     ilcSpvPutLoopMerge(compiler->module, loopBlock.labelBreakId, loopBlock.labelContinueId);
 
-    IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
-    ilcSpvPutBranch(compiler->module, labelBeginId);
-    ilcSpvPutLabel(compiler->module, labelBeginId);
+    ilcSpvPutBranch(compiler->module, loopBlock.labelBeginId);
+    ilcSpvPutLabel(compiler->module, loopBlock.labelBeginId);
 
     const IlcControlFlowBlock block = {
         .type = BLOCK_LOOP,
@@ -3354,6 +3374,7 @@ IlcShader ilcCompileKernel(
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
         .isInFunction = true,
+        .currentFunctionLabelId = 0,
         .isAfterReturn = false,
     };
 
