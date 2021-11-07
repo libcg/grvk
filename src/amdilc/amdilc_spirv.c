@@ -463,6 +463,13 @@ IlcSpvId ilcSpvPutConstant(
     return putConstant(module, SpvOpConstant, resultTypeId, 1, &literal);
 }
 
+IlcSpvId ilcSpvPutConstantUndef(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId)
+{
+    return putConstant(module, SpvOpUndef, resultTypeId, 0, NULL);
+}
+
 IlcSpvId ilcSpvPutConstantComposite(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
@@ -471,6 +478,13 @@ IlcSpvId ilcSpvPutConstantComposite(
 {
     return putConstant(module, SpvOpConstantComposite, resultTypeId,
                        consistuentCount, consistuents);
+}
+
+IlcSpvId ilcSpvPutConstantTrue(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId)
+{
+    return putConstant(module, SpvOpConstantTrue, resultTypeId, 0, NULL);
 }
 
 void ilcSpvPutFunction(
@@ -925,6 +939,92 @@ IlcSpvId ilcSpvPutBitcast(
     putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, operandId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutGroupNonUniformBallot(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId,
+    IlcSpvId predicateId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpGroupNonUniformBallot, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, scopeId);
+    putWord(buffer, predicateId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutGroupNonUniformBallotBitCount(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId,
+    SpvGroupOperation groupOperation,
+    IlcSpvId valueId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpGroupNonUniformBallotBitCount, 6);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, scopeId);
+    putWord(buffer, groupOperation);
+    putWord(buffer, valueId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutGroupNonUniformElect(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpGroupNonUniformElect, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, scopeId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutGroupNonUniformBroadcastFirst(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId scopeId,
+    IlcSpvId valueId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpGroupNonUniformBroadcastFirst, 5);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, scopeId);
+    putWord(buffer, valueId);
+    return id;
+}
+
+IlcSpvId ilcSpvPutPhi(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    unsigned argCount,
+    const IlcSpvId* args)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpPhi, 3 + argCount);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    for (unsigned i = 0; i < argCount; ++i) {
+        putWord(buffer, args[i]);
+    }
     return id;
 }
 
