@@ -3326,9 +3326,31 @@ static void emitAppendBufOp(
         resource = addResource(compiler, &atomicCounterResource);
     }
 
-    SpvOp op = instr->opcode == IL_OP_APPEND_BUF_ALLOC ? SpvOpAtomicIIncrement
-                                                       : SpvOpAtomicIDecrement;
+    bool useSubgroupOps = compiler->kernel->shaderType == IL_SHADER_COMPUTE;
+    IlcSpvId electBlockBeginId;
+    IlcSpvId electBlockEndId;
+    IlcSpvId preElectBlockLabelId;
+    IlcSpvId workgroupScopeId;
+    IlcSpvId laneCountId, laneIndexId;
+    if (useSubgroupOps) {
+        preElectBlockLabelId = getTopBlockLabel(compiler);
+        electBlockBeginId = ilcSpvAllocId(compiler->module);
+        electBlockEndId = ilcSpvAllocId(compiler->module);
 
+        ilcSpvPutCapability(compiler->module, SpvCapabilityGroupNonUniform);
+        ilcSpvPutCapability(compiler->module, SpvCapabilityGroupNonUniformBallot);
+        workgroupScopeId = ilcSpvPutConstant(compiler->module, compiler->intId, SpvScopeWorkgroup);
+
+        IlcSpvId ballotId = ilcSpvPutGroupNonUniformBallot(compiler->module, compiler->uint4Id, workgroupScopeId, ilcSpvPutConstantTrue(compiler->module, compiler->boolId));
+        laneCountId = ilcSpvPutGroupNonUniformBallotBitCount(compiler->module, compiler->uintId, workgroupScopeId, SpvGroupOperationReduce, ballotId);
+        laneIndexId = ilcSpvPutGroupNonUniformBallotBitCount(compiler->module, compiler->uintId, workgroupScopeId, SpvGroupOperationExclusiveScan, ballotId);
+        IlcSpvId electionCondId = ilcSpvPutGroupNonUniformElect(compiler->module, compiler->boolId, workgroupScopeId);
+        ilcSpvPutSelectionMerge(compiler->module, electBlockEndId);
+        ilcSpvPutBranchConditional(compiler->module, electionCondId, electBlockBeginId, electBlockEndId);
+        ilcSpvPutLabel(compiler->module, electBlockBeginId);
+    } else {
+        laneCountId = ilcSpvPutConstant(compiler->module, compiler->uintId, 1u);
+    }
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
                                               compiler->uintId);
     IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
@@ -3340,10 +3362,27 @@ static void emitAppendBufOp(
     IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
                                              SpvMemorySemanticsAcquireReleaseMask |
                                              SpvMemorySemanticsUniformMemoryMask);
-    IlcSpvId readId = ilcSpvPutAtomicOp(compiler->module, op, compiler->uintId, ptrId,
-                                        scopeId, semanticsId, 0);
-    IlcSpvId resId = emitVectorGrow(compiler, readId, compiler->uintId, 1);
+    IlcSpvId readId;
+    SpvOp op = instr->opcode == IL_OP_APPEND_BUF_ALLOC ? SpvOpAtomicIAdd : SpvOpAtomicISub;
 
+    readId = ilcSpvPutAtomicOp(compiler->module, op, compiler->uintId, ptrId,
+                               scopeId, semanticsId, laneCountId);
+
+    if (useSubgroupOps) {
+        ilcSpvPutBranch(compiler->module, electBlockEndId);
+        ilcSpvPutLabel(compiler->module, electBlockEndId);
+
+        IlcSpvId constUndefId = ilcSpvPutConstantUndef(compiler->module, compiler->uintId);
+        IlcSpvId phiLabels[4] = {
+            readId, electBlockBeginId,
+            constUndefId, preElectBlockLabelId,
+        };
+        readId = ilcSpvPutPhi(compiler->module, compiler->uintId, 4, phiLabels);
+        readId = ilcSpvPutGroupNonUniformBroadcastFirst(compiler->module, compiler->uintId, workgroupScopeId, readId);
+        readId = ilcSpvPutOp2(compiler->module, instr->opcode == IL_OP_APPEND_BUF_ALLOC ? SpvOpIAdd : SpvOpISub, compiler->uintId, readId, laneIndexId);
+    }
+
+    IlcSpvId resId = emitVectorGrow(compiler, readId, compiler->uintId, 1);
     storeDestination(compiler, dst, resId, compiler->uint4Id);
 }
 
