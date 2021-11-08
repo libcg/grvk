@@ -247,6 +247,7 @@ GR_RESULT GR_STDCALL grCreateImage(
             .arrayLayers = createInfo.arrayLayers,
             .format = createInfo.format,
             .usage = createInfo.usage,
+            .sampleCountFlags = createInfo.samples,
             .needInitialDataTransferState = false,
             .isCube = isCube,
         };
@@ -286,6 +287,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .arrayLayers = createInfo.arrayLayers,
         .format = createInfo.format,
         .usage = createInfo.usage,
+        .sampleCountFlags = createInfo.samples,
         .needInitialDataTransferState = !isTarget,
         .isCube = isCube,
     };

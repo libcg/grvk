@@ -150,6 +150,7 @@ typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
+    GR_QUEUE_TYPE grQueueType;
     VkBuffer atomicCounterBuffer;
     bool isBuilding;
     // Graphics and compute bind points
@@ -172,6 +173,8 @@ typedef struct _GrCmdBuffer {
     unsigned descriptorPoolIndex;
     unsigned descriptorPoolCount;
     VkDescriptorPool* descriptorPools;
+    unsigned clearImageViewCount;
+    VkImageView *clearImageViews;
     unsigned framebufferCount;
     VkFramebuffer* framebuffers;
     GrFence* submitFence;
@@ -225,11 +228,21 @@ typedef struct _GrRenderPassState {
     VkSampleCountFlags sampleCountFlags;
 } GrRenderPassState;
 
+typedef struct _GrClearRenderPassEntry {
+    VkRenderPass renderPass;
+    VkFormat format;
+    VkImageAspectFlags aspectFlags;
+    VkSampleCountFlags sampleCountFlags;
+} GrClearRenderPassEntry;
+
 // TODO: implement hash map (just like in dxvk)
 typedef struct _GrRenderPassPool {
     GrRenderPassState* renderPasses;
     unsigned renderPassCount;
     SRWLOCK renderPassLock;
+    GrClearRenderPassEntry* clearRenderPasses;
+    unsigned clearRenderPassCount;
+    SRWLOCK clearRenderPassLock;
 } GrRenderPassPool;
 
 typedef struct _GrDevice {
@@ -280,6 +293,7 @@ typedef struct _GrImage {
     unsigned arrayLayers;
     VkFormat format;
     VkImageUsageFlags usage;
+    VkSampleCountFlags sampleCountFlags;
     bool needInitialDataTransferState;
     bool isCube;
 } GrImage;

@@ -63,6 +63,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkBindImageMemory);
     VULKAN_FN(vkCmdBeginQuery);
     VULKAN_FN(vkCmdBeginRenderPass);
+    VULKAN_FN(vkCmdBeginRenderPass2);
     VULKAN_FN(vkCmdBindDescriptorSets);
     VULKAN_FN(vkCmdBindIndexBuffer);
     VULKAN_FN(vkCmdBindPipeline);
@@ -84,6 +85,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdDrawIndirect);
     VULKAN_FN(vkCmdEndQuery);
     VULKAN_FN(vkCmdEndRenderPass);
+    VULKAN_FN(vkCmdEndRenderPass2);
     VULKAN_FN(vkCmdExecuteCommands);
     VULKAN_FN(vkCmdFillBuffer);
     VULKAN_FN(vkCmdNextSubpass);
@@ -122,6 +124,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCreatePipelineLayout);
     VULKAN_FN(vkCreateQueryPool);
     VULKAN_FN(vkCreateRenderPass);
+    VULKAN_FN(vkCreateRenderPass2);
     VULKAN_FN(vkCreateSampler);
     VULKAN_FN(vkCreateSemaphore);
     VULKAN_FN(vkCreateShaderModule);

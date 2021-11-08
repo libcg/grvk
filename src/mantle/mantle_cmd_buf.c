@@ -11,6 +11,219 @@ typedef enum _DirtyFlags {
     FLAG_DIRTY_DYNAMIC_OFFSET       = 1u << 4,
 } DirtyFlags;
 
+
+static VkRenderPass addClearRenderPass(
+    GrDevice* grDevice,
+    VkRenderPass newRenderPass,
+    VkFormat format,
+    VkImageAspectFlags aspectFlags,
+    VkSampleCountFlags sampleCountFlags)
+{
+    VkRenderPass foundPass = VK_NULL_HANDLE;
+    AcquireSRWLockExclusive(&grDevice->renderPassPool.clearRenderPassLock);
+    for (unsigned i = 0; i < grDevice->renderPassPool.clearRenderPassCount; ++i) {
+        if (format == grDevice->renderPassPool.clearRenderPasses[i].format &&
+            aspectFlags == grDevice->renderPassPool.clearRenderPasses[i].aspectFlags &&
+            sampleCountFlags == grDevice->renderPassPool.clearRenderPasses[i].sampleCountFlags) {
+            foundPass = grDevice->renderPassPool.clearRenderPasses[i].renderPass;
+            break;
+        }
+    }
+    if (foundPass == VK_NULL_HANDLE) {
+        foundPass = newRenderPass;
+        grDevice->renderPassPool.clearRenderPassCount++;
+        grDevice->renderPassPool.clearRenderPasses = realloc(grDevice->renderPassPool.clearRenderPasses,
+                                                                               sizeof(GrClearRenderPassEntry) * grDevice->renderPassPool.clearRenderPassCount);
+        grDevice->renderPassPool.clearRenderPasses[grDevice->renderPassPool.clearRenderPassCount - 1] = (GrClearRenderPassEntry) {
+            .renderPass = newRenderPass,
+            .format = format,
+            .aspectFlags = aspectFlags,
+            .sampleCountFlags = sampleCountFlags,
+        };
+    }
+    ReleaseSRWLockExclusive(&grDevice->renderPassPool.clearRenderPassLock);
+    return foundPass;
+}
+
+static VkRenderPass findClearRenderPass(
+    GrDevice* grDevice,
+    VkFormat format,
+    VkImageAspectFlags aspectFlags,
+    VkSampleCountFlags sampleCountFlags)
+{
+    VkRenderPass foundPass = VK_NULL_HANDLE;
+    AcquireSRWLockShared(&grDevice->renderPassPool.clearRenderPassLock);
+    for (unsigned i = 0; i < grDevice->renderPassPool.clearRenderPassCount; ++i) {
+        if (format == grDevice->renderPassPool.clearRenderPasses[i].format &&
+            aspectFlags == grDevice->renderPassPool.clearRenderPasses[i].aspectFlags &&
+            sampleCountFlags == grDevice->renderPassPool.clearRenderPasses[i].sampleCountFlags) {
+            foundPass = grDevice->renderPassPool.clearRenderPasses[i].renderPass;
+            break;
+        }
+    }
+    ReleaseSRWLockShared(&grDevice->renderPassPool.clearRenderPassLock);
+    return foundPass;
+}
+
+static VkRenderPass getClearVkRenderPass(
+    GrDevice* grDevice,
+    VkFormat format,
+    VkImageAspectFlags aspectFlags,
+    VkSampleCountFlags sampleCountFlags)
+{
+    LOGT("%p %#x %#x %d\n", grDevice, format, aspectFlags, sampleCountFlags);
+    VkRenderPass renderPass = findClearRenderPass(grDevice, format, aspectFlags, sampleCountFlags);
+    if (renderPass != VK_NULL_HANDLE) {
+        LOGT("found existing render pass %p\n", renderPass);
+        return renderPass;
+    }
+    VkAttachmentDescriptionStencilLayout stencilLayoutDescription;
+    VkAttachmentReferenceStencilLayout stencilAttachmentReference;
+    VkAttachmentDescription2 description;
+    VkAttachmentReference2 attachmentReference;
+    bool hasDepth = isVkFormatDepth(format);
+    bool hasStencil = isVkFormatStencil(format);
+
+    bool separateDepthStencilLayouts = hasDepth && hasStencil && aspectFlags != (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+    if (aspectFlags == VK_IMAGE_ASPECT_COLOR_BIT) {
+        description = (VkAttachmentDescription2) {
+            .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+            .pNext = NULL,
+            .flags = 0,
+            .format = format,
+            .samples = sampleCountFlags,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
+            .finalLayout = getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
+        };
+        attachmentReference = (VkAttachmentReference2) {
+            .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+            .pNext = NULL,
+            .attachment = 0,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+    } else {
+        description = (VkAttachmentDescription2) {
+            .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,
+            .pNext = NULL,
+            .flags = 0,
+            .format = format,
+            .samples = sampleCountFlags,
+            .loadOp = (aspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = hasDepth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .stencilLoadOp = (aspectFlags & VK_IMAGE_ASPECT_STENCIL_BIT) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD,
+            .stencilStoreOp = hasStencil ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = getVkImageLayout(GR_IMAGE_STATE_CLEAR, true),
+            .finalLayout = getVkImageLayout(GR_IMAGE_STATE_CLEAR, true),
+        };
+        attachmentReference = (VkAttachmentReference2) {
+            .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,
+            .pNext = NULL,
+            .attachment = 0,
+            .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        };
+        if (separateDepthStencilLayouts) {
+            stencilLayoutDescription = (VkAttachmentDescriptionStencilLayout) {
+                .sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_STENCIL_LAYOUT,
+                .pNext = NULL,
+                .stencilInitialLayout = getVkImageLayout(GR_IMAGE_STATE_CLEAR, true),
+                .stencilFinalLayout = getVkImageLayout(GR_IMAGE_STATE_CLEAR, true),
+            };
+            stencilAttachmentReference = (VkAttachmentReferenceStencilLayout) {
+                .sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_STENCIL_LAYOUT,
+                .pNext = NULL,
+                .stencilLayout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
+            };
+            description.pNext = &stencilLayoutDescription;
+            attachmentReference.pNext = &stencilAttachmentReference;
+        }
+    }
+
+    VkPipelineStageFlags stages;
+    VkAccessFlags accessMask;
+
+    if (aspectFlags & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+        stages = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        if (hasDepth != (bool)(aspectFlags & VK_IMAGE_ASPECT_DEPTH_BIT) || hasStencil != (bool)(aspectFlags & VK_IMAGE_ASPECT_STENCIL_BIT)) {
+            accessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        }
+    } else {
+        stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        accessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    }
+
+    VkSubpassDependency2 subpassDependencies[2];
+    subpassDependencies[0] = (VkSubpassDependency2) {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+        .pNext = NULL,
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = stages,
+        .dstStageMask = stages,
+        .srcAccessMask = accessMask,
+        .dstAccessMask = accessMask,
+        .dependencyFlags = 0,
+        .viewOffset = 0,
+    };
+    subpassDependencies[1] = (VkSubpassDependency2) {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
+        .pNext = NULL,
+        .srcSubpass = 0,
+        .dstSubpass = VK_SUBPASS_EXTERNAL,
+        .srcStageMask = stages,
+        .dstStageMask = stages,
+        .srcAccessMask = accessMask,
+        .dstAccessMask = 0,
+        .dependencyFlags = 0,
+        .viewOffset = 0,
+    };
+    const VkSubpassDescription2 subpass = (VkSubpassDescription2) {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,
+        .pNext = NULL,
+        .flags = 0,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = NULL,
+        .colorAttachmentCount = aspectFlags == VK_IMAGE_ASPECT_COLOR_BIT ? 1 : 0,
+        .pColorAttachments = aspectFlags == VK_IMAGE_ASPECT_COLOR_BIT ? &attachmentReference : NULL,
+        .pResolveAttachments = NULL,
+        .pDepthStencilAttachment = aspectFlags == VK_IMAGE_ASPECT_COLOR_BIT ? NULL : &attachmentReference,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = NULL,
+    };
+
+    const VkRenderPassCreateInfo2 renderPassCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,
+        .pNext = NULL,
+        .flags = 0,
+        .attachmentCount = 1,
+        .pAttachments = &description,
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = COUNT_OF(subpassDependencies),
+        .pDependencies = subpassDependencies,
+    };
+
+    VkResult res = VKD.vkCreateRenderPass2(grDevice->device, &renderPassCreateInfo, NULL,
+                                          &renderPass);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateRenderPass failed (%d)\n", res);
+        return VK_NULL_HANDLE;
+    }
+
+    VkRenderPass allocatedRenderPass = addClearRenderPass(grDevice, renderPass, format, aspectFlags, sampleCountFlags);
+    if (allocatedRenderPass != renderPass) {
+        LOGT("got conflict while render pass slot allocation\n");
+        VKD.vkDestroyRenderPass(grDevice->device, renderPass, NULL);
+    }
+    return allocatedRenderPass;
+}
+
 static VkRenderPass addRenderPass(
     GrDevice* grDevice,
     VkRenderPass newRenderPass,
@@ -1404,6 +1617,115 @@ GR_VOID GR_STDCALL grCmdFillMemory(
                         fillSize, data);
 }
 
+static void clearImageByRenderPass(
+    GrCmdBuffer* grCmdBuffer,
+    GrImage* grImage,
+    const VkClearValue* pClearValue,
+    const VkImageSubresourceRange* subresourceRange)
+{
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    VkRenderPass renderPass = getClearVkRenderPass(grDevice, grImage->format, subresourceRange->aspectMask, grImage->sampleCountFlags);
+
+    const VkImageViewCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .image = grImage->image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = grImage->format,
+        .components = {
+            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+        },
+        .subresourceRange = *subresourceRange,
+    };
+    VkImageView vkImageView;
+    VkResult res = VKD.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
+    assert(res == VK_SUCCESS);
+    grCmdBuffer->clearImageViewCount++;
+    grCmdBuffer->clearImageViews = realloc(grCmdBuffer->clearImageViews, sizeof(VkImageView) * grCmdBuffer->clearImageViewCount);
+    grCmdBuffer->clearImageViews[grCmdBuffer->clearImageViewCount - 1] = vkImageView;
+
+    VkExtent3D extent = grImage->extent;
+    extent.depth = 1;
+    VkFramebuffer framebuffer = getVkFramebuffer(grDevice, renderPass, 1, &vkImageView, extent);
+    assert(framebuffer != VK_NULL_HANDLE);
+    grCmdBuffer->framebufferCount++;
+    grCmdBuffer->framebuffers =
+        realloc(grCmdBuffer->framebuffers,
+                grCmdBuffer->framebufferCount * sizeof(VkFramebuffer));
+    grCmdBuffer->framebuffers[grCmdBuffer->framebufferCount - 1] = framebuffer;
+
+    VkSubpassBeginInfo subpassBeginInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO,
+        .pNext = NULL,
+        .contents = VK_SUBPASS_CONTENTS_INLINE,
+    };
+    const VkRenderPassBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = NULL,
+        .renderPass = renderPass,
+        .framebuffer = framebuffer,
+        .renderArea = (VkRect2D) {
+            .offset = { 0, 0 },
+            .extent = { grImage->extent.width / (1 << subresourceRange->baseMipLevel), grImage->extent.height / (1 << subresourceRange->baseMipLevel) },
+        },
+        .clearValueCount = 1,
+        .pClearValues = pClearValue,
+    };
+    VKD.vkCmdBeginRenderPass2(grCmdBuffer->commandBuffer, &beginInfo, &subpassBeginInfo);
+
+    VkSubpassEndInfo subpassEndInfo = (VkSubpassEndInfo) {
+        .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO,
+        .pNext = NULL,
+    };
+    VKD.vkCmdEndRenderPass2(grCmdBuffer->commandBuffer, &subpassEndInfo);
+}
+
+static void clearImages(
+    GrCmdBuffer* grCmdBuffer,
+    GrImage* grImage,
+    bool isDepthStencilClear,
+    const VkClearValue* pClearValue,
+    GR_UINT rangeCount,
+    const GR_IMAGE_SUBRESOURCE_RANGE* pRanges)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
+
+    unsigned copyRangeCount = 0;
+    for (unsigned i = 0; i < rangeCount; i++) {
+        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
+
+        VkImageSubresourceRange subresourceRange = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
+        // TODO: test layer count against maxFramebufferLayers in device limits
+        // TODO: test whether an attachment is contained by one of the bound targets
+        if (grCmdBuffer->grQueueType == GR_QUEUE_UNIVERSAL && grImage->imageType == VK_IMAGE_TYPE_2D && subresourceRange.levelCount == 1 && subresourceRange.layerCount == 1) {
+            clearImageByRenderPass(grCmdBuffer, grImage, pClearValue, &subresourceRange);
+            continue;
+        }
+        copyRangeCount++;
+        vkRanges[copyRangeCount - 1] = subresourceRange;
+    }
+
+    if (copyRangeCount > 0) {
+        if (isDepthStencilClear) {
+            VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,
+                                            getVkImageLayout(GR_IMAGE_STATE_CLEAR, false), &pClearValue->depthStencil,
+                                            copyRangeCount, vkRanges);
+        } else {
+            VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
+                                     getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
+                                     &pClearValue->color, copyRangeCount, vkRanges);
+        }
+    }
+    STACK_ARRAY_FINISH(vkRanges);
+}
+
 GR_VOID GR_STDCALL grCmdClearColorImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
@@ -1414,28 +1736,15 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
     LOGT("%p %p %g %g %g %g %u %p\n",
          cmdBuffer, image, color[0], color[1], color[2], color[3], rangeCount, pRanges);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
 
-    grCmdBufferEndRenderPass(grCmdBuffer);
-
-    const VkClearColorValue vkColor = {
-        .float32 = { color[0], color[1], color[2], color[3] },
+    const VkClearValue vkClearValue = {
+        .color = {
+            .float32 = { color[0], color[1], color[2], color[3] },
+        }
     };
 
-    STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
-
-    for (unsigned i = 0; i < rangeCount; i++) {
-        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
-
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
-    }
-
-    VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
-                             getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
-                             &vkColor, rangeCount, vkRanges);
-
-    STACK_ARRAY_FINISH(vkRanges);
+    clearImages(grCmdBuffer, grImage, false, &vkClearValue, rangeCount, pRanges);
 }
 
 GR_VOID GR_STDCALL grCmdClearColorImageRaw(
@@ -1448,28 +1757,17 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
     LOGT("%p %p %u %u %u %u %u %p\n",
          cmdBuffer, image, color[0], color[1], color[2], color[3], rangeCount, pRanges);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    const VkClearColorValue vkColor = {
-        .uint32 = { color[0], color[1], color[2], color[3] },
+    const VkClearValue vkClearValue = {
+        .color = {
+            .uint32 = { color[0], color[1], color[2], color[3] },
+        }
     };
 
-    STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
-
-    for (unsigned i = 0; i < rangeCount; i++) {
-        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
-
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
-    }
-
-    VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
-                             getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
-                             &vkColor, rangeCount, vkRanges);
-
-    STACK_ARRAY_FINISH(vkRanges);
+    clearImages(grCmdBuffer, grImage, false, &vkClearValue, rangeCount, pRanges);
 }
 
 GR_VOID GR_STDCALL grCmdClearDepthStencil(
@@ -1482,29 +1780,16 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
 {
     LOGT("%p %p %g %u %u %p\n", cmdBuffer, image, depth, stencil, rangeCount, pRanges);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
 
-    grCmdBufferEndRenderPass(grCmdBuffer);
-
-    const VkClearDepthStencilValue depthStencilValue = {
-        .depth = depth,
-        .stencil = stencil,
+    const VkClearValue vkClearValue = {
+        .depthStencil = {
+            .depth = depth,
+            .stencil = stencil,
+        }
     };
 
-    STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
-
-    for (unsigned i = 0; i < rangeCount; i++) {
-        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
-
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
-    }
-
-    VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,
-                                    getVkImageLayout(GR_IMAGE_STATE_CLEAR, false), &depthStencilValue,
-                                    rangeCount, vkRanges);
-
-    STACK_ARRAY_FINISH(vkRanges);
+    clearImages(grCmdBuffer, grImage, true, &vkClearValue, rangeCount, pRanges);
 }
 
 GR_VOID GR_STDCALL grCmdSetEvent(

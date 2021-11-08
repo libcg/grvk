@@ -648,6 +648,9 @@ GR_RESULT GR_STDCALL grCreateDevice(
             .renderPasses = NULL,
             .renderPassCount = 0,
             .renderPassLock = SRWLOCK_INIT,
+            .clearRenderPasses = NULL,
+            .clearRenderPassCount = 0,
+            .clearRenderPassLock = SRWLOCK_INIT,
         },
     };
 
@@ -695,6 +698,14 @@ GR_RESULT GR_STDCALL grDestroyDevice(
     }
     free(grDevice->renderPassPool.renderPasses);
     ReleaseSRWLockExclusive(&grDevice->renderPassPool.renderPassLock);
+
+    // handle render pass context
+    AcquireSRWLockExclusive(&grDevice->renderPassPool.clearRenderPassLock);
+    for (unsigned i = 0; i < grDevice->renderPassPool.clearRenderPassCount; ++i) {
+        VKD.vkDestroyRenderPass(grDevice->device, grDevice->renderPassPool.clearRenderPasses[i].renderPass, NULL);
+    }
+    free(grDevice->renderPassPool.clearRenderPasses);
+    ReleaseSRWLockExclusive(&grDevice->renderPassPool.clearRenderPassLock);
 
     VKD.vkDestroyDevice(grDevice->device, NULL);
     free(grDevice);

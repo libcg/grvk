@@ -24,6 +24,11 @@ void grCmdBufferResetState(
         free(grCmdBuffer->descriptorPools);
     }
 
+    for (unsigned i = 0; i < grCmdBuffer->clearImageViewCount; i++) {
+        VKD.vkDestroyImageView(grDevice->device, grCmdBuffer->clearImageViews[i], NULL);
+    }
+    free(grCmdBuffer->clearImageViews);
+
     for (unsigned i = 0; i < grCmdBuffer->framebufferCount; i++) {
         VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffers[i], NULL);
     }
@@ -106,6 +111,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
+        .grQueueType = pCreateInfo->queueType,
         .atomicCounterBuffer = atomicCounterBuffer,
         .isBuilding = false,
         .bindPoints = { { 0 }, { 0 } },
@@ -122,6 +128,8 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .descriptorPoolIndex = 0,
         .descriptorPoolCount = 0,
         .descriptorPools = NULL,
+        .clearImageViewCount = 0,
+        .clearImageViews = NULL,
         .framebufferCount = 0,
         .framebuffers = NULL,
         .submitFence = NULL,

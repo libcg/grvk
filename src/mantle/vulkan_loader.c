@@ -81,6 +81,7 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkBindImageMemory);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginQuery);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginRenderPass);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginRenderPass2);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBindDescriptorSets);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBindIndexBuffer);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBindPipeline);
@@ -102,6 +103,7 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdDrawIndirect);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndQuery);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndRenderPass);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndRenderPass2);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdExecuteCommands);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdFillBuffer);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdNextSubpass);
@@ -140,6 +142,7 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreatePipelineLayout);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreateQueryPool);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreateRenderPass);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCreateRenderPass2);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreateSampler);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreateSemaphore);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreateShaderModule);
