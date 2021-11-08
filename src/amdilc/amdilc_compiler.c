@@ -210,6 +210,18 @@ static IlcSpvId emitShiftMask(
                         srcId, maskCompositeId);
 }
 
+static IlcSpvId emitWordAddress(
+    IlcCompiler* compiler,
+    IlcSpvId indexId,
+    IlcSpvId strideId,
+    IlcSpvId offsetId)
+{
+    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId, indexId, strideId);
+    IlcSpvId addrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, baseId, offsetId);
+    IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
+    return ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId, addrId, fourId);
+}
+
 static IlcSpvId emitVectorTrim(
     IlcCompiler* compiler,
     IlcSpvId vecId,
@@ -2389,15 +2401,7 @@ static void emitLdsLoadVec(
     IlcSpvId indexId = emitVectorTrim(compiler, index4Id, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId offsetId = emitVectorTrim(compiler, offset4Id, compiler->int4Id, COMP_INDEX_X, 1);
 
-    // addr = (index * stride + offset) / 4
-    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId,
-                                   indexId, resource->strideId);
-    IlcSpvId byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
-                                       baseId, offsetId);
-    IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
-    IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
-                                       byteAddrId, fourId);
-
+    IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
     IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
                                               resource->texelTypeId);
@@ -2440,15 +2444,7 @@ static void emitLdsStoreVec(
     IlcSpvId indexId = emitVectorTrim(compiler, index4Id, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId offsetId = emitVectorTrim(compiler, offset4Id, compiler->int4Id, COMP_INDEX_X, 1);
 
-    // addr = (index * stride + offset) / 4
-    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId,
-                                   indexId, resource->strideId);
-    IlcSpvId byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
-                                       baseId, offsetId);
-    IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
-    IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
-                                       byteAddrId, fourId);
-
+    IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
     IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
                                               resource->texelTypeId);
@@ -2513,6 +2509,51 @@ static void emitUavStore(
     IlcSpvId elementId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, elementTypeId);
 
     ilcSpvPutImageWrite(compiler->module, resourceId, addressId, elementId);
+}
+
+static void emitStructuredUavStore(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
+
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
+    const Destination* dst = &instr->dsts[0];
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId dataId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+    IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
+    IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
+
+    IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
+    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
+    IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                              resource->texelTypeId);
+
+    // Write up to four components based on the destination mask
+    for (unsigned i = 0; i < 4; i++) {
+        if (dst->component[i] == IL_MODCOMP_NOWRITE) {
+            continue;
+        }
+
+        if (i > 0) {
+            // Increment address
+            wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                      wordAddrId, oneId);
+        }
+
+        IlcSpvId indexIds[] = { zeroId, wordAddrId };
+        IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
+                                              2, indexIds);
+        IlcSpvId componentId = emitVectorTrim(compiler, dataId, compiler->float4Id, i, 1);
+        ilcSpvPutStore(compiler->module, ptrId, componentId);
+    }
 }
 
 static void emitUavAtomicOp(
@@ -2670,17 +2711,9 @@ static void emitStructuredSrvLoad(
     IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
 
-    // addr = (index * stride + offset) / 4
-    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId,
-                                   indexId, resource->strideId);
-    IlcSpvId byteAddrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
-                                       baseId, offsetId);
-    IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
-    IlcSpvId wordAddrId = ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId,
-                                       byteAddrId, fourId);
-
     // Read data words as 32-bit floats
     // TODO redeclare resources based on type to avoid type conversions
+    IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
     IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
                                               resource->texelTypeId);
@@ -3016,6 +3049,9 @@ static void emitInstr(
         break;
     case IL_OP_UAV_STORE:
         emitUavStore(compiler, instr);
+        break;
+    case IL_OP_UAV_STRUCT_STORE:
+        emitStructuredUavStore(compiler, instr);
         break;
     case IL_OP_UAV_ADD:
     case IL_OP_UAV_READ_ADD:
