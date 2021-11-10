@@ -103,23 +103,21 @@ static void checkMemoryReferences(
             continue;
         }
 
-        EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
+        AcquireSRWLockShared(&grGpuMemory->boundObjectsLock);
         for (unsigned j = 0; j < grGpuMemory->boundObjectCount; j++) {
             GrObject* grBoundObject = grGpuMemory->boundObjects[j];
 
             if (grBoundObject->grObjType == GR_OBJ_TYPE_IMAGE) {
                 GrImage* grImage = (GrImage*)grBoundObject;
 
-                if (grImage->needInitialDataTransferState) {
+                if (InterlockedExchange(&grImage->needInitialDataTransferState, false)) {
                     imageCount++;
                     images = realloc(images, imageCount * sizeof(GrImage*));
                     images[imageCount - 1] = grImage;
-
-                    grImage->needInitialDataTransferState = false;
                 }
             }
         }
-        LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
+        ReleaseSRWLockShared(&grGpuMemory->boundObjectsLock);
     }
 
     // Perform data transfer state transition

@@ -184,10 +184,9 @@ GR_RESULT GR_STDCALL grAllocMemory(
         .buffer = vkBuffer,
         .boundObjectCount = 0,
         .boundObjects = NULL,
-        .boundObjectsMutex = { 0 },
+        .boundObjectsLock = SRWLOCK_INIT,
     };
 
-    InitializeCriticalSectionAndSpinCount(&grGpuMemory->boundObjectsMutex, 0);
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
     return GR_SUCCESS;
 }
