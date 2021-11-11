@@ -238,7 +238,7 @@ typedef struct _GrGpuMemory {
     VkBuffer buffer;
     unsigned boundObjectCount;
     GrObject** boundObjects;
-    SRWLOCK boundObjectsLock;
+    CRITICAL_SECTION boundObjectsMutex;
 } GrGpuMemory;
 
 typedef struct _GrImage {
@@ -250,7 +250,7 @@ typedef struct _GrImage {
     unsigned arrayLayers;
     VkFormat format;
     VkImageUsageFlags usage;
-    long needInitialDataTransferState; // Use long for InterlockedExchange
+    bool needInitialDataTransferState;
     bool isCube;
 } GrImage;
 
