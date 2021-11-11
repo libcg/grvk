@@ -216,8 +216,17 @@ static IlcSpvId emitWordAddress(
     IlcSpvId strideId,
     IlcSpvId offsetId)
 {
-    IlcSpvId baseId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId, indexId, strideId);
-    IlcSpvId addrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, baseId, offsetId);
+    IlcSpvId addrId;
+
+    if (strideId == 0) {
+        // Raw
+        addrId = indexId;
+    } else {
+        // Structured
+        addrId = ilcSpvPutOp2(compiler->module, SpvOpIMul, compiler->intId, indexId, strideId);
+        addrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, addrId, offsetId);
+    }
+
     IlcSpvId fourId = ilcSpvPutConstant(compiler->module, compiler->intId, 4);
     return ilcSpvPutOp2(compiler->module, SpvOpSDiv, compiler->intId, addrId, fourId);
 }
@@ -1369,20 +1378,21 @@ static void emitSrv(
     addResource(compiler, &resource);
 }
 
-static void emitStructuredLds(
+static void emitLds(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
+    bool isStructured = instr->opcode == IL_DCL_STRUCT_LDS;
     uint16_t id = GET_BITS(instr->control, 0, 13);
-    unsigned stride = instr->extras[0];
-    unsigned length = instr->extras[1];
+    unsigned stride = isStructured ? instr->extras[0] : 1;
+    unsigned length = isStructured ? instr->extras[1] : instr->extras[0];
 
     IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->uintId, stride * length / 4);
     IlcSpvId arrayId = ilcSpvPutArrayType(compiler->module, compiler->uintId, lengthId);
     IlcSpvId pArrayId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup, arrayId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pArrayId, SpvStorageClassWorkgroup);
 
-    ilcSpvPutName(compiler->module, arrayId, "structLds");
+    ilcSpvPutName(compiler->module, arrayId, isStructured ? "structLds" : "rawLds");
 
     const IlcResource resource = {
         .resType = RES_TYPE_LDS,
@@ -1391,7 +1401,7 @@ static void emitStructuredLds(
         .texelTypeId = compiler->uintId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
-        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, stride),
+        .strideId = isStructured ? ilcSpvPutConstant(compiler->module, compiler->intId, stride) : 0,
     };
 
     addResource(compiler, &resource);
@@ -3068,8 +3078,9 @@ static void emitInstr(
     case IL_OP_SRV_STRUCT_LOAD:
         emitStructuredSrvLoad(compiler, instr);
         break;
+    case IL_DCL_LDS:
     case IL_DCL_STRUCT_LDS:
-        emitStructuredLds(compiler, instr);
+        emitLds(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
