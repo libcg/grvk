@@ -968,7 +968,7 @@ static void emitOutput(
         ilcSpvPutExecMode(compiler->module, compiler->entryPointId, SpvExecutionModeDepthReplacing,
                           0, NULL);
     } else {
-        LOGW("unhandled output register type\n");
+        LOGW("unhandled output register type %u\n", dst->registerType);
         assert(false);
     }
 
