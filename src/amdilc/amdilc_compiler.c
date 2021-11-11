@@ -1377,7 +1377,7 @@ static void emitStructuredLds(
     unsigned stride = instr->extras[0];
     unsigned length = instr->extras[1];
 
-    IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->uintId, stride * length);
+    IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->uintId, stride * length / 4);
     IlcSpvId arrayId = ilcSpvPutArrayType(compiler->module, compiler->uintId, lengthId);
     IlcSpvId pArrayId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup, arrayId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pArrayId, SpvStorageClassWorkgroup);
