@@ -2566,6 +2566,48 @@ static void emitStructuredUavStore(
     }
 }
 
+static void emitLdsAtomicOp(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint8_t ilResourceId = GET_BITS(instr->control, 0, 3);
+
+    const IlcResource* resource = findResource(compiler, RES_TYPE_LDS, ilResourceId);
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    IlcSpvId src0Id = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId src1Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->uint4Id);
+    IlcSpvId readId = 0;
+    IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
+                                                  resource->texelTypeId);
+    IlcSpvId indexId = emitVectorTrim(compiler, src0Id, compiler->int4Id, COMP_INDEX_X, 1);
+    IlcSpvId offsetId = emitVectorTrim(compiler, src0Id, compiler->int4Id, COMP_INDEX_Y, 1);
+    IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
+    IlcSpvId bufferPtrId = ilcSpvPutAccessChain(compiler->module, pointerTypeId, resource->id,
+                                                1, &wordAddrId);
+    IlcSpvId scopeId = ilcSpvPutConstant(compiler->module, compiler->intId, SpvScopeWorkgroup);
+    IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                             SpvMemorySemanticsAcquireReleaseMask |
+                                             SpvMemorySemanticsSubgroupMemoryMask);
+    IlcSpvId valueId = emitVectorTrim(compiler, src1Id, compiler->uint4Id, COMP_INDEX_X, 1);
+
+    if (instr->opcode == IL_OP_LDS_ADD || instr->opcode == IL_OP_LDS_READ_ADD) {
+        readId = ilcSpvPutAtomicOp(compiler->module, SpvOpAtomicIAdd, resource->texelTypeId,
+                                   bufferPtrId, scopeId, semanticsId, valueId);
+    } else {
+        assert(false);
+    }
+
+    if (instr->dstCount > 0) {
+        IlcSpvId resId = emitVectorGrow(compiler, readId, resource->texelTypeId, 1);
+        storeDestination(compiler, &instr->dsts[0], resId, compiler->int4Id);
+    }
+}
+
 static void emitUavAtomicOp(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -3081,6 +3123,9 @@ static void emitInstr(
     case IL_DCL_LDS:
     case IL_DCL_STRUCT_LDS:
         emitLds(compiler, instr);
+        break;
+    case IL_OP_LDS_READ_ADD:
+        emitLdsAtomicOp(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
