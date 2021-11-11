@@ -457,7 +457,8 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
-    AcquireSRWLockShared(&grPipeline->pipelineSlotsLock);
+    EnterCriticalSection(&grPipeline->pipelineSlotsMutex);
+
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
@@ -468,12 +469,10 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
             break;
         }
     }
-    ReleaseSRWLockShared(&grPipeline->pipelineSlotsLock);
 
     if (vkPipeline == VK_NULL_HANDLE) {
         vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState);
 
-        AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
         grPipeline->pipelineSlotCount++;
         grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,
                                             grPipeline->pipelineSlotCount * sizeof(PipelineSlot));
@@ -483,8 +482,9 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
             .grMsaaState = grMsaaState,
             .grRasterState = grRasterState,
         };
-        ReleaseSRWLockExclusive(&grPipeline->pipelineSlotsLock);
     }
+
+    LeaveCriticalSection(&grPipeline->pipelineSlotsMutex);
 
     return vkPipeline;
 }
@@ -672,7 +672,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .createInfo = pipelineCreateInfo,
         .pipelineSlotCount = 0,
         .pipelineSlots = NULL,
-        .pipelineSlotsLock = SRWLOCK_INIT,
+        .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPasses = { 0 }, // Initialized below
         .stageCount = COUNT_OF(stages),
@@ -681,6 +681,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .dynamicOffsetCount = dynamicOffsetCount,
     };
 
+    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     memcpy(grPipeline->renderPasses, renderPasses, sizeof(renderPasses));
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
         grPipeline->descriptorSetLayouts[i] = descriptorSetLayouts[i];
@@ -776,7 +777,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .createInfo = NULL,
         .pipelineSlotCount = 1,
         .pipelineSlots = pipelineSlot,
-        .pipelineSlotsLock = SRWLOCK_INIT,
+        .pipelineSlotsMutex = { 0 }, // Initialized below
         .pipelineLayout = pipelineLayout,
         .renderPasses = { VK_NULL_HANDLE },
         .stageCount = 1,
@@ -785,6 +786,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .dynamicOffsetCount = dynamicOffsetCount,
     };
 
+    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
 
     *pPipeline = (GR_PIPELINE)grPipeline;

@@ -277,7 +277,7 @@ typedef struct _GrPipeline {
     PipelineCreateInfo* createInfo;
     unsigned pipelineSlotCount;
     PipelineSlot* pipelineSlots;
-    SRWLOCK pipelineSlotsLock;
+    CRITICAL_SECTION pipelineSlotsMutex;
     VkPipelineLayout pipelineLayout;
     VkRenderPass renderPasses[MSAA_LEVEL_COUNT];
     unsigned stageCount;
