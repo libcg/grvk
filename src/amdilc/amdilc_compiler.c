@@ -34,6 +34,7 @@ typedef enum {
 
 typedef struct {
     IlcSpvId id;
+    IlcSpvId interfaceId;
     IlcSpvId typeId;
     IlcSpvId componentTypeId;
     unsigned componentCount;
@@ -380,6 +381,7 @@ static const IlcRegister* findOrCreateRegister(
 
         const IlcRegister tempReg = {
             .id = tempId,
+            .interfaceId = tempId,
             .typeId = tempTypeId,
             .componentTypeId = compiler->floatId,
             .componentCount = 4,
@@ -839,6 +841,7 @@ static void emitConstBuffer(
 
     const IlcRegister constBufferReg = {
         .id = arrayId,
+        .interfaceId = arrayId,
         .typeId = typeId,
         .componentTypeId = compiler->floatId,
         .componentCount = 4,
@@ -867,6 +870,7 @@ static void emitIndexedTempArray(
 
     const IlcRegister tempArrayReg = {
         .id = arrayId,
+        .interfaceId = arrayId,
         .typeId = compiler->float4Id,
         .componentTypeId = compiler->floatId,
         .componentCount = 4,
@@ -903,6 +907,7 @@ static void emitLiteral(
 
     const IlcRegister reg = {
         .id = literalId,
+        .interfaceId = literalId,
         .typeId = literalTypeId,
         .componentTypeId = compiler->floatId,
         .componentCount = 4,
@@ -936,6 +941,8 @@ static void emitOutput(
     }
 
     IlcSpvId outputId = 0;
+    IlcSpvId outputInterfaceId = 0;
+    IlcSpvId outputComponentTypeId = 0;
     IlcSpvId outputTypeId = 0;
     unsigned outputComponentCount = 0;
     const char* outputPrefix = NULL;
@@ -943,6 +950,8 @@ static void emitOutput(
     if (dst->registerType == IL_REGTYPE_OUTPUT) {
         outputTypeId = compiler->float4Id;
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
+        outputInterfaceId = outputId;
+        outputComponentTypeId = compiler->floatId;
         outputComponentCount = 4;
         outputPrefix = "o";
 
@@ -958,6 +967,8 @@ static void emitOutput(
     } else if (dst->registerType == IL_REGTYPE_DEPTH) {
         outputTypeId = compiler->floatId;
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
+        outputInterfaceId = outputId;
+        outputComponentTypeId = compiler->floatId;
         outputComponentCount = 1;
         outputPrefix = "oDepth";
 
@@ -967,6 +978,25 @@ static void emitOutput(
         // TODO explore what Re-Z really means
         ilcSpvPutExecMode(compiler->module, compiler->entryPointId, SpvExecutionModeDepthReplacing,
                           0, NULL);
+    } else if (dst->registerType == IL_REGTYPE_OMASK) {
+        // Sample mask is an array of one element
+        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
+        IlcSpvId arrayTypeId = ilcSpvPutArrayType(compiler->module, compiler->intId, oneId);
+        IlcSpvId arrayId = emitVariable(compiler, arrayTypeId, SpvStorageClassOutput);
+
+        IlcSpvWord builtInType = SpvBuiltInSampleMask;
+        ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationBuiltIn, 1, &builtInType);
+
+        // The output register points to the first element in the array
+        outputTypeId = compiler->intId;
+        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput,
+                                                  outputTypeId);
+        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
+        outputId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, arrayId, 1, &indexId);
+        outputInterfaceId = arrayId;
+        outputComponentTypeId = compiler->intId;
+        outputComponentCount = 1;
+        outputPrefix = "oMask";
     } else {
         LOGW("unhandled output register type %u\n", dst->registerType);
         assert(false);
@@ -974,8 +1004,9 @@ static void emitOutput(
 
     const IlcRegister reg = {
         .id = outputId,
+        .interfaceId = outputInterfaceId,
         .typeId = outputTypeId,
-        .componentTypeId = compiler->floatId,
+        .componentTypeId = outputComponentTypeId,
         .componentCount = outputComponentCount,
         .ilType = dst->registerType,
         .ilNum = dst->registerNum,
@@ -1095,6 +1126,7 @@ static void emitInput(
 
     const IlcRegister reg = {
         .id = inputId,
+        .interfaceId = inputId,
         .typeId = inputTypeId,
         .componentTypeId = inputComponentTypeId,
         .componentCount = inputComponentCount,
@@ -2895,6 +2927,7 @@ static void emitImplicitInput(
 
     const IlcRegister reg = {
         .id = inputId,
+        .interfaceId = inputId,
         .typeId = inputTypeId,
         .componentTypeId = componentTypeId,
         .componentCount = componentCount,
@@ -3179,7 +3212,7 @@ static void emitEntryPoint(
     for (int i = 0; i < compiler->regCount; i++) {
         const IlcRegister* reg = &compiler->regs[i];
 
-        interfaces[interfaceIndex] = reg->id;
+        interfaces[interfaceIndex] = reg->interfaceId;
         interfaceIndex++;
     }
     for (int i = 0; i < compiler->resourceCount; i++) {
