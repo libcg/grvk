@@ -639,14 +639,17 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
-    assert(colorTargetCount <= GR_MAX_COLOR_TARGETS);
-
-    // Find minimum extent
+    // Copy attachments and find minimum extent
+    unsigned attachmentCount = 0;
+    VkImageView attachments[COUNT_OF(grCmdBuffer->attachments)];
     VkExtent3D minExtent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
     for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
         if (grColorTargetView != NULL) {
+            attachments[attachmentCount] = grColorTargetView->imageView;
+            attachmentCount++;
+
             minExtent.width = MIN(minExtent.width, grColorTargetView->extent.width);
             minExtent.height = MIN(minExtent.height, grColorTargetView->extent.height);
             minExtent.depth = MIN(minExtent.depth, grColorTargetView->extent.depth);
@@ -656,39 +659,22 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
 
         if (grDepthStencilView != NULL) {
+            attachments[attachmentCount] = grDepthStencilView->imageView;
+            attachmentCount++;
+
             minExtent.width = MIN(minExtent.width, grDepthStencilView->extent.width);
             minExtent.height = MIN(minExtent.height, grDepthStencilView->extent.height);
             minExtent.depth = MIN(minExtent.depth, grDepthStencilView->extent.depth);
         }
     }
 
-    // Copy attachments
-    unsigned attachmentCount = 0;
-    VkImageView attachments[COUNT_OF(grCmdBuffer->attachments)];
-    for (unsigned i = 0; i < colorTargetCount; i++) {
-        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
-
-        if (grColorTargetView != NULL) {
-            attachments[attachmentCount] = grColorTargetView->imageView;
-            attachmentCount++;
-        }
-    }
-    if (pDepthTarget != NULL) {
-        const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
-
-        if (grDepthStencilView != NULL) {
-            attachments[attachmentCount] = grDepthStencilView->imageView;
-            attachmentCount++;
-        }
-    }
-
-    if (memcmp(&minExtent, &grCmdBuffer->minExtent, sizeof(minExtent)) != 0 ||
-        attachmentCount != grCmdBuffer->attachmentCount ||
-        memcmp(attachments, grCmdBuffer->attachments, attachmentCount * sizeof(VkImageView)) != 0) {
+    if (attachmentCount != grCmdBuffer->attachmentCount ||
+        memcmp(attachments, grCmdBuffer->attachments, attachmentCount * sizeof(VkImageView)) ||
+        memcmp(&minExtent, &grCmdBuffer->minExtent, sizeof(minExtent))) {
         // Targets have changed
-        grCmdBuffer->minExtent = minExtent;
         grCmdBuffer->attachmentCount = attachmentCount;
         memcpy(grCmdBuffer->attachments, attachments, attachmentCount * sizeof(VkImageView));
+        grCmdBuffer->minExtent = minExtent;
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_FRAMEBUFFER;
     }
