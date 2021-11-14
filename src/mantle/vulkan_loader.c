@@ -200,6 +200,11 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkUpdateDescriptorSets);
     LOAD_VULKAN_DEV_FN(vkd, device, vkWaitForFences);
 
+#ifdef VK_KHR_dynamic_rendering
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginRenderingKHR);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndRenderingKHR);
+#endif
+
 #ifdef VK_KHR_swapchain
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreateSwapchainKHR);
     LOAD_VULKAN_DEV_FN(vkd, device, vkDestroySwapchainKHR);

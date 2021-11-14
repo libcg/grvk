@@ -181,6 +181,7 @@ GR_RESULT GR_STDCALL grCreateColorTargetView(
             MIP(grImage->extent.height, pCreateInfo->mipLevel),
             pCreateInfo->arraySize,
         },
+        .format = createInfo.format,
     };
 
     *pView = (GR_COLOR_TARGET_VIEW)grColorTargetView;
@@ -270,6 +271,7 @@ GR_RESULT GR_STDCALL grCreateDepthStencilView(
             MIP(grImage->extent.height, pCreateInfo->mipLevel),
             pCreateInfo->arraySize,
         },
+        .format = createInfo.format,
     };
 
     *pView = (GR_DEPTH_STENCIL_VIEW)grDepthStencilView;

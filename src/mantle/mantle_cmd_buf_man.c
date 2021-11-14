@@ -24,11 +24,6 @@ void grCmdBufferResetState(
         free(grCmdBuffer->descriptorPools);
     }
 
-    for (unsigned i = 0; i < grCmdBuffer->framebufferCount; i++) {
-        VKD.vkDestroyFramebuffer(grDevice->device, grCmdBuffer->framebuffers[i], NULL);
-    }
-    free(grCmdBuffer->framebuffers);
-
     // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
@@ -127,16 +122,17 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .grMsaaState = NULL,
         .grDepthStencilState = NULL,
         .grColorBlendState = NULL,
-        .framebuffer = VK_NULL_HANDLE,
-        .attachmentCount = 0,
-        .attachments = { VK_NULL_HANDLE },
+        .colorAttachmentCount = 0,
+        .colorAttachments = { { 0 } },
+        .colorFormats = { 0 },
+        .depthAttachment = { 0 },
+        .stencilAttachment = { 0 },
+        .depthStencilFormat = 0,
         .minExtent = { 0, 0, 0 },
-        .hasActiveRenderPass = false,
+        .isRendering = false,
         .descriptorPoolIndex = 0,
         .descriptorPoolCount = 0,
         .descriptorPools = NULL,
-        .framebufferCount = 0,
-        .framebuffers = NULL,
         .submitFence = NULL,
     };
 

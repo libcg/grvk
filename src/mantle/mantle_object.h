@@ -117,6 +117,9 @@ typedef struct _PipelineSlot
     const GrColorBlendStateObject* grColorBlendState;
     const GrMsaaStateObject* grMsaaState;
     const GrRasterStateObject* grRasterState;
+    unsigned colorFormatCount;
+    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
+    VkFormat depthStencilFormat;
 } PipelineSlot;
 
 // Base object
@@ -143,6 +146,7 @@ typedef struct _GrCmdBuffer {
     VkCommandBuffer commandBuffer;
     DescriptorSetSlot atomicCounterSlot;
     bool isBuilding;
+    bool isRendering;
     // Graphics and compute bind points
     BindPoint bindPoints[2];
     // Graphics dynamic state
@@ -152,17 +156,18 @@ typedef struct _GrCmdBuffer {
     GrDepthStencilStateObject* grDepthStencilState;
     GrColorBlendStateObject* grColorBlendState;
     // Render pass
-    VkFramebuffer framebuffer;
-    unsigned attachmentCount;
-    VkImageView attachments[GR_MAX_COLOR_TARGETS + 1]; // Extra depth target
+    unsigned colorAttachmentCount;
+    VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
+    bool hasDepthStencil;
+    VkRenderingAttachmentInfoKHR depthAttachment;
+    VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkFormat depthStencilFormat;
     VkExtent3D minExtent;
-    bool hasActiveRenderPass;
     // Resource tracking
     unsigned descriptorPoolIndex;
     unsigned descriptorPoolCount;
     VkDescriptorPool* descriptorPools;
-    unsigned framebufferCount;
-    VkFramebuffer* framebuffers;
     GrFence* submitFence;
 } GrCmdBuffer;
 
@@ -176,6 +181,7 @@ typedef struct _GrColorTargetView {
     GrObject grObj;
     VkImageView imageView;
     VkExtent3D extent;
+    VkFormat format;
 } GrColorTargetView;
 
 typedef struct _GrDepthStencilStateObject {
@@ -195,6 +201,7 @@ typedef struct _GrDepthStencilView {
     GrObject grObj;
     VkImageView imageView;
     VkExtent3D extent;
+    VkFormat format;
 } GrDepthStencilView;
 
 typedef struct _GrDescriptorSet {
@@ -261,7 +268,6 @@ typedef struct _GrImageView {
 
 typedef struct _GrMsaaStateObject {
     GrObject grObj;
-    unsigned renderPassIndex;
     VkSampleCountFlags sampleCountFlags;
     VkSampleMask sampleMask;
 } GrMsaaStateObject;
@@ -279,7 +285,6 @@ typedef struct _GrPipeline {
     PipelineSlot* pipelineSlots;
     CRITICAL_SECTION pipelineSlotsMutex;
     VkPipelineLayout pipelineLayout;
-    VkRenderPass renderPasses[MSAA_LEVEL_COUNT];
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
     GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
@@ -378,6 +383,9 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState);
+    const GrRasterStateObject* grRasterState,
+    unsigned colorFormatCount,
+    const VkFormat* colorFormats,
+    VkFormat depthStencilFormat);
 
 #endif // GR_OBJECT_H_

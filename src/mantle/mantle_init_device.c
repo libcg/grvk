@@ -561,9 +561,14 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = &extendedDynamicState,
         .shaderDemoteToHelperInvocation = VK_TRUE,
     };
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRendering = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
+        .pNext = &demoteToHelperInvocation,
+        .dynamicRendering = VK_TRUE,
+    };
     VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = &demoteToHelperInvocation,
+        .pNext = &dynamicRendering,
         .samplerMirrorClampToEdge = VK_TRUE,
         .separateDepthStencilLayouts = VK_TRUE,
     };
@@ -592,6 +597,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
         VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 

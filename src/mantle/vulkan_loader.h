@@ -182,6 +182,11 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkUpdateDescriptorSetWithTemplate);
     VULKAN_FN(vkWaitForFences);
 
+#ifdef VK_KHR_dynamic_rendering
+    VULKAN_FN(vkCmdBeginRenderingKHR);
+    VULKAN_FN(vkCmdEndRenderingKHR);
+#endif
+
 #ifdef VK_KHR_swapchain
     VULKAN_FN(vkCreateSwapchainKHR);
     VULKAN_FN(vkDestroySwapchainKHR);
