@@ -21,9 +21,6 @@ typedef enum {
 
     // Cubemap layer index and count are divided by 6
     QUIRK_CUBEMAP_LAYER_DIV_6 = 1 << 5,
-
-    // Depth-stencil target omitted during pipeline creation
-    QUIRK_MISSING_DEPTH_STENCIL_TARGET = 1 << 6,
 } QUIRK_FLAGS;
 
 void quirkInit(
