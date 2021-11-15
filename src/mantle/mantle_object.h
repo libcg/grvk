@@ -264,6 +264,7 @@ typedef struct _GrImage {
 typedef struct _GrImageView {
     GrObject grObj;
     VkImageView imageView;
+    VkFormat format;
 } GrImageView;
 
 typedef struct _GrMsaaStateObject {

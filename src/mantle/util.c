@@ -352,8 +352,19 @@ unsigned getVkFormatTileSize(
     return 0;
 }
 
+bool isVkFormatDepthStencil(
+    VkFormat vkFormat)
+{
+    return vkFormat == VK_FORMAT_S8_UINT ||
+           vkFormat == VK_FORMAT_D16_UNORM ||
+           vkFormat == VK_FORMAT_D32_SFLOAT ||
+           vkFormat == VK_FORMAT_D16_UNORM_S8_UINT ||
+           vkFormat == VK_FORMAT_D32_SFLOAT_S8_UINT;
+}
+
 VkImageLayout getVkImageLayout(
-    GR_IMAGE_STATE imageState)
+    GR_IMAGE_STATE imageState,
+    bool isDepthStencil)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_DATA_TRANSFER:
@@ -367,11 +378,17 @@ VkImageLayout getVkImageLayout(
     case GR_IMAGE_STATE_GRAPHICS_SHADER_READ_WRITE:
     case GR_IMAGE_STATE_COMPUTE_SHADER_WRITE_ONLY:
     case GR_IMAGE_STATE_COMPUTE_SHADER_READ_WRITE:
-    case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
         return VK_IMAGE_LAYOUT_GENERAL;
+    case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
+        // TODO use VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR?
+        return isDepthStencil ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+                              : VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_UNINITIALIZED:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
+        // TODO use VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR?
+        return isDepthStencil ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                              : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
         return VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_CLEAR:

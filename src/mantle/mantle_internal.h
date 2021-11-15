@@ -67,8 +67,12 @@ unsigned getVkFormatTexelSize(
 unsigned getVkFormatTileSize(
     VkFormat vkFormat);
 
+bool isVkFormatDepthStencil(
+    VkFormat vkFormat);
+
 VkImageLayout getVkImageLayout(
-    GR_IMAGE_STATE imageState);
+    GR_IMAGE_STATE imageState,
+    bool isDepthStencil);
 
 VkImageTiling getVkImageTiling(
     GR_IMAGE_TILING imageTiling);

@@ -45,7 +45,7 @@ static void prepareImagesForDataTransfer(
             .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
             .dstAccessMask = getVkAccessFlagsImage(GR_IMAGE_STATE_DATA_TRANSFER),
             .oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED,
-            .newLayout = getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER),
+            .newLayout = getVkImageLayout(GR_IMAGE_STATE_DATA_TRANSFER, false),
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = images[i]->image,
