@@ -84,7 +84,8 @@ VkImageUsageFlags getVkImageUsageFlags(
     GR_IMAGE_USAGE_FLAGS imageUsageFlags);
 
 VkAccessFlags getVkAccessFlagsImage(
-    GR_IMAGE_STATE imageState);
+    GR_IMAGE_STATE imageState,
+    bool isDepthStencil);
 
 VkAccessFlags getVkAccessFlagsMemory(
     GR_MEMORY_STATE memoryState);

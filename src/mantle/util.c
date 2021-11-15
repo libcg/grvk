@@ -466,7 +466,8 @@ VkImageUsageFlags getVkImageUsageFlags(
 }
 
 VkAccessFlags getVkAccessFlagsImage(
-    GR_IMAGE_STATE imageState)
+    GR_IMAGE_STATE imageState,
+    bool isDepthStencil)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_DATA_TRANSFER:
@@ -486,23 +487,23 @@ VkAccessFlags getVkAccessFlagsImage(
         return VK_ACCESS_SHADER_READ_BIT |
                VK_ACCESS_SHADER_WRITE_BIT;
     case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
-        return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-               VK_ACCESS_SHADER_READ_BIT;
+        return VK_ACCESS_SHADER_READ_BIT |
+               (isDepthStencil ? VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
+                               : VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
     case GR_IMAGE_STATE_UNINITIALIZED:
         return 0;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
-        return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-               VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        return isDepthStencil ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+                              : VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
-        return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-               VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-               VK_ACCESS_SHADER_READ_BIT |
-               VK_ACCESS_SHADER_WRITE_BIT;
+        return VK_ACCESS_SHADER_READ_BIT |
+               VK_ACCESS_SHADER_WRITE_BIT |
+               (isDepthStencil ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                                 VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+                               : VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     case GR_IMAGE_STATE_CLEAR:
         return VK_ACCESS_TRANSFER_WRITE_BIT;
     case GR_IMAGE_STATE_DISCARD:

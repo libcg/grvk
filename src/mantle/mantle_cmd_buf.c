@@ -717,8 +717,8 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
         barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = NULL,
-            .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState),
-            .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState),
+            .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState, isDepthStencil),
+            .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState, isDepthStencil),
             .oldLayout = getVkImageLayout(stateTransition->oldState, isDepthStencil),
             .newLayout = getVkImageLayout(stateTransition->newState, isDepthStencil),
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
