@@ -42,6 +42,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
         grClearDescriptorSetSlots(grDescriptorSet, 0, grDescriptorSet->slotCount);
         free(grDescriptorSet->slots);
     }   break;
+    case GR_OBJ_TYPE_EVENT: {
+        GrEvent* grEvent = (GrEvent*)grObject;
+
+        VKD.vkDestroyEvent(grDevice->device, grEvent->event, NULL);
+    }   break;
     case GR_OBJ_TYPE_IMAGE: {
         GrImage* grImage = (GrImage*)grObject;
 
@@ -81,6 +86,9 @@ GR_RESULT GR_STDCALL grDestroyObject(
         free(grViewportStateObject->viewports);
         free(grViewportStateObject->scissors);
     }   break;
+    case GR_OBJ_TYPE_WSI_WIN_DISPLAY:
+        // Nothing to do
+        break;
     default:
         LOGW("unsupported object type %u\n", grObject->grObjType);
         return GR_ERROR_INVALID_OBJECT_TYPE;
