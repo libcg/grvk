@@ -409,9 +409,7 @@ GR_RESULT GR_STDCALL grCreateShader(
     GrDevice* grDevice = (GrDevice*)device;
     VkShaderModule vkShaderModule = VK_NULL_HANDLE;
 
-    if ((pCreateInfo->flags & GR_SHADER_CREATE_ALLOW_RE_Z) != 0) {
-        LOGW("unhandled Re-Z flag\n");
-    }
+    // ALLOW_RE_Z flag doesn't have a Vulkan equivalent. RADV determines it automatically.
 
     IlcShader ilcShader = ilcCompileShader(pCreateInfo->pCode, pCreateInfo->codeSize);
 

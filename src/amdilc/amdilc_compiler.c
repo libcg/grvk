@@ -976,8 +976,6 @@ static void emitOutput(
 
         IlcSpvWord builtInType = SpvBuiltInFragDepth;
         ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
-
-        // TODO explore what Re-Z really means
         ilcSpvPutExecMode(compiler->module, compiler->entryPointId, SpvExecutionModeDepthReplacing,
                           0, NULL);
     } else if (dst->registerType == IL_REGTYPE_OMASK) {
