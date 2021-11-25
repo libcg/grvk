@@ -79,10 +79,10 @@ static void prepareImagesForDataTransfer(
         .pSignalSemaphores = NULL,
     };
 
-    EnterCriticalSection(grQueue->mutex);
+    AcquireSRWLockExclusive(grQueue->lock);
     VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
     VKD.vkQueueWaitIdle(grQueue->queue); // TODO chain with a semaphore
-    LeaveCriticalSection(grQueue->mutex);
+    ReleaseSRWLockExclusive(grQueue->lock);
 
     VKD.vkDestroyCommandPool(grDevice->device, vkCommandPool, NULL);
 }
@@ -103,7 +103,7 @@ static void checkMemoryReferences(
             continue;
         }
 
-        EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
+        AcquireSRWLockExclusive(&grGpuMemory->boundObjectsLock);
         for (unsigned j = 0; j < grGpuMemory->boundObjectCount; j++) {
             GrObject* grBoundObject = grGpuMemory->boundObjects[j];
 
@@ -119,7 +119,7 @@ static void checkMemoryReferences(
                 }
             }
         }
-        LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
+        ReleaseSRWLockExclusive(&grGpuMemory->boundObjectsLock);
     }
 
     // Perform data transfer state transition
@@ -159,7 +159,7 @@ GR_RESULT GR_STDCALL grGetDeviceQueue(
         .queueFamilyIndex = queueFamilyIndex,
         .globalMemRefCount = 0,
         .globalMemRefs = NULL,
-        .mutex = grDeviceGetQueueMutex(grDevice, queueType),
+        .lock = grDeviceGetQueueLock(grDevice, queueType),
     };
 
     *pQueue = (GR_QUEUE)grQueue;
@@ -220,9 +220,9 @@ GR_RESULT GR_STDCALL grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    EnterCriticalSection(grQueue->mutex);
+    AcquireSRWLockExclusive(grQueue->lock);
     res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
-    LeaveCriticalSection(grQueue->mutex);
+    ReleaseSRWLockExclusive(grQueue->lock);
 
     STACK_ARRAY_FINISH(vkCommandBuffers);
 
@@ -246,9 +246,9 @@ GR_RESULT GR_STDCALL grQueueWaitIdle(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    EnterCriticalSection(grQueue->mutex);
+    AcquireSRWLockExclusive(grQueue->lock);
     VkResult res = VKD.vkQueueWaitIdle(grQueue->queue);
-    LeaveCriticalSection(grQueue->mutex);
+    ReleaseSRWLockExclusive(grQueue->lock);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueWaitIdle failed (%d)\n", res);
     }

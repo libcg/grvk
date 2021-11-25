@@ -567,9 +567,9 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .pSignalSemaphores = &mCopySemaphore,
     };
 
-    EnterCriticalSection(grQueue->mutex);
+    AcquireSRWLockExclusive(grQueue->lock);
     vkRes = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
-    LeaveCriticalSection(grQueue->mutex);
+    ReleaseSRWLockExclusive(grQueue->lock);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", vkRes);
         return getGrResult(vkRes);
@@ -586,9 +586,9 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .pResults = NULL,
     };
 
-    EnterCriticalSection(grQueue->mutex);
+    AcquireSRWLockExclusive(grQueue->lock);
     vkRes = VKD.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo);
-    LeaveCriticalSection(grQueue->mutex);
+    ReleaseSRWLockExclusive(grQueue->lock);
     if (vkRes == VK_SUBOPTIMAL_KHR || vkRes == VK_ERROR_OUT_OF_DATE_KHR) {
         mDirtySwapchain = true;
     } else if (vkRes != VK_SUCCESS) {

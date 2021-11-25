@@ -247,7 +247,7 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
         GrGpuMemory* grBoundGpuMemory = grObject->grGpuMemory;
 
         // Vulkan doesn't allow unbinding, only remove the bound object reference
-        EnterCriticalSection(&grBoundGpuMemory->boundObjectsMutex);
+        AcquireSRWLockExclusive(&grBoundGpuMemory->boundObjectsLock);
         for (unsigned i = 0; i < grBoundGpuMemory->boundObjectCount; i++) {
             if (grBoundGpuMemory->boundObjects[i] == grObject) {
                 // Skip realloc
@@ -257,7 +257,7 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
                 break;
             }
         }
-        LeaveCriticalSection(&grBoundGpuMemory->boundObjectsMutex);
+        ReleaseSRWLockExclusive(&grBoundGpuMemory->boundObjectsLock);
     }
 
     if (grGpuMemory != NULL) {
@@ -299,12 +299,12 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
         }
 
         // Add bound object reference
-        EnterCriticalSection(&grGpuMemory->boundObjectsMutex);
+        AcquireSRWLockExclusive(&grGpuMemory->boundObjectsLock);
         grGpuMemory->boundObjectCount++;
         grGpuMemory->boundObjects = realloc(grGpuMemory->boundObjects,
                                             grGpuMemory->boundObjectCount * sizeof(GrObject*));
         grGpuMemory->boundObjects[grGpuMemory->boundObjectCount - 1] = grObject;
-        LeaveCriticalSection(&grGpuMemory->boundObjectsMutex);
+        ReleaseSRWLockExclusive(&grGpuMemory->boundObjectsLock);
     }
 
     grObject->grGpuMemory = grGpuMemory;

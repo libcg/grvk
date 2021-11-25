@@ -219,9 +219,9 @@ typedef struct _GrDevice {
     unsigned universalQueueFamilyIndex;
     unsigned computeQueueFamilyIndex;
     unsigned dmaQueueFamilyIndex;
-    CRITICAL_SECTION universalQueueMutex;
-    CRITICAL_SECTION computeQueueMutex;
-    CRITICAL_SECTION dmaQueueMutex;
+    SRWLOCK universalQueueLock;
+    SRWLOCK computeQueueLock;
+    SRWLOCK dmaQueueLock;
     VkBuffer universalAtomicCounterBuffer;
     VkBuffer computeAtomicCounterBuffer;
     GrBorderColorPalette* grBorderColorPalette;
@@ -245,7 +245,7 @@ typedef struct _GrGpuMemory {
     VkBuffer buffer;
     unsigned boundObjectCount;
     GrObject** boundObjects;
-    CRITICAL_SECTION boundObjectsMutex;
+    SRWLOCK boundObjectsLock;
 } GrGpuMemory;
 
 typedef struct _GrImage {
@@ -284,7 +284,7 @@ typedef struct _GrPipeline {
     PipelineCreateInfo* createInfo;
     unsigned pipelineSlotCount;
     PipelineSlot* pipelineSlots;
-    CRITICAL_SECTION pipelineSlotsMutex;
+    SRWLOCK pipelineSlotsLock;
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
@@ -335,7 +335,7 @@ typedef struct _GrQueue {
     unsigned queueFamilyIndex;
     unsigned globalMemRefCount;
     GR_MEMORY_REF* globalMemRefs;
-    CRITICAL_SECTION* mutex;
+    SRWLOCK* lock;
 } GrQueue;
 
 typedef struct _GrViewportStateObject {
@@ -361,7 +361,7 @@ unsigned grDeviceGetQueueFamilyIndex(
     const GrDevice* grDevice,
     GR_QUEUE_TYPE queueType);
 
-CRITICAL_SECTION* grDeviceGetQueueMutex(
+SRWLOCK* grDeviceGetQueueLock(
     GrDevice* grDevice,
     GR_QUEUE_TYPE queueType);
 

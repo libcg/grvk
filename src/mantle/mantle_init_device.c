@@ -114,19 +114,19 @@ unsigned grDeviceGetQueueFamilyIndex(
     return INVALID_QUEUE_INDEX;
 }
 
-CRITICAL_SECTION* grDeviceGetQueueMutex(
+SRWLOCK* grDeviceGetQueueLock(
     GrDevice* grDevice,
     GR_QUEUE_TYPE queueType)
 {
     switch (queueType) {
     case GR_QUEUE_UNIVERSAL:
-        return &grDevice->universalQueueMutex;
+        return &grDevice->universalQueueLock;
     case GR_QUEUE_COMPUTE:
         // Fall back to universal queue if not available
         if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return &grDevice->computeQueueMutex;
+            return &grDevice->computeQueueLock;
         } else {
-            return &grDevice->universalQueueMutex;
+            return &grDevice->universalQueueLock;
         }
     }
 
@@ -134,11 +134,11 @@ CRITICAL_SECTION* grDeviceGetQueueMutex(
     case GR_EXT_QUEUE_DMA:
         // Fall back to universal or compute queue if not available
         if (grDevice->dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return &grDevice->dmaQueueMutex;
+            return &grDevice->dmaQueueLock;
         } else if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return &grDevice->computeQueueMutex;
+            return &grDevice->computeQueueLock;
         } else {
-            return &grDevice->universalQueueMutex;
+            return &grDevice->universalQueueLock;
         }
     case GR_EXT_QUEUE_TIMER:
         break; // TODO implement
@@ -647,18 +647,13 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .universalQueueFamilyIndex = universalQueueFamilyIndex,
         .computeQueueFamilyIndex = computeQueueFamilyIndex,
         .dmaQueueFamilyIndex = dmaQueueFamilyIndex,
-        .universalQueueMutex = { 0 }, // Initialized below
-        .computeQueueMutex = { 0 }, // Initialized below
-        .dmaQueueMutex = { 0 }, // Initialized below
+        .universalQueueLock = SRWLOCK_INIT,
+        .computeQueueLock = SRWLOCK_INIT,
+        .dmaQueueLock = SRWLOCK_INIT,
         .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
     };
-
-    // Allow queue muxing when the driver doesn't expose certain queue types
-    InitializeCriticalSectionAndSpinCount(&grDevice->universalQueueMutex, 0);
-    InitializeCriticalSectionAndSpinCount(&grDevice->computeQueueMutex, 0);
-    InitializeCriticalSectionAndSpinCount(&grDevice->dmaQueueMutex, 0);
 
     grDevice->universalAtomicCounterBuffer =
         allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);

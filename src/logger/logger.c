@@ -8,7 +8,7 @@
 
 LogLevel gLogLevel = LOG_LEVEL_INFO;
 static FILE* mLogFile = NULL;
-static CRITICAL_SECTION mLogMutex;
+static SRWLOCK mLogLock = SRWLOCK_INIT;
 
 static void pickLogLevel()
 {
@@ -52,8 +52,6 @@ void logInit(
     if (gLogLevel != LOG_LEVEL_NONE && path != NULL) {
         mLogFile = fopen(path, "w");
     }
-
-    InitializeCriticalSectionAndSpinCount(&mLogMutex, 0);
 }
 
 void logPrint(
@@ -65,7 +63,7 @@ void logPrint(
     const char* prefixes[] = { "T", "V", "D", "I", "W", "E", "" };
     unsigned threadId = GetCurrentThreadId();
 
-    EnterCriticalSection(&mLogMutex);
+    AcquireSRWLockExclusive(&mLogLock);
 
     fprintf(stdout, "%s/%08X/%s: ", prefixes[level], threadId, name);
     if (mLogFile != NULL) {
@@ -81,7 +79,7 @@ void logPrint(
     }
     va_end(argptr);
 
-    LeaveCriticalSection(&mLogMutex);
+    ReleaseSRWLockExclusive(&mLogLock);
 }
 
 void logPrintRaw(
@@ -92,7 +90,7 @@ void logPrintRaw(
         return;
     }
 
-    EnterCriticalSection(&mLogMutex);
+    AcquireSRWLockExclusive(&mLogLock);
 
     va_list argptr;
     va_start(argptr, format);
@@ -103,6 +101,6 @@ void logPrintRaw(
     }
     va_end(argptr);
 
-    LeaveCriticalSection(&mLogMutex);
+    ReleaseSRWLockExclusive(&mLogLock);
 }
 

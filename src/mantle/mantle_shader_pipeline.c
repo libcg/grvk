@@ -355,7 +355,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
-    EnterCriticalSection(&grPipeline->pipelineSlotsMutex);
+    AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
 
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
@@ -393,7 +393,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
         grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1] = slot;
     }
 
-    LeaveCriticalSection(&grPipeline->pipelineSlotsMutex);
+    ReleaseSRWLockExclusive(&grPipeline->pipelineSlotsLock);
 
     return vkPipeline;
 }
@@ -616,7 +616,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .createInfo = pipelineCreateInfo,
         .pipelineSlotCount = 0,
         .pipelineSlots = NULL,
-        .pipelineSlotsMutex = { 0 }, // Initialized below
+        .pipelineSlotsLock = SRWLOCK_INIT,
         .pipelineLayout = pipelineLayout,
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayouts = { 0 }, // Initialized below
@@ -624,7 +624,6 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .dynamicOffsetCount = dynamicOffsetCount,
     };
 
-    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
         grPipeline->descriptorSetLayouts[i] = descriptorSetLayouts[i];
         copyPipelineShader(&grPipeline->shaderInfos[i], stages[i].shader);
@@ -720,7 +719,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .createInfo = NULL,
         .pipelineSlotCount = 1,
         .pipelineSlots = pipelineSlot,
-        .pipelineSlotsMutex = { 0 }, // Initialized below
+        .pipelineSlotsLock = SRWLOCK_INIT,
         .pipelineLayout = pipelineLayout,
         .stageCount = 1,
         .descriptorSetLayouts = { descriptorSetLayout },
@@ -728,7 +727,6 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .dynamicOffsetCount = dynamicOffsetCount,
     };
 
-    InitializeCriticalSectionAndSpinCount(&grPipeline->pipelineSlotsMutex, 0);
     copyPipelineShader(&grPipeline->shaderInfos[0], stage.shader);
 
     *pPipeline = (GR_PIPELINE)grPipeline;
