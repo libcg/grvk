@@ -7,53 +7,77 @@ typedef struct {
     VkCommandBuffer commandBuffer;
 } CopyCommandBuffer;
 
+typedef struct {
+    GrImage* grImage;
+    GrGpuMemory* grGpuMemory;
+    bool isDestroyed;
+} PresentableImage;
+
 static VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 static VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
+static bool mDirtySwapchain = true;
 static unsigned mPresentableImageCount = 0;
-static GrImage** mPresentableImages;
-static unsigned mImageCount = 0;
-static VkImage* mImages;
+static PresentableImage* mPresentableImages = NULL;
+static SRWLOCK mPresentableImagesLock = SRWLOCK_INIT;
+static unsigned mSwapchainImageCount = 0;
+static VkImage* mSwapchainImages = NULL;
 static unsigned mCopyCommandBufferCount = 0;
 static VkCommandPool mCommandPool = VK_NULL_HANDLE;
 static CopyCommandBuffer* mCopyCommandBuffers = 0;
 static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
 
-static CopyCommandBuffer buildCopyCommandBuffer(
+static VkSurfaceKHR getVkSurface(
     const GrDevice* grDevice,
+    HWND hwnd,
+    unsigned queueFamilyIndex)
+{
+    VkResult vkRes;
+    VkSurfaceKHR vkSurface = VK_NULL_HANDLE;
+
+    const VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        .pNext = NULL,
+        .flags = 0,
+        .hinstance = GetModuleHandle(NULL),
+        .hwnd = hwnd,
+    };
+
+    vkRes = vki.vkCreateWin32SurfaceKHR(vk, &surfaceCreateInfo, NULL, &vkSurface);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateWin32SurfaceKHR failed (%d)\n", vkRes);
+    }
+
+    VkBool32 isSupported = VK_FALSE;
+    vkRes = vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueFamilyIndex,
+                                                     vkSurface, &isSupported);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkGetPhysicalDeviceSurfaceSupportKHR failed (%d)\n", vkRes);
+    } else if (!isSupported) {
+        LOGW("unsupported surface\n");
+    }
+
+    return vkSurface;
+}
+
+static void recordCopyCommandBuffer(
+    const GrDevice* grDevice,
+    VkCommandBuffer commandBuffer,
     VkImage dstImage,
     VkExtent2D dstExtent,
     VkImage srcImage,
     VkExtent2D srcExtent)
 {
-    CopyCommandBuffer copyCmdBuf = {
-        .dstImage = dstImage,
-        .srcImage = srcImage,
-        .commandBuffer = VK_NULL_HANDLE,
-    };
     VkResult res;
-
-    const VkCommandBufferAllocateInfo allocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .pNext = NULL,
-        .commandPool = mCommandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-
-    res = VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, &copyCmdBuf.commandBuffer);
-    if (res != VK_SUCCESS) {
-        LOGE("vkAllocateCommandBuffers failed (%d)\n", res);
-    }
 
     const VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = NULL,
         .flags = 0,
-        .pInheritanceInfo = NULL
+        .pInheritanceInfo = NULL,
     };
 
-    res = VKD.vkBeginCommandBuffer(copyCmdBuf.commandBuffer, &beginInfo);
+    res = VKD.vkBeginCommandBuffer(commandBuffer, &beginInfo);
     if (res != VK_SUCCESS) {
         LOGE("vkBeginCommandBuffer failed (%d)\n", res);
     }
@@ -74,10 +98,10 @@ static CopyCommandBuffer buildCopyCommandBuffer(
             .levelCount = 1,
             .baseArrayLayer = 0,
             .layerCount = 1,
-        }
+        },
     };
 
-    VKD.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
+    VKD.vkCmdPipelineBarrier(commandBuffer,
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, 1, &preCopyBarrier);
@@ -101,7 +125,7 @@ static CopyCommandBuffer buildCopyCommandBuffer(
         .dstOffsets[1] = { dstExtent.width, dstExtent.height, 1 },
     };
 
-    VKD.vkCmdBlitImage(copyCmdBuf.commandBuffer,
+    VKD.vkCmdBlitImage(commandBuffer,
                        srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                        dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                        1, &region, VK_FILTER_NEAREST);
@@ -122,49 +146,30 @@ static CopyCommandBuffer buildCopyCommandBuffer(
             .levelCount = 1,
             .baseArrayLayer = 0,
             .layerCount = 1,
-        }
+        },
     };
 
-    VKD.vkCmdPipelineBarrier(copyCmdBuf.commandBuffer,
+    VKD.vkCmdPipelineBarrier(commandBuffer,
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
                              0, 0, NULL, 0, NULL, 1, &postCopyBarrier);
 
-    res = VKD.vkEndCommandBuffer(copyCmdBuf.commandBuffer);
+    res = VKD.vkEndCommandBuffer(commandBuffer);
     if (res != VK_SUCCESS) {
         LOGE("vkEndCommandBuffer failed (%d)\n", res);
     }
-
-    return copyCmdBuf;
 }
 
-static void initSwapchain(
+static void recreateSwapchain(
     GrDevice* grDevice,
     HWND hwnd,
     unsigned queueFamilyIndex)
 {
     VkResult res;
 
-    const VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-        .pNext = NULL,
-        .flags = 0,
-        .hinstance = GetModuleHandle(NULL),
-        .hwnd = hwnd,
-    };
-
-    res = vki.vkCreateWin32SurfaceKHR(vk, &surfaceCreateInfo, NULL, &mSurface);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateWin32SurfaceKHR failed (%d)\n", res);
-    }
-
-    VkBool32 supported = VK_FALSE;
-    res = vki.vkGetPhysicalDeviceSurfaceSupportKHR(grDevice->physicalDevice, queueFamilyIndex,
-                                                   mSurface, &supported);
-    if (res != VK_SUCCESS) {
-        LOGE("vkGetPhysicalDeviceSurfaceSupportKHR failed (%d)\n", res);
-    } else if (!supported) {
-        LOGW("unsupported surface\n");
+    // Get surface
+    if (mSurface == VK_NULL_HANDLE) {
+        mSurface = getVkSurface(grDevice, hwnd, queueFamilyIndex);
     }
 
     // Get window dimensions
@@ -172,6 +177,7 @@ static void initSwapchain(
     GetClientRect(hwnd, &clientRect);
     const VkExtent2D imageExtent = { clientRect.right, clientRect.bottom };
 
+    // Recreate swapchain
     const VkSwapchainCreateInfoKHR swapchainCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .pNext = NULL,
@@ -191,7 +197,7 @@ static void initSwapchain(
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
         .clipped = VK_TRUE,
-        .oldSwapchain = VK_NULL_HANDLE,
+        .oldSwapchain = mSwapchain,
     };
 
     res = VKD.vkCreateSwapchainKHR(grDevice->device, &swapchainCreateInfo, NULL, &mSwapchain);
@@ -200,10 +206,13 @@ static void initSwapchain(
         return;
     }
 
-    VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, NULL);
-    mImages = malloc(sizeof(VkImage) * mImageCount);
-    VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mImageCount, mImages);
+    // Get swapchain images
+    VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mSwapchainImageCount, NULL);
+    mSwapchainImages = realloc(mSwapchainImages, sizeof(VkImage) * mSwapchainImageCount);
+    VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mSwapchainImageCount,
+                                mSwapchainImages);
 
+    // Recreate command pool
     const VkCommandPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
@@ -211,47 +220,110 @@ static void initSwapchain(
         .queueFamilyIndex = grDevice->universalQueueFamilyIndex,
     };
 
+    VKD.vkDestroyCommandPool(grDevice->device, mCommandPool, NULL);
     res = VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &mCommandPool);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateCommandPool failed (%d)\n", res);
         return;
     }
 
-    // Build copy command buffers for all image combinations
-    for (int i = 0; i < mPresentableImageCount; i++) {
-        const GrImage* presentImage = mPresentableImages[i];
+    // Free up destroyed presentable images memory
+    AcquireSRWLockExclusive(&mPresentableImagesLock);
 
-        for (int j = 0; j < mImageCount; j++) {
-            const VkExtent2D presentExtent = {
-                presentImage->extent.width, presentImage->extent.height
-            };
+    for (unsigned i = 0; i < mPresentableImageCount; i++) {
+        if (mPresentableImages[i].isDestroyed) {
+            grFreeMemory((GR_GPU_MEMORY)mPresentableImages[i].grGpuMemory);
 
-            mCopyCommandBufferCount++;
-            mCopyCommandBuffers = realloc(mCopyCommandBuffers,
-                                          sizeof(CopyCommandBuffer) * mCopyCommandBufferCount);
-            mCopyCommandBuffers[mCopyCommandBufferCount - 1] =
-                buildCopyCommandBuffer(grDevice, mImages[j], imageExtent,
-                                       presentImage->image, presentExtent);
+            // Remove slot
+            mPresentableImageCount--;
+            memmove(&mPresentableImages[i], &mPresentableImages[i + 1],
+                    (mPresentableImageCount - i) * sizeof(PresentableImage));
+            i--;
         }
     }
 
+    // Build copy command buffers for all image combinations
+    mCopyCommandBufferCount = mSwapchainImageCount * mPresentableImageCount;
+    mCopyCommandBuffers = realloc(mCopyCommandBuffers,
+                                  mCopyCommandBufferCount * sizeof(CopyCommandBuffer));
+    VkCommandBuffer* commandBuffers = malloc(mCopyCommandBufferCount * sizeof(VkCommandBuffer));
+
+    const VkCommandBufferAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = mCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = mCopyCommandBufferCount,
+    };
+
+    res = VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, commandBuffers);
+    if (res != VK_SUCCESS) {
+        LOGE("vkAllocateCommandBuffers failed (%d)\n", res);
+    }
+
+    for (unsigned i = 0; i < mPresentableImageCount; i++) {
+        const GrImage* presentImage = mPresentableImages[i].grImage;
+        const VkExtent2D presentExtent = {
+            presentImage->extent.width, presentImage->extent.height
+        };
+
+        for (unsigned j = 0; j < mSwapchainImageCount; j++) {
+            unsigned idx = i * mSwapchainImageCount + j;
+
+            recordCopyCommandBuffer(grDevice, commandBuffers[idx],
+                                    mSwapchainImages[j], imageExtent,
+                                    presentImage->image, presentExtent);
+
+            mCopyCommandBuffers[idx] = (CopyCommandBuffer) {
+                .dstImage = mSwapchainImages[j],
+                .srcImage = presentImage->image,
+                .commandBuffer = commandBuffers[idx],
+            };
+        }
+    }
+
+    ReleaseSRWLockExclusive(&mPresentableImagesLock);
+    free(commandBuffers);
+
+    // Create semaphores
     const VkSemaphoreCreateInfo semaphoreCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
     };
 
-    res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateSemaphore failed (%d)\n", res);
-        return;
+    if (mAcquireSemaphore == VK_NULL_HANDLE) {
+        res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
+        if (res != VK_SUCCESS) {
+            LOGE("vkCreateSemaphore failed (%d)\n", res);
+            return;
+        }
     }
 
-    res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateSemaphore failed (%d)\n", res);
-        return;
+    if (mCopySemaphore == VK_NULL_HANDLE) {
+        res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
+        if (res != VK_SUCCESS) {
+            LOGE("vkCreateSemaphore failed (%d)\n", res);
+            return;
+        }
     }
+}
+
+// Exported Functions
+
+void grWsiDestroyImage(
+    GrImage* grImage)
+{
+    AcquireSRWLockExclusive(&mPresentableImagesLock);
+    for (unsigned i = 0; i < mPresentableImageCount; i++) {
+        if (grImage == mPresentableImages[i].grImage) {
+            // FIXME we'd want to free up memory here, but grFreeMemory crashes..?
+            mPresentableImages[i].isDestroyed = true;
+            mDirtySwapchain = true;
+            break;
+        }
+    }
+    ReleaseSRWLockExclusive(&mPresentableImagesLock);
 }
 
 // Functions
@@ -420,9 +492,16 @@ GR_RESULT GR_STDCALL grWsiWinCreatePresentableImage(
     }
 
     // Keep track of presentable images to build copy command buffers in advance
+    AcquireSRWLockExclusive(&mPresentableImagesLock);
     mPresentableImageCount++;
-    mPresentableImages = realloc(mPresentableImages, sizeof(GrImage*) * mPresentableImageCount);
-    mPresentableImages[mPresentableImageCount - 1] = (GrImage*)*pImage;
+    mPresentableImages = realloc(mPresentableImages,
+                                 mPresentableImageCount * sizeof(PresentableImage));
+    mPresentableImages[mPresentableImageCount - 1] = (PresentableImage) {
+        .grImage = (GrImage*)*pImage,
+        .grGpuMemory = (GrGpuMemory*)*pMem,
+        .isDestroyed = false,
+    };
+    ReleaseSRWLockExclusive(&mPresentableImagesLock);
 
     return GR_SUCCESS;
 }
@@ -441,29 +520,39 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
     GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
     GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
 
-    if (mSwapchain == VK_NULL_HANDLE) {
-        initSwapchain(grDevice, pPresentInfo->hWndDest, grQueue->queueFamilyIndex);
+    if (mDirtySwapchain) {
+        recreateSwapchain(grDevice, pPresentInfo->hWndDest, grQueue->queueFamilyIndex);
+        mDirtySwapchain = false;
     }
 
     uint32_t vkImageIndex = 0;
-
     vkRes = VKD.vkAcquireNextImageKHR(grDevice->device, mSwapchain, UINT64_MAX,
                                       mAcquireSemaphore, VK_NULL_HANDLE, &vkImageIndex);
-    if (vkRes != VK_SUCCESS) {
+    if (vkRes == VK_SUBOPTIMAL_KHR) {
+        // The swapchain needs to be recreated, but we can still present
+        mDirtySwapchain = true;
+    } else if (vkRes == VK_ERROR_OUT_OF_DATE_KHR) {
+        // The swapchain needs to be recreated, skip this present
+        mDirtySwapchain = true;
+        return GR_SUCCESS;
+    } else if (vkRes != VK_SUCCESS) {
         LOGE("vkAcquireNextImageKHR failed (%d)\n", vkRes);
-        assert(vkRes != VK_ERROR_OUT_OF_DATE_KHR); // FIXME temporary hack to avoid log spam
-        return GR_ERROR_OUT_OF_MEMORY;
+        return getGrResult(vkRes);
     }
 
-    // Find suitable copy command buffer for presentable and swapchain images combination
-    for (int i = 0; i < mCopyCommandBufferCount; i++) {
-        if (mCopyCommandBuffers[i].dstImage == mImages[vkImageIndex] &&
+    // Find suitable copy command buffer for this combination of presentable and swapchain images
+    for (unsigned i = 0; i < mCopyCommandBufferCount; i++) {
+        if (mCopyCommandBuffers[i].dstImage == mSwapchainImages[vkImageIndex] &&
             mCopyCommandBuffers[i].srcImage == srcGrImage->image) {
             vkCopyCommandBuffer = mCopyCommandBuffers[i].commandBuffer;
             break;
         }
     }
-    assert(vkCopyCommandBuffer != VK_NULL_HANDLE);
+    if (vkCopyCommandBuffer == VK_NULL_HANDLE) {
+        // This presentable image isn't known, skip this present
+        mDirtySwapchain = true;
+        return GR_SUCCESS;
+    }
 
     VkPipelineStageFlags stageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
     const VkSubmitInfo submitInfo = {
@@ -500,9 +589,11 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
     EnterCriticalSection(grQueue->mutex);
     vkRes = VKD.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo);
     LeaveCriticalSection(grQueue->mutex);
-    if (vkRes != VK_SUCCESS) {
+    if (vkRes == VK_SUBOPTIMAL_KHR || vkRes == VK_ERROR_OUT_OF_DATE_KHR) {
+        mDirtySwapchain = true;
+    } else if (vkRes != VK_SUCCESS) {
         LOGE("vkQueuePresentKHR failed (%d)\n", vkRes);
-        return GR_ERROR_OUT_OF_MEMORY; // TODO use better error code
+        return getGrResult(vkRes);
     }
 
     return GR_SUCCESS;

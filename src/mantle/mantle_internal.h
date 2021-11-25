@@ -164,4 +164,7 @@ VkImageSubresourceRange getVkImageSubresourceRange(
     GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
     bool multiplyCubeLayers);
 
+void grWsiDestroyImage(
+    GrImage* grImage);
+
 #endif // MANTLE_INTERNAL_H_

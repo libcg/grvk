@@ -52,6 +52,8 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
         VKD.vkDestroyBuffer(grDevice->device, grImage->buffer, NULL);
+
+        grWsiDestroyImage(grImage);
     }   break;
     case GR_OBJ_TYPE_IMAGE_VIEW: {
         GrImageView* grImageView = (GrImageView*)grObject;
