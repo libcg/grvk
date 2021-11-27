@@ -1,6 +1,13 @@
 #include "mantle/mantleWsiWinExt.h"
 #include "mantle_internal.h"
 
+#define MAX_MONITORS (16) // This ought to be enough for anybody
+
+typedef struct {
+    unsigned monitorCount;
+    HMONITOR monitors[MAX_MONITORS];
+} MonitorList;
+
 typedef struct {
     VkImage dstImage;
     VkImage srcImage;
@@ -26,6 +33,33 @@ static VkCommandPool mCommandPool = VK_NULL_HANDLE;
 static CopyCommandBuffer* mCopyCommandBuffers = 0;
 static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
 static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
+
+static int __stdcall countDisplaysProc(
+  HMONITOR hMonitor,
+  HDC hdc,
+  LPRECT pRect,
+  LPARAM lParam)
+{
+    unsigned* displayCount = (unsigned*)lParam;
+
+    (*displayCount)++;
+
+    return TRUE;
+}
+
+static int __stdcall getDisplaysProc(
+  HMONITOR hMonitor,
+  HDC hdc,
+  LPRECT pRect,
+  LPARAM lParam)
+{
+    MonitorList* monitorList = (MonitorList*)lParam;
+
+    monitorList->monitors[monitorList->monitorCount] = hMonitor;
+    monitorList->monitorCount++;
+
+    return TRUE;
+}
 
 static VkSurfaceKHR getVkSurface(
     const GrDevice* grDevice,
@@ -335,7 +369,6 @@ GR_RESULT GR_STDCALL grWsiWinGetDisplays(
 {
     LOGT("%p %p %p\n", device, pDisplayCount, pDisplayList);
     GrDevice* grDevice = (GrDevice*)device;
-    unsigned displayCount = 1;
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -345,6 +378,9 @@ GR_RESULT GR_STDCALL grWsiWinGetDisplays(
         return GR_ERROR_INVALID_POINTER;
     }
 
+    unsigned displayCount = 0;
+    EnumDisplayMonitors(NULL, NULL, countDisplaysProc, (LPARAM)&displayCount);
+
     if (pDisplayList == NULL) {
         *pDisplayCount = displayCount;
         return GR_SUCCESS;
@@ -353,13 +389,15 @@ GR_RESULT GR_STDCALL grWsiWinGetDisplays(
         return GR_ERROR_INVALID_MEMORY_SIZE;
     }
 
-    LOGW("semi-stub\n"); // TODO finish
+    MonitorList monitorList = { 0 };
+    EnumDisplayMonitors(NULL, NULL, getDisplaysProc, (LPARAM)&monitorList);
 
-    for (unsigned i = 0; i < displayCount; i++) {
+    for (unsigned i = 0; i < monitorList.monitorCount; i++) {
         GrWsiWinDisplay* grWsiWinDisplay = malloc(sizeof(GrWsiWinDisplay));
 
         *grWsiWinDisplay = (GrWsiWinDisplay) {
             .grObj = { GR_OBJ_TYPE_WSI_WIN_DISPLAY, grDevice },
+            .hMonitor = monitorList.monitors[i],
         };
 
         pDisplayList[i] = (GR_WSI_WIN_DISPLAY)grWsiWinDisplay;

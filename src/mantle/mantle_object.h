@@ -348,6 +348,7 @@ typedef struct _GrViewportStateObject {
 
 typedef struct _GrWsiWinDisplay {
     GrObject grObj;
+    HMONITOR hMonitor;
 } GrWsiWinDisplay;
 
 void grCmdBufferEndRenderPass(

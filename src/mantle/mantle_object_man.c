@@ -195,6 +195,7 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
     }   break;
     case GR_WSI_WIN_INFO_TYPE_DISPLAY_PROPERTIES: {
         GR_WSI_WIN_DISPLAY_PROPERTIES* grDisplayProps = (GR_WSI_WIN_DISPLAY_PROPERTIES*)pData;
+        const GrWsiWinDisplay* grWsiWinDisplay = (GrWsiWinDisplay*)grBaseObject;
 
         expectedSize = sizeof(GR_WSI_WIN_DISPLAY_PROPERTIES);
 
@@ -206,16 +207,25 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
             return GR_ERROR_INVALID_MEMORY_SIZE;
         }
 
-        // FIXME implement
+        MONITORINFOEX monitorInfo = { .cbSize = sizeof(MONITORINFOEX) };
+        GetMonitorInfo(grWsiWinDisplay->hMonitor, (MONITORINFO*)&monitorInfo);
+
         *grDisplayProps = (GR_WSI_WIN_DISPLAY_PROPERTIES) {
-            .hMonitor = MonitorFromPoint((POINT){ 0, 0 }, MONITOR_DEFAULTTOPRIMARY),
-            .displayName = "Display 0",
+            .hMonitor = grWsiWinDisplay->hMonitor,
+            .displayName = "", // Initialized below
             .desktopCoordinates = {
-                .offset = { 0, 0 },
-                .extent = { 1920, 1080 },
+                .offset = {
+                    monitorInfo.rcMonitor.left,
+                    monitorInfo.rcMonitor.top,
+                },
+                .extent = {
+                    monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
+                    monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
+                },
             },
-            .rotation = GR_WSI_WIN_ROTATION_ANGLE_0,
+            .rotation = GR_WSI_WIN_ROTATION_ANGLE_0, // FIXME
         };
+        strncpy(grDisplayProps->displayName, monitorInfo.szDevice, GR_MAX_DEVICE_NAME_LEN);
     }   break;
     default:
         LOGW("unsupported info type 0x%X\n", infoType);
