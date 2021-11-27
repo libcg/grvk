@@ -12,6 +12,14 @@ void grCmdBufferResetState(
         VKD.vkResetDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], 0);
     }
 
+    // destroy clear image views
+    for (unsigned i = 0; i < grCmdBuffer->clearImageViewCount; ++i) {
+        VKD.vkDestroyImageView(grDevice->device, grCmdBuffer->clearImageViews[i], NULL);
+    }
+    free(grCmdBuffer->clearImageViews);
+    grCmdBuffer->clearImageViews = NULL;
+    grCmdBuffer->clearImageViewCount = 0;
+
     // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
@@ -113,6 +121,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
+        .grQueueType = pCreateInfo->queueType,
         .timestampQueryPool = vkQueryPool,
         .atomicCounterSlot = atomicCounterSlot,
         .descriptorPoolCount = 0,
@@ -130,6 +139,10 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .colorAttachmentCount = 0,
         .colorAttachments = { { 0 } },
         .colorFormats = { 0 },
+        .clearAttachments = {},
+        .clearAttachmentCount = 0,
+        .clearImageViews = NULL,
+        .clearImageViewCount = 0,
         .hasDepthStencil = false,
         .depthAttachment = { 0 },
         .stencilAttachment = { 0 },
@@ -202,6 +215,7 @@ GR_RESULT GR_STDCALL grEndCommandBuffer(
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
     grCmdBufferEndRenderPass(grCmdBuffer);
+    grCmdFlushClearImages(grCmdBuffer);
 
     VkResult res = VKD.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
     if (res != VK_SUCCESS) {

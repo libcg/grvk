@@ -23,6 +23,10 @@ GR_RESULT GR_STDCALL grDestroyObject(
             VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
         }
         free(grCmdBuffer->descriptorPools);
+        for (unsigned i = 0; i < grCmdBuffer->clearImageViewCount; ++i) {
+            VKD.vkDestroyImageView(grDevice->device, grCmdBuffer->clearImageViews[i], NULL);
+        }
+        free(grCmdBuffer->clearImageViews);
     }   break;
     case GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT:
         // Nothing to do
