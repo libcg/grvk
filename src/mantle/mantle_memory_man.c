@@ -207,6 +207,7 @@ GR_RESULT GR_STDCALL grFreeMemory(
 
     VKD.vkDestroyBuffer(grDevice->device, grGpuMemory->buffer, NULL);
     VKD.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
+    free(grGpuMemory->boundObjects);
     free(grGpuMemory);
 
     return GR_SUCCESS;

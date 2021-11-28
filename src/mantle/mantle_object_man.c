@@ -47,6 +47,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         VKD.vkDestroyEvent(grDevice->device, grEvent->event, NULL);
     }   break;
+    case GR_OBJ_TYPE_FENCE: {
+        GrFence* grFence = (GrFence*)grObject;
+
+        VKD.vkDestroyFence(grDevice->device, grFence->fence, NULL);
+    }   break;
     case GR_OBJ_TYPE_IMAGE: {
         GrImage* grImage = (GrImage*)grObject;
 
@@ -66,11 +71,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_PIPELINE:
         // TODO
         break;
-    case GR_OBJ_TYPE_QUERY_POOL: {
-        GrQueryPool* grQueryPool = (GrQueryPool*)grObject;
+    case GR_OBJ_TYPE_QUEUE_SEMAPHORE: {
+        GrQueueSemaphore* grQueueSemaphore = (GrQueueSemaphore*)grObject;
 
-        VKD.vkDestroyQueryPool(grDevice->device, grQueryPool->queryPool, NULL);
-    } break;
+        VKD.vkDestroySemaphore(grDevice->device, grQueueSemaphore->semaphore, NULL);
+    }   break;
     case GR_OBJ_TYPE_RASTER_STATE_OBJECT:
         // Nothing to do
         break;
@@ -82,6 +87,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_SHADER:
         // FIXME actually destroy it?
         return GR_SUCCESS;
+    case GR_OBJ_TYPE_QUERY_POOL: {
+        GrQueryPool* grQueryPool = (GrQueryPool*)grObject;
+
+        VKD.vkDestroyQueryPool(grDevice->device, grQueryPool->queryPool, NULL);
+    }   break;
     case GR_OBJ_TYPE_VIEWPORT_STATE_OBJECT: {
         GrViewportStateObject* grViewportStateObject = (GrViewportStateObject*)grObject;
 
