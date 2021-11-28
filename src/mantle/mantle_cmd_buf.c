@@ -707,6 +707,8 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
+    VkPipelineStageFlags srcStageMask = 0;
+    VkPipelineStageFlags dstStageMask = 0;
 
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
@@ -726,11 +728,12 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
             .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange,
                                                            grImage->multiplyCubeLayers),
         };
+
+        srcStageMask |= getVkPipelineStageFlagsImage(stateTransition->oldState);
+        dstStageMask |= getVkPipelineStageFlagsImage(stateTransition->newState);
     }
 
-    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer, srcStageMask, dstStageMask,
                              0, 0, NULL, 0, NULL, transitionCount, barriers);
 
     STACK_ARRAY_FINISH(barriers);

@@ -87,6 +87,9 @@ VkAccessFlags getVkAccessFlagsImage(
     GR_IMAGE_STATE imageState,
     bool isDepthStencil);
 
+VkPipelineStageFlags getVkPipelineStageFlagsImage(
+    GR_IMAGE_STATE imageState);
+
 VkAccessFlags getVkAccessFlagsMemory(
     GR_MEMORY_STATE memoryState);
 

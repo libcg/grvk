@@ -61,7 +61,8 @@ static void prepareImagesForDataTransfer(
 
     VKD.vkBeginCommandBuffer(vkCommandBuffer, &beginInfo);
     VKD.vkCmdPipelineBarrier(vkCommandBuffer,
-                             VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_HOST_BIT,
+                             getVkPipelineStageFlagsImage(GR_IMAGE_STATE_DATA_TRANSFER),
                              0, 0, NULL, 0, NULL, imageCount, barriers);
     VKD.vkEndCommandBuffer(vkCommandBuffer);
 
