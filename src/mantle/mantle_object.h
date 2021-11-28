@@ -258,7 +258,7 @@ typedef struct _GrImage {
     VkFormat format;
     VkImageUsageFlags usage;
     bool needInitialDataTransferState;
-    bool isCube;
+    bool multiplyCubeLayers;
 } GrImage;
 
 typedef struct _GrImageView {

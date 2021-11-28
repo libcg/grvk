@@ -175,11 +175,11 @@ GR_RESULT GR_STDCALL grCreateImage(
 
     bool isTarget = pCreateInfo->usage & GR_IMAGE_USAGE_COLOR_TARGET ||
                     pCreateInfo->usage & GR_IMAGE_USAGE_DEPTH_STENCIL;
-    bool isCube = pCreateInfo->imageType == GR_IMAGE_2D &&
-                  pCreateInfo->extent.width == pCreateInfo->extent.height &&
-                  pCreateInfo->extent.depth == 1 &&
-                  pCreateInfo->arraySize % 6 == 0 &&
-                  pCreateInfo->samples == 1;
+    bool isCubic = pCreateInfo->imageType == GR_IMAGE_2D &&
+                   pCreateInfo->extent.width == pCreateInfo->extent.height &&
+                   pCreateInfo->extent.depth == 1 &&
+                   pCreateInfo->arraySize % 6 == 0 &&
+                   pCreateInfo->samples == 1;
 
     if ((pCreateInfo->flags & ~GR_IMAGE_CREATE_VIEW_FORMAT_CHANGE) != 0) {
         LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
@@ -190,7 +190,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .pNext = NULL,
         .flags = (pCreateInfo->flags & GR_IMAGE_CREATE_VIEW_FORMAT_CHANGE ?
                   VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : 0) |
-                 (isCube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0),
+                 (isCubic ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0),
         .imageType = getVkImageType(pCreateInfo->imageType),
         .format = getVkFormat(pCreateInfo->format),
         .extent = {
@@ -248,7 +248,7 @@ GR_RESULT GR_STDCALL grCreateImage(
             .format = createInfo.format,
             .usage = createInfo.usage,
             .needInitialDataTransferState = false,
-            .isCube = isCube,
+            .multiplyCubeLayers = false,
         };
 
         *pImage = (GR_IMAGE)grImage;
@@ -287,7 +287,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .format = createInfo.format,
         .usage = createInfo.usage,
         .needInitialDataTransferState = !isTarget,
-        .isCube = isCube,
+        .multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && isCubic,
     };
 
     *pImage = (GR_IMAGE)grImage;

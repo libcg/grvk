@@ -711,7 +711,6 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
-        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
         bool isDepthStencil = isVkFormatDepthStencil(grImage->format);
 
         barriers[i] = (VkImageMemoryBarrier) {
@@ -725,7 +724,7 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = grImage->image,
             .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange,
-                                                           multiplyCubeLayers),
+                                                           grImage->multiplyCubeLayers),
         };
     }
 
@@ -1142,9 +1141,7 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
     STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
 
     for (unsigned i = 0; i < rangeCount; i++) {
-        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
-
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
@@ -1176,9 +1173,7 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
     STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
 
     for (unsigned i = 0; i < rangeCount; i++) {
-        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
-
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
@@ -1211,9 +1206,7 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
     STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
 
     for (unsigned i = 0; i < rangeCount; i++) {
-        bool multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && grImage->isCube;
-
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], multiplyCubeLayers);
+        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
     }
 
     VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,
