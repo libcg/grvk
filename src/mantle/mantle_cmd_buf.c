@@ -559,6 +559,8 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     STACK_ARRAY(VkBufferMemoryBarrier, barriers, 128, transitionCount);
+    VkPipelineStageFlags srcStageMask = 0;
+    VkPipelineStageFlags dstStageMask = 0;
 
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
@@ -575,11 +577,12 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
             .offset = stateTransition->offset,
             .size = stateTransition->regionSize > 0 ? stateTransition->regionSize : VK_WHOLE_SIZE,
         };
+
+        srcStageMask |= getVkPipelineStageFlagsMemory(stateTransition->oldState);
+        dstStageMask |= getVkPipelineStageFlagsMemory(stateTransition->newState);
     }
 
-    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer, srcStageMask, dstStageMask,
                              0, 0, NULL, transitionCount, barriers, 0, NULL);
 
     STACK_ARRAY_FINISH(barriers);

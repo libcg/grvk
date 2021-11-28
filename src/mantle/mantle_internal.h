@@ -93,6 +93,9 @@ VkPipelineStageFlags getVkPipelineStageFlagsImage(
 VkAccessFlags getVkAccessFlagsMemory(
     GR_MEMORY_STATE memoryState);
 
+VkPipelineStageFlags getVkPipelineStageFlagsMemory(
+    GR_MEMORY_STATE memoryState);
+
 VkImageAspectFlags getVkImageAspectFlags(
     GR_IMAGE_ASPECT imageAspect);
 
