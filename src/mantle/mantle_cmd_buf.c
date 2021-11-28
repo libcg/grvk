@@ -1321,7 +1321,7 @@ GR_VOID GR_STDCALL grCmdInitAtomicCounters(
     };
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                              VK_PIPELINE_STAGE_TRANSFER_BIT,
                              0, 0, NULL, 1, &preUpdateBarrier, 0, NULL);
 
@@ -1344,7 +1344,12 @@ GR_VOID GR_STDCALL grCmdInitAtomicCounters(
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
                              VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
+                             VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
                              0, 0, NULL, 1, &postUpdateBarrier, 0, NULL);
 }
 
@@ -1387,7 +1392,12 @@ GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
     };
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
+                             VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
                              VK_PIPELINE_STAGE_TRANSFER_BIT,
                              0, 0, NULL, 1, &preCopyBarrier, 0, NULL);
 
@@ -1411,6 +1421,11 @@ GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
 
     VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
                              VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // TODO optimize
+                             VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
+                             VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
                              0, 0, NULL, 1, &postCopyBarrier, 0, NULL);
 }
