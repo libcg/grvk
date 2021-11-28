@@ -39,15 +39,6 @@ GR_RESULT GR_STDCALL grPinSystemMemory(
 
 // Shader and Pipeline Functions
 
-GR_RESULT GR_STDCALL grStorePipeline(
-    GR_PIPELINE pipeline,
-    GR_SIZE* pDataSize,
-    GR_VOID* pData)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT GR_STDCALL grLoadPipeline(
     GR_DEVICE device,
     GR_SIZE dataSize,

@@ -737,3 +737,14 @@ bail:
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
     return res;
 }
+
+GR_RESULT GR_STDCALL grStorePipeline(
+    GR_PIPELINE pipeline,
+    GR_SIZE* pDataSize,
+    GR_VOID* pData)
+{
+    LOGT("%p %p %p\n", pipeline, pDataSize, pData);
+
+    // TODO implement
+    return GR_UNSUPPORTED;
+}
