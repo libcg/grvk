@@ -14,6 +14,8 @@
 #define UNIVERSAL_ATOMIC_COUNTERS_COUNT (512)
 #define COMPUTE_ATOMIC_COUNTERS_COUNT   (1024)
 
+#define IMAGE_PREP_CMD_BUFFER_COUNT     (16)
+
 #define GET_OBJ_TYPE(obj) \
     (((GrBaseObject*)(obj))->grObjType)
 
@@ -336,6 +338,9 @@ typedef struct _GrQueue {
     unsigned globalMemRefCount;
     GR_MEMORY_REF* globalMemRefs;
     SRWLOCK* lock;
+    VkCommandPool commandPool;
+    VkCommandBuffer commandBuffers[IMAGE_PREP_CMD_BUFFER_COUNT];
+    unsigned commandBufferIndex;
 } GrQueue;
 
 typedef struct _GrViewportStateObject {
