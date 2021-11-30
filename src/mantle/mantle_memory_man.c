@@ -182,9 +182,6 @@ GR_RESULT GR_STDCALL grAllocMemory(
         .deviceMemory = vkMemory,
         .deviceSize = pAllocInfo->size,
         .buffer = vkBuffer,
-        .boundObjectCount = 0,
-        .boundObjects = NULL,
-        .boundObjectsLock = SRWLOCK_INIT,
     };
 
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
@@ -207,7 +204,6 @@ GR_RESULT GR_STDCALL grFreeMemory(
 
     VKD.vkDestroyBuffer(grDevice->device, grGpuMemory->buffer, NULL);
     VKD.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
-    free(grGpuMemory->boundObjects);
     free(grGpuMemory);
 
     return GR_SUCCESS;

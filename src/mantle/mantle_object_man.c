@@ -58,6 +58,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
         VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
         VKD.vkDestroyBuffer(grDevice->device, grImage->buffer, NULL);
 
+        grQueueRemoveInitialImage(grImage);
         grWsiDestroyImage(grImage);
     }   break;
     case GR_OBJ_TYPE_IMAGE_VIEW: {
@@ -262,24 +263,6 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
         return GR_ERROR_INVALID_HANDLE;
     }
 
-    // Mantle spec: "Binding memory to an object automatically unbinds any previously bound memory."
-    if (grObject->grGpuMemory != NULL) {
-        GrGpuMemory* grBoundGpuMemory = grObject->grGpuMemory;
-
-        // Vulkan doesn't allow unbinding, only remove the bound object reference
-        AcquireSRWLockExclusive(&grBoundGpuMemory->boundObjectsLock);
-        for (unsigned i = 0; i < grBoundGpuMemory->boundObjectCount; i++) {
-            if (grBoundGpuMemory->boundObjects[i] == grObject) {
-                // Skip realloc
-                memmove(&grBoundGpuMemory->boundObjects[i], &grBoundGpuMemory->boundObjects[i + 1],
-                        (grBoundGpuMemory->boundObjectCount - i - 1) * sizeof(GrObject*));
-                grBoundGpuMemory->boundObjectCount--;
-                break;
-            }
-        }
-        ReleaseSRWLockExclusive(&grBoundGpuMemory->boundObjectsLock);
-    }
-
     if (grGpuMemory != NULL) {
         // Bind memory
         GrObjectType objType = GET_OBJ_TYPE(grObject);
@@ -317,14 +300,6 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
         if (vkRes != VK_SUCCESS) {
             LOGW("binding failed (%d)\n", objType);
         }
-
-        // Add bound object reference
-        AcquireSRWLockExclusive(&grGpuMemory->boundObjectsLock);
-        grGpuMemory->boundObjectCount++;
-        grGpuMemory->boundObjects = realloc(grGpuMemory->boundObjects,
-                                            grGpuMemory->boundObjectCount * sizeof(GrObject*));
-        grGpuMemory->boundObjects[grGpuMemory->boundObjectCount - 1] = grObject;
-        ReleaseSRWLockExclusive(&grGpuMemory->boundObjectsLock);
     }
 
     grObject->grGpuMemory = grGpuMemory;

@@ -1,5 +1,10 @@
 #include "mantle_internal.h"
 
+// Keep track of images that need transition to the initial data transfer state
+static unsigned mInitialImageCount = 0;
+static GrImage** mInitialImages = NULL;
+static SRWLOCK mInitialImagesLock = SRWLOCK_INIT;
+
 static void prepareImagesForDataTransfer(
     GrQueue* grQueue,
     unsigned imageCount,
@@ -72,42 +77,79 @@ static void checkMemoryReferences(
     unsigned memRefCount,
     const GR_MEMORY_REF* memRefs)
 {
+    AcquireSRWLockExclusive(&mInitialImagesLock);
+
     unsigned imageCount = 0;
-    GrImage** images = NULL;
+    STACK_ARRAY(GrImage*, images, 1024, mInitialImageCount);
 
-    // Check if image references need implicit data transfer state transition
-    for (unsigned i = 0; i < memRefCount; i++) {
-        GrGpuMemory* grGpuMemory = (GrGpuMemory*)memRefs[i].mem;
+    // Check if the initial images are bound to the memory references of this submission
+    for (unsigned i = 0; i < mInitialImageCount; i++) {
+        GrImage* grImage = mInitialImages[i];
+        bool found = false;
 
-        if (grGpuMemory == NULL) {
-            continue;
-        }
-
-        AcquireSRWLockExclusive(&grGpuMemory->boundObjectsLock);
-        for (unsigned j = 0; j < grGpuMemory->boundObjectCount; j++) {
-            GrObject* grBoundObject = grGpuMemory->boundObjects[j];
-
-            if (grBoundObject->grObjType == GR_OBJ_TYPE_IMAGE) {
-                GrImage* grImage = (GrImage*)grBoundObject;
-
-                if (grImage->needInitialDataTransferState) {
-                    imageCount++;
-                    images = realloc(images, imageCount * sizeof(GrImage*));
-                    images[imageCount - 1] = grImage;
-
-                    grImage->needInitialDataTransferState = false;
-                }
+        for (unsigned j = 0; !found && j < memRefCount; j++) {
+            if (grImage->grObj.grGpuMemory == memRefs[j].mem) {
+                found = true;
             }
         }
-        ReleaseSRWLockExclusive(&grGpuMemory->boundObjectsLock);
+        for (unsigned j = 0; !found && j < grQueue->globalMemRefCount; j++) {
+            if (grImage->grObj.grGpuMemory == grQueue->globalMemRefs[j].mem) {
+                found = true;
+            }
+        }
+
+        if (found) {
+            images[imageCount] = grImage;
+            imageCount++;
+
+            // Remove initial image entry (skip realloc)
+            mInitialImageCount--;
+            memmove(&mInitialImages[i], &mInitialImages[i + 1],
+                    (mInitialImageCount - i) * sizeof(GrImage*));
+            i--;
+        }
     }
+
+    ReleaseSRWLockExclusive(&mInitialImagesLock);
 
     // Perform data transfer state transition
     if (imageCount > 0) {
         prepareImagesForDataTransfer(grQueue, imageCount, images);
     }
 
-    free(images);
+    STACK_ARRAY_FINISH(images);
+}
+
+// Exported functions
+
+void grQueueAddInitialImage(
+    GrImage* grImage)
+{
+    AcquireSRWLockExclusive(&mInitialImagesLock);
+
+    mInitialImageCount++;
+    mInitialImages = realloc(mInitialImages, mInitialImageCount * sizeof(GrImage*));
+    mInitialImages[mInitialImageCount - 1] = grImage;
+
+    ReleaseSRWLockExclusive(&mInitialImagesLock);
+}
+
+void grQueueRemoveInitialImage(
+    GrImage* grImage)
+{
+    AcquireSRWLockExclusive(&mInitialImagesLock);
+
+    for (unsigned i = 0; i < mInitialImageCount; i++) {
+        if (grImage == mInitialImages[i]) {
+            // Remove initial image entry (skip realloc)
+            mInitialImageCount--;
+            memmove(&mInitialImages[i], &mInitialImages[i + 1],
+                    (mInitialImageCount - i) * sizeof(GrImage*));
+            break;
+        }
+    }
+
+    ReleaseSRWLockExclusive(&mInitialImagesLock);
 }
 
 // Queue Functions
@@ -188,7 +230,6 @@ GR_RESULT GR_STDCALL grQueueSubmit(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
 
-    checkMemoryReferences(grQueue, grQueue->globalMemRefCount, grQueue->globalMemRefs);
     checkMemoryReferences(grQueue, memRefCount, pMemRefs);
 
     if (grFence != NULL) {

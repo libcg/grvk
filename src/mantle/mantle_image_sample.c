@@ -247,7 +247,6 @@ GR_RESULT GR_STDCALL grCreateImage(
             .arrayLayers = createInfo.arrayLayers,
             .format = createInfo.format,
             .usage = createInfo.usage,
-            .needInitialDataTransferState = false,
             .multiplyCubeLayers = false,
         };
 
@@ -286,9 +285,13 @@ GR_RESULT GR_STDCALL grCreateImage(
         .arrayLayers = createInfo.arrayLayers,
         .format = createInfo.format,
         .usage = createInfo.usage,
-        .needInitialDataTransferState = !isTarget,
         .multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && isCubic,
     };
+
+    if (!isTarget) {
+        // Queue image for transition to initial data transfer state
+        grQueueAddInitialImage(grImage);
+    }
 
     *pImage = (GR_IMAGE)grImage;
     return GR_SUCCESS;

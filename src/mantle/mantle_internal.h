@@ -170,6 +170,12 @@ VkImageSubresourceRange getVkImageSubresourceRange(
     GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
     bool multiplyCubeLayers);
 
+void grQueueAddInitialImage(
+    GrImage* grImage);
+
+void grQueueRemoveInitialImage(
+    GrImage* grImage);
+
 void grWsiDestroyImage(
     GrImage* grImage);
 

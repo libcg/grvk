@@ -245,9 +245,6 @@ typedef struct _GrGpuMemory {
     VkDeviceMemory deviceMemory;
     VkDeviceSize deviceSize;
     VkBuffer buffer;
-    unsigned boundObjectCount;
-    GrObject** boundObjects;
-    SRWLOCK boundObjectsLock;
 } GrGpuMemory;
 
 typedef struct _GrImage {
@@ -259,7 +256,6 @@ typedef struct _GrImage {
     unsigned arrayLayers;
     VkFormat format;
     VkImageUsageFlags usage;
-    bool needInitialDataTransferState;
     bool multiplyCubeLayers;
 } GrImage;
 
