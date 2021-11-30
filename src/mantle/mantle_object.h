@@ -147,8 +147,14 @@ typedef struct _GrCmdBuffer {
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
     DescriptorSetSlot atomicCounterSlot;
+    // Resource tracking
+    unsigned descriptorPoolCount;
+    VkDescriptorPool* descriptorPools;
+    // NOTE: grCmdBufferResetState resets everything past that point
     bool isBuilding;
     bool isRendering;
+    int descriptorPoolIndex;
+    GrFence* submitFence;
     // Graphics and compute bind points
     BindPoint bindPoints[2];
     // Graphics dynamic state
@@ -166,11 +172,6 @@ typedef struct _GrCmdBuffer {
     VkRenderingAttachmentInfoKHR stencilAttachment;
     VkFormat depthStencilFormat;
     VkExtent3D minExtent;
-    // Resource tracking
-    unsigned descriptorPoolIndex;
-    unsigned descriptorPoolCount;
-    VkDescriptorPool* descriptorPools;
-    GrFence* submitFence;
 } GrCmdBuffer;
 
 typedef struct _GrColorBlendStateObject {
@@ -356,8 +357,7 @@ void grCmdBufferEndRenderPass(
     GrCmdBuffer* grCmdBuffer);
 
 void grCmdBufferResetState(
-    GrCmdBuffer* grCmdBuffer,
-    bool preserveDescriptorPools);
+    GrCmdBuffer* grCmdBuffer);
 
 unsigned grDeviceGetQueueFamilyIndex(
     const GrDevice* grDevice,

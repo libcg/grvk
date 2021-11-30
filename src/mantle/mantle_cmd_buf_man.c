@@ -1,37 +1,20 @@
 #include "mantle_internal.h"
 
 void grCmdBufferResetState(
-    GrCmdBuffer* grCmdBuffer,
-    bool preserveDescriptorPools)
+    GrCmdBuffer* grCmdBuffer)
 {
-    // Release tracked resources
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    unsigned descriptorPoolCount = grCmdBuffer->descriptorPoolCount;
-    VkDescriptorPool* descriptorPools = grCmdBuffer->descriptorPools;
 
-    if (preserveDescriptorPools) {
-        for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
-            if (i > grCmdBuffer->descriptorPoolIndex) {
-                break;
-            }
-
-            VKD.vkResetDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], 0);
-        }
-    } else {
-        for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
-            VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
-        }
-        free(grCmdBuffer->descriptorPools);
+    // Reset descriptor pools
+    unsigned resetCount = MIN(grCmdBuffer->descriptorPoolIndex + 1,
+                              grCmdBuffer->descriptorPoolCount);
+    for (unsigned i = 0; i < resetCount; i++) {
+        VKD.vkResetDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], 0);
     }
 
     // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
-
-    if (preserveDescriptorPools) {
-        grCmdBuffer->descriptorPoolCount = descriptorPoolCount;
-        grCmdBuffer->descriptorPools = descriptorPools;
-    }
 }
 
 // Command Buffer Management Functions
@@ -115,7 +98,12 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
         .atomicCounterSlot = atomicCounterSlot,
+        .descriptorPoolCount = 0,
+        .descriptorPools = NULL,
         .isBuilding = false,
+        .isRendering = false,
+        .descriptorPoolIndex = 0,
+        .submitFence = NULL,
         .bindPoints = { { 0 }, { 0 } },
         .grViewportState = NULL,
         .grRasterState = NULL,
@@ -125,15 +113,11 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .colorAttachmentCount = 0,
         .colorAttachments = { { 0 } },
         .colorFormats = { 0 },
+        .hasDepthStencil = false,
         .depthAttachment = { 0 },
         .stencilAttachment = { 0 },
         .depthStencilFormat = 0,
         .minExtent = { 0, 0, 0 },
-        .isRendering = false,
-        .descriptorPoolIndex = 0,
-        .descriptorPoolCount = 0,
-        .descriptorPools = NULL,
-        .submitFence = NULL,
     };
 
     *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;
@@ -178,7 +162,7 @@ GR_RESULT GR_STDCALL grBeginCommandBuffer(
         return getGrResult(res);
     }
 
-    grCmdBufferResetState(grCmdBuffer, true);
+    grCmdBufferResetState(grCmdBuffer);
     grCmdBuffer->isBuilding = true;
 
     return GR_SUCCESS;
@@ -233,14 +217,13 @@ GR_RESULT GR_STDCALL grResetCommandBuffer(
         grWaitForFences((GR_DEVICE)grDevice, 1, (GR_FENCE*)&grCmdBuffer->submitFence, true, 10.0f);
     }
 
-    VkResult res = VKD.vkResetCommandBuffer(grCmdBuffer->commandBuffer,
-                                            VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+    VkResult res = VKD.vkResetCommandBuffer(grCmdBuffer->commandBuffer, 0);
     if (res != VK_SUCCESS) {
         LOGE("vkResetCommandBuffer failed (%d)\n", res);
         return getGrResult(res);
     }
 
-    grCmdBufferResetState(grCmdBuffer, false);
+    grCmdBufferResetState(grCmdBuffer);
 
     return GR_SUCCESS;
 }

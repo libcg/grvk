@@ -18,7 +18,10 @@ GR_RESULT GR_STDCALL grDestroyObject(
         GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)grObject;
 
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
-        grCmdBufferResetState(grCmdBuffer, false);
+        for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
+            VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
+        }
+        free(grCmdBuffer->descriptorPools);
     }   break;
     case GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT:
         // Nothing to do
