@@ -258,19 +258,20 @@ GR_RESULT GR_STDCALL grGetGpuInfo(
             .queueType = GR_QUEUE_UNIVERSAL,
             .queueCount = 1,
             .maxAtomicCounters = UNIVERSAL_ATOMIC_COUNTERS_COUNT,
-            .supportsTimestamps = false, // TODO implement timestamps
+            .supportsTimestamps = true, // TODO check for support
         };
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[1] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_QUEUE_COMPUTE,
             .queueCount = 1,
             .maxAtomicCounters = COMPUTE_ATOMIC_COUNTERS_COUNT,
-            .supportsTimestamps = false, // TODO implement timestamps
+            .supportsTimestamps = true, // TODO check for support
         };
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[2] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_EXT_QUEUE_DMA,
             .queueCount = 1,
             .maxAtomicCounters = 0,
-            .supportsTimestamps = false, // TODO implement timestamps
+            // FIXME Vulkan doesn't allow using vkCmdCopyQueryPoolResults on transfer queues
+            .supportsTimestamps = true, // TODO check for support
         };
         ((GR_PHYSICAL_GPU_QUEUE_PROPERTIES*)pData)[3] = (GR_PHYSICAL_GPU_QUEUE_PROPERTIES) {
             .queueType = GR_EXT_QUEUE_TIMER,

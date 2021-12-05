@@ -147,6 +147,7 @@ typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
+    VkQueryPool timestampQueryPool;
     DescriptorSetSlot atomicCounterSlot;
     // Resource tracking
     unsigned descriptorPoolCount;

@@ -18,6 +18,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
         GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)grObject;
 
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
+        VKD.vkDestroyQueryPool(grDevice->device, grCmdBuffer->timestampQueryPool, NULL);
         for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
             VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
         }

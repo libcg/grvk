@@ -1297,6 +1297,39 @@ GR_VOID GR_STDCALL grCmdResetQueryPool(
                             startQuery, queryCount);
 }
 
+GR_VOID GR_STDCALL grCmdWriteTimestamp(
+    GR_CMD_BUFFER cmdBuffer,
+    GR_ENUM timestampType,
+    GR_GPU_MEMORY destMem,
+    GR_GPU_SIZE destOffset)
+{
+    LOGT("%p 0x%X %p %u\n", cmdBuffer, timestampType, destMem, destOffset);
+    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    GrGpuMemory* grGpuMemory = (GrGpuMemory*)destMem;
+
+    VkPipelineStageFlags stageFlags = 0;
+    if (timestampType == GR_TIMESTAMP_TOP) {
+        stageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    } else if (timestampType == GR_TIMESTAMP_BOTTOM) {
+        stageFlags = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    } else {
+        LOGE("unhandled timestamp type 0x%X\n", timestampType);
+        assert(false);
+    }
+
+    VKD.vkCmdWriteTimestamp(grCmdBuffer->commandBuffer, stageFlags,
+                            grCmdBuffer->timestampQueryPool, 0);
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    VKD.vkCmdCopyQueryPoolResults(grCmdBuffer->commandBuffer, grCmdBuffer->timestampQueryPool,
+                                  0, 1, grGpuMemory->buffer, destOffset, sizeof(uint64_t),
+                                  VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+
+    VKD.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grCmdBuffer->timestampQueryPool, 0, 1);
+}
+
 GR_VOID GR_STDCALL grCmdInitAtomicCounters(
     GR_CMD_BUFFER cmdBuffer,
     GR_ENUM pipelineBindPoint,

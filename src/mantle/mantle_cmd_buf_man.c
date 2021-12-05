@@ -30,6 +30,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
     VkResult vkRes;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
+    VkQueryPool vkQueryPool = VK_NULL_HANDLE;
 
     if (grDevice == NULL) {
         return GR_ERROR_INVALID_HANDLE;
@@ -73,6 +74,18 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         return getGrResult(vkRes);
     }
 
+    // Create a query pool for timestamps
+    const VkQueryPoolCreateInfo queryPoolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .queryType = VK_QUERY_TYPE_TIMESTAMP,
+        .queryCount = 1,
+        .pipelineStatistics = 0,
+    };
+
+    VKD.vkCreateQueryPool(grDevice->device, &queryPoolCreateInfo, NULL, &vkQueryPool);
+
     VkBuffer atomicCounterBuffer;
     if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
         atomicCounterBuffer = grDevice->universalAtomicCounterBuffer;
@@ -100,6 +113,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .grObj = { GR_OBJ_TYPE_COMMAND_BUFFER, grDevice },
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
+        .timestampQueryPool = vkQueryPool,
         .atomicCounterSlot = atomicCounterSlot,
         .descriptorPoolCount = 0,
         .descriptorPools = NULL,
