@@ -78,76 +78,6 @@ static VkBuffer allocateAtomicCounterBuffer(
     return vkBuffer;
 }
 
-// Exported functions
-
-unsigned grDeviceGetQueueFamilyIndex(
-    const GrDevice* grDevice,
-    GR_QUEUE_TYPE queueType)
-{
-    switch (queueType) {
-    case GR_QUEUE_UNIVERSAL:
-        return grDevice->universalQueueFamilyIndex;
-    case GR_QUEUE_COMPUTE:
-        // Fall back to universal queue if not available
-        if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return grDevice->computeQueueFamilyIndex;
-        } else {
-            return grDevice->universalQueueFamilyIndex;
-        }
-    }
-
-    switch ((GR_EXT_QUEUE_TYPE)queueType) {
-    case GR_EXT_QUEUE_DMA:
-        // Fall back to compute or universal queue if not available
-        if (grDevice->dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return grDevice->dmaQueueFamilyIndex;
-        } else if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return grDevice->computeQueueFamilyIndex;
-        } else {
-            return grDevice->universalQueueFamilyIndex;
-        }
-    case GR_EXT_QUEUE_TIMER:
-        break; // TODO implement
-    }
-
-    LOGE("invalid queue type %d\n", queueType);
-    return INVALID_QUEUE_INDEX;
-}
-
-SRWLOCK* grDeviceGetQueueLock(
-    GrDevice* grDevice,
-    GR_QUEUE_TYPE queueType)
-{
-    switch (queueType) {
-    case GR_QUEUE_UNIVERSAL:
-        return &grDevice->universalQueueLock;
-    case GR_QUEUE_COMPUTE:
-        // Fall back to universal queue if not available
-        if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return &grDevice->computeQueueLock;
-        } else {
-            return &grDevice->universalQueueLock;
-        }
-    }
-
-    switch ((GR_EXT_QUEUE_TYPE)queueType) {
-    case GR_EXT_QUEUE_DMA:
-        // Fall back to universal or compute queue if not available
-        if (grDevice->dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return &grDevice->dmaQueueLock;
-        } else if (grDevice->computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            return &grDevice->computeQueueLock;
-        } else {
-            return &grDevice->universalQueueLock;
-        }
-    case GR_EXT_QUEUE_TIMER:
-        break; // TODO implement
-    }
-
-    LOGE("invalid queue type %d\n", queueType);
-    return NULL;
-}
-
 // Initialization and Device Functions
 
 GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
@@ -432,10 +362,13 @@ GR_RESULT GR_STDCALL grCreateDevice(
     VkDevice vkDevice = VK_NULL_HANDLE;
     unsigned universalQueueFamilyIndex = INVALID_QUEUE_INDEX;
     unsigned universalQueueCount = 0;
+    bool universalQueueRequested = false;
     unsigned computeQueueFamilyIndex = INVALID_QUEUE_INDEX;
     unsigned computeQueueCount = 0;
+    bool computeQueueRequested = false;
     unsigned dmaQueueFamilyIndex = INVALID_QUEUE_INDEX;
     unsigned dmaQueueCount = 0;
+    bool dmaQueueRequested = false;
     uint32_t driverVersion;
 
     const VkPhysicalDeviceProperties* props = &grPhysicalGpu->physicalDeviceProps;
@@ -503,16 +436,19 @@ GR_RESULT GR_STDCALL grCreateDevice(
             if (requestedQueue->queueCount <= universalQueueCount) {
                 requestedQueueFamilyIndex = universalQueueFamilyIndex;
             }
+            universalQueueRequested = true;
             break;
         case GR_QUEUE_COMPUTE:
             if (requestedQueue->queueCount <= computeQueueCount) {
                 requestedQueueFamilyIndex = computeQueueFamilyIndex;
             }
+            computeQueueRequested = true;
             break;
         case GR_EXT_QUEUE_DMA:
             if (requestedQueue->queueCount <= dmaQueueCount) {
                 requestedQueueFamilyIndex = dmaQueueFamilyIndex;
             }
+            dmaQueueRequested = true;
             break;
         }
 
@@ -644,21 +580,45 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
-        .universalQueueFamilyIndex = universalQueueFamilyIndex,
-        .computeQueueFamilyIndex = computeQueueFamilyIndex,
-        .dmaQueueFamilyIndex = dmaQueueFamilyIndex,
-        .universalQueueLock = SRWLOCK_INIT,
-        .computeQueueLock = SRWLOCK_INIT,
-        .dmaQueueLock = SRWLOCK_INIT,
+        .grUniversalQueue = NULL, // Initialized below
+        .grComputeQueue = NULL, // Initialized below
+        .grDmaQueue = NULL, // Initialized below
         .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
     };
 
-    grDevice->universalAtomicCounterBuffer =
-        allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
-    grDevice->computeAtomicCounterBuffer =
-        allocateAtomicCounterBuffer(grDevice, COMPUTE_ATOMIC_COUNTERS_COUNT);
+    if (universalQueueRequested) {
+        grDevice->grUniversalQueue = grQueueCreate(grDevice, universalQueueFamilyIndex);
+        grDevice->universalAtomicCounterBuffer =
+            allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
+    }
+    if (computeQueueRequested) {
+        uint32_t computeIndex;
+
+        if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            computeIndex = computeQueueFamilyIndex;
+        } else {
+            computeIndex = universalQueueFamilyIndex;
+        }
+
+        grDevice->grComputeQueue = grQueueCreate(grDevice, computeIndex);
+        grDevice->computeAtomicCounterBuffer =
+            allocateAtomicCounterBuffer(grDevice, COMPUTE_ATOMIC_COUNTERS_COUNT);
+    }
+    if (dmaQueueRequested) {
+        uint32_t dmaIndex;
+
+        if (dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            dmaIndex = dmaQueueFamilyIndex;
+        } else if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+            dmaIndex = computeQueueFamilyIndex;
+        } else {
+            dmaIndex = universalQueueFamilyIndex;
+        }
+
+        grDevice->grDmaQueue = grQueueCreate(grDevice, dmaIndex);
+    }
 
     *pDevice = (GR_DEVICE)grDevice;
 

@@ -26,6 +26,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pCmdBuffer);
     GrDevice* grDevice = (GrDevice*)device;
+    GrQueue* grQueue;
     VkResult vkRes;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer vkCommandBuffer = VK_NULL_HANDLE;
@@ -43,11 +44,13 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
+    grGetDeviceQueue(device, pCreateInfo->queueType, 0, (GR_QUEUE*)&grQueue);
+
     const VkCommandPoolCreateInfo poolCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = grDeviceGetQueueFamilyIndex(grDevice, pCreateInfo->queueType),
+        .queueFamilyIndex = grQueue->queueFamilyIndex,
     };
 
     vkRes = VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &vkCommandPool);

@@ -65,6 +65,7 @@ typedef struct _GrFence GrFence;
 typedef struct _GrGpuMemory GrGpuMemory;
 typedef struct _GrMsaaStateObject GrMsaaStateObject;
 typedef struct _GrPipeline GrPipeline;
+typedef struct _GrQueue GrQueue;
 typedef struct _GrRasterStateObject GrRasterStateObject;
 typedef struct _GrViewportStateObject GrViewportStateObject;
 
@@ -219,12 +220,9 @@ typedef struct _GrDevice {
     VkDevice device;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;
-    unsigned universalQueueFamilyIndex;
-    unsigned computeQueueFamilyIndex;
-    unsigned dmaQueueFamilyIndex;
-    SRWLOCK universalQueueLock;
-    SRWLOCK computeQueueLock;
-    SRWLOCK dmaQueueLock;
+    GrQueue* grUniversalQueue;
+    GrQueue* grComputeQueue;
+    GrQueue* grDmaQueue;
     VkBuffer universalAtomicCounterBuffer;
     VkBuffer computeAtomicCounterBuffer;
     GrBorderColorPalette* grBorderColorPalette;
@@ -331,10 +329,10 @@ typedef struct _GrQueryPool {
 typedef struct _GrQueue {
     GrObject grObj; // FIXME base object?
     VkQueue queue;
-    unsigned queueFamilyIndex;
+    SRWLOCK queueLock;
+    uint32_t queueFamilyIndex;
     unsigned globalMemRefCount;
     GR_MEMORY_REF* globalMemRefs;
-    SRWLOCK* lock;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffers[IMAGE_PREP_CMD_BUFFER_COUNT];
     unsigned commandBufferIndex;
@@ -358,14 +356,6 @@ void grCmdBufferEndRenderPass(
 
 void grCmdBufferResetState(
     GrCmdBuffer* grCmdBuffer);
-
-unsigned grDeviceGetQueueFamilyIndex(
-    const GrDevice* grDevice,
-    GR_QUEUE_TYPE queueType);
-
-SRWLOCK* grDeviceGetQueueLock(
-    GrDevice* grDevice,
-    GR_QUEUE_TYPE queueType);
 
 unsigned grImageGetBufferOffset(
     VkExtent3D extent,
@@ -392,5 +382,9 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     unsigned colorFormatCount,
     const VkFormat* colorFormats,
     VkFormat depthStencilFormat);
+
+GrQueue* grQueueCreate(
+    GrDevice* grDevice,
+    uint32_t queueFamilyIndex);
 
 #endif // GR_OBJECT_H_

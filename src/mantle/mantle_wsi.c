@@ -251,7 +251,7 @@ static void recreateSwapchain(
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .queueFamilyIndex = grDevice->universalQueueFamilyIndex,
+        .queueFamilyIndex = queueFamilyIndex,
     };
 
     VKD.vkDestroyCommandPool(grDevice->device, mCommandPool, NULL);
@@ -605,9 +605,9 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .pSignalSemaphores = &mCopySemaphore,
     };
 
-    AcquireSRWLockExclusive(grQueue->lock);
+    AcquireSRWLockExclusive(&grQueue->queueLock);
     vkRes = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
-    ReleaseSRWLockExclusive(grQueue->lock);
+    ReleaseSRWLockExclusive(&grQueue->queueLock);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", vkRes);
         return getGrResult(vkRes);
@@ -624,9 +624,9 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .pResults = NULL,
     };
 
-    AcquireSRWLockExclusive(grQueue->lock);
+    AcquireSRWLockExclusive(&grQueue->queueLock);
     vkRes = VKD.vkQueuePresentKHR(grQueue->queue, &vkPresentInfo);
-    ReleaseSRWLockExclusive(grQueue->lock);
+    ReleaseSRWLockExclusive(&grQueue->queueLock);
     if (vkRes == VK_SUBOPTIMAL_KHR || vkRes == VK_ERROR_OUT_OF_DATE_KHR) {
         mDirtySwapchain = true;
     } else if (vkRes != VK_SUCCESS) {

@@ -67,9 +67,9 @@ static void prepareImagesForDataTransfer(
         .pSignalSemaphores = NULL,
     };
 
-    AcquireSRWLockExclusive(grQueue->lock);
+    AcquireSRWLockExclusive(&grQueue->queueLock);
     VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
-    ReleaseSRWLockExclusive(grQueue->lock);
+    ReleaseSRWLockExclusive(&grQueue->queueLock);
 }
 
 static void checkMemoryReferences(
@@ -122,6 +122,54 @@ static void checkMemoryReferences(
 
 // Exported functions
 
+GrQueue* grQueueCreate(
+    GrDevice* grDevice,
+    uint32_t queueFamilyIndex)
+{
+    VkQueue vkQueue = VK_NULL_HANDLE;
+    VkCommandPool vkCommandPool = VK_NULL_HANDLE;
+    VkCommandBuffer commandBuffers[IMAGE_PREP_CMD_BUFFER_COUNT];
+
+    VKD.vkGetDeviceQueue(grDevice->device, queueFamilyIndex, 0, &vkQueue);
+
+    // Allocate a pool of command buffers.
+    // This will be used to transition images to the initial data transfer state
+    const VkCommandPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = queueFamilyIndex,
+    };
+
+    VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &vkCommandPool);
+
+    const VkCommandBufferAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = vkCommandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = COUNT_OF(commandBuffers),
+    };
+
+    VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, commandBuffers);
+
+    GrQueue* grQueue = malloc(sizeof(GrQueue));
+    *grQueue = (GrQueue) {
+        .grObj = { GR_OBJ_TYPE_QUEUE, grDevice },
+        .queue = vkQueue,
+        .queueLock = SRWLOCK_INIT,
+        .queueFamilyIndex = queueFamilyIndex,
+        .globalMemRefCount = 0,
+        .globalMemRefs = NULL,
+        .commandPool = vkCommandPool,
+        .commandBuffers = { 0 }, // Initialized below
+        .commandBufferIndex = 0,
+    };
+    memcpy(grQueue->commandBuffers, commandBuffers, sizeof(grQueue->commandBuffers));
+
+    return grQueue;
+}
+
 void grQueueAddInitialImage(
     GrImage* grImage)
 {
@@ -162,53 +210,41 @@ GR_RESULT GR_STDCALL grGetDeviceQueue(
 {
     LOGT("%p 0x%X %u %p\n", device, queueType, queueId, pQueue);
     GrDevice* grDevice = (GrDevice*)device;
-    VkQueue vkQueue = VK_NULL_HANDLE;
-    VkCommandPool vkCommandPool = VK_NULL_HANDLE;
 
-    unsigned queueFamilyIndex = grDeviceGetQueueFamilyIndex(grDevice, queueType);
-    if (queueFamilyIndex == INVALID_QUEUE_INDEX) {
-        LOGE("invalid index %d for queue type %d\n", queueFamilyIndex, queueType);
+    if (grDevice == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grDevice) != GR_OBJ_TYPE_DEVICE) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    } else if (queueId > 0) {
+        // We don't expose more than one queue per type, just like the official driver
+        return GR_ERROR_INVALID_ORDINAL;
+    } else if (pQueue == NULL) {
+        return GR_ERROR_INVALID_POINTER;
+    }
+
+    *pQueue = NULL;
+
+    switch ((GR_QUEUE_TYPE)queueType) {
+    case GR_QUEUE_UNIVERSAL:
+        *pQueue = (GR_QUEUE)grDevice->grUniversalQueue;
+        break;
+    case GR_QUEUE_COMPUTE:
+        *pQueue = (GR_QUEUE)grDevice->grComputeQueue;
+        break;
+    }
+
+    switch ((GR_EXT_QUEUE_TYPE)queueType) {
+    case GR_EXT_QUEUE_DMA:
+        *pQueue = (GR_QUEUE)grDevice->grDmaQueue;
+        break;
+    case GR_EXT_QUEUE_TIMER:
+        break; // TODO implement
+    }
+
+    if (*pQueue == NULL) {
         return GR_ERROR_INVALID_QUEUE_TYPE;
     }
 
-    VKD.vkGetDeviceQueue(grDevice->device, queueFamilyIndex, queueId, &vkQueue);
-
-    const VkCommandPoolCreateInfo poolCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .pNext = NULL,
-        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = queueFamilyIndex,
-    };
-
-    VKD.vkCreateCommandPool(grDevice->device, &poolCreateInfo, NULL, &vkCommandPool);
-
-    // FIXME technically, this object should be created in advance so it doesn't get duplicated
-    // when the application requests it multiple times
-    GrQueue* grQueue = malloc(sizeof(GrQueue));
-    *grQueue = (GrQueue) {
-        .grObj = { GR_OBJ_TYPE_QUEUE, grDevice },
-        .queue = vkQueue,
-        .queueFamilyIndex = queueFamilyIndex,
-        .globalMemRefCount = 0,
-        .globalMemRefs = NULL,
-        .lock = grDeviceGetQueueLock(grDevice, queueType),
-        .commandPool = vkCommandPool,
-        .commandBuffers = { 0 }, // Initialized below
-        .commandBufferIndex = 0,
-    };
-
-    // Allocate a command buffer pool for transitioning images to the initial data transfer state
-    const VkCommandBufferAllocateInfo allocateInfo = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .pNext = NULL,
-        .commandPool = grQueue->commandPool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = IMAGE_PREP_CMD_BUFFER_COUNT,
-    };
-
-    VKD.vkAllocateCommandBuffers(grDevice->device, &allocateInfo, grQueue->commandBuffers);
-
-    *pQueue = (GR_QUEUE)grQueue;
     return GR_SUCCESS;
 }
 
@@ -265,9 +301,9 @@ GR_RESULT GR_STDCALL grQueueSubmit(
         .pSignalSemaphores = NULL,
     };
 
-    AcquireSRWLockExclusive(grQueue->lock);
+    AcquireSRWLockExclusive(&grQueue->queueLock);
     res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, vkFence);
-    ReleaseSRWLockExclusive(grQueue->lock);
+    ReleaseSRWLockExclusive(&grQueue->queueLock);
 
     STACK_ARRAY_FINISH(vkCommandBuffers);
 
@@ -291,9 +327,9 @@ GR_RESULT GR_STDCALL grQueueWaitIdle(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    AcquireSRWLockExclusive(grQueue->lock);
+    AcquireSRWLockExclusive(&grQueue->queueLock);
     VkResult res = VKD.vkQueueWaitIdle(grQueue->queue);
-    ReleaseSRWLockExclusive(grQueue->lock);
+    ReleaseSRWLockExclusive(&grQueue->queueLock);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueWaitIdle failed (%d)\n", res);
     }

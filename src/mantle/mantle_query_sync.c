@@ -307,9 +307,9 @@ GR_RESULT GR_STDCALL grSignalQueueSemaphore(
         .pSignalSemaphores = &grQueueSemaphore->semaphore,
     };
 
-    AcquireSRWLockExclusive(grQueue->lock);
+    AcquireSRWLockExclusive(&grQueue->queueLock);
     VkResult res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
-    ReleaseSRWLockExclusive(grQueue->lock);
+    ReleaseSRWLockExclusive(&grQueue->queueLock);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", res);
     }
@@ -353,9 +353,9 @@ GR_RESULT GR_STDCALL grWaitQueueSemaphore(
         .pSignalSemaphores = NULL,
     };
 
-    AcquireSRWLockExclusive(grQueue->lock);
+    AcquireSRWLockExclusive(&grQueue->queueLock);
     VkResult res = VKD.vkQueueSubmit(grQueue->queue, 1, &submitInfo, VK_NULL_HANDLE);
-    ReleaseSRWLockExclusive(grQueue->lock);
+    ReleaseSRWLockExclusive(&grQueue->queueLock);
     if (res != VK_SUCCESS) {
         LOGE("vkQueueSubmit failed (%d)\n", res);
     }
