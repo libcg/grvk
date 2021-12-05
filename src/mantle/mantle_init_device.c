@@ -2,6 +2,7 @@
 #include "mantle_internal.h"
 
 #define NVIDIA_VENDOR_ID 0x10de
+#define INVALID_QUEUE_INDEX (~0u)
 
 static char* getGrvkEngineName(
     const GR_CHAR* engineName)
@@ -360,15 +361,21 @@ GR_RESULT GR_STDCALL grCreateDevice(
     GrPhysicalGpu* grPhysicalGpu = (GrPhysicalGpu*)gpu;
     VULKAN_DEVICE vkd;
     VkDevice vkDevice = VK_NULL_HANDLE;
-    unsigned universalQueueFamilyIndex = INVALID_QUEUE_INDEX;
-    unsigned universalQueueCount = 0;
-    bool universalQueueRequested = false;
-    unsigned computeQueueFamilyIndex = INVALID_QUEUE_INDEX;
-    unsigned computeQueueCount = 0;
-    bool computeQueueRequested = false;
-    unsigned dmaQueueFamilyIndex = INVALID_QUEUE_INDEX;
-    unsigned dmaQueueCount = 0;
-    bool dmaQueueRequested = false;
+    uint32_t vkUniversalQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    unsigned vkUniversalQueueCount = 0;
+    uint32_t vkUniversalQueueUsedCount = 0;
+    uint32_t vkComputeQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    unsigned vkComputeQueueCount = 0;
+    uint32_t vkComputeQueueUsedCount = 0;
+    uint32_t vkDmaQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    unsigned vkDmaQueueCount = 0;
+    uint32_t vkDmaQueueUsedCount = 0;
+    uint32_t universalQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    uint32_t universalQueueIndex = 0;
+    uint32_t computeQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    uint32_t computeQueueIndex = 0;
+    uint32_t dmaQueueFamilyIndex = INVALID_QUEUE_INDEX;
+    uint32_t dmaQueueIndex = 0;
     uint32_t driverVersion;
 
     const VkPhysicalDeviceProperties* props = &grPhysicalGpu->physicalDeviceProps;
@@ -402,77 +409,100 @@ GR_RESULT GR_STDCALL grCreateDevice(
                                                  &vkQueueFamilyPropertyCount,
                                                  queueFamilyProperties);
 
-    for (int i = 0; i < vkQueueFamilyPropertyCount; i++) {
+    // Count Vulkan queues
+    for (unsigned i = 0; i < vkQueueFamilyPropertyCount; i++) {
         const VkQueueFamilyProperties* queueFamilyProperty = &queueFamilyProperties[i];
 
         if ((queueFamilyProperty->queueFlags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) ==
             (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) {
-            universalQueueFamilyIndex = i;
-            universalQueueCount = queueFamilyProperty->queueCount;
+            vkUniversalQueueFamilyIndex = i;
+            vkUniversalQueueCount = queueFamilyProperty->queueCount;
         } else if (queueFamilyProperty->queueFlags & VK_QUEUE_COMPUTE_BIT) {
-            computeQueueFamilyIndex = i;
-            computeQueueCount = queueFamilyProperty->queueCount;
+            vkComputeQueueFamilyIndex = i;
+            vkComputeQueueCount = queueFamilyProperty->queueCount;
         } else if (queueFamilyProperty->queueFlags & VK_QUEUE_TRANSFER_BIT) {
-            dmaQueueFamilyIndex = i;
-            dmaQueueCount = queueFamilyProperty->queueCount;
+            vkDmaQueueFamilyIndex = i;
+            vkDmaQueueCount = queueFamilyProperty->queueCount;
         }
     }
 
-    unsigned queueCreateInfoCount = 0;
-    VkDeviceQueueCreateInfo* queueCreateInfos =
-        malloc(sizeof(VkDeviceQueueCreateInfo) * pCreateInfo->queueRecordCount);
-    for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
+    // Figure out which Vulkan queues of each family will be used
+    // NOTE: we assume no more than one queue is requested per type
+    for (unsigned i = 0; i < pCreateInfo->queueRecordCount; i++) {
         const GR_DEVICE_QUEUE_CREATE_INFO* requestedQueue = &pCreateInfo->pRequestedQueues[i];
 
-        float* queuePriorities = malloc(sizeof(float) * requestedQueue->queueCount);
-
-        for (int j = 0; j < requestedQueue->queueCount; j++) {
-            queuePriorities[j] = 1.0f; // Max priority
-        }
-
-        unsigned requestedQueueFamilyIndex = INVALID_QUEUE_INDEX;
         switch (requestedQueue->queueType) {
         case GR_QUEUE_UNIVERSAL:
-            if (requestedQueue->queueCount <= universalQueueCount) {
-                requestedQueueFamilyIndex = universalQueueFamilyIndex;
-            }
-            universalQueueRequested = true;
+            vkUniversalQueueUsedCount = MIN(vkUniversalQueueUsedCount + 1, vkUniversalQueueCount);
+            universalQueueFamilyIndex = vkUniversalQueueFamilyIndex;
+            universalQueueIndex = vkUniversalQueueUsedCount - 1;
             break;
         case GR_QUEUE_COMPUTE:
-            if (requestedQueue->queueCount <= computeQueueCount) {
-                requestedQueueFamilyIndex = computeQueueFamilyIndex;
+            if (vkComputeQueueCount > 0) {
+                vkComputeQueueUsedCount = MIN(vkComputeQueueUsedCount + 1, vkComputeQueueCount);
+                computeQueueFamilyIndex = vkComputeQueueFamilyIndex;
+                computeQueueIndex = vkComputeQueueUsedCount - 1;
+            } else {
+                vkUniversalQueueUsedCount = MIN(vkUniversalQueueUsedCount + 1, vkUniversalQueueCount);
+                computeQueueFamilyIndex = vkUniversalQueueFamilyIndex;
+                computeQueueIndex = vkUniversalQueueUsedCount - 1;
+                LOGI("compute queue remapped to universal queue %d\n", computeQueueIndex);
             }
-            computeQueueRequested = true;
             break;
         case GR_EXT_QUEUE_DMA:
-            if (requestedQueue->queueCount <= dmaQueueCount) {
-                requestedQueueFamilyIndex = dmaQueueFamilyIndex;
+            if (vkDmaQueueCount > 0) {
+                vkDmaQueueUsedCount = MIN(vkDmaQueueUsedCount + 1, vkDmaQueueCount);
+                dmaQueueFamilyIndex = vkDmaQueueFamilyIndex;
+                dmaQueueIndex = vkDmaQueueUsedCount - 1;
+            } else if (vkComputeQueueCount > 0) {
+                vkComputeQueueUsedCount = MIN(vkComputeQueueUsedCount + 1, vkComputeQueueCount);
+                dmaQueueFamilyIndex = vkComputeQueueFamilyIndex;
+                dmaQueueIndex = vkComputeQueueUsedCount - 1;
+                LOGI("DMA queue remapped to compute queue %d\n", dmaQueueIndex);
+            } else {
+                vkUniversalQueueUsedCount = MIN(vkUniversalQueueUsedCount + 1, vkUniversalQueueCount);
+                dmaQueueFamilyIndex = vkUniversalQueueFamilyIndex;
+                dmaQueueIndex = vkUniversalQueueUsedCount - 1;
+                LOGI("DMA queue remapped to universal queue %d\n", dmaQueueIndex);
             }
-            dmaQueueRequested = true;
             break;
         }
+    }
 
-        if (requestedQueueFamilyIndex == INVALID_QUEUE_INDEX) {
-            if (requestedQueue->queueType == GR_QUEUE_UNIVERSAL) {
-                LOGE("can't find requested queue type 0x%X with count %d\n",
-                     requestedQueue->queueType, requestedQueue->queueCount);
-                res = GR_ERROR_INVALID_VALUE;
-                // Bail after the loop to properly release memory
-            } else {
-                LOGW("can't find requested queue type 0x%X with count %d, "
-                     "falling back to universal or compute queue...\n",
-                     requestedQueue->queueType, requestedQueue->queueCount);
-                continue;
-            }
-        }
+    float priorities[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    unsigned queueCreateInfoCount = 0;
+    VkDeviceQueueCreateInfo queueCreateInfos[3];
 
+    if (vkUniversalQueueUsedCount > 0) {
         queueCreateInfos[queueCreateInfoCount] = (VkDeviceQueueCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
-            .queueFamilyIndex = requestedQueueFamilyIndex,
-            .queueCount = requestedQueue->queueCount,
-            .pQueuePriorities = queuePriorities,
+            .queueFamilyIndex = vkUniversalQueueFamilyIndex,
+            .queueCount = vkUniversalQueueUsedCount,
+            .pQueuePriorities = priorities,
+        };
+        queueCreateInfoCount++;
+    }
+    if (vkComputeQueueUsedCount > 0) {
+        queueCreateInfos[queueCreateInfoCount] = (VkDeviceQueueCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .queueFamilyIndex = vkComputeQueueFamilyIndex,
+            .queueCount = vkComputeQueueUsedCount,
+            .pQueuePriorities = priorities,
+        };
+        queueCreateInfoCount++;
+    }
+    if (vkDmaQueueUsedCount > 0) {
+        queueCreateInfos[queueCreateInfoCount] = (VkDeviceQueueCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .queueFamilyIndex = vkDmaQueueFamilyIndex,
+            .queueCount = vkDmaQueueUsedCount,
+            .pQueuePriorities = priorities,
         };
         queueCreateInfoCount++;
     }
@@ -588,46 +618,25 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .grBorderColorPalette = NULL,
     };
 
-    if (universalQueueRequested) {
-        grDevice->grUniversalQueue = grQueueCreate(grDevice, universalQueueFamilyIndex);
+    if (universalQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+        grDevice->grUniversalQueue =
+            grQueueCreate(grDevice, universalQueueFamilyIndex, universalQueueIndex);
         grDevice->universalAtomicCounterBuffer =
             allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
     }
-    if (computeQueueRequested) {
-        uint32_t computeIndex;
-
-        if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            computeIndex = computeQueueFamilyIndex;
-        } else {
-            computeIndex = universalQueueFamilyIndex;
-        }
-
-        grDevice->grComputeQueue = grQueueCreate(grDevice, computeIndex);
+    if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+        grDevice->grComputeQueue =
+            grQueueCreate(grDevice, computeQueueFamilyIndex, computeQueueIndex);
         grDevice->computeAtomicCounterBuffer =
             allocateAtomicCounterBuffer(grDevice, COMPUTE_ATOMIC_COUNTERS_COUNT);
     }
-    if (dmaQueueRequested) {
-        uint32_t dmaIndex;
-
-        if (dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            dmaIndex = dmaQueueFamilyIndex;
-        } else if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
-            dmaIndex = computeQueueFamilyIndex;
-        } else {
-            dmaIndex = universalQueueFamilyIndex;
-        }
-
-        grDevice->grDmaQueue = grQueueCreate(grDevice, dmaIndex);
+    if (dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
+        grDevice->grDmaQueue = grQueueCreate(grDevice, dmaQueueFamilyIndex, dmaQueueIndex);
     }
 
     *pDevice = (GR_DEVICE)grDevice;
 
 bail:
-    for (int i = 0; i < pCreateInfo->queueRecordCount; i++) {
-        free((void*)queueCreateInfos[i].pQueuePriorities);
-    }
-    free(queueCreateInfos);
-
     if (res != GR_SUCCESS) {
         vkd.vkDestroyDevice(vkDevice, NULL);
     }

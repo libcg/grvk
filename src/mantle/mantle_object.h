@@ -385,6 +385,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
 
 GrQueue* grQueueCreate(
     GrDevice* grDevice,
-    uint32_t queueFamilyIndex);
+    uint32_t queueFamilyIndex,
+    uint32_t queueIndex);
 
 #endif // GR_OBJECT_H_

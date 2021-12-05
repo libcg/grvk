@@ -124,13 +124,14 @@ static void checkMemoryReferences(
 
 GrQueue* grQueueCreate(
     GrDevice* grDevice,
-    uint32_t queueFamilyIndex)
+    uint32_t queueFamilyIndex,
+    uint32_t queueIndex)
 {
     VkQueue vkQueue = VK_NULL_HANDLE;
     VkCommandPool vkCommandPool = VK_NULL_HANDLE;
     VkCommandBuffer commandBuffers[IMAGE_PREP_CMD_BUFFER_COUNT];
 
-    VKD.vkGetDeviceQueue(grDevice->device, queueFamilyIndex, 0, &vkQueue);
+    VKD.vkGetDeviceQueue(grDevice->device, queueFamilyIndex, queueIndex, &vkQueue);
 
     // Allocate a pool of command buffers.
     // This will be used to transition images to the initial data transfer state
