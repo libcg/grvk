@@ -12,7 +12,7 @@ This project is an attempt to revive Mantle and make it run everywhere.
 
 ### Requirements
 
-- [mingw-w64](http://mingw-w64.org/) compiler
+- [mingw-w64](https://www.mingw-w64.org) compiler
 - [Meson](https://mesonbuild.com/) build system
 - Vulkan 1.2 compatible GPU and recent drivers ([see wiki](https://github.com/libcg/grvk/wiki/Driver-Support))
 
