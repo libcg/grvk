@@ -6,13 +6,15 @@ GRVK is a Mantle to Vulkan translation layer.
 
 This project is an attempt to revive Mantle and make it run everywhere.
 
+[Current game support](https://github.com/libcg/grvk/wiki/Game-Support)
+
 ## Building
 
 ### Requirements
 
 - [mingw-w64](http://mingw-w64.org/) compiler
 - [Meson](https://mesonbuild.com/) build system
-- Vulkan 1.2 compatible GPU and drivers that support `VK_EXT_extended_dynamic_state`
+- Vulkan 1.2 compatible GPU and recent drivers ([see wiki](https://github.com/libcg/grvk/wiki/Driver-Support))
 
 NOTE: `binutils` 2.34 has [known issues](https://github.com/doitsujin/dxvk/issues/1625) and should be avoided.
 
@@ -34,7 +36,7 @@ ninja
 
 ## Usage
 
-After dropping the DLLs in the game directory, GRVK will get loaded by the game at launch. By default, GRVK will create a log file named `grvk.log` in the same directory.
+After dropping the DLLs in the game directory, GRVK will get loaded by the game at launch. By default, GRVK will create log files named `grvk.log`/`grvk_axl.log` in the same directory.
 
 ### Environment variables
 
