@@ -107,6 +107,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_DCL_RAW_UAV] = { IL_OP_DCL_RAW_UAV, 0, 0, 0 },
     [IL_OP_UAV_LOAD] = { IL_OP_UAV_LOAD, 1, 1, 0 },
     [IL_OP_UAV_STORE] = { IL_OP_UAV_STORE, 0, 2, 0 },
+    [IL_OP_UAV_RAW_STORE] = { IL_OP_UAV_RAW_STORE, 1, 2, 0 },
     [IL_OP_UAV_STRUCT_STORE] = { IL_OP_UAV_STRUCT_STORE, 1, 2, 0 },
     [IL_OP_UAV_ADD] = { IL_OP_UAV_ADD, 0, 2, 0 },
     [IL_OP_UAV_READ_ADD] = { IL_OP_UAV_READ_ADD, 1, 2, 0 },

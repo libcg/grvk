@@ -2582,10 +2582,11 @@ static void emitUavStore(
     ilcSpvPutImageWrite(compiler->module, resourceId, addressId, elementId);
 }
 
-static void emitStructuredUavStore(
+static void emitUavRawStructStore(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
+    bool isRaw = instr->opcode == IL_OP_UAV_RAW_STORE;
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
@@ -2598,10 +2599,15 @@ static void emitStructuredUavStore(
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId dataId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
-    IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
-    IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
-
-    IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
+    IlcSpvId wordAddrId = 0;
+    if (isRaw) {
+        IlcSpvId addrId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
+        wordAddrId = emitWordAddress(compiler, addrId, 0, 0);
+    } else {
+        IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
+        IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
+        wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
+    }
     IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
     IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
@@ -3167,8 +3173,9 @@ static void emitInstr(
     case IL_OP_UAV_STORE:
         emitUavStore(compiler, instr);
         break;
+    case IL_OP_UAV_RAW_STORE:
     case IL_OP_UAV_STRUCT_STORE:
-        emitStructuredUavStore(compiler, instr);
+        emitUavRawStructStore(compiler, instr);
         break;
     case IL_OP_UAV_ADD:
     case IL_OP_UAV_READ_ADD:
