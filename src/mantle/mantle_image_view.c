@@ -51,6 +51,12 @@ GR_RESULT GR_STDCALL grCreateImageView(
                     grImage->format == VK_FORMAT_R32G32_SFLOAT)) {
             // 2-channel format identity
             useIdentity = true;
+        } else if (pCreateInfo->channels.r == GR_CHANNEL_SWIZZLE_R &&
+                   pCreateInfo->channels.g == GR_CHANNEL_SWIZZLE_G &&
+                   pCreateInfo->channels.b == GR_CHANNEL_SWIZZLE_B &&
+                   grImage->format == VK_FORMAT_B10G11R11_UFLOAT_PACK32) {
+            // 3-channel format identity
+            useIdentity = true;
         } else if (pCreateInfo->channels.r != GR_CHANNEL_SWIZZLE_R ||
                    pCreateInfo->channels.g != GR_CHANNEL_SWIZZLE_G ||
                    pCreateInfo->channels.b != GR_CHANNEL_SWIZZLE_B ||
