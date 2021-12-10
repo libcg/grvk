@@ -917,6 +917,9 @@ static void dumpInstruction(
     case IL_DCL_GLOBAL_FLAGS:
         fprintf(file, "dcl_global_flags");
         break;
+    case IL_OP_RCP_VEC:
+        fprintf(file, "rcp_vec_zeroop(%s)", mIlZeroOpNames[instr->control]);
+        break;
     case IL_OP_DCL_TYPED_UAV:
         // FIXME guessed from IL_OP_DCL_UAV
         if (GET_BITS(instr->extras[0], 8, 31)) {

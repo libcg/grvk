@@ -1515,9 +1515,6 @@ static void emitFloatOp(
                                        4, components);
     }   break;
     case IL_OP_DIV:
-        if (instr->control != IL_ZEROOP_INFINITY) {
-            LOGW("unhandled div zero op %d\n", instr->control);
-        }
         // FIXME SPIR-V has undefined division by zero
         resId = ilcSpvPutOp2(compiler->module, SpvOpFDiv, compiler->float4Id, srcIds[0], srcIds[1]);
         break;
@@ -1679,6 +1676,14 @@ static void emitFloatOp(
         const IlcSpvWord components[] = { 0, 1, 2, 3 };
         resId = ilcSpvPutVectorShuffle(compiler->module, compiler->float4Id,
                                        firstHalfId, secondHalfId, 4, components);
+    }   break;
+    case IL_OP_RCP_VEC: {
+        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL);
+        const IlcSpvId constituentIds[] = { oneId, oneId, oneId, oneId };
+        IlcSpvId one4Id = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
+                                                     4, constituentIds);
+        // FIXME SPIR-V has undefined division by zero
+        resId = ilcSpvPutOp2(compiler->module, SpvOpFDiv, compiler->float4Id, one4Id, srcIds[0]);
     }   break;
     default:
         assert(false);
@@ -3007,6 +3012,7 @@ static void emitInstr(
     case IL_OP_DP2:
     case IL_OP_F_2_F16:
     case IL_OP_F16_2_F:
+    case IL_OP_RCP_VEC:
         emitFloatOp(compiler, instr);
         break;
     case IL_OP_EQ:
