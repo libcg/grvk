@@ -208,13 +208,6 @@ GR_VOID GR_STDCALL grCmdDbgMarkerEnd(
 
 // WSI Functions
 
-GR_RESULT GR_STDCALL grWsiWinReleaseFullscreenOwnership(
-    GR_WSI_WIN_DISPLAY display)
-{
-    LOGW("STUB\n");
-    return GR_UNSUPPORTED;
-}
-
 GR_RESULT GR_STDCALL grWsiWinSetGammaRamp(
     GR_WSI_WIN_DISPLAY display,
     const GR_WSI_WIN_GAMMA_RAMP* pGammaRamp)

@@ -466,6 +466,22 @@ GR_RESULT GR_STDCALL grWsiWinTakeFullscreenOwnership(
     return GR_SUCCESS;
 }
 
+GR_RESULT GR_STDCALL grWsiWinReleaseFullscreenOwnership(
+    GR_WSI_WIN_DISPLAY display)
+{
+    LOGT("%p\n", display);
+    GrWsiWinDisplay* grWsiWinDisplay = (GrWsiWinDisplay*)display;
+
+    if (grWsiWinDisplay == NULL) {
+        return GR_ERROR_INVALID_HANDLE;
+    } else if (GET_OBJ_TYPE(grWsiWinDisplay) != GR_OBJ_TYPE_WSI_WIN_DISPLAY) {
+        return GR_ERROR_INVALID_OBJECT_TYPE;
+    }
+
+    LOGW("semi-stub\n"); // TODO finish
+    return GR_SUCCESS;
+}
+
 GR_RESULT GR_STDCALL grWsiWinCreatePresentableImage(
     GR_DEVICE device,
     const GR_WSI_WIN_PRESENTABLE_IMAGE_CREATE_INFO* pCreateInfo,
