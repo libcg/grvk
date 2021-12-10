@@ -302,54 +302,11 @@ unsigned getVkFormatTexelSize(
 unsigned getVkFormatTileSize(
     VkFormat vkFormat)
 {
-    switch (vkFormat) {
-    case VK_FORMAT_R8_UNORM:
-    case VK_FORMAT_R8_SNORM:
-    case VK_FORMAT_R8_USCALED:
-    case VK_FORMAT_R8_SSCALED:
-    case VK_FORMAT_R8_UINT:
-    case VK_FORMAT_R8_SINT:
-    case VK_FORMAT_R8_SRGB:
-    case VK_FORMAT_R8G8_UNORM:
-    case VK_FORMAT_R8G8B8A8_UNORM:
-    case VK_FORMAT_R8G8B8A8_SRGB:
-    case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
-    case VK_FORMAT_R16_UNORM:
-    case VK_FORMAT_R16_SNORM:
-    case VK_FORMAT_R16_UINT:
-    case VK_FORMAT_R16_SINT:
-    case VK_FORMAT_R16G16B16A16_SNORM:
-    case VK_FORMAT_R16G16B16A16_USCALED:
-    case VK_FORMAT_R16G16B16A16_SFLOAT:
-    case VK_FORMAT_R32_UINT:
-    case VK_FORMAT_R32_SINT:
-    case VK_FORMAT_R32_SFLOAT:
-    case VK_FORMAT_R32G32_SFLOAT:
-    case VK_FORMAT_R32G32B32_UINT:
-    case VK_FORMAT_R32G32B32_SINT:
-    case VK_FORMAT_R32G32B32_SFLOAT:
-    case VK_FORMAT_R32G32B32A32_UINT:
-    case VK_FORMAT_R32G32B32A32_SINT:
-    case VK_FORMAT_R32G32B32A32_SFLOAT:
-    case VK_FORMAT_B10G11R11_UFLOAT_PACK32:
-    case VK_FORMAT_E5B9G9R9_UFLOAT_PACK32:
-        return 1;
-    case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
-    case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
-    case VK_FORMAT_BC2_UNORM_BLOCK:
-    case VK_FORMAT_BC2_SRGB_BLOCK:
-    case VK_FORMAT_BC3_UNORM_BLOCK:
-    case VK_FORMAT_BC3_SRGB_BLOCK:
-    case VK_FORMAT_BC4_UNORM_BLOCK:
-    case VK_FORMAT_BC5_UNORM_BLOCK:
-    case VK_FORMAT_BC7_UNORM_BLOCK:
+    if (vkFormat >= VK_FORMAT_BC1_RGB_UNORM_BLOCK && vkFormat <= VK_FORMAT_BC7_SRGB_BLOCK) {
         return 4;
-    default:
-        break;
+    } else {
+        return 1;
     }
-
-    LOGW("unhandled format %d\n", vkFormat);
-    return 0;
 }
 
 bool isVkFormatDepthStencil(
