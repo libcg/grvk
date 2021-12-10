@@ -1789,6 +1789,9 @@ static void emitIntegerOp(
     case IL_OP_U_MOD:
         resId = ilcSpvPutOp2(compiler->module, SpvOpUMod, compiler->uint4Id, srcIds[0], srcIds[1]);
         break;
+    case IL_OP_U_MAX:
+        resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450UMax, compiler->uint4Id, 2, srcIds);
+        break;
     case IL_OP_U_MIN:
         resId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450UMin, compiler->uint4Id, 2, srcIds);
         break;
@@ -3026,6 +3029,7 @@ static void emitInstr(
     case IL_OP_U_SHR:
     case IL_OP_U_DIV:
     case IL_OP_U_MOD:
+    case IL_OP_U_MAX:
     case IL_OP_U_MIN:
     case IL_OP_AND:
     case IL_OP_U_BIT_EXTRACT:

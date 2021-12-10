@@ -73,6 +73,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_U_SHR] = { IL_OP_U_SHR, 1, 2, 0 },
     [IL_OP_U_DIV] = { IL_OP_U_DIV, 1, 2, 0 },
     [IL_OP_U_MOD] = { IL_OP_U_MOD, 1, 2, 0 },
+    [IL_OP_U_MAX] = { IL_OP_U_MAX, 1, 2, 0 },
     [IL_OP_U_MIN] = { IL_OP_U_MIN, 1, 2, 0 },
     [IL_OP_U_LT] = { IL_OP_U_LT, 1, 2, 0 },
     [IL_OP_U_GE] = { IL_OP_U_GE, 1, 2, 0 },
