@@ -1294,6 +1294,7 @@ static void emitUav(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
+    bool isStructured = instr->opcode == IL_OP_DCL_TYPELESS_UAV;
     uint16_t id = GET_BITS(instr->control, 0, 13);
 
     IlcSpvId arrayId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->floatId, true);
@@ -1309,9 +1310,17 @@ static void emitUav(
     ilcSpvPutDecoration(compiler->module, structId, SpvDecorationBlock, 0, NULL);
     ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset, 1, &memberOffset);
 
-    ilcSpvPutName(compiler->module, arrayId, "structUav");
+    ilcSpvPutName(compiler->module, arrayId, isStructured ? "structUav" : "rawUav");
     emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 NO_STRIDE_INDEX);
+
+    IlcSpvId strideId = 0;
+
+    if (isStructured) {
+        strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]);
+    } else {
+        // TODO get stride from descriptor
+    }
 
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
@@ -1320,7 +1329,7 @@ static void emitUav(
         .texelTypeId = compiler->floatId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
-        .strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]),
+        .strideId = strideId,
     };
 
     addResource(compiler, &resource);
@@ -3148,6 +3157,7 @@ static void emitInstr(
     case IL_OP_DCL_TYPED_UAV:
         emitTypedUav(compiler, instr);
         break;
+    case IL_OP_DCL_RAW_UAV:
     case IL_OP_DCL_TYPELESS_UAV:
         emitUav(compiler, instr);
         break;

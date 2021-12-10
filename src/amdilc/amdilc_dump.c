@@ -821,6 +821,9 @@ static void dumpInstruction(
                 mIlPixTexUsageNames[GET_BITS(instr->control, 8, 11)],
                 mIlElementFormatNames[GET_BITS(instr->control, 4, 7)]);
         break;
+    case IL_OP_DCL_RAW_UAV:
+        fprintf(file, "dcl_raw_uav_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
     case IL_OP_UAV_LOAD:
         fprintf(file, "uav_load_id(%u)", GET_BITS(instr->control, 0, 13));
         break;
