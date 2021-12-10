@@ -125,6 +125,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_DCL_TS_DOMAIN] = { IL_DCL_TS_DOMAIN, 0, 0, 0 },
     [IL_DCL_TS_PARTITION] = { IL_DCL_TS_PARTITION, 0, 0, 0 },
     [IL_DCL_TS_OUTPUT_PRIMITIVE] = { IL_DCL_TS_OUTPUT_PRIMITIVE, 0, 0, 0 },
+    [IL_DCL_MAX_TESSFACTOR] = { IL_DCL_MAX_TESSFACTOR, 0, 0, 1 },
     [IL_OP_U_BIT_INSERT] = { IL_OP_U_BIT_INSERT, 1, 4, 0 },
     [IL_OP_FETCH4_C] = { IL_OP_FETCH4_C, 1, 2, 0 },
     [IL_OP_F_2_F16] = { IL_OP_F_2_F16, 1, 1, 0 },

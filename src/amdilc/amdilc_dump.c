@@ -898,6 +898,9 @@ static void dumpInstruction(
     case IL_DCL_TS_OUTPUT_PRIMITIVE:
         fprintf(file, "dcl_ts_output_primitive_%s", mIlTsOutputPrimitiveNames[instr->control]);
         break;
+    case IL_DCL_MAX_TESSFACTOR:
+        fprintf(file, "dcl_max_tessfactor %g", *((float*)&instr->extras[0]));
+        break;
     case IL_OP_U_BIT_INSERT:
         fprintf(file, "ubit_insert");
         break;
