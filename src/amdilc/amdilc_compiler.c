@@ -122,6 +122,7 @@ static unsigned getResourceDimensionCount(
     case IL_USAGE_PIXTEX_3D:
     case IL_USAGE_PIXTEX_CUBEMAP:
     case IL_USAGE_PIXTEX_2DARRAY:
+    case IL_USAGE_PIXTEX_CUBEMAP_ARRAY:
         return 3;
     default:
         LOGE("unhandled resource type %d\n", ilType);
@@ -149,6 +150,7 @@ static SpvDim getSpvDimension(
     case IL_USAGE_PIXTEX_3D:
         return SpvDim3D;
     case IL_USAGE_PIXTEX_CUBEMAP:
+    case IL_USAGE_PIXTEX_CUBEMAP_ARRAY:
         return SpvDimCube;
     case IL_USAGE_PIXTEX_BUFFER:
         ilcSpvPutCapability(compiler->module,
@@ -167,7 +169,8 @@ static bool isArrayed(
 {
     return ilType == IL_USAGE_PIXTEX_1DARRAY ||
            ilType == IL_USAGE_PIXTEX_2DARRAY ||
-           ilType == IL_USAGE_PIXTEX_2DARRAYMSAA;
+           ilType == IL_USAGE_PIXTEX_2DARRAYMSAA ||
+           ilType == IL_USAGE_PIXTEX_CUBEMAP_ARRAY;
 }
 
 static bool isMultisampled(
