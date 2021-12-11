@@ -9,7 +9,6 @@
 #include "amdilc.h"
 
 #define MAX_STAGE_COUNT     5 // VS, HS, DS, GS, PS
-#define MSAA_LEVEL_COUNT    5 // 1, 2, 4, 8, 16x
 
 #define UNIVERSAL_ATOMIC_COUNTERS_COUNT (512)
 #define COMPUTE_ATOMIC_COUNTERS_COUNT   (1024)
