@@ -274,8 +274,6 @@ GR_RESULT GR_STDCALL grCreateImage(
         return getGrResult(vkRes);
     }
 
-    // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
-    //               to be in the [...] GR_IMAGE_STATE_DATA_TRANSFER state."
     GrImage* grImage = malloc(sizeof(GrImage));
     *grImage = (GrImage) {
         .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
@@ -289,6 +287,8 @@ GR_RESULT GR_STDCALL grCreateImage(
         .multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && isCubic,
     };
 
+    // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
+    //               to be in the [...] GR_IMAGE_STATE_DATA_TRANSFER state."
     if (!isTarget) {
         // Queue image for transition to initial data transfer state
         grQueueAddInitialImage(grImage);
