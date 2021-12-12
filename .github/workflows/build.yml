@@ -1,0 +1,43 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build-artifacts:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout code
+      id: checkout-code
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Build release
+      id: build-release
+      uses: Joshua-Ashton/arch-mingw-github-action@v5
+      with:
+        command: |
+          meson --cross-file build-win64.txt --prefix $(pwd) --buildtype release build.w64
+          ninja -C build.w64
+          meson --cross-file build-win32.txt --prefix $(pwd) --buildtype release build.w32
+          ninja -C build.w32
+          mv build.w64/src/mantle/mantle64.dll .
+          mv build.w64/src/mantleaxl/mantleaxl64.dll .
+          mv build.w64/src/mantleinfo/mantleinfo.exe .
+          mv build.w32/src/mantle/mantle32.dll .
+          mv build.w32/src/mantleaxl/mantleaxl32.dll .
+
+    - name: Upload artifacts
+      id: upload-artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: grvk-${{ github.sha }}.zip
+        path: |
+          mantle64.dll
+          mantleaxl64.dll
+          mantleinfo.exe
+          mantle32.dll
+          mantleaxl32.dll
+        if-no-files-found: error
