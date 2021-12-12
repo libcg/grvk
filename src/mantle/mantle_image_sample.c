@@ -260,8 +260,9 @@ GR_RESULT GR_STDCALL grCreateImage(
                                                          createInfo.tiling, createInfo.usage,
                                                          createInfo.flags, &imageFormatProperties);
     if (vkRes == VK_ERROR_FORMAT_NOT_SUPPORTED) {
-        LOGW("unsupported format 0x%X for image type 0x%X, tiling 0x%X and usage 0x%X\n",
-             pCreateInfo->format, pCreateInfo->imageType, pCreateInfo->tiling, pCreateInfo->usage);
+        LOGW("unsupported format %d for image type %d, tiling %d, usage 0x%X and flags 0x%X\n",
+             createInfo.format, createInfo.imageType, createInfo.tiling, createInfo.usage,
+             createInfo.flags);
     } else if (vkRes != VK_SUCCESS) {
         LOGE("vkGetPhysicalDeviceImageFormatProperties failed (%d)\n", vkRes);
         return getGrResult(vkRes);
