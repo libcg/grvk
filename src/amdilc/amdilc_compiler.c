@@ -708,23 +708,35 @@ static void storeDestination(
     }
 
     IlcSpvId ptrId = 0;
-    if (dst->registerType != IL_REGTYPE_ITEMP) {
-        if (dst->hasImmediate) {
-            LOGW("unhandled immediate\n");
+    if (dst->registerType == IL_REGTYPE_ITEMP) {
+        if (dst->absoluteSrc != NULL) {
+            LOGW("unhandled absolute source\n");
         }
+
+        // 1D arrays
+        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
+                                                  reg->typeId);
+        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId,
+                                             dst->hasImmediate ? dst->immediate : 0);
+        if (dst->relativeSrcCount > 0) {
+            assert(dst->relativeSrcCount == 1);
+            IlcSpvId rel4Id = loadSource(compiler, &dst->relativeSrcs[0], COMP_MASK_XYZW,
+                                         compiler->int4Id);
+            IlcSpvId relId = emitVectorTrim(compiler, rel4Id, compiler->int4Id, 0, 1);
+            indexId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, indexId, relId);
+        }
+        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
+    } else {
         if (dst->absoluteSrc != NULL) {
             LOGW("unhandled absolute source\n");
         }
         if (dst->relativeSrcCount > 0) {
             LOGW("unhandled relative source (%u)\n", dst->relativeSrcCount);
         }
+        if (dst->hasImmediate) {
+            LOGW("unhandled immediate\n");
+        }
         ptrId = reg->id;
-    } else {
-        assert(dst->hasImmediate);
-        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate,
-                                                  reg->typeId);
-        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, dst->immediate);
-        ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
     }
 
     if (dst->shiftScale != IL_SHIFT_NONE) {
