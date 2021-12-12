@@ -16,5 +16,6 @@ GR_RESULT GR_STDCALL grGetExtensionSupport(
         return GR_SUCCESS;
     }
 
+    LOGW("unsupported %s extension\n", pExtName);
     return GR_UNSUPPORTED;
 }
