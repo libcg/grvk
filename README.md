@@ -8,7 +8,12 @@ This project is an attempt to revive Mantle and make it run everywhere.
 
 [Current game support](https://github.com/libcg/grvk/wiki/Game-Support)
 
-## Building
+## Getting the latest build
+
+Head over to the [Releases page](https://github.com/libcg/grvk/releases) for the latest stable build.
+Development builds are available on the [Actions page](https://github.com/libcg/grvk/actions).
+
+## Building manually
 
 ### Requirements
 
