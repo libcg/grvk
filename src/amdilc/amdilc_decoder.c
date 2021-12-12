@@ -130,6 +130,8 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_DCL_MAX_TESSFACTOR] = { IL_DCL_MAX_TESSFACTOR, 0, 0, 1 },
     [IL_OP_U_BIT_INSERT] = { IL_OP_U_BIT_INSERT, 1, 4, 0 },
     [IL_OP_FETCH4_C] = { IL_OP_FETCH4_C, 1, 2, 0 },
+    [IL_OP_FETCH4_PO] = { IL_OP_FETCH4_PO, 1, 2, 0 },
+    [IL_OP_FETCH4_PO_C] = { IL_OP_FETCH4_PO_C, 1, 3, 0 },
     [IL_OP_F_2_F16] = { IL_OP_F_2_F16, 1, 1, 0 },
     [IL_OP_F16_2_F] = { IL_OP_F16_2_F, 1, 1, 0 },
     [IL_DCL_GLOBAL_FLAGS] = { IL_DCL_GLOBAL_FLAGS, 0, 0, 0 },
@@ -149,7 +151,9 @@ static bool hasIndexedResourceSampler(
            instr->opcode == IL_OP_SAMPLE_L ||
            instr->opcode == IL_OP_SAMPLE_C_LZ ||
            instr->opcode == IL_OP_FETCH4 ||
-           instr->opcode == IL_OP_FETCH4_C;
+           instr->opcode == IL_OP_FETCH4_C ||
+           instr->opcode == IL_OP_FETCH4_PO ||
+           instr->opcode == IL_OP_FETCH4_PO_C;
 }
 
 static unsigned decodeSource(

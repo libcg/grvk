@@ -917,6 +917,20 @@ static void dumpInstruction(
         fprintf(file, "fetch4c_resource(%u)_sampler(%u)",
                 GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
         break;
+    case IL_OP_FETCH4_PO:
+        if (GET_BITS(instr->control, 12, 15)) {
+            LOGW("unhandled fetch4po flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "fetch4po_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        break;
+    case IL_OP_FETCH4_PO_C:
+        if (GET_BITS(instr->control, 12, 15)) {
+            LOGW("unhandled fetch4poc flags 0x%X\n", instr->control);
+        }
+        fprintf(file, "fetch4poc_resource(%u)_sampler(%u)",
+                GET_BITS(instr->control, 0, 7), GET_BITS(instr->control, 8, 11));
+        break;
     case IL_OP_F_2_F16:
         fprintf(file, "f2f16");
         break;

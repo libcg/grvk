@@ -2421,11 +2421,11 @@ static void emitFetch4(
     unsigned operandIdCount = 0;
     IlcSpvId operandIds[2];
 
-    if (instr->opcode == IL_OP_FETCH4) {
+    if (instr->opcode == IL_OP_FETCH4 || instr->opcode == IL_OP_FETCH4_PO) {
         sampleOp = SpvOpImageGather;
         // Component index is stored in optional primary modifier
         argId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->primModifier);
-    } else if (instr->opcode == IL_OP_FETCH4_C) {
+    } else if (instr->opcode == IL_OP_FETCH4_C || instr->opcode == IL_OP_FETCH4_PO_C) {
         sampleOp = SpvOpImageDrefGather;
         IlcSpvId drefId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
         argId = emitVectorTrim(compiler, drefId, compiler->float4Id, COMP_INDEX_X, 1);
@@ -2433,14 +2433,24 @@ static void emitFetch4(
         assert(false);
     }
 
-    if (instr->addressOffset != 0) {
+    if (instr->opcode == IL_OP_FETCH4_PO || instr->opcode == IL_OP_FETCH4_PO_C) {
+        // Programmable offset
+        unsigned srcIndex = instr->opcode == IL_OP_FETCH4_PO ? 1 : 2;
+        IlcSpvId offsetsId = loadSource(compiler, &instr->srcs[srcIndex], COMP_MASK_XYZW,
+                                        compiler->int4Id);
+        offsetsId = emitVectorTrim(compiler, offsetsId, compiler->int4Id, COMP_INDEX_X, dimCount);
+        operandsMask |= SpvImageOperandsOffsetMask;
+        operandIds[0] = offsetsId;
+        operandIdCount++;
+        ilcSpvPutCapability(compiler->module, SpvCapabilityImageGatherExtended);
+    } else if (instr->addressOffset != 0) {
+        // Immediate offset
         float u = (int8_t)GET_BITS(instr->addressOffset, 0, 7) / 2.f;
         float v = (int8_t)GET_BITS(instr->addressOffset, 8, 15) / 2.f;
         float w = (int8_t)GET_BITS(instr->addressOffset, 16, 23) / 2.f;
         if (u != (int)u || v != (int)v || w != (int)w) {
             LOGW("non-integer offsets %g %g %g\n", u, v, w);
         }
-        operandsMask |= SpvImageOperandsConstOffsetMask;
         const IlcSpvId constantIds[] = {
             ilcSpvPutConstant(compiler->module, compiler->intId, u),
             ilcSpvPutConstant(compiler->module, compiler->intId, v),
@@ -2449,6 +2459,7 @@ static void emitFetch4(
         IlcSpvId offsetsTypeId = ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
         IlcSpvId offsetsId = ilcSpvPutConstantComposite(compiler->module, offsetsTypeId,
                                                         dimCount, constantIds);
+        operandsMask |= SpvImageOperandsConstOffsetMask;
         operandIds[0] = offsetsId;
         operandIdCount++;
     }
@@ -3154,6 +3165,8 @@ static void emitInstr(
         break;
     case IL_OP_FETCH4:
     case IL_OP_FETCH4_C:
+    case IL_OP_FETCH4_PO:
+    case IL_OP_FETCH4_PO_C:
         emitFetch4(compiler, instr);
         break;
     case IL_OP_CMOV_LOGICAL:
