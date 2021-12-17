@@ -393,8 +393,7 @@ VkImageLayout getVkImageLayout(
         // light rendering followed by shader access, so a general layout is best
         return VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_CLEAR:
-        return quirkHas(QUIRK_IMAGE_WRONG_CLEAR_STATE) ?
-               VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     case GR_IMAGE_STATE_DISCARD:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     default:

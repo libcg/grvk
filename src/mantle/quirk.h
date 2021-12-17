@@ -10,8 +10,8 @@ typedef enum {
     // Read-only image bound to UAV slot
     QUIRK_READ_ONLY_IMAGE_BOUND_TO_UAV = 1 << 1,
 
-    // Image not transitioned to GR_IMAGE_STATE_CLEAR before a clear, or not transitioned out
-    QUIRK_IMAGE_WRONG_CLEAR_STATE = 1 << 2,
+    // Image transitioned to DATA_TRANSFER state for raw clears instead of CLEAR state
+    QUIRK_IMAGE_DATA_TRANSFER_STATE_FOR_RAW_CLEAR = 1 << 2,
 
     // Image copy offset/extent provided in texels instead of blocks
     QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS = 1 << 3,

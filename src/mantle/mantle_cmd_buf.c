@@ -1172,6 +1172,8 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
+    GR_IMAGE_STATE imageState = quirkHas(QUIRK_IMAGE_DATA_TRANSFER_STATE_FOR_RAW_CLEAR) ?
+                                GR_IMAGE_STATE_DATA_TRANSFER : GR_IMAGE_STATE_CLEAR;
     const VkClearColorValue vkColor = {
         .uint32 = { color[0], color[1], color[2], color[3] },
     };
@@ -1183,8 +1185,7 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
     }
 
     VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
-                             getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
-                             &vkColor, rangeCount, vkRanges);
+                             getVkImageLayout(imageState, false), &vkColor, rangeCount, vkRanges);
 
     STACK_ARRAY_FINISH(vkRanges);
 }
