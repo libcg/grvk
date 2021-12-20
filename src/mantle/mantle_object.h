@@ -142,10 +142,29 @@ typedef struct _GrBorderColorPalette {
     float* data;
 } GrBorderColorPalette;
 
+typedef struct _GrClearImageState {
+    VkImage image;
+    VkExtent2D extent;
+    VkFormat format;
+    bool isDepthStencil;
+    VkAccessFlags oldAccessFlags;
+    VkPipelineStageFlags oldStageFlags;
+    VkImageLayout oldLayout;
+    bool hasSrcBarrier;
+    VkAccessFlags newAccessFlags;
+    VkPipelineStageFlags newStageFlags;
+    VkImageLayout newLayout;
+    VkImageSubresourceRange range;
+    bool performClear;
+    bool ignore;
+    VkClearValue clearValue;
+} GrClearImageState;
+
 typedef struct _GrCmdBuffer {
     GrObject grObj;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
+    GR_QUEUE_TYPE grQueueType;
     VkQueryPool timestampQueryPool;
     DescriptorSetSlot atomicCounterSlot;
     // Resource tracking
@@ -167,10 +186,19 @@ typedef struct _GrCmdBuffer {
     // Render pass
     unsigned colorAttachmentCount;
     VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkImageSubresourceRange colorAttachmentRanges[GR_MAX_COLOR_TARGETS];
+    VkImage colorAttachmentImages[GR_MAX_COLOR_TARGETS];
     VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
+    // clear resource tracking
+    GrClearImageState clearAttachments[64];
+    unsigned clearAttachmentCount;
+    VkImageView* clearImageViews;
+    unsigned clearImageViewCount;
     bool hasDepthStencil;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkImageSubresourceRange depthRange;
+    VkImage depthImage;
     VkFormat depthStencilFormat;
     VkExtent3D minExtent;
 } GrCmdBuffer;
@@ -181,11 +209,15 @@ typedef struct _GrColorBlendStateObject {
     float blendConstants[4];
 } GrColorBlendStateObject;
 
+typedef struct _GrImage GrImage;
+
 typedef struct _GrColorTargetView {
     GrObject grObj;
+    GrImage* grParentImage;
     VkImageView imageView;
     VkExtent3D extent;
     VkFormat format;
+    VkImageSubresourceRange subresourceRange;
 } GrColorTargetView;
 
 typedef struct _GrDepthStencilStateObject {
@@ -203,9 +235,11 @@ typedef struct _GrDepthStencilStateObject {
 
 typedef struct _GrDepthStencilView {
     GrObject grObj;
+    GrImage* grParentImage;
     VkImageView imageView;
     VkExtent3D extent;
     VkFormat format;
+    VkImageSubresourceRange subresourceRange;
 } GrDepthStencilView;
 
 typedef struct _GrDescriptorSet {
@@ -260,6 +294,7 @@ typedef struct _GrImage {
 
 typedef struct _GrImageView {
     GrObject grObj;
+    GrImage* grParentImage;
     VkImageView imageView;
     VkFormat format;
 } GrImageView;
@@ -352,6 +387,9 @@ typedef struct _GrWsiWinDisplay {
 } GrWsiWinDisplay;
 
 void grCmdBufferEndRenderPass(
+    GrCmdBuffer* grCmdBuffer);
+
+void grCmdFlushClearImages(
     GrCmdBuffer* grCmdBuffer);
 
 void grCmdBufferResetState(

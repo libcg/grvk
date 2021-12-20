@@ -167,6 +167,46 @@ static void grCmdBufferBeginRenderPass(
         return;
     }
 
+    // TODO: handle clears in other place if the extent isn't full
+    for (unsigned i = 0; i < grCmdBuffer->colorAttachmentCount; ++i) {
+        for (unsigned j = 0; j < grCmdBuffer->clearAttachmentCount; ++j) {
+            if (!grCmdBuffer->clearAttachments[j].isDepthStencil &&
+                grCmdBuffer->clearAttachments[j].performClear &&
+                grCmdBuffer->colorAttachmentImages[i] == grCmdBuffer->clearAttachments[j].image &&
+                memcmp(&grCmdBuffer->colorAttachmentRanges[i], &grCmdBuffer->clearAttachments[j].range, sizeof(VkImageSubresourceRange)) == 0) {
+                grCmdBuffer->colorAttachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                grCmdBuffer->colorAttachments[i].clearValue = grCmdBuffer->clearAttachments[j].clearValue;
+
+                grCmdBuffer->clearAttachments[j].ignore = true;
+                break;
+            }
+        }
+    }
+    if (grCmdBuffer->hasDepthStencil) {
+        for (unsigned j = 0; j < grCmdBuffer->clearAttachmentCount; ++j) {
+            if (grCmdBuffer->clearAttachments[j].isDepthStencil &&
+                grCmdBuffer->clearAttachments[j].performClear &&
+                grCmdBuffer->depthImage == grCmdBuffer->clearAttachments[j].image &&
+                // can't perform a full compare since the client may specify only depth or only stencil
+                grCmdBuffer->depthRange.baseArrayLayer == grCmdBuffer->clearAttachments[j].range.baseArrayLayer &&
+                grCmdBuffer->depthRange.layerCount == grCmdBuffer->clearAttachments[j].range.layerCount &&
+                grCmdBuffer->depthRange.baseMipLevel == grCmdBuffer->clearAttachments[j].range.baseMipLevel &&
+                grCmdBuffer->depthRange.levelCount == grCmdBuffer->clearAttachments[j].range.levelCount) {
+                if (grCmdBuffer->clearAttachments[j].range.aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) {
+                    grCmdBuffer->depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                    grCmdBuffer->depthAttachment.clearValue = grCmdBuffer->clearAttachments[j].clearValue;
+                }
+                if (grCmdBuffer->clearAttachments[j].range.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) {
+                    grCmdBuffer->stencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                    grCmdBuffer->stencilAttachment.clearValue = grCmdBuffer->clearAttachments[j].clearValue;
+                }
+
+                grCmdBuffer->clearAttachments[j].ignore = true;
+                break;
+            }
+        }
+    }
+
     const VkRenderingInfoKHR renderingInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
         .pNext = NULL,
@@ -183,8 +223,20 @@ static void grCmdBufferBeginRenderPass(
         .pStencilAttachment = grCmdBuffer->hasDepthStencil ? &grCmdBuffer->stencilAttachment : NULL,
     };
 
+    grCmdFlushClearImages(grCmdBuffer);
     VKD.vkCmdBeginRenderingKHR(grCmdBuffer->commandBuffer, &renderingInfo);
     grCmdBuffer->isRendering = true;
+    // remove clear values, so attachments won't be cleared on restart
+    for (unsigned i = 0; i < grCmdBuffer->colorAttachmentCount; ++i) {
+        grCmdBuffer->colorAttachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        grCmdBuffer->colorAttachments[i].clearValue = (VkClearValue) {{{ 0 }}};
+    }
+    if (grCmdBuffer->hasDepthStencil) {
+        grCmdBuffer->depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        grCmdBuffer->depthAttachment.clearValue = (VkClearValue) {{{ 0 }}};
+        grCmdBuffer->stencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        grCmdBuffer->stencilAttachment.clearValue = (VkClearValue) {{{ 0 }}};
+    }
 }
 
 void grCmdBufferEndRenderPass(
@@ -600,10 +652,14 @@ GR_VOID GR_STDCALL grCmdBindTargets(
 
     unsigned colorAttachmentCount = 0;
     VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkImageSubresourceRange colorAttachmentRanges[GR_MAX_COLOR_TARGETS];
+    VkImage colorAttachmentImages[GR_MAX_COLOR_TARGETS];
     VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     bool hasDepthStencil = false;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkImageSubresourceRange depthRange;
+    VkImage depthImage;
     VkFormat depthStencilFormat = VK_FORMAT_UNDEFINED;
     VkExtent3D minExtent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
 
@@ -623,6 +679,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0 }}},
             };
+            colorAttachmentRanges[colorAttachmentCount] = grColorTargetView->subresourceRange;
+            colorAttachmentImages[colorAttachmentCount] = grColorTargetView->grParentImage->image;
             colorFormats[colorAttachmentCount] = grColorTargetView->format;
             colorAttachmentCount++;
 
@@ -660,6 +718,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .clearValue = {{{ 0 }}},
         };
+        depthRange = grDepthStencilView->subresourceRange;
+        depthImage = grDepthStencilView->grParentImage->image;
         depthStencilFormat = grDepthStencilView->format;
 
         minExtent.width = MIN(minExtent.width, grDepthStencilView->extent.width);
@@ -676,9 +736,13 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         // Targets have changed
         grCmdBuffer->colorAttachmentCount = colorAttachmentCount;
         memcpy(grCmdBuffer->colorAttachments, colorAttachments, colorAttachmentCount * sizeof(colorAttachments[0]));
+        memcpy(grCmdBuffer->colorAttachmentRanges, colorAttachmentRanges, colorAttachmentCount * sizeof(colorAttachmentRanges[0]));
+        memcpy(grCmdBuffer->colorAttachmentImages, colorAttachmentImages, colorAttachmentCount * sizeof(colorAttachmentImages[0]));
         grCmdBuffer->hasDepthStencil = hasDepthStencil;
         grCmdBuffer->depthAttachment = depthAttachment;
         grCmdBuffer->stencilAttachment = stencilAttachment;
+        grCmdBuffer->depthRange = depthRange;
+        grCmdBuffer->depthImage = depthImage;
         grCmdBuffer->minExtent = minExtent;
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_RENDER_PASS;
@@ -712,33 +776,97 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
     STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
     VkPipelineStageFlags srcStageMask = 0;
     VkPipelineStageFlags dstStageMask = 0;
+    unsigned barrierCount = 0;
 
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
         bool isDepthStencil = isVkFormatDepthStencil(grImage->format);
 
-        barriers[i] = (VkImageMemoryBarrier) {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext = NULL,
-            .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState, isDepthStencil),
-            .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState, isDepthStencil),
-            .oldLayout = getVkImageLayout(stateTransition->oldState, isDepthStencil),
-            .newLayout = getVkImageLayout(stateTransition->newState, isDepthStencil),
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = grImage->image,
-            .subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange,
-                                                           grImage->multiplyCubeLayers),
-        };
+        VkImageSubresourceRange subresourceRange = getVkImageSubresourceRange(stateTransition->subresourceRange,
+                                                                              grImage->multiplyCubeLayers);
+        bool placeBarrier = true;
+        // TODO: handle cases if level count or layer count are above 1 to avoid bugs due to intersections
+        if (subresourceRange.levelCount == 1 &&
+            subresourceRange.layerCount == 1 &&
+            grImage->usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) &&
+            (stateTransition->oldState == GR_IMAGE_STATE_CLEAR || stateTransition->newState == GR_IMAGE_STATE_CLEAR)) {
+            for (unsigned i = 0; i < grCmdBuffer->clearAttachmentCount; ++i) {
+                if (grCmdBuffer->clearAttachments[i].image == grImage->image &&
+                    memcmp(&grCmdBuffer->clearAttachments[i].range, &subresourceRange, sizeof(VkImageSubresourceRange)) == 0) {
+                    if (stateTransition->oldState == GR_IMAGE_STATE_CLEAR) {
+                        grCmdBuffer->clearAttachments[i].newStageFlags = getVkPipelineStageFlagsImage(stateTransition->newState);
+                        grCmdBuffer->clearAttachments[i].newAccessFlags = getVkAccessFlagsImage(stateTransition->newState, isDepthStencil);
+                        grCmdBuffer->clearAttachments[i].newLayout = getVkImageLayout(stateTransition->newState, isDepthStencil);
+                    } else if (stateTransition->newState == GR_IMAGE_STATE_CLEAR) {
+                        LOGW("transition to clear with existing overlap\n");
+                        // HACK: probably shouldn't happen if usage is valid
+                        grCmdBuffer->clearAttachments[i].oldStageFlags = getVkPipelineStageFlagsImage(stateTransition->oldState);
+                        grCmdBuffer->clearAttachments[i].oldAccessFlags = getVkAccessFlagsImage(stateTransition->oldState, isDepthStencil);
+                        grCmdBuffer->clearAttachments[i].oldLayout = getVkImageLayout(stateTransition->oldState, isDepthStencil);
+                        grCmdBuffer->clearAttachments[i].hasSrcBarrier = true;
+                    }
+                    placeBarrier = false;
+                    break;
+                }
+            }
+            if (placeBarrier && grCmdBuffer->clearAttachmentCount < COUNT_OF(grCmdBuffer->clearAttachments)) {
+                // add a new entry
+                placeBarrier = false;
+                grCmdBuffer->clearAttachmentCount++;
+                grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1] = (GrClearImageState) {
+                    .image = grImage->image,
+                    .extent = { grImage->extent.width, grImage->extent.height },
+                    .format = grImage->format,
+                    .isDepthStencil = isVkFormatDepthStencil(grImage->format),
+                    .oldAccessFlags = 0,
+                    .oldStageFlags = 0,
+                    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .hasSrcBarrier = false,
+                    .newAccessFlags = 0,
+                    .newStageFlags = 0,
+                    .newLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .range = subresourceRange,
+                    .performClear = false,
+                    .ignore = false,
+                };
+                if (stateTransition->oldState == GR_IMAGE_STATE_CLEAR) {
+                    grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1].newLayout = getVkImageLayout(stateTransition->newState, isDepthStencil);
+                    grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1].newStageFlags = getVkPipelineStageFlagsImage(stateTransition->newState);
+                    grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1].newAccessFlags = getVkAccessFlagsImage(stateTransition->newState, isDepthStencil);
+                } else if (stateTransition->newState == GR_IMAGE_STATE_CLEAR) {
+                    // HACK: probably shouldn't happen if usage is valid
+                    grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1].oldLayout = getVkImageLayout(stateTransition->oldState, isDepthStencil);
+                    grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1].oldStageFlags = getVkPipelineStageFlagsImage(stateTransition->oldState);
+                    grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1].oldAccessFlags = getVkAccessFlagsImage(stateTransition->oldState, isDepthStencil);
+                    grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1].hasSrcBarrier = true;
+                }
+            }
+        }
+        if (placeBarrier) {
+            barriers[barrierCount++] = (VkImageMemoryBarrier) {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = NULL,
+                .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState, isDepthStencil),
+                .dstAccessMask = getVkAccessFlagsImage(stateTransition->newState, isDepthStencil),
+                .oldLayout = getVkImageLayout(stateTransition->oldState, isDepthStencil),
+                .newLayout = getVkImageLayout(stateTransition->newState, isDepthStencil),
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = grImage->image,
+                .subresourceRange = subresourceRange,
+            };
 
-        srcStageMask |= getVkPipelineStageFlagsImage(stateTransition->oldState);
-        dstStageMask |= getVkPipelineStageFlagsImage(stateTransition->newState);
+            srcStageMask |= getVkPipelineStageFlagsImage(stateTransition->oldState);
+            dstStageMask |= getVkPipelineStageFlagsImage(stateTransition->newState);
+        }
     }
 
-    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer, srcStageMask, dstStageMask,
-                             0, 0, NULL, 0, NULL, transitionCount, barriers);
-
+    if (barrierCount > 0) {
+        VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                                 srcStageMask, dstStageMask,
+                                 0, 0, NULL, 0, NULL, barrierCount, barriers);
+    }
     STACK_ARRAY_FINISH(barriers);
 }
 
@@ -1125,6 +1253,156 @@ GR_VOID GR_STDCALL grCmdFillMemory(
                         fillSize, data);
 }
 
+void grCmdFlushClearImages(
+    GrCmdBuffer* grCmdBuffer)
+{
+    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    for (unsigned i = 0; i < grCmdBuffer->clearAttachmentCount; i++) {
+        if (grCmdBuffer->clearAttachments[i].ignore) {
+            continue;
+        }
+
+        VkPipelineStageFlags intermediatePipelineStage = grCmdBuffer->clearAttachments[i].isDepthStencil ?
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        VkAccessFlags intermediateAccessFlags = grCmdBuffer->clearAttachments[i].isDepthStencil ?
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        if (grCmdBuffer->clearAttachments[i].hasSrcBarrier) {
+            VkImageMemoryBarrier barrier = (VkImageMemoryBarrier) {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = NULL,
+                .srcAccessMask = grCmdBuffer->clearAttachments[i].oldAccessFlags,
+                .dstAccessMask = intermediateAccessFlags,
+                .oldLayout = grCmdBuffer->clearAttachments[i].oldLayout,
+                .newLayout = getVkImageLayout(GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL, grCmdBuffer->clearAttachments[i].isDepthStencil),
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = grCmdBuffer->clearAttachments[i].image,
+                .subresourceRange = grCmdBuffer->clearAttachments[i].range,
+            };
+            VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                                     grCmdBuffer->clearAttachments[i].newStageFlags,
+                                     intermediatePipelineStage,
+                                     0, 0, NULL, 0, NULL, 1, &barrier);
+        }
+
+        if (grCmdBuffer->clearAttachments[i].performClear) {
+            VkImageView vkImageView;
+
+            const VkImageViewCreateInfo createInfo = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .image = grCmdBuffer->clearAttachments[i].image,
+                .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                .format = grCmdBuffer->clearAttachments[i].format,
+                .components = {
+                    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+                },
+                .subresourceRange = grCmdBuffer->clearAttachments[i].range,
+            };
+
+            VkResult res = VKD.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
+            assert(res == VK_SUCCESS);
+            grCmdBuffer->clearImageViewCount++;
+            grCmdBuffer->clearImageViews = realloc(grCmdBuffer->clearImageViews, sizeof(VkImageView) * grCmdBuffer->clearImageViewCount);
+            grCmdBuffer->clearImageViews[grCmdBuffer->clearImageViewCount - 1] = vkImageView;
+
+            VkRenderingAttachmentInfoKHR colorAttachmentInfo;
+            VkRenderingAttachmentInfoKHR depthAttachmentInfo;
+            VkRenderingAttachmentInfoKHR stencilAttachmentInfo;
+
+            VkRenderingInfoKHR renderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+                .pNext = NULL,
+                .flags = 0,
+                .renderArea = (VkRect2D) {
+                    .offset = { 0, 0 },
+                    .extent = { grCmdBuffer->clearAttachments[i].extent.width, grCmdBuffer->clearAttachments[i].extent.height },
+                },
+                .layerCount = 1,
+                .viewMask = 0,
+                .colorAttachmentCount = 0,
+                .pColorAttachments = NULL,
+                .pDepthAttachment = NULL,
+                .pStencilAttachment = NULL,
+            };
+            if (grCmdBuffer->clearAttachments[i].isDepthStencil) {
+                if (grCmdBuffer->clearAttachments[i].range.aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) {
+                    depthAttachmentInfo = (VkRenderingAttachmentInfoKHR) {
+                        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+                        .pNext = NULL,
+                        .imageView = vkImageView,
+                        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                        .resolveMode = VK_RESOLVE_MODE_NONE,
+                        .resolveImageView = VK_NULL_HANDLE,
+                        .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                        .clearValue = grCmdBuffer->clearAttachments[i].clearValue,
+                    };
+                    renderingInfo.pDepthAttachment = &depthAttachmentInfo;
+                }
+                if (grCmdBuffer->clearAttachments[i].range.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) {
+                    stencilAttachmentInfo = (VkRenderingAttachmentInfoKHR) {
+                        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+                        .pNext = NULL,
+                        .imageView = vkImageView,
+                        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                        .resolveMode = VK_RESOLVE_MODE_NONE,
+                        .resolveImageView = VK_NULL_HANDLE,
+                        .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                        .clearValue = grCmdBuffer->clearAttachments[i].clearValue,
+                    };
+                    renderingInfo.pStencilAttachment = &stencilAttachmentInfo;
+                }
+            } else {
+                colorAttachmentInfo = (VkRenderingAttachmentInfoKHR) {
+                    .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+                    .pNext = NULL,
+                    .imageView = vkImageView,
+                    .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    .resolveMode = VK_RESOLVE_MODE_NONE,
+                    .resolveImageView = VK_NULL_HANDLE,
+                    .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                    .clearValue = grCmdBuffer->clearAttachments[i].clearValue,
+                };
+                renderingInfo.pColorAttachments = &colorAttachmentInfo;
+                renderingInfo.colorAttachmentCount = 1;
+            }
+            VKD.vkCmdBeginRenderingKHR(grCmdBuffer->commandBuffer, &renderingInfo);
+            VKD.vkCmdEndRenderingKHR(grCmdBuffer->commandBuffer);
+        }
+        if (grCmdBuffer->clearAttachments[i].newLayout != VK_IMAGE_LAYOUT_UNDEFINED) {
+            VkImageMemoryBarrier barrier = (VkImageMemoryBarrier) {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .pNext = NULL,
+                .srcAccessMask = intermediateAccessFlags,
+                .dstAccessMask = grCmdBuffer->clearAttachments[i].newAccessFlags,
+                .oldLayout = getVkImageLayout(GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL, grCmdBuffer->clearAttachments[i].isDepthStencil),
+                .newLayout = grCmdBuffer->clearAttachments[i].newLayout,
+                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                .image = grCmdBuffer->clearAttachments[i].image,
+                .subresourceRange = grCmdBuffer->clearAttachments[i].range,
+            };
+            VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
+                                     intermediatePipelineStage,
+                                     grCmdBuffer->clearAttachments[i].newStageFlags,
+                                     0, 0, NULL, 0, NULL, 1, &barrier);
+        }
+    }
+
+    grCmdBuffer->clearAttachmentCount = 0;
+}
+
 GR_VOID GR_STDCALL grCmdClearColorImage(
     GR_CMD_BUFFER cmdBuffer,
     GR_IMAGE image,
@@ -1145,15 +1423,58 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
     };
 
     STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
+    unsigned vkRangeCount = 0;
 
+    bool isRenderTargetImage = (grImage->usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT));
     for (unsigned i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
+        VkImageSubresourceRange vkRange = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
+        bool performImmediateClear = true;
+        if (grCmdBuffer->grQueueType == GR_QUEUE_UNIVERSAL && isRenderTargetImage &&
+            vkRange.levelCount == 1 && vkRange.layerCount == 1) {
+            // try to find an image
+            for (unsigned j = 0; j < grCmdBuffer->clearAttachmentCount; ++j) {
+                if (grCmdBuffer->clearAttachments[j].image == grImage->image &&
+                    memcmp(&grCmdBuffer->clearAttachments[j].range, &vkRange, sizeof(VkImageSubresourceRange)) == 0) {
+                    grCmdBuffer->clearAttachments[j].performClear = true;
+                    grCmdBuffer->clearAttachments[j].clearValue = (VkClearValue) { .color = vkColor };
+                    performImmediateClear = false;
+                    break;
+                }
+            }
+            if (performImmediateClear && grCmdBuffer->clearAttachmentCount < COUNT_OF(grCmdBuffer->clearAttachments)) {
+                // add a new entry
+                performImmediateClear = false;
+                grCmdBuffer->clearAttachmentCount++;
+                grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1] = (GrClearImageState) {
+                    .image = grImage->image,
+                    .extent = { grImage->extent.width, grImage->extent.height },
+                    .format = grImage->format,
+                    .isDepthStencil = false,
+                    .oldAccessFlags = 0,
+                    .oldStageFlags = 0,
+                    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .hasSrcBarrier = false,
+                    .newAccessFlags = 0,
+                    .newStageFlags = 0,
+                    .newLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .range = vkRange,
+                    .performClear = true,
+                    .ignore = false,
+                    .clearValue = { .color = vkColor },
+                };
+            }
+        }
+        if (performImmediateClear) {
+            vkRangeCount++;
+            vkRanges[vkRangeCount - 1] = vkRange;
+        }
     }
 
-    VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
-                             getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
-                             &vkColor, rangeCount, vkRanges);
-
+    if (vkRangeCount > 0) {
+        VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
+                                 getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
+                                 &vkColor, vkRangeCount, vkRanges);
+    }
     STACK_ARRAY_FINISH(vkRanges);
 }
 
@@ -1172,21 +1493,63 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
-    GR_IMAGE_STATE imageState = quirkHas(QUIRK_IMAGE_DATA_TRANSFER_STATE_FOR_RAW_CLEAR) ?
-                                GR_IMAGE_STATE_DATA_TRANSFER : GR_IMAGE_STATE_CLEAR;
     const VkClearColorValue vkColor = {
         .uint32 = { color[0], color[1], color[2], color[3] },
     };
 
     STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
+    unsigned vkRangeCount = 0;
 
+    bool isRenderTargetImage = (grImage->usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT));
     for (unsigned i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
+        VkImageSubresourceRange vkRange = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
+        bool performImmediateClear = true;
+        if (grCmdBuffer->grQueueType == GR_QUEUE_UNIVERSAL && isRenderTargetImage &&
+            vkRange.levelCount == 1 && vkRange.layerCount == 1) {
+            // try to find an image
+            for (unsigned j = 0; j < grCmdBuffer->clearAttachmentCount; ++j) {
+                if (grCmdBuffer->clearAttachments[j].image == grImage->image &&
+                    memcmp(&grCmdBuffer->clearAttachments[j].range, &vkRange, sizeof(VkImageSubresourceRange)) == 0) {
+                    grCmdBuffer->clearAttachments[j].performClear = true;
+                    grCmdBuffer->clearAttachments[j].clearValue = (VkClearValue) { .color = vkColor };
+                    performImmediateClear = false;
+                    break;
+                }
+            }
+            if (performImmediateClear && grCmdBuffer->clearAttachmentCount < COUNT_OF(grCmdBuffer->clearAttachments)) {
+                // add a new entry
+                performImmediateClear = false;
+                grCmdBuffer->clearAttachmentCount++;
+                grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1] = (GrClearImageState) {
+                    .image = grImage->image,
+                    .extent = { grImage->extent.width, grImage->extent.height },
+                    .format = grImage->format,
+                    .isDepthStencil = false,
+                    .oldAccessFlags = 0,
+                    .oldStageFlags = 0,
+                    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .hasSrcBarrier = false,
+                    .newAccessFlags = 0,
+                    .newStageFlags = 0,
+                    .newLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .range = vkRange,
+                    .performClear = true,
+                    .ignore = false,
+                    .clearValue = { .color = vkColor },
+                };
+            }
+        }
+        if (performImmediateClear) {
+            vkRangeCount++;
+            vkRanges[vkRangeCount - 1] = vkRange;
+        }
     }
 
-    VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
-                             getVkImageLayout(imageState, false), &vkColor, rangeCount, vkRanges);
-
+    if (vkRangeCount > 0) {
+        VKD.vkCmdClearColorImage(grCmdBuffer->commandBuffer, grImage->image,
+                                 getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
+                                 &vkColor, vkRangeCount, vkRanges);
+    }
     STACK_ARRAY_FINISH(vkRanges);
 }
 
@@ -1211,15 +1574,63 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
     };
 
     STACK_ARRAY(VkImageSubresourceRange, vkRanges, 128, rangeCount);
+    unsigned vkRangeCount = 0;
 
+    bool isRenderTargetImage = (grImage->usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT));
     for (unsigned i = 0; i < rangeCount; i++) {
-        vkRanges[i] = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
+        VkImageSubresourceRange vkRange = getVkImageSubresourceRange(pRanges[i], grImage->multiplyCubeLayers);
+        bool performImmediateClear = true;
+        if (grCmdBuffer->grQueueType == GR_QUEUE_UNIVERSAL && isRenderTargetImage &&
+            vkRange.levelCount == 1 && vkRange.layerCount == 1) {
+            LOGT("checking for render target clear image\n");
+            // try to find an image
+            for (unsigned j = 0; j < grCmdBuffer->clearAttachmentCount; ++j) {
+                if (grCmdBuffer->clearAttachments[j].image == grImage->image &&
+                    memcmp(&grCmdBuffer->clearAttachments[j].range, &vkRange, sizeof(VkImageSubresourceRange)) == 0) {
+                    if (!grCmdBuffer->clearAttachments[j].isDepthStencil) {
+                        LOGT("cached clear state isn't depthstencil\n");
+                        grCmdBuffer->clearAttachments[j].isDepthStencil = true;
+                    }
+                    grCmdBuffer->clearAttachments[j].performClear = true;
+                    grCmdBuffer->clearAttachments[j].clearValue = (VkClearValue) { .depthStencil = depthStencilValue };
+                    performImmediateClear = false;
+                    break;
+                }
+            }
+            if (performImmediateClear && grCmdBuffer->clearAttachmentCount < COUNT_OF(grCmdBuffer->clearAttachments)) {
+                // add a new entry
+                performImmediateClear = false;
+                grCmdBuffer->clearAttachmentCount++;
+                grCmdBuffer->clearAttachments[grCmdBuffer->clearAttachmentCount - 1] = (GrClearImageState) {
+                    .image = grImage->image,
+                    .extent = { grImage->extent.width, grImage->extent.height },
+                    .format = grImage->format,
+                    .isDepthStencil = true,
+                    .oldAccessFlags = 0,
+                    .oldStageFlags = 0,
+                    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .hasSrcBarrier = false,
+                    .newAccessFlags = 0,
+                    .newStageFlags = 0,
+                    .newLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .range = vkRange,
+                    .performClear = true,
+                    .ignore = false,
+                    .clearValue = { .depthStencil = depthStencilValue },
+                };
+            }
+        }
+        if (performImmediateClear) {
+            vkRangeCount++;
+            vkRanges[vkRangeCount - 1] = vkRange;
+        }
     }
 
-    VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,
-                                    getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
-                                    &depthStencilValue, rangeCount, vkRanges);
-
+    if (vkRangeCount > 0) {
+        VKD.vkCmdClearDepthStencilImage(grCmdBuffer->commandBuffer, grImage->image,
+                                        getVkImageLayout(GR_IMAGE_STATE_CLEAR, false),
+                                        &depthStencilValue, vkRangeCount, vkRanges);
+    }
     STACK_ARRAY_FINISH(vkRanges);
 }
 

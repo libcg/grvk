@@ -109,6 +109,7 @@ GR_RESULT GR_STDCALL grCreateImageView(
     GrImageView* grImageView = malloc(sizeof(GrImageView));
     *grImageView = (GrImageView) {
         .grObj = { GR_OBJ_TYPE_IMAGE_VIEW, grDevice },
+        .grParentImage = grImage,
         .imageView = vkImageView,
         .format = createInfo.format,
     };
@@ -172,6 +173,7 @@ GR_RESULT GR_STDCALL grCreateColorTargetView(
     GrColorTargetView* grColorTargetView = malloc(sizeof(GrColorTargetView));
     *grColorTargetView = (GrColorTargetView) {
         .grObj = { GR_OBJ_TYPE_COLOR_TARGET_VIEW, grDevice },
+        .grParentImage = grImage,
         .imageView = vkImageView,
         .extent = {
             MIP(grImage->extent.width, pCreateInfo->mipLevel),
@@ -179,6 +181,7 @@ GR_RESULT GR_STDCALL grCreateColorTargetView(
             pCreateInfo->arraySize,
         },
         .format = createInfo.format,
+        .subresourceRange = createInfo.subresourceRange,
     };
 
     *pView = (GR_COLOR_TARGET_VIEW)grColorTargetView;
@@ -258,6 +261,7 @@ GR_RESULT GR_STDCALL grCreateDepthStencilView(
     GrDepthStencilView* grDepthStencilView = malloc(sizeof(GrDepthStencilView));
     *grDepthStencilView = (GrDepthStencilView) {
         .grObj = { GR_OBJ_TYPE_DEPTH_STENCIL_VIEW, grDevice },
+        .grParentImage = grImage,
         .imageView = vkImageView,
         .extent = {
             MIP(grImage->extent.width, pCreateInfo->mipLevel),
@@ -265,6 +269,7 @@ GR_RESULT GR_STDCALL grCreateDepthStencilView(
             pCreateInfo->arraySize,
         },
         .format = createInfo.format,
+        .subresourceRange = createInfo.subresourceRange,
     };
 
     *pView = (GR_DEPTH_STENCIL_VIEW)grDepthStencilView;
