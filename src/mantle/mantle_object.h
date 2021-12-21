@@ -168,7 +168,8 @@ typedef struct _GrCmdBuffer {
     unsigned colorAttachmentCount;
     VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
     VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
-    bool hasDepthStencil;
+    bool hasDepth;
+    bool hasStencil;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
     VkFormat depthStencilFormat;

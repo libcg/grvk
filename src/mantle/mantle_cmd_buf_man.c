@@ -130,10 +130,11 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .colorAttachmentCount = 0,
         .colorAttachments = { { 0 } },
         .colorFormats = { 0 },
-        .hasDepthStencil = false,
+        .hasDepth = false,
+        .hasStencil = false,
         .depthAttachment = { 0 },
         .stencilAttachment = { 0 },
-        .depthStencilFormat = 0,
+        .depthStencilFormat = VK_FORMAT_UNDEFINED,
         .minExtent = { 0, 0, 0 },
     };
 

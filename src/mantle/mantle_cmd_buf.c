@@ -179,8 +179,8 @@ static void grCmdBufferBeginRenderPass(
         .viewMask = 0,
         .colorAttachmentCount = grCmdBuffer->colorAttachmentCount,
         .pColorAttachments = grCmdBuffer->colorAttachments,
-        .pDepthAttachment = grCmdBuffer->hasDepthStencil ? &grCmdBuffer->depthAttachment : NULL,
-        .pStencilAttachment = grCmdBuffer->hasDepthStencil ? &grCmdBuffer->stencilAttachment : NULL,
+        .pDepthAttachment = grCmdBuffer->hasDepth ? &grCmdBuffer->depthAttachment : NULL,
+        .pStencilAttachment = grCmdBuffer->hasStencil ? &grCmdBuffer->stencilAttachment : NULL,
     };
 
     VKD.vkCmdBeginRenderingKHR(grCmdBuffer->commandBuffer, &renderingInfo);
@@ -297,16 +297,13 @@ static void grCmdBufferUpdateResources(
     }
 
     if (dirtyFlags & FLAG_DIRTY_PIPELINE) {
-        VkFormat depthStencilFormat = grCmdBuffer->hasDepthStencil ? grCmdBuffer->depthStencilFormat
-                                                                   : VK_FORMAT_UNDEFINED;
-
         VkPipeline vkPipeline = grPipelineFindOrCreateVkPipeline(grPipeline,
                                                                  grCmdBuffer->grColorBlendState,
                                                                  grCmdBuffer->grMsaaState,
                                                                  grCmdBuffer->grRasterState,
                                                                  grCmdBuffer->colorAttachmentCount,
                                                                  grCmdBuffer->colorFormats,
-                                                                 depthStencilFormat);
+                                                                 grCmdBuffer->depthStencilFormat);
 
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, vkPipeline);
     }
@@ -601,7 +598,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     unsigned colorAttachmentCount = 0;
     VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
     VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
-    bool hasDepthStencil = false;
+    bool hasDepth = false;
+    bool hasStencil = false;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
     VkFormat depthStencilFormat = VK_FORMAT_UNDEFINED;
@@ -610,7 +608,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     for (unsigned i = 0; i < colorTargetCount; i++) {
         const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
 
-        if (grColorTargetView != NULL) {
+        if (grColorTargetView != NULL &&
+            pColorTargets[i].colorTargetState != GR_IMAGE_STATE_UNINITIALIZED) {
             colorAttachments[colorAttachmentCount] = (VkRenderingAttachmentInfoKHR) {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
                 .pNext = NULL,
@@ -635,48 +634,56 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     if (pDepthTarget != NULL && pDepthTarget->view != NULL) {
         const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
 
-        hasDepthStencil = true;
-        depthAttachment = (VkRenderingAttachmentInfoKHR) {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .pNext = NULL,
-            .imageView = grDepthStencilView->imageView,
-            .imageLayout = getVkImageLayout(pDepthTarget->depthState, true),
-            .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = VK_NULL_HANDLE,
-            .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue = {{{ 0 }}},
-        };
-        stencilAttachment = (VkRenderingAttachmentInfoKHR) {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-            .pNext = NULL,
-            .imageView = grDepthStencilView->imageView,
-            .imageLayout = getVkImageLayout(pDepthTarget->stencilState, true),
-            .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = VK_NULL_HANDLE,
-            .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue = {{{ 0 }}},
-        };
-        depthStencilFormat = grDepthStencilView->format;
+        if (pDepthTarget->depthState != GR_IMAGE_STATE_UNINITIALIZED) {
+            hasDepth = true;
+            depthAttachment = (VkRenderingAttachmentInfoKHR) {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+                .pNext = NULL,
+                .imageView = grDepthStencilView->imageView,
+                .imageLayout = getVkImageLayout(pDepthTarget->depthState, true),
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = VK_NULL_HANDLE,
+                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .clearValue = {{{ 0 }}},
+            };
+        }
+        if (pDepthTarget->stencilState != GR_IMAGE_STATE_UNINITIALIZED) {
+            hasStencil = true;
+            stencilAttachment = (VkRenderingAttachmentInfoKHR) {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+                .pNext = NULL,
+                .imageView = grDepthStencilView->imageView,
+                .imageLayout = getVkImageLayout(pDepthTarget->stencilState, true),
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = VK_NULL_HANDLE,
+                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .clearValue = {{{ 0 }}},
+            };
+        }
 
-        minExtent.width = MIN(minExtent.width, grDepthStencilView->extent.width);
-        minExtent.height = MIN(minExtent.height, grDepthStencilView->extent.height);
-        minExtent.depth = MIN(minExtent.depth, grDepthStencilView->extent.depth);
+        if (hasDepth || hasStencil) {
+            depthStencilFormat = grDepthStencilView->format;
+            minExtent.width = MIN(minExtent.width, grDepthStencilView->extent.width);
+            minExtent.height = MIN(minExtent.height, grDepthStencilView->extent.height);
+            minExtent.depth = MIN(minExtent.depth, grDepthStencilView->extent.depth);
+        }
     }
 
     if (colorAttachmentCount != grCmdBuffer->colorAttachmentCount ||
         memcmp(colorAttachments, grCmdBuffer->colorAttachments, colorAttachmentCount * sizeof(colorAttachments[0])) ||
-        hasDepthStencil != grCmdBuffer->hasDepthStencil ||
-        (hasDepthStencil && memcmp(&depthAttachment, &grCmdBuffer->depthAttachment, sizeof(depthAttachment))) ||
-        (hasDepthStencil && memcmp(&stencilAttachment, &grCmdBuffer->stencilAttachment, sizeof(stencilAttachment))) ||
+        hasDepth != grCmdBuffer->hasDepth || hasStencil != grCmdBuffer->hasStencil ||
+        (hasDepth && memcmp(&depthAttachment, &grCmdBuffer->depthAttachment, sizeof(depthAttachment))) ||
+        (hasStencil && memcmp(&stencilAttachment, &grCmdBuffer->stencilAttachment, sizeof(stencilAttachment))) ||
         memcmp(&minExtent, &grCmdBuffer->minExtent, sizeof(minExtent))) {
         // Targets have changed
         grCmdBuffer->colorAttachmentCount = colorAttachmentCount;
         memcpy(grCmdBuffer->colorAttachments, colorAttachments, colorAttachmentCount * sizeof(colorAttachments[0]));
-        grCmdBuffer->hasDepthStencil = hasDepthStencil;
+        grCmdBuffer->hasDepth = hasDepth;
+        grCmdBuffer->hasStencil = hasStencil;
         grCmdBuffer->depthAttachment = depthAttachment;
         grCmdBuffer->stencilAttachment = stencilAttachment;
         grCmdBuffer->minExtent = minExtent;
@@ -686,12 +693,13 @@ GR_VOID GR_STDCALL grCmdBindTargets(
 
     if (colorAttachmentCount != grCmdBuffer->colorAttachmentCount ||
         memcmp(colorFormats, grCmdBuffer->colorFormats, colorAttachmentCount * sizeof(VkFormat)) ||
-        hasDepthStencil != grCmdBuffer->hasDepthStencil ||
-        (hasDepthStencil && depthStencilFormat != grCmdBuffer->depthStencilFormat)) {
+        hasDepth != grCmdBuffer->hasDepth || hasStencil != grCmdBuffer->hasStencil ||
+        ((hasDepth || hasStencil) && depthStencilFormat != grCmdBuffer->depthStencilFormat)) {
         // Target formats have changed
         grCmdBuffer->colorAttachmentCount = colorAttachmentCount;
         memcpy(grCmdBuffer->colorFormats, colorFormats, colorAttachmentCount * sizeof(VkFormat));
-        grCmdBuffer->hasDepthStencil = hasDepthStencil;
+        grCmdBuffer->hasDepth = hasDepth;
+        grCmdBuffer->hasStencil = hasStencil;
         grCmdBuffer->depthStencilFormat = depthStencilFormat;
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
