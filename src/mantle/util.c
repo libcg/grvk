@@ -445,8 +445,8 @@ VkAccessFlags getVkAccessFlagsImage(
                VK_ACCESS_SHADER_WRITE_BIT;
     case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
         return VK_ACCESS_SHADER_READ_BIT |
-               (isDepthStencil ? VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
-                               : VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+               (isDepthStencil ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+                               : VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
     case GR_IMAGE_STATE_UNINITIALIZED:
         return 0;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
