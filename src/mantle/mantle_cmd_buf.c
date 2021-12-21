@@ -1319,16 +1319,16 @@ GR_VOID GR_STDCALL grCmdWriteTimestamp(
         assert(false);
     }
 
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    VKD.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grCmdBuffer->timestampQueryPool, 0, 1);
+
     VKD.vkCmdWriteTimestamp(grCmdBuffer->commandBuffer, stageFlags,
                             grCmdBuffer->timestampQueryPool, 0);
-
-    grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdCopyQueryPoolResults(grCmdBuffer->commandBuffer, grCmdBuffer->timestampQueryPool,
                                   0, 1, grGpuMemory->buffer, destOffset, sizeof(uint64_t),
                                   VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
-
-    VKD.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grCmdBuffer->timestampQueryPool, 0, 1);
 }
 
 GR_VOID GR_STDCALL grCmdInitAtomicCounters(
