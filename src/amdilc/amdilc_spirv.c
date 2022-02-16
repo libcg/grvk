@@ -1,7 +1,7 @@
 #include "amdilc_internal.h"
 #include "amdilc_spirv.h"
 
-#define BUFFER_ALLOC_THRESHOLD 64
+#define BUFFER_ALLOC_FACTOR 1.5f // From FBVector
 
 static unsigned strlenw(
     const char* str)
@@ -10,17 +10,34 @@ static unsigned strlenw(
     return (strlen(str) + 4) / sizeof(IlcSpvWord);
 }
 
+static void putBuffer(
+    IlcSpvBuffer* buffer,
+    IlcSpvBuffer* otherBuffer)
+{
+    // Resize the buffer as needed
+    unsigned size = (buffer->wordCount + otherBuffer->wordCount) * sizeof(IlcSpvWord);
+    if (buffer->wordSize < size) {
+        // Grow the buffer exponentially to minimize allocations
+        buffer->wordSize = sizeof(IlcSpvWord);
+        while (buffer->wordSize < size) {
+            buffer->wordSize *= BUFFER_ALLOC_FACTOR;
+        }
+
+        buffer->words = realloc(buffer->words, buffer->wordSize);
+    }
+
+    memcpy(&buffer->words[buffer->wordCount], otherBuffer->words,
+           otherBuffer->wordCount * sizeof(IlcSpvWord));
+    buffer->wordCount += otherBuffer->wordCount;
+}
+
 static void putWord(
     IlcSpvBuffer* buffer,
     IlcSpvWord word)
 {
-    // Check if we need to resize the buffer
-    if (buffer->wordCount % BUFFER_ALLOC_THRESHOLD == 0) {
-        size_t size = sizeof(IlcSpvWord) * (buffer->wordCount + BUFFER_ALLOC_THRESHOLD);
-        buffer->words = realloc(buffer->words, size);
-    }
+    IlcSpvBuffer wordBuffer = { 1, sizeof(IlcSpvWord), &word };
 
-    buffer->words[buffer->wordCount++] = word;
+    putBuffer(buffer, &wordBuffer);
 }
 
 static void putInstr(
@@ -48,15 +65,6 @@ static void putString(
     }
 
     putWord(buffer, word);
-}
-
-static void putBuffer(
-    IlcSpvBuffer* buffer,
-    IlcSpvBuffer* otherBuffer)
-{
-    for (unsigned i = 0; i < otherBuffer->wordCount; i++) {
-        putWord(buffer, otherBuffer->words[i]);
-    }
 }
 
 static void putHeader(
@@ -200,7 +208,7 @@ void ilcSpvInit(
     module->currentId = 1;
     module->glsl450ImportId = ilcSpvAllocId(module);
     for (int i = 0; i < ID_MAX; i++) {
-        module->buffer[i] = (IlcSpvBuffer) { 0, NULL };
+        module->buffer[i] = (IlcSpvBuffer) { 0, 0, NULL };
     }
 
     ilcSpvPutCapability(module, SpvCapabilityShader);

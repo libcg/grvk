@@ -29,6 +29,7 @@ typedef IlcSpvWord IlcSpvId;
 
 typedef struct {
     unsigned wordCount;
+    unsigned wordSize;
     IlcSpvWord* words;
 } IlcSpvBuffer;
 
