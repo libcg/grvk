@@ -33,7 +33,7 @@ jobs:
       id: upload-artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: grvk-${{ github.sha }}.zip
+        name: grvk-${{ github.sha }}
         path: |
           mantle64.dll
           mantleaxl64.dll
