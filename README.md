@@ -11,7 +11,7 @@ This project is an attempt to revive Mantle and make it run everywhere.
 ## Getting the latest build
 
 Head over to the [Releases page](https://github.com/libcg/grvk/releases) for the latest stable build.
-Development builds are available on the [Actions page](https://github.com/libcg/grvk/actions).
+Development builds are available [here](https://github.com/libcg/grvk/actions?query=branch%3Amaster).
 
 ## Building manually
 
