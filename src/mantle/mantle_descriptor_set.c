@@ -97,7 +97,6 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GR_IMAGE_VIEW_ATTACH_INFO* info = &pImageViews[i];
         const GrImageView* grImageView = (GrImageView*)info->view;
-        bool isDepthStencil = isVkFormatDepthStencil(grImageView->format);
 
         releaseSlot(grDevice, slot);
 
@@ -107,7 +106,7 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
                 .imageInfo = {
                     .sampler = VK_NULL_HANDLE,
                     .imageView = grImageView->imageView,
-                    .imageLayout = getVkImageLayout(info->state, isDepthStencil),
+                    .imageLayout = getVkImageLayout(info->state),
                 },
             },
         };

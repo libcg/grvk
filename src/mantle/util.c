@@ -309,19 +309,8 @@ unsigned getVkFormatTileSize(
     }
 }
 
-bool isVkFormatDepthStencil(
-    VkFormat vkFormat)
-{
-    return vkFormat == VK_FORMAT_S8_UINT ||
-           vkFormat == VK_FORMAT_D16_UNORM ||
-           vkFormat == VK_FORMAT_D32_SFLOAT ||
-           vkFormat == VK_FORMAT_D16_UNORM_S8_UINT ||
-           vkFormat == VK_FORMAT_D32_SFLOAT_S8_UINT;
-}
-
 VkImageLayout getVkImageLayout(
-    GR_IMAGE_STATE imageState,
-    bool isDepthStencil)
+    GR_IMAGE_STATE imageState)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_DATA_TRANSFER:
@@ -337,14 +326,11 @@ VkImageLayout getVkImageLayout(
     case GR_IMAGE_STATE_COMPUTE_SHADER_READ_WRITE:
         return VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
-        // This state cannot be used with color targets
-        return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
     case GR_IMAGE_STATE_UNINITIALIZED:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
-        // TODO use VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR?
-        return isDepthStencil ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-                              : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
         // We could technically use an attachment layout here, but this is meant for
         // light rendering followed by shader access, so a general layout is best
@@ -423,8 +409,7 @@ VkImageUsageFlags getVkImageUsageFlags(
 }
 
 VkAccessFlags getVkAccessFlagsImage(
-    GR_IMAGE_STATE imageState,
-    bool isDepthStencil)
+    GR_IMAGE_STATE imageState)
 {
     switch (imageState) {
     case GR_IMAGE_STATE_DATA_TRANSFER:
@@ -445,16 +430,15 @@ VkAccessFlags getVkAccessFlagsImage(
                VK_ACCESS_SHADER_WRITE_BIT;
     case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
         return VK_ACCESS_SHADER_READ_BIT |
-               (isDepthStencil ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
-                               : VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
+               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
     case GR_IMAGE_STATE_UNINITIALIZED:
         return 0;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
-        return isDepthStencil ? VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
-                              : VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+               VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+               VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     case GR_IMAGE_STATE_CLEAR:
         return VK_ACCESS_TRANSFER_WRITE_BIT;
     case GR_IMAGE_STATE_DISCARD:
@@ -509,8 +493,7 @@ VkPipelineStageFlags getVkPipelineStageFlagsImage(
                VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
     case GR_IMAGE_STATE_UNINITIALIZED:
-        // TODO use VK_PIPELINE_STAGE_NONE_KHR
-        return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        return VK_PIPELINE_STAGE_NONE_KHR;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
         return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
@@ -519,8 +502,7 @@ VkPipelineStageFlags getVkPipelineStageFlagsImage(
     case GR_IMAGE_STATE_CLEAR:
         return VK_PIPELINE_STAGE_TRANSFER_BIT;
     case GR_IMAGE_STATE_DISCARD:
-        // TODO use VK_PIPELINE_STAGE_NONE_KHR
-        return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        return VK_PIPELINE_STAGE_NONE_KHR;
     default:
         break;
     }
@@ -613,8 +595,7 @@ VkPipelineStageFlags getVkPipelineStageFlagsMemory(
     case GR_MEMORY_STATE_WRITE_TIMESTAMP:
         return VK_PIPELINE_STAGE_TRANSFER_BIT;
     case GR_MEMORY_STATE_DISCARD:
-        // TODO use VK_PIPELINE_STAGE_NONE_KHR
-        return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        return VK_PIPELINE_STAGE_NONE_KHR;
     case GR_MEMORY_STATE_DATA_TRANSFER_SOURCE:
     case GR_MEMORY_STATE_DATA_TRANSFER_DESTINATION:
         return VK_PIPELINE_STAGE_TRANSFER_BIT;

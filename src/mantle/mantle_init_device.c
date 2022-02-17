@@ -533,9 +533,14 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = &demoteToHelperInvocation,
         .dynamicRendering = VK_TRUE,
     };
+    VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
+        .pNext = &dynamicRendering,
+        .synchronization2 = VK_TRUE,
+    };
     VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = &dynamicRendering,
+        .pNext = &synchronization2,
         .samplerMirrorClampToEdge = VK_TRUE,
         .separateDepthStencilLayouts = VK_TRUE,
     };
@@ -569,6 +574,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
     };
 
     const VkDeviceCreateInfo createInfo = {

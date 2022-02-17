@@ -65,12 +65,8 @@ unsigned getVkFormatTexelSize(
 unsigned getVkFormatTileSize(
     VkFormat vkFormat);
 
-bool isVkFormatDepthStencil(
-    VkFormat vkFormat);
-
 VkImageLayout getVkImageLayout(
-    GR_IMAGE_STATE imageState,
-    bool isDepthStencil);
+    GR_IMAGE_STATE imageState);
 
 VkImageTiling getVkImageTiling(
     GR_IMAGE_TILING imageTiling);
@@ -82,8 +78,7 @@ VkImageUsageFlags getVkImageUsageFlags(
     GR_IMAGE_USAGE_FLAGS imageUsageFlags);
 
 VkAccessFlags getVkAccessFlagsImage(
-    GR_IMAGE_STATE imageState,
-    bool isDepthStencil);
+    GR_IMAGE_STATE imageState);
 
 VkPipelineStageFlags getVkPipelineStageFlagsImage(
     GR_IMAGE_STATE imageState);
