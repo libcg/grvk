@@ -4,7 +4,7 @@
 #define SETS_PER_POOL   (2048)
 
 typedef enum _DirtyFlags {
-    FLAG_DIRTY_DESCRIPTOR_SETS      = 1u << 0,
+    FLAG_DIRTY_DESCRIPTOR_SET       = 1u << 0,
     FLAG_DIRTY_RENDER_PASS          = 1u << 1,
     FLAG_DIRTY_PIPELINE             = 1u << 2,
     FLAG_DIRTY_DYNAMIC_OFFSET       = 1u << 3,
@@ -48,7 +48,7 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
     const GrDescriptorSet* grDescriptorSet,
     unsigned slotOffset,
     const GR_DESCRIPTOR_SET_MAPPING* mapping,
-    uint32_t bindingIndex)
+    const IlcBinding* binding)
 {
     for (unsigned i = 0; i < mapping->descriptorCount; i++) {
         const GR_DESCRIPTOR_SLOT_INFO* slotInfo = &mapping->pDescriptorInfo[i];
@@ -66,7 +66,7 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
 
             const DescriptorSetSlot* nestedSlot =
                 getDescriptorSetSlot(slot->nested.nextSet, slot->nested.slotOffset,
-                                     slotInfo->pNextLevelSet, bindingIndex);
+                                     slotInfo->pNextLevelSet, binding);
             if (nestedSlot != NULL) {
                 return nestedSlot;
             } else {
@@ -74,14 +74,12 @@ static const DescriptorSetSlot* getDescriptorSetSlot(
             }
         }
 
-        uint32_t slotBinding = slotInfo->shaderEntityIndex;
-        if (slotInfo->slotObjectType == GR_SLOT_SHADER_SAMPLER) {
-            slotBinding += ILC_BASE_SAMPLER_ID;
-        } else {
-            slotBinding += ILC_BASE_RESOURCE_ID;
-        }
-
-        if (slotBinding == bindingIndex) {
+        if (binding->ilIndex == slotInfo->shaderEntityIndex &&
+            ((binding->type == ILC_BINDING_SAMPLER &&
+              slotInfo->slotObjectType == GR_SLOT_SHADER_SAMPLER) ||
+             (binding->type == ILC_BINDING_RESOURCE &&
+              (slotInfo->slotObjectType == GR_SLOT_SHADER_RESOURCE ||
+               slotInfo->slotObjectType == GR_SLOT_SHADER_UAV)))) {
             return slot;
         }
     }
@@ -113,18 +111,19 @@ static void updateVkDescriptorSet(
         const IlcBinding* binding = &grShader->bindings[i];
         const DescriptorSetSlot* slot;
 
-        if (dynamicMapping->slotObjectType != GR_SLOT_UNUSED &&
-            (binding->index == (ILC_BASE_RESOURCE_ID + dynamicMapping->shaderEntityIndex))) {
-            slot = dynamicMemoryView;
-        } else if (binding->index == ILC_ATOMIC_COUNTER_ID) {
+        if (binding->type == ILC_BINDING_ATOMIC_COUNTER) {
             slot = &grCmdBuffer->atomicCounterSlot;
+        } else if (dynamicMapping->slotObjectType != GR_SLOT_UNUSED &&
+                   binding->ilIndex == dynamicMapping->shaderEntityIndex &&
+                   binding->type == ILC_BINDING_RESOURCE) {
+            slot = dynamicMemoryView;
         } else {
             slot = getDescriptorSetSlot(grDescriptorSet, slotOffset,
-                                        &shaderInfo->descriptorSetMapping[0], binding->index);
+                                        &shaderInfo->descriptorSetMapping[0], binding);
         }
 
         if (slot == NULL) {
-            LOGE("can't find slot for binding %d\n", binding->index);
+            LOGE("can't find slot for binding %d %d\n", binding->type, binding->ilIndex);
             assert(false);
         }
 
@@ -132,7 +131,7 @@ static void updateVkDescriptorSet(
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = NULL,
             .dstSet = vkDescriptorSet,
-            .dstBinding = binding->index,
+            .dstBinding = binding->vkIndex,
             .dstArrayElement = 0,
             .descriptorCount = 1,
             .descriptorType = slot == dynamicMemoryView ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC
@@ -200,7 +199,7 @@ void grCmdBufferEndRenderPass(
     grCmdBuffer->isRendering = false;
 }
 
-static void grCmdBufferUpdateDescriptorSets(
+static void grCmdBufferUpdateDescriptorSet(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint vkBindPoint)
 {
@@ -215,12 +214,12 @@ static void grCmdBufferUpdateDescriptorSets(
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                 .pNext = NULL,
                 .descriptorPool = grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolIndex],
-                .descriptorSetCount = grPipeline->stageCount, // TODO optimize
-                .pSetLayouts = grPipeline->descriptorSetLayouts,
+                .descriptorSetCount = 1,
+                .pSetLayouts = &grPipeline->descriptorSetLayout,
             };
 
             vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo,
-                                                 bindPoint->descriptorSets);
+                                                 &bindPoint->descriptorSet);
             if (vkRes == VK_SUCCESS) {
                 break;
             } else if (vkRes != VK_ERROR_OUT_OF_POOL_MEMORY) {
@@ -248,15 +247,16 @@ static void grCmdBufferUpdateDescriptorSets(
         }
     }
 
+    // TODO do in a single pass
     for (unsigned i = 0; i < grPipeline->stageCount; i++) {
-        updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint->descriptorSets[i],
+        updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint->descriptorSet,
                               grPipeline->pipelineLayout, bindPoint->slotOffset,
                               &grPipeline->shaderInfos[i], bindPoint->grDescriptorSet,
                               &bindPoint->dynamicMemoryView);
     }
 }
 
-static void grCmdBufferBindDescriptorSets(
+static void grCmdBufferBindDescriptorSet(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint vkBindPoint)
 {
@@ -270,8 +270,8 @@ static void grCmdBufferBindDescriptorSets(
         dynamicOffsets[i] = bindPoint->dynamicOffset;
     }
 
-    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
-                                0, grPipeline->stageCount, bindPoint->descriptorSets,
+    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint,
+                                grPipeline->pipelineLayout, 0, 1, &bindPoint->descriptorSet,
                                 grPipeline->dynamicOffsetCount, dynamicOffsets);
 }
 
@@ -284,12 +284,12 @@ static void grCmdBufferUpdateResources(
     GrPipeline* grPipeline = bindPoint->grPipeline;
     uint32_t dirtyFlags = bindPoint->dirtyFlags;
 
-    if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SETS) {
-        grCmdBufferUpdateDescriptorSets(grCmdBuffer, vkBindPoint);
+    if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
+        grCmdBufferUpdateDescriptorSet(grCmdBuffer, vkBindPoint);
     }
 
-    if (dirtyFlags & (FLAG_DIRTY_DESCRIPTOR_SETS | FLAG_DIRTY_DYNAMIC_OFFSET)) {
-        grCmdBufferBindDescriptorSets(grCmdBuffer, vkBindPoint);
+    if (dirtyFlags & (FLAG_DIRTY_DESCRIPTOR_SET | FLAG_DIRTY_DYNAMIC_OFFSET)) {
+        grCmdBufferBindDescriptorSet(grCmdBuffer, vkBindPoint);
     }
 
     if (dirtyFlags & FLAG_DIRTY_RENDER_PASS) {
@@ -332,15 +332,14 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
     bindPoint->grPipeline = grPipeline;
 
     if (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
-        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS |
-                                 FLAG_DIRTY_PIPELINE;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET | FLAG_DIRTY_PIPELINE;
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
                               grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL,
                                                                0, NULL, VK_FORMAT_UNDEFINED));
 
-        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
     }
 }
 
@@ -487,7 +486,7 @@ GR_VOID GR_STDCALL grCmdBindDescriptorSet(
 
     bindPoint->grDescriptorSet = grDescriptorSet;
     bindPoint->slotOffset = slotOffset;
-    bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+    bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
 }
 
 GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
@@ -525,7 +524,7 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
             },
         };
 
-        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SETS;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
     }
 }
 

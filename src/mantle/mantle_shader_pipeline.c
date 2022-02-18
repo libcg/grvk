@@ -53,35 +53,42 @@ static void copyPipelineShader(
 static VkDescriptorSetLayout getVkDescriptorSetLayout(
     unsigned* dynamicOffsetCount,
     const GrDevice* grDevice,
-    const Stage* stage)
+    unsigned stageCount,
+    const Stage* stages)
 {
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     unsigned bindingCount = 0;
     VkDescriptorSetLayoutBinding* bindings = NULL;
 
-    if (stage->shader->shader != GR_NULL_HANDLE) {
+    for (unsigned i = 0; i < stageCount; i++) {
+        const Stage* stage = &stages[i];
         const GrShader* grShader = stage->shader->shader;
+
+        if (grShader == NULL) {
+            continue;
+        }
+
         const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicSlotInfo =
             &stage->shader->dynamicMemoryViewMapping;
 
-        bindingCount = grShader->bindingCount;
-        bindings = malloc(bindingCount * sizeof(VkDescriptorSetLayoutBinding));
-
-        for (unsigned i = 0; i < grShader->bindingCount; i++) {
-            const IlcBinding* binding = &grShader->bindings[i];
-
+        for (unsigned j = 0; j < grShader->bindingCount; j++) {
+            const IlcBinding* binding = &grShader->bindings[j];
             VkDescriptorType vkDescriptorType = binding->descriptorType;
 
-            if (dynamicSlotInfo->slotObjectType != GR_SLOT_UNUSED &&
-                dynamicSlotInfo->shaderEntityIndex + ILC_BASE_RESOURCE_ID == binding->index) {
+            if (binding->ilIndex == dynamicSlotInfo->shaderEntityIndex &&
+                binding->type == ILC_BINDING_RESOURCE &&
+                dynamicSlotInfo->slotObjectType != GR_SLOT_UNUSED) {
                 // Use dynamic offsets for dynamic memory views to avoid invalidating
                 // descriptor sets each time the buffer offset changes
                 vkDescriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
                 (*dynamicOffsetCount)++;
             }
 
-            bindings[i] = (VkDescriptorSetLayoutBinding) {
-                .binding = binding->index,
+            // Add new binding
+            bindingCount++;
+            bindings = realloc(bindings, bindingCount * sizeof(VkDescriptorSetLayoutBinding));
+            bindings[bindingCount - 1] = (VkDescriptorSetLayoutBinding) {
+                .binding = binding->vkIndex,
                 .descriptorType = vkDescriptorType,
                 .descriptorCount = 1,
                 .stageFlags = stage->flags,
@@ -109,9 +116,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
 static VkPipelineLayout getVkPipelineLayout(
     const GrDevice* grDevice,
-    unsigned stageCount,
-    const Stage* stages,
-    const VkDescriptorSetLayout* descriptorSetLayouts)
+    VkDescriptorSetLayout descriptorSetLayout)
 {
     VkPipelineLayout layout = VK_NULL_HANDLE;
 
@@ -125,8 +130,8 @@ static VkPipelineLayout getVkPipelineLayout(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .setLayoutCount = stageCount,
-        .pSetLayouts = descriptorSetLayouts,
+        .setLayoutCount = 1,
+        .pSetLayouts = &descriptorSetLayout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &pushConstantRange,
     };
@@ -456,7 +461,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     LOGT("%p %p %p\n", device, pCreateInfo, pPipeline);
     GrDevice* grDevice = (GrDevice*)device;
     GR_RESULT res = GR_SUCCESS;
-    VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT] = { VK_NULL_HANDLE };
+    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkShaderModule rectangleShaderModule = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
@@ -593,17 +598,14 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     memcpy(pipelineCreateInfo->colorWriteMasks, colorWriteMasks,
            GR_MAX_COLOR_TARGETS * sizeof(VkColorComponentFlags));
 
-    // Create one descriptor set layout per stage
-    for (unsigned i = 0; i < COUNT_OF(stages); i++) {
-        descriptorSetLayouts[i] = getVkDescriptorSetLayout(&dynamicOffsetCount,
-                                                           grDevice, &stages[i]);
-        if (descriptorSetLayouts[i] == VK_NULL_HANDLE) {
-            res = GR_ERROR_OUT_OF_MEMORY;
-            goto bail;
-        }
+    descriptorSetLayout = getVkDescriptorSetLayout(&dynamicOffsetCount, grDevice,
+                                                   MAX_STAGE_COUNT, stages);
+    if (descriptorSetLayout == VK_NULL_HANDLE) {
+        res = GR_ERROR_OUT_OF_MEMORY;
+        goto bail;
     }
 
-    pipelineLayout = getVkPipelineLayout(grDevice, COUNT_OF(stages), stages, descriptorSetLayouts);
+    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
@@ -619,13 +621,12 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .pipelineSlotsLock = SRWLOCK_INIT,
         .pipelineLayout = pipelineLayout,
         .stageCount = COUNT_OF(stages),
-        .descriptorSetLayouts = { 0 }, // Initialized below
+        .descriptorSetLayout = descriptorSetLayout,
         .shaderInfos = { { 0 } }, // Initialized below
         .dynamicOffsetCount = dynamicOffsetCount,
     };
 
     for (unsigned i = 0; i < COUNT_OF(stages); i++) {
-        grPipeline->descriptorSetLayouts[i] = descriptorSetLayouts[i];
         copyPipelineShader(&grPipeline->shaderInfos[i], stages[i].shader);
     }
 
@@ -633,9 +634,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     return GR_SUCCESS;
 
 bail:
-    for (unsigned i = 0; i < COUNT_OF(descriptorSetLayouts); i++) {
-        VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayouts[i], NULL);
-    }
+    VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayout, NULL);
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
     VKD.vkDestroyShaderModule(grDevice->device, rectangleShaderModule, NULL);
     return res;
@@ -676,13 +675,13 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .pSpecializationInfo = NULL,
     };
 
-    descriptorSetLayout = getVkDescriptorSetLayout(&dynamicOffsetCount, grDevice, &stage);
+    descriptorSetLayout = getVkDescriptorSetLayout(&dynamicOffsetCount, grDevice, 1, &stage);
     if (descriptorSetLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
     }
 
-    pipelineLayout = getVkPipelineLayout(grDevice, 1, &stage, &descriptorSetLayout);
+    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
@@ -722,7 +721,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .pipelineSlotsLock = SRWLOCK_INIT,
         .pipelineLayout = pipelineLayout,
         .stageCount = 1,
-        .descriptorSetLayouts = { descriptorSetLayout },
+        .descriptorSetLayout = descriptorSetLayout,
         .shaderInfos = { { 0 } }, // Initialized below
         .dynamicOffsetCount = dynamicOffsetCount,
     };

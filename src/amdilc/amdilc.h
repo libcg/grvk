@@ -6,15 +6,18 @@
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
-// TODO pack resource IDs
-#define ILC_ATOMIC_COUNTER_ID  (0)  // 0
-#define ILC_BASE_SAMPLER_ID    (1)  // 1-16
-#define ILC_BASE_RESOURCE_ID   (17) // 17+
-
 #define ILC_MAX_STRIDE_CONSTANTS    (8)
 
+typedef enum _IlcBindingType {
+    ILC_BINDING_ATOMIC_COUNTER,
+    ILC_BINDING_SAMPLER,
+    ILC_BINDING_RESOURCE,
+} IlcBindingType;
+
 typedef struct _IlcBinding {
-    uint32_t index;
+    IlcBindingType type;
+    uint32_t ilIndex;
+    uint32_t vkIndex; // Unique across shader stages
     VkDescriptorType descriptorType;
     int strideIndex; // Stride location in push constants (<0 means non-existent)
 } IlcBinding;

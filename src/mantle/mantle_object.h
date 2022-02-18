@@ -94,8 +94,8 @@ typedef struct _BindPoint
     GrDescriptorSet* grDescriptorSet;
     unsigned slotOffset;
     DescriptorSetSlot dynamicMemoryView;
-    VkDeviceSize dynamicOffset;
-    VkDescriptorSet descriptorSets[MAX_STAGE_COUNT];
+    uint32_t dynamicOffset;
+    VkDescriptorSet descriptorSet;
 } BindPoint;
 
 typedef struct _PipelineCreateInfo
@@ -285,7 +285,7 @@ typedef struct _GrPipeline {
     SRWLOCK pipelineSlotsLock;
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
-    VkDescriptorSetLayout descriptorSetLayouts[MAX_STAGE_COUNT];
+    VkDescriptorSetLayout descriptorSetLayout;
     GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
     unsigned dynamicOffsetCount;
 } GrPipeline;

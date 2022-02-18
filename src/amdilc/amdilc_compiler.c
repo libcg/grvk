@@ -299,42 +299,50 @@ static IlcSpvId emitVectorGrow(
 
 static void emitBinding(
     IlcCompiler* compiler,
+    IlcBindingType bindingType,
     IlcSpvId bindingId,
     IlcSpvWord ilId,
     VkDescriptorType vkDescriptorType,
     int strideIndex)
 {
-    unsigned descriptorSetIdx = 0;
+    unsigned vkIndex = 0;
 
+    // We want the Vulkan binding index to be unique across shader stages to use a single
+    // descriptor set, but the shaders are compiled in advance. Interleave the index based on the
+    // shader stage so there's no collision.
     switch (compiler->kernel->shaderType) {
     case IL_SHADER_VERTEX:
-    case IL_SHADER_COMPUTE:
-        descriptorSetIdx = 0;
+        vkIndex = compiler->bindingCount * 5 + 0;
         break;
     case IL_SHADER_HULL:
-        descriptorSetIdx = 1;
+        vkIndex = compiler->bindingCount * 5 + 1;
         break;
     case IL_SHADER_DOMAIN:
-        descriptorSetIdx = 2;
+        vkIndex = compiler->bindingCount * 5 + 2;
         break;
     case IL_SHADER_GEOMETRY:
-        descriptorSetIdx = 3;
+        vkIndex = compiler->bindingCount * 5 + 3;
         break;
     case IL_SHADER_PIXEL:
-        descriptorSetIdx = 4;
+        vkIndex = compiler->bindingCount * 5 + 4;
+        break;
+    case IL_SHADER_COMPUTE:
+        vkIndex = compiler->bindingCount;
         break;
     default:
         assert(0);
     }
 
-    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationDescriptorSet,
-                        1, &descriptorSetIdx);
-    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationBinding, 1, &ilId);
+    IlcSpvWord zero = 0;
+    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationDescriptorSet, 1, &zero);
+    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationBinding, 1, &vkIndex);
 
     compiler->bindingCount++;
     compiler->bindings = realloc(compiler->bindings, compiler->bindingCount * sizeof(IlcBinding));
     compiler->bindings[compiler->bindingCount - 1] = (IlcBinding) {
-        .index = ilId,
+        .type = bindingType,
+        .ilIndex = ilId,
+        .vkIndex = vkIndex,
         .descriptorType = vkDescriptorType,
         .strideIndex = strideIndex,
     };
@@ -488,7 +496,7 @@ static const IlcSampler* findOrCreateSampler(
         IlcSpvId samplerId = ilcSpvPutVariable(compiler->module, pointerId,
                                                SpvStorageClassUniformConstant);
 
-        emitBinding(compiler, samplerId, ILC_BASE_SAMPLER_ID + ilId, VK_DESCRIPTOR_TYPE_SAMPLER,
+        emitBinding(compiler, ILC_BINDING_SAMPLER, samplerId, ilId, VK_DESCRIPTOR_TYPE_SAMPLER,
                     NO_STRIDE_INDEX);
 
         const IlcSampler newSampler = {
@@ -1216,7 +1224,7 @@ static void emitResource(
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
 
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
+    emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id,
                 spvDim == SpvDimBuffer ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER :
                                          VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                 NO_STRIDE_INDEX);
@@ -1284,7 +1292,7 @@ static void emitTypedUav(
                                             SpvStorageClassUniformConstant);
 
     ilcSpvPutName(compiler->module, imageId, "typedUav");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id,
+    emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id,
                 spvDim == SpvDimBuffer ? VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER :
                                          VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 NO_STRIDE_INDEX);
@@ -1323,7 +1331,7 @@ static void emitUav(
     ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset, 1, &memberOffset);
 
     ilcSpvPutName(compiler->module, arrayId, isStructured ? "structUav" : "rawUav");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 NO_STRIDE_INDEX);
 
     IlcSpvId strideId = 0;
@@ -1369,7 +1377,7 @@ static void emitSrv(
     ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationNonWritable, 0, NULL);
 
     ilcSpvPutName(compiler->module, arrayId, isStructured ? "structSrv" : "rawSrv");
-    emitBinding(compiler, resourceId, ILC_BASE_RESOURCE_ID + id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 isStructured ? NO_STRIDE_INDEX : compiler->currentStrideIndex);
 
     IlcSpvId strideId = 0;
@@ -2768,8 +2776,8 @@ static void emitAppendBufOp(
                                   1, &memberOffset);
 
         ilcSpvPutName(compiler->module, arrayId, "atomicCounter");
-        emitBinding(compiler, resourceId, ILC_ATOMIC_COUNTER_ID, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                    NO_STRIDE_INDEX);
+        emitBinding(compiler, ILC_BINDING_ATOMIC_COUNTER, resourceId, 0,
+                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, NO_STRIDE_INDEX);
 
         const IlcResource atomicCounterResource = {
             .resType = RES_TYPE_ATOMIC_COUNTER,
