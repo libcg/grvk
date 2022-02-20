@@ -16,7 +16,7 @@ jobs:
 
     - name: Build release
       id: build-release
-      uses: Joshua-Ashton/arch-mingw-github-action@v6
+      uses: Joshua-Ashton/arch-mingw-github-action@v7
       with:
         command: |
           meson --cross-file build-win64.txt --prefix $(pwd) --buildtype release build.w64
