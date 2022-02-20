@@ -73,9 +73,20 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_MSAA_STATE_OBJECT:
         // Nothing to do
         break;
-    case GR_OBJ_TYPE_PIPELINE:
-        // TODO
-        break;
+    case GR_OBJ_TYPE_PIPELINE: {
+        GrPipeline* grPipeline = (GrPipeline*)grObject;
+
+        // FIXME destroy shader modules
+        free(grPipeline->createInfo);
+        for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
+            PipelineSlot* slot = &grPipeline->pipelineSlots[i];
+            VKD.vkDestroyPipeline(grDevice->device, slot->pipeline, NULL);
+        }
+        free(grPipeline->pipelineSlots);
+        VKD.vkDestroyPipelineLayout(grDevice->device, grPipeline->pipelineLayout, NULL);
+        VKD.vkDestroyDescriptorSetLayout(grDevice->device, grPipeline->descriptorSetLayout, NULL);
+        free(grPipeline->descriptorEntries);
+    }   break;
     case GR_OBJ_TYPE_QUEUE_SEMAPHORE: {
         GrQueueSemaphore* grQueueSemaphore = (GrQueueSemaphore*)grObject;
 
