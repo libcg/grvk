@@ -89,9 +89,14 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         VKD.vkDestroySampler(grDevice->device, grSampler->sampler, NULL);
     }   break;
-    case GR_OBJ_TYPE_SHADER:
-        // FIXME actually destroy it?
-        return GR_SUCCESS;
+    case GR_OBJ_TYPE_SHADER: {
+        GrShader* grShader = (GrShader*)grObject;
+
+        // FIXME the shader modules are used for deferred pipeline creation
+        free(grShader->bindings);
+        free(grShader->inputs);
+        free(grShader->name);
+    }   break;
     case GR_OBJ_TYPE_QUERY_POOL: {
         GrQueryPool* grQueryPool = (GrQueryPool*)grObject;
 
