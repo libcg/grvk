@@ -9,6 +9,7 @@
 #include "amdilc.h"
 
 #define MAX_STAGE_COUNT     5 // VS, HS, DS, GS, PS
+#define MAX_PATH_DEPTH      8 // Levels of nested descriptor sets
 
 #define UNIVERSAL_ATOMIC_COUNTERS_COUNT (512)
 #define COMPUTE_ATOMIC_COUNTERS_COUNT   (1024)
@@ -97,6 +98,13 @@ typedef struct _BindPoint
     uint32_t dynamicOffset;
     VkDescriptorSet descriptorSet;
 } BindPoint;
+
+typedef struct {
+    IlcBinding ilcBinding;
+    bool isDynamic;
+    unsigned pathDepth;
+    unsigned path[MAX_PATH_DEPTH];
+} DescriptorEntry;
 
 typedef struct _PipelineCreateInfo
 {
@@ -286,7 +294,8 @@ typedef struct _GrPipeline {
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayout;
-    GR_PIPELINE_SHADER shaderInfos[MAX_STAGE_COUNT];
+    unsigned descriptorEntryCount;
+    DescriptorEntry* descriptorEntries;
     unsigned dynamicOffsetCount;
 } GrPipeline;
 

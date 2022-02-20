@@ -44,115 +44,61 @@ static VkDescriptorPool getVkDescriptorPool(
     return descriptorPool;
 }
 
-static const DescriptorSetSlot* getDescriptorSetSlot(
-    const GrDescriptorSet* grDescriptorSet,
-    unsigned slotOffset,
-    const GR_DESCRIPTOR_SET_MAPPING* mapping,
-    const IlcBinding* binding)
-{
-    for (unsigned i = 0; i < mapping->descriptorCount; i++) {
-        const GR_DESCRIPTOR_SLOT_INFO* slotInfo = &mapping->pDescriptorInfo[i];
-        const DescriptorSetSlot* slot = &grDescriptorSet->slots[slotOffset + i];
-
-        if (slotInfo->slotObjectType == GR_SLOT_UNUSED) {
-            continue;
-        } else if (slotInfo->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
-            if (slot->type == SLOT_TYPE_NONE) {
-                continue;
-            } else if (slot->type != SLOT_TYPE_NESTED) {
-                LOGE("unexpected slot type %d (should be nested)\n", slot->type);
-                assert(false);
-            }
-
-            const DescriptorSetSlot* nestedSlot =
-                getDescriptorSetSlot(slot->nested.nextSet, slot->nested.slotOffset,
-                                     slotInfo->pNextLevelSet, binding);
-            if (nestedSlot != NULL) {
-                return nestedSlot;
-            } else {
-                continue;
-            }
-        }
-
-        if (binding->ilIndex == slotInfo->shaderEntityIndex &&
-            ((binding->type == ILC_BINDING_SAMPLER &&
-              slotInfo->slotObjectType == GR_SLOT_SHADER_SAMPLER) ||
-             (binding->type == ILC_BINDING_RESOURCE &&
-              (slotInfo->slotObjectType == GR_SLOT_SHADER_RESOURCE ||
-               slotInfo->slotObjectType == GR_SLOT_SHADER_UAV)))) {
-            return slot;
-        }
-    }
-
-    return NULL;
-}
-
 static void updateVkDescriptorSet(
     const GrDevice* grDevice,
     GrCmdBuffer* grCmdBuffer,
-    VkDescriptorSet vkDescriptorSet,
-    VkPipelineLayout vkPipelineLayout,
-    unsigned slotOffset,
-    const GR_PIPELINE_SHADER* shaderInfo,
-    const GrDescriptorSet* grDescriptorSet,
-    const DescriptorSetSlot* dynamicMemoryView)
+    const BindPoint* bindPoint,
+    const GrPipeline* grPipeline)
 {
-    const GrShader* grShader = (GrShader*)shaderInfo->shader;
-    const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping = &shaderInfo->dynamicMemoryViewMapping;
+    STACK_ARRAY(VkWriteDescriptorSet, writes, 64, grPipeline->descriptorEntryCount);
 
-    if (grShader == NULL) {
-        // Nothing to update
-        return;
-    }
+    for (unsigned i = 0; i < grPipeline->descriptorEntryCount; i++) {
+        const DescriptorEntry* entry = &grPipeline->descriptorEntries[i];
+        const DescriptorSetSlot* slot = NULL;
 
-    STACK_ARRAY(VkWriteDescriptorSet, writes, 64, grShader->bindingCount);
-
-    for (unsigned i = 0; i < grShader->bindingCount; i++) {
-        const IlcBinding* binding = &grShader->bindings[i];
-        const DescriptorSetSlot* slot;
-
-        if (binding->type == ILC_BINDING_ATOMIC_COUNTER) {
+        if (entry->ilcBinding.type == ILC_BINDING_ATOMIC_COUNTER) {
             slot = &grCmdBuffer->atomicCounterSlot;
-        } else if (dynamicMapping->slotObjectType != GR_SLOT_UNUSED &&
-                   binding->ilIndex == dynamicMapping->shaderEntityIndex &&
-                   binding->type == ILC_BINDING_RESOURCE) {
-            slot = dynamicMemoryView;
+        } else if (entry->isDynamic) {
+            slot = &bindPoint->dynamicMemoryView;
         } else {
-            slot = getDescriptorSetSlot(grDescriptorSet, slotOffset,
-                                        &shaderInfo->descriptorSetMapping[0], binding);
-        }
+            const GrDescriptorSet* nextSet = bindPoint->grDescriptorSet;
+            unsigned nextSetOffset = bindPoint->slotOffset;
 
-        if (slot == NULL) {
-            LOGE("can't find slot for binding %d %d\n", binding->type, binding->ilIndex);
-            assert(false);
+            // Walk down the descriptor set to find the right slot
+            for (unsigned j = 0; j < entry->pathDepth; j++) {
+                slot = &nextSet->slots[nextSetOffset + entry->path[j]];
+
+                nextSet = slot->nested.nextSet;
+                nextSetOffset = slot->nested.slotOffset;
+            }
         }
 
         writes[i] = (VkWriteDescriptorSet) {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .pNext = NULL,
-            .dstSet = vkDescriptorSet,
-            .dstBinding = binding->vkIndex,
+            .dstSet = bindPoint->descriptorSet,
+            .dstBinding = entry->ilcBinding.vkIndex,
             .dstArrayElement = 0,
             .descriptorCount = 1,
-            .descriptorType = slot == dynamicMemoryView ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC
-                                                        : binding->descriptorType,
+            .descriptorType = entry->isDynamic ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC
+                                               : entry->ilcBinding.descriptorType,
             .pImageInfo = &slot->image.imageInfo,
             .pBufferInfo = &slot->buffer.bufferInfo,
             .pTexelBufferView = &slot->buffer.bufferView,
         };
 
-        if (slot->type == SLOT_TYPE_BUFFER && binding->strideIndex >= 0) {
+        if (slot->type == SLOT_TYPE_BUFFER && entry->ilcBinding.strideIndex >= 0) {
             // Pass buffer stride through push constants
             uint32_t stride = slot->buffer.stride;
 
-            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, vkPipelineLayout,
+            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, grPipeline->pipelineLayout,
                                    VK_SHADER_STAGE_VERTEX_BIT,
-                                   binding->strideIndex * sizeof(uint32_t),
+                                   entry->ilcBinding.strideIndex * sizeof(uint32_t),
                                    sizeof(uint32_t), &stride);
         }
     }
 
-    VKD.vkUpdateDescriptorSets(grDevice->device, grShader->bindingCount, writes, 0, NULL);
+    VKD.vkUpdateDescriptorSets(grDevice->device, grPipeline->descriptorEntryCount, writes, 0, NULL);
 
     STACK_ARRAY_FINISH(writes);
 }
@@ -247,13 +193,7 @@ static void grCmdBufferUpdateDescriptorSet(
         }
     }
 
-    // TODO do in a single pass
-    for (unsigned i = 0; i < grPipeline->stageCount; i++) {
-        updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint->descriptorSet,
-                              grPipeline->pipelineLayout, bindPoint->slotOffset,
-                              &grPipeline->shaderInfos[i], bindPoint->grDescriptorSet,
-                              &bindPoint->dynamicMemoryView);
-    }
+    updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint, grPipeline);
 }
 
 static void grCmdBufferBindDescriptorSet(
