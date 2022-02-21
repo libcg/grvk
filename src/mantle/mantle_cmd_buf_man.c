@@ -117,26 +117,10 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .atomicCounterSlot = atomicCounterSlot,
         .descriptorPoolCount = 0,
         .descriptorPools = NULL,
-        .isBuilding = false,
-        .isRendering = false,
         .descriptorPoolIndex = 0,
-        .submitFence = NULL,
-        .bindPoints = { { 0 }, { 0 } },
-        .grViewportState = NULL,
-        .grRasterState = NULL,
-        .grMsaaState = NULL,
-        .grDepthStencilState = NULL,
-        .grColorBlendState = NULL,
-        .colorAttachmentCount = 0,
-        .colorAttachments = { { 0 } },
-        .colorFormats = { 0 },
-        .hasDepth = false,
-        .hasStencil = false,
-        .depthAttachment = { 0 },
-        .stencilAttachment = { 0 },
-        .depthStencilFormat = VK_FORMAT_UNDEFINED,
-        .minExtent = { 0, 0, 0 },
     };
+
+    grCmdBufferResetState(grCmdBuffer);
 
     *pCmdBuffer = (GR_CMD_BUFFER)grCmdBuffer;
     return GR_SUCCESS;
