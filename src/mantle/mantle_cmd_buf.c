@@ -492,8 +492,6 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    grCmdBufferEndRenderPass(grCmdBuffer);
-
     STACK_ARRAY(VkBufferMemoryBarrier, barriers, 128, transitionCount);
     VkPipelineStageFlags srcStageMask = 0;
     VkPipelineStageFlags dstStageMask = 0;
@@ -653,8 +651,6 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
     LOGT("%p %u %p\n", cmdBuffer, transitionCount, pStateTransitions);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-
-    grCmdBufferEndRenderPass(grCmdBuffer);
 
     STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
     VkPipelineStageFlags srcStageMask = 0;
