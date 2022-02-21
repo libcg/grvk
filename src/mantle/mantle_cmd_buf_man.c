@@ -186,6 +186,7 @@ GR_RESULT GR_STDCALL grEndCommandBuffer(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
+    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VkResult res = VKD.vkEndCommandBuffer(grCmdBuffer->commandBuffer);
