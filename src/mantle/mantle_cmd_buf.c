@@ -254,9 +254,11 @@ static void grCmdBufferUpdateResources(
 void grCmdBufferFlushBarriers(
     GrCmdBuffer* grCmdBuffer)
 {
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-
     if (grCmdBuffer->bufferBarrierCount > 0 || grCmdBuffer->imageBarrierCount > 0) {
+        const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+        grCmdBufferEndRenderPass(grCmdBuffer);
+
         VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
                                  grCmdBuffer->srcStageMask, grCmdBuffer->dstStageMask, 0, 0, NULL,
                                  grCmdBuffer->bufferBarrierCount, grCmdBuffer->bufferBarriers,
