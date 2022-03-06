@@ -54,22 +54,18 @@ static void updateVkDescriptorSet(
 
     for (unsigned i = 0; i < grPipeline->descriptorEntryCount; i++) {
         const DescriptorEntry* entry = &grPipeline->descriptorEntries[i];
-        const DescriptorSetSlot* slot = NULL;
+        const DescriptorSetSlot* slot;
 
         if (entry->ilcBinding.type == ILC_BINDING_ATOMIC_COUNTER) {
             slot = &grCmdBuffer->atomicCounterSlot;
         } else if (entry->isDynamic) {
             slot = &bindPoint->dynamicMemoryView;
         } else {
-            const GrDescriptorSet* nextSet = bindPoint->grDescriptorSet;
-            unsigned nextSetOffset = bindPoint->slotOffset;
+            slot = &bindPoint->grDescriptorSet->slots[bindPoint->slotOffset + entry->path[0]];
 
-            // Walk down the descriptor set to find the right slot
-            for (unsigned j = 0; j < entry->pathDepth; j++) {
-                slot = &nextSet->slots[nextSetOffset + entry->path[j]];
-
-                nextSet = slot->nested.nextSet;
-                nextSetOffset = slot->nested.slotOffset;
+            // Walk down nested descriptor sets to find the right slot
+            for (unsigned j = 1; j < entry->pathDepth; j++) {
+                slot = &slot->nested.nextSet->slots[slot->nested.slotOffset + entry->path[j]];
             }
         }
 
