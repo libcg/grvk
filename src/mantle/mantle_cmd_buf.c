@@ -83,7 +83,7 @@ static void updateVkDescriptorSet(
             .pTexelBufferView = &slot->buffer.bufferView,
         };
 
-        if (slot->type == SLOT_TYPE_BUFFER && entry->ilcBinding.strideIndex >= 0) {
+        if (entry->ilcBinding.strideIndex >= 0) {
             // Pass buffer stride through push constants
             uint32_t stride = slot->buffer.stride;
 
