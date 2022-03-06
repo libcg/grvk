@@ -6,10 +6,12 @@
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
+#define DESCRIPTOR_SET_ID           (0)
+#define ATOMIC_COUNTER_SET_ID       (1)
+
 #define ILC_MAX_STRIDE_CONSTANTS    (8)
 
 typedef enum _IlcBindingType {
-    ILC_BINDING_ATOMIC_COUNTER,
     ILC_BINDING_SAMPLER,
     ILC_BINDING_RESOURCE,
 } IlcBindingType;

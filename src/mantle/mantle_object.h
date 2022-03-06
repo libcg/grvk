@@ -156,7 +156,8 @@ typedef struct _GrCmdBuffer {
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
     VkQueryPool timestampQueryPool;
-    DescriptorSetSlot atomicCounterSlot;
+    VkBuffer atomicCounterBuffer;
+    VkDescriptorSet atomicCounterSet;
     // Resource tracking
     unsigned descriptorPoolCount;
     VkDescriptorPool* descriptorPools;
@@ -237,11 +238,14 @@ typedef struct _GrDevice {
     VkDevice device;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;
+    VkDescriptorSetLayout atomicCounterSetLayout;
     GrQueue* grUniversalQueue;
     GrQueue* grComputeQueue;
     GrQueue* grDmaQueue;
     VkBuffer universalAtomicCounterBuffer;
+    VkDescriptorSet universalAtomicCounterSet;
     VkBuffer computeAtomicCounterBuffer;
+    VkDescriptorSet computeAtomicCounterSet;
     GrBorderColorPalette* grBorderColorPalette;
 } GrDevice;
 

@@ -20,6 +20,35 @@ static char* getGrvkEngineName(
     return grvkEngineName;
 }
 
+static VkDescriptorSetLayout getAtomicCounterDescriptorSetLayout(
+    const GrDevice* grDevice)
+{
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+
+    const VkDescriptorSetLayoutBinding binding = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_ALL,
+        .pImmutableSamplers = NULL,
+    };
+
+    const VkDescriptorSetLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .bindingCount = 1,
+        .pBindings = &binding,
+    };
+
+    VkResult res = VKD.vkCreateDescriptorSetLayout(grDevice->device, &createInfo, NULL, &layout);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
+    }
+
+    return layout;
+}
+
 static VkBuffer allocateAtomicCounterBuffer(
     const GrDevice* grDevice,
     unsigned slotCount)
@@ -77,6 +106,76 @@ static VkBuffer allocateAtomicCounterBuffer(
     }
 
     return vkBuffer;
+}
+
+static VkDescriptorSet getAtomicCounterDescriptorSet(
+    const GrDevice* grDevice,
+    VkDescriptorSetLayout descriptorSetLayout,
+    VkBuffer buffer)
+{
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkResult res;
+
+    // Create descriptor pool
+    const VkDescriptorPoolSize poolSize = {
+        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+    };
+
+    const VkDescriptorPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize,
+    };
+
+    res = VKD.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL, &descriptorPool);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateDescriptorPool failed (%d)\n", res);
+        assert(false);
+    }
+
+    // Allocate descriptor set
+    const VkDescriptorSetAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = NULL,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &descriptorSetLayout,
+    };
+
+    res = VKD.vkAllocateDescriptorSets(grDevice->device, &allocateInfo, &descriptorSet);
+    if (res != VK_SUCCESS) {
+        LOGE("vkAllocateDescriptorSets failed (%d)\n", res);
+        assert(false);
+    }
+
+    // Update atomic counter descriptor
+    const VkDescriptorBufferInfo bufferInfo = {
+        .buffer = buffer,
+        .offset = 0,
+        .range = VK_WHOLE_SIZE,
+    };
+
+    const VkWriteDescriptorSet writeDescriptorSet = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = NULL,
+        .dstSet = descriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pImageInfo = NULL,
+        .pBufferInfo = &bufferInfo,
+        .pTexelBufferView = NULL,
+    };
+
+    VKD.vkUpdateDescriptorSets(grDevice->device, 1, &writeDescriptorSet, 0, NULL);
+
+    return descriptorSet;
 }
 
 // Initialization and Device Functions
@@ -617,25 +716,36 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
+        .atomicCounterSetLayout = VK_NULL_HANDLE, // Initialized below
         .grUniversalQueue = NULL, // Initialized below
         .grComputeQueue = NULL, // Initialized below
         .grDmaQueue = NULL, // Initialized below
         .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
+        .universalAtomicCounterSet = VK_NULL_HANDLE, // Initialized below
         .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
+        .computeAtomicCounterSet = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
     };
+
+    grDevice->atomicCounterSetLayout = getAtomicCounterDescriptorSetLayout(grDevice);
 
     if (universalQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grUniversalQueue =
             grQueueCreate(grDevice, universalQueueFamilyIndex, universalQueueIndex);
         grDevice->universalAtomicCounterBuffer =
             allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
+        grDevice->universalAtomicCounterSet =
+            getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
+                                          grDevice->universalAtomicCounterBuffer);
     }
     if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grComputeQueue =
             grQueueCreate(grDevice, computeQueueFamilyIndex, computeQueueIndex);
         grDevice->computeAtomicCounterBuffer =
             allocateAtomicCounterBuffer(grDevice, COMPUTE_ATOMIC_COUNTERS_COUNT);
+        grDevice->computeAtomicCounterSet =
+            getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
+                                          grDevice->computeAtomicCounterBuffer);
     }
     if (dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grDmaQueue = grQueueCreate(grDevice, dmaQueueFamilyIndex, dmaQueueIndex);

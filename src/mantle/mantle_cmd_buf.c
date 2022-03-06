@@ -56,9 +56,7 @@ static void updateVkDescriptorSet(
         const DescriptorEntry* entry = &grPipeline->descriptorEntries[i];
         const DescriptorSetSlot* slot;
 
-        if (entry->ilcBinding.type == ILC_BINDING_ATOMIC_COUNTER) {
-            slot = &grCmdBuffer->atomicCounterSlot;
-        } else if (entry->isDynamic) {
+        if (entry->isDynamic) {
             slot = &bindPoint->dynamicMemoryView;
         } else {
             slot = &bindPoint->grDescriptorSet->slots[bindPoint->slotOffset + entry->path[0]];
@@ -200,14 +198,19 @@ static void grCmdBufferBindDescriptorSet(
     const BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
     const GrPipeline* grPipeline = bindPoint->grPipeline;
 
+    const VkDescriptorSet descriptorSets[] = {
+        bindPoint->descriptorSet,
+        grCmdBuffer->atomicCounterSet,
+    };
+
     uint32_t dynamicOffsets[MAX_STAGE_COUNT];
 
     for (unsigned i = 0; i < grPipeline->dynamicOffsetCount; i++) {
         dynamicOffsets[i] = bindPoint->dynamicOffset;
     }
 
-    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint,
-                                grPipeline->pipelineLayout, 0, 1, &bindPoint->descriptorSet,
+    VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
+                                0, COUNT_OF(descriptorSets), descriptorSets,
                                 grPipeline->dynamicOffsetCount, dynamicOffsets);
 }
 
@@ -1311,7 +1314,6 @@ GR_VOID GR_STDCALL grCmdInitAtomicCounters(
     LOGT("%p 0x%X %u %u %p\n", cmdBuffer, pipelineBindPoint, startCounter, counterCount, pData);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    VkBuffer atomicCounterBuffer = grCmdBuffer->atomicCounterSlot.buffer.bufferInfo.buffer;
 
     grCmdBufferEndRenderPass(grCmdBuffer);
 
@@ -1325,7 +1327,7 @@ GR_VOID GR_STDCALL grCmdInitAtomicCounters(
         .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .buffer = atomicCounterBuffer,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
         .offset = offset,
         .size = size,
     };
@@ -1335,7 +1337,8 @@ GR_VOID GR_STDCALL grCmdInitAtomicCounters(
                              VK_PIPELINE_STAGE_TRANSFER_BIT,
                              0, 0, NULL, 1, &preUpdateBarrier, 0, NULL);
 
-    VKD.vkCmdUpdateBuffer(grCmdBuffer->commandBuffer, atomicCounterBuffer, offset, size, pData);
+    VKD.vkCmdUpdateBuffer(grCmdBuffer->commandBuffer, grCmdBuffer->atomicCounterBuffer,
+                          offset, size, pData);
 
     const VkBufferMemoryBarrier postUpdateBarrier = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -1347,7 +1350,7 @@ GR_VOID GR_STDCALL grCmdInitAtomicCounters(
                          VK_ACCESS_TRANSFER_WRITE_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .buffer = atomicCounterBuffer,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
         .offset = offset,
         .size = size,
     };
@@ -1376,7 +1379,6 @@ GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
-    VkBuffer atomicCounterBuffer = grCmdBuffer->atomicCounterSlot.buffer.bufferInfo.buffer;
 
     grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
@@ -1397,7 +1399,7 @@ GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
         .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .buffer = atomicCounterBuffer,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
         .offset = bufferCopy.srcOffset,
         .size = bufferCopy.size,
     };
@@ -1412,7 +1414,7 @@ GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
                              VK_PIPELINE_STAGE_TRANSFER_BIT,
                              0, 0, NULL, 1, &preCopyBarrier, 0, NULL);
 
-    VKD.vkCmdCopyBuffer(grCmdBuffer->commandBuffer, atomicCounterBuffer,
+    VKD.vkCmdCopyBuffer(grCmdBuffer->commandBuffer, grCmdBuffer->atomicCounterBuffer,
                         grDstGpuMemory->buffer, 1, &bufferCopy);
 
     const VkBufferMemoryBarrier postCopyBarrier = {
@@ -1425,7 +1427,7 @@ GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
                          VK_ACCESS_TRANSFER_WRITE_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .buffer = atomicCounterBuffer,
+        .buffer = grCmdBuffer->atomicCounterBuffer,
         .offset = bufferCopy.srcOffset,
         .size = bufferCopy.size,
     };

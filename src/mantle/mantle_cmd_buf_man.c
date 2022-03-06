@@ -86,27 +86,15 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
 
     VKD.vkCreateQueryPool(grDevice->device, &queryPoolCreateInfo, NULL, &vkQueryPool);
 
-    VkBuffer atomicCounterBuffer;
+    VkBuffer atomicCounterBuffer = VK_NULL_HANDLE;
+    VkDescriptorSet atomicCounterSet = VK_NULL_HANDLE;
     if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
         atomicCounterBuffer = grDevice->universalAtomicCounterBuffer;
+        atomicCounterSet = grDevice->universalAtomicCounterSet;
     } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
         atomicCounterBuffer = grDevice->computeAtomicCounterBuffer;
-    } else {
-        atomicCounterBuffer = VK_NULL_HANDLE;
+        atomicCounterSet = grDevice->computeAtomicCounterSet;
     }
-
-    const DescriptorSetSlot atomicCounterSlot = {
-        .type = SLOT_TYPE_BUFFER,
-        .buffer = {
-            .bufferView = VK_NULL_HANDLE,
-            .bufferInfo = {
-                .buffer = atomicCounterBuffer,
-                .offset = 0,
-                .range = VK_WHOLE_SIZE,
-            },
-            .stride = 0, // Ignored
-        },
-    };
 
     GrCmdBuffer* grCmdBuffer = malloc(sizeof(GrCmdBuffer));
     *grCmdBuffer = (GrCmdBuffer) {
@@ -114,7 +102,8 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .commandPool = vkCommandPool,
         .commandBuffer = vkCommandBuffer,
         .timestampQueryPool = vkQueryPool,
-        .atomicCounterSlot = atomicCounterSlot,
+        .atomicCounterBuffer = atomicCounterBuffer,
+        .atomicCounterSet = atomicCounterSet,
         .descriptorPoolCount = 0,
         .descriptorPools = NULL,
         .descriptorPoolIndex = 0,

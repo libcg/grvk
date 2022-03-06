@@ -78,11 +78,9 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
                 .path = { 0 },
             };
 
-            if (binding->type == ILC_BINDING_ATOMIC_COUNTER) {
-                // Nothing to do
-            } else if (dynamicSlotInfo->slotObjectType != GR_SLOT_UNUSED &&
-                       binding->ilIndex == dynamicSlotInfo->shaderEntityIndex &&
-                       binding->type == ILC_BINDING_RESOURCE) {
+            if (dynamicSlotInfo->slotObjectType != GR_SLOT_UNUSED &&
+                binding->ilIndex == dynamicSlotInfo->shaderEntityIndex &&
+                binding->type == ILC_BINDING_RESOURCE) {
                 // Use dynamic offsets for dynamic memory views to avoid invalidating
                 // descriptor sets each time the buffer offset changes
                 entry.isDynamic = true;
@@ -134,11 +132,17 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
 
 static VkPipelineLayout getVkPipelineLayout(
     const GrDevice* grDevice,
-    VkDescriptorSetLayout descriptorSetLayout)
+    VkDescriptorSetLayout descriptorSetLayout,
+    VkDescriptorSetLayout atomicSetLayout)
 {
-    VkPipelineLayout layout = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
-    VkPushConstantRange pushConstantRange = {
+    const VkDescriptorSetLayout setLayouts[] = {
+        descriptorSetLayout,
+        atomicSetLayout,
+    };
+
+    const VkPushConstantRange pushConstantRange = {
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
         .offset = 0,
         .size = ILC_MAX_STRIDE_CONSTANTS * sizeof(uint32_t),
@@ -148,18 +152,18 @@ static VkPipelineLayout getVkPipelineLayout(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSetLayout,
+        .setLayoutCount = COUNT_OF(setLayouts),
+        .pSetLayouts = setLayouts,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &pushConstantRange,
     };
 
-    VkResult res = VKD.vkCreatePipelineLayout(grDevice->device, &createInfo, NULL, &layout);
+    VkResult res = VKD.vkCreatePipelineLayout(grDevice->device, &createInfo, NULL, &pipelineLayout);
     if (res != VK_SUCCESS) {
         LOGE("vkCreatePipelineLayout failed (%d)\n", res);
     }
 
-    return layout;
+    return pipelineLayout;
 }
 
 static VkPipeline getVkPipeline(
@@ -626,7 +630,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         goto bail;
     }
 
-    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout);
+    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout,
+                                         grDevice->atomicCounterSetLayout);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
@@ -702,7 +707,8 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         goto bail;
     }
 
-    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout);
+    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout,
+                                         grDevice->atomicCounterSetLayout);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;

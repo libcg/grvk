@@ -333,8 +333,8 @@ static void emitBinding(
         assert(0);
     }
 
-    IlcSpvWord zero = 0;
-    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationDescriptorSet, 1, &zero);
+    IlcSpvWord set = DESCRIPTOR_SET_ID;
+    ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationDescriptorSet, 1, &set);
     ilcSpvPutDecoration(compiler->module, bindingId, SpvDecorationBinding, 1, &vkIndex);
 
     compiler->bindingCount++;
@@ -2775,9 +2775,11 @@ static void emitAppendBufOp(
         ilcSpvPutMemberDecoration(compiler->module, structId, 0, SpvDecorationOffset,
                                   1, &memberOffset);
 
+        IlcSpvWord set = ATOMIC_COUNTER_SET_ID;
+        IlcSpvWord binding = 0;
         ilcSpvPutName(compiler->module, arrayId, "atomicCounter");
-        emitBinding(compiler, ILC_BINDING_ATOMIC_COUNTER, resourceId, 0,
-                    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, NO_STRIDE_INDEX);
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet, 1, &set);
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &binding);
 
         const IlcResource atomicCounterResource = {
             .resType = RES_TYPE_ATOMIC_COUNTER,
