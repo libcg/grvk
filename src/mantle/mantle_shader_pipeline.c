@@ -49,7 +49,7 @@ static void addDynamicUpdateTemplateEntry(
     unsigned descriptorUpdateEntryCount = 0;
     VkDescriptorUpdateTemplateEntry* descriptorUpdateEntries = NULL;
     unsigned strideCount = 0;
-    unsigned strideIndexes[MAX_STRIDES];
+    unsigned strideOffsets[MAX_STRIDES];
     unsigned strideSlotIndexes[MAX_STRIDES];
 
     // Find all dynamic memory view descriptors across all stages,
@@ -92,7 +92,7 @@ static void addDynamicUpdateTemplateEntry(
                     }
 
                     strideCount++;
-                    strideIndexes[strideCount - 1] = binding->strideIndex;
+                    strideOffsets[strideCount - 1] = binding->strideIndex * sizeof(uint32_t);
                     strideSlotIndexes[strideCount - 1] = 0;
                 }
             }
@@ -113,12 +113,12 @@ static void addDynamicUpdateTemplateEntry(
             .pathDepth = 0,
             .path = { 0 },
             .strideCount = strideCount,
-            .strideIndexes = { 0 }, // Initialized below
+            .strideOffsets = { 0 }, // Initialized below
             .strideSlotIndexes = { 0 }, // Initialized below
         };
 
-        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideIndexes,
-               strideIndexes, strideCount * sizeof(unsigned));
+        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideOffsets,
+               strideOffsets, strideCount * sizeof(unsigned));
         memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideSlotIndexes,
                strideSlotIndexes, strideCount * sizeof(unsigned));
 
@@ -140,7 +140,7 @@ static void addUpdateTemplateEntriesFromMapping(
     unsigned descriptorUpdateEntryCount = 0;
     VkDescriptorUpdateTemplateEntry* descriptorUpdateEntries = NULL;
     unsigned strideCount = 0;
-    unsigned strideIndexes[MAX_STRIDES];
+    unsigned strideOffsets[MAX_STRIDES];
     unsigned strideSlotIndexes[MAX_STRIDES];
 
     for (unsigned i = 0; i < mapping->descriptorCount; i++) {
@@ -223,7 +223,7 @@ static void addUpdateTemplateEntriesFromMapping(
             }
 
             strideCount++;
-            strideIndexes[strideCount - 1] = binding->strideIndex;
+            strideOffsets[strideCount - 1] = binding->strideIndex * sizeof(uint32_t);
             strideSlotIndexes[strideCount - 1] = i;
         }
     }
@@ -242,14 +242,14 @@ static void addUpdateTemplateEntriesFromMapping(
             .pathDepth = pathDepth,
             .path = { 0 }, // Initialized below
             .strideCount = strideCount,
-            .strideIndexes = { 0 }, // Initialized below
+            .strideOffsets = { 0 }, // Initialized below
             .strideSlotIndexes = { 0 }, // Initialized below
         };
 
         memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].path,
                path, pathDepth * sizeof(unsigned));
-        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideIndexes,
-               strideIndexes, strideCount * sizeof(unsigned));
+        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideOffsets,
+               strideOffsets, strideCount * sizeof(unsigned));
         memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideSlotIndexes,
                strideSlotIndexes, strideCount * sizeof(unsigned));
 

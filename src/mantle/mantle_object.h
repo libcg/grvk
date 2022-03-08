@@ -132,7 +132,7 @@ typedef struct _UpdateTemplateEntry {
     unsigned pathDepth;
     unsigned path[MAX_PATH_DEPTH];
     unsigned strideCount;
-    unsigned strideIndexes[MAX_STRIDES];
+    unsigned strideOffsets[MAX_STRIDES];
     unsigned strideSlotIndexes[MAX_STRIDES];
 } UpdateTemplateEntry;
 

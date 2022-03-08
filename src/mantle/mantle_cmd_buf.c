@@ -72,7 +72,7 @@ static void updateVkDescriptorSet(
         for (unsigned j = 0; j < entry->strideCount; j++) {
             VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, grPipeline->pipelineLayout,
                                    VK_SHADER_STAGE_VERTEX_BIT,
-                                   entry->strideIndexes[j] * sizeof(uint32_t), sizeof(uint32_t),
+                                   entry->strideOffsets[j], sizeof(uint32_t),
                                    &slot[entry->strideSlotIndexes[j]].buffer.stride);
         }
     }
