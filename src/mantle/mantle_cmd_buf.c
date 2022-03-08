@@ -231,26 +231,6 @@ static void grCmdBufferUpdateResources(
     bindPoint->dirtyFlags = 0;
 }
 
-void grCmdBufferFlushBarriers(
-    GrCmdBuffer* grCmdBuffer)
-{
-    if (grCmdBuffer->bufferBarrierCount > 0 || grCmdBuffer->imageBarrierCount > 0) {
-        const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-
-        grCmdBufferEndRenderPass(grCmdBuffer);
-
-        VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer,
-                                 grCmdBuffer->srcStageMask, grCmdBuffer->dstStageMask, 0, 0, NULL,
-                                 grCmdBuffer->bufferBarrierCount, grCmdBuffer->bufferBarriers,
-                                 grCmdBuffer->imageBarrierCount, grCmdBuffer->imageBarriers);
-
-        grCmdBuffer->bufferBarrierCount = 0;
-        grCmdBuffer->imageBarrierCount = 0;
-        grCmdBuffer->srcStageMask = 0;
-        grCmdBuffer->dstStageMask = 0;
-    }
-}
-
 // Command Buffer Building Functions
 
 GR_VOID GR_STDCALL grCmdBindPipeline(
@@ -490,17 +470,19 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
 {
     LOGT("%p %u %p\n", cmdBuffer, transitionCount, pStateTransitions);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    STACK_ARRAY(VkBufferMemoryBarrier, barriers, 128, transitionCount);
+    VkPipelineStageFlags srcStageMask = 0;
+    VkPipelineStageFlags dstStageMask = 0;
 
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_MEMORY_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrGpuMemory* grGpuMemory = (GrGpuMemory*)stateTransition->mem;
 
-        if (grCmdBuffer->bufferBarrierCount >= BATCHED_BARRIERS_COUNT) {
-            grCmdBufferFlushBarriers(grCmdBuffer);
-        }
-
-        grCmdBuffer->bufferBarrierCount++;
-        grCmdBuffer->bufferBarriers[grCmdBuffer->bufferBarrierCount - 1] = (VkBufferMemoryBarrier) {
+        barriers[i] = (VkBufferMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
             .pNext = NULL,
             .srcAccessMask = getVkAccessFlagsMemory(stateTransition->oldState),
@@ -512,9 +494,14 @@ GR_VOID GR_STDCALL grCmdPrepareMemoryRegions(
             .size = stateTransition->regionSize > 0 ? stateTransition->regionSize : VK_WHOLE_SIZE,
         };
 
-        grCmdBuffer->srcStageMask |= getVkPipelineStageFlagsMemory(stateTransition->oldState);
-        grCmdBuffer->dstStageMask |= getVkPipelineStageFlagsMemory(stateTransition->newState);
+        srcStageMask |= getVkPipelineStageFlagsMemory(stateTransition->oldState);
+        dstStageMask |= getVkPipelineStageFlagsMemory(stateTransition->newState);
     }
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer, srcStageMask, dstStageMask,
+                             0, 0, NULL, transitionCount, barriers, 0, NULL);
+
+    STACK_ARRAY_FINISH(barriers);
 }
 
 GR_VOID GR_STDCALL grCmdBindTargets(
@@ -645,17 +632,19 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
 {
     LOGT("%p %u %p\n", cmdBuffer, transitionCount, pStateTransitions);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+
+    grCmdBufferEndRenderPass(grCmdBuffer);
+
+    STACK_ARRAY(VkImageMemoryBarrier, barriers, 128, transitionCount);
+    VkPipelineStageFlags srcStageMask = 0;
+    VkPipelineStageFlags dstStageMask = 0;
 
     for (unsigned i = 0; i < transitionCount; i++) {
         const GR_IMAGE_STATE_TRANSITION* stateTransition = &pStateTransitions[i];
         GrImage* grImage = (GrImage*)stateTransition->image;
 
-        if (grCmdBuffer->imageBarrierCount >= BATCHED_BARRIERS_COUNT) {
-            grCmdBufferFlushBarriers(grCmdBuffer);
-        }
-
-        grCmdBuffer->imageBarrierCount++;
-        grCmdBuffer->imageBarriers[grCmdBuffer->imageBarrierCount - 1] = (VkImageMemoryBarrier) {
+        barriers[i] = (VkImageMemoryBarrier) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .pNext = NULL,
             .srcAccessMask = getVkAccessFlagsImage(stateTransition->oldState),
@@ -669,9 +658,14 @@ GR_VOID GR_STDCALL grCmdPrepareImages(
                                                            grImage->multiplyCubeLayers),
         };
 
-        grCmdBuffer->srcStageMask |= getVkPipelineStageFlagsImage(stateTransition->oldState);
-        grCmdBuffer->dstStageMask |= getVkPipelineStageFlagsImage(stateTransition->newState);
+        srcStageMask |= getVkPipelineStageFlagsImage(stateTransition->oldState);
+        dstStageMask |= getVkPipelineStageFlagsImage(stateTransition->newState);
     }
+
+    VKD.vkCmdPipelineBarrier(grCmdBuffer->commandBuffer, srcStageMask, dstStageMask,
+                             0, 0, NULL, 0, NULL, transitionCount, barriers);
+
+    STACK_ARRAY_FINISH(barriers);
 }
 
 GR_VOID GR_STDCALL grCmdDraw(
@@ -685,7 +679,6 @@ GR_VOID GR_STDCALL grCmdDraw(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
     grCmdBufferBeginRenderPass(grCmdBuffer);
 
@@ -706,7 +699,6 @@ GR_VOID GR_STDCALL grCmdDrawIndexed(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
     grCmdBufferBeginRenderPass(grCmdBuffer);
 
@@ -724,7 +716,6 @@ GR_VOID GR_STDCALL grCmdDrawIndirect(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
     grCmdBufferBeginRenderPass(grCmdBuffer);
 
@@ -741,7 +732,6 @@ GR_VOID GR_STDCALL grCmdDrawIndexedIndirect(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
     grCmdBufferBeginRenderPass(grCmdBuffer);
 
@@ -758,7 +748,6 @@ GR_VOID GR_STDCALL grCmdDispatch(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
@@ -775,7 +764,6 @@ GR_VOID GR_STDCALL grCmdDispatchIndirect(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grGpuMemory = (GrGpuMemory*)mem;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferUpdateResources(grCmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
@@ -795,7 +783,6 @@ GR_VOID GR_STDCALL grCmdCopyMemory(
     GrGpuMemory* grSrcGpuMemory = (GrGpuMemory*)srcMem;
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     STACK_ARRAY(VkBufferCopy, vkRegions, 128, regionCount);
@@ -838,7 +825,6 @@ GR_VOID GR_STDCALL grCmdCopyImage(
         extentTileSize = 1;
     }
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     if (grSrcImage->image != VK_NULL_HANDLE) {
@@ -942,7 +928,6 @@ GR_VOID GR_STDCALL grCmdCopyMemoryToImage(
         dstTileSize = 1;
     }
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     STACK_ARRAY(VkBufferImageCopy, vkRegions, 128, regionCount);
@@ -996,7 +981,6 @@ GR_VOID GR_STDCALL grCmdCopyImageToMemory(
         srcTileSize = 1;
     }
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     STACK_ARRAY(VkBufferImageCopy, vkRegions, 128, regionCount);
@@ -1043,7 +1027,6 @@ GR_VOID GR_STDCALL grCmdUpdateMemory(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdUpdateBuffer(grCmdBuffer->commandBuffer, grDstGpuMemory->buffer, destOffset,
@@ -1062,7 +1045,6 @@ GR_VOID GR_STDCALL grCmdFillMemory(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdFillBuffer(grCmdBuffer->commandBuffer, grDstGpuMemory->buffer, destOffset,
@@ -1082,7 +1064,6 @@ GR_VOID GR_STDCALL grCmdClearColorImage(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     const VkClearColorValue vkColor = {
@@ -1115,7 +1096,6 @@ GR_VOID GR_STDCALL grCmdClearColorImageRaw(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     GR_IMAGE_STATE imageState = quirkHas(QUIRK_IMAGE_DATA_TRANSFER_STATE_FOR_RAW_CLEAR) ?
@@ -1149,7 +1129,6 @@ GR_VOID GR_STDCALL grCmdClearDepthStencil(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrImage* grImage = (GrImage*)image;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     const VkClearDepthStencilValue depthStencilValue = {
@@ -1179,7 +1158,6 @@ GR_VOID GR_STDCALL grCmdSetEvent(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrEvent* grEvent = (GrEvent*)event;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdSetEvent(grCmdBuffer->commandBuffer, grEvent->event,
@@ -1195,7 +1173,6 @@ GR_VOID GR_STDCALL grCmdResetEvent(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrEvent* grEvent = (GrEvent*)event;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdResetEvent(grCmdBuffer->commandBuffer, grEvent->event,
@@ -1209,11 +1186,9 @@ GR_VOID GR_STDCALL grCmdBeginQuery(
     GR_FLAGS flags)
 {
     LOGT("%p %p %u 0x%X\n", cmdBuffer, queryPool, slot, flags);
-    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     const GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
-
-    grCmdBufferFlushBarriers(grCmdBuffer);
 
     VKD.vkCmdBeginQuery(grCmdBuffer->commandBuffer, grQueryPool->queryPool, slot,
                         flags & GR_QUERY_IMPRECISE_DATA ? 0 : VK_QUERY_CONTROL_PRECISE_BIT);
@@ -1225,11 +1200,9 @@ GR_VOID GR_STDCALL grCmdEndQuery(
     GR_UINT slot)
 {
     LOGT("%p %p %u\n", cmdBuffer, queryPool, slot);
-    GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
+    const GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     const GrQueryPool* grQueryPool = (GrQueryPool*)queryPool;
-
-    grCmdBufferFlushBarriers(grCmdBuffer);
 
     VKD.vkCmdEndQuery(grCmdBuffer->commandBuffer, grQueryPool->queryPool, slot);
 }
@@ -1272,7 +1245,6 @@ GR_VOID GR_STDCALL grCmdWriteTimestamp(
         assert(false);
     }
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     VKD.vkCmdResetQueryPool(grCmdBuffer->commandBuffer, grCmdBuffer->timestampQueryPool, 0, 1);
@@ -1361,7 +1333,6 @@ GR_VOID GR_STDCALL grCmdSaveAtomicCounters(
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     GrGpuMemory* grDstGpuMemory = (GrGpuMemory*)destMem;
 
-    grCmdBufferFlushBarriers(grCmdBuffer);
     grCmdBufferEndRenderPass(grCmdBuffer);
 
     const VkBufferCopy bufferCopy = {

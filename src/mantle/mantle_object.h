@@ -16,7 +16,6 @@
 #define COMPUTE_ATOMIC_COUNTERS_COUNT   (1024)
 
 #define IMAGE_PREP_CMD_BUFFER_COUNT     (16)
-#define BATCHED_BARRIERS_COUNT          (128)
 
 #define GET_OBJ_TYPE(obj) \
     (((GrBaseObject*)(obj))->grObjType)
@@ -188,13 +187,6 @@ typedef struct _GrCmdBuffer {
     VkRenderingAttachmentInfoKHR stencilAttachment;
     VkFormat depthStencilFormat;
     VkExtent3D minExtent;
-    // Batched barriers
-    unsigned bufferBarrierCount;
-    VkBufferMemoryBarrier bufferBarriers[BATCHED_BARRIERS_COUNT];
-    unsigned imageBarrierCount;
-    VkImageMemoryBarrier imageBarriers[BATCHED_BARRIERS_COUNT];
-    VkPipelineStageFlags srcStageMask;
-    VkPipelineStageFlags dstStageMask;
 } GrCmdBuffer;
 
 typedef struct _GrColorBlendStateObject {
@@ -378,9 +370,6 @@ typedef struct _GrWsiWinDisplay {
 } GrWsiWinDisplay;
 
 void grCmdBufferEndRenderPass(
-    GrCmdBuffer* grCmdBuffer);
-
-void grCmdBufferFlushBarriers(
     GrCmdBuffer* grCmdBuffer);
 
 void grCmdBufferResetState(
