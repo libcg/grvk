@@ -10,6 +10,7 @@
 
 #define MAX_STAGE_COUNT     5 // VS, HS, DS, GS, PS
 #define MAX_PATH_DEPTH      8 // Levels of nested descriptor sets
+#define MAX_STRIDES         8 // Number of strides per descriptor update entry
 
 #define UNIVERSAL_ATOMIC_COUNTERS_COUNT (512)
 #define COMPUTE_ATOMIC_COUNTERS_COUNT   (1024)
@@ -100,13 +101,6 @@ typedef struct _BindPoint
     VkDescriptorSet descriptorSet;
 } BindPoint;
 
-typedef struct {
-    IlcBinding ilcBinding;
-    bool isDynamic;
-    unsigned pathDepth;
-    unsigned path[MAX_PATH_DEPTH];
-} DescriptorEntry;
-
 typedef struct _PipelineCreateInfo
 {
     VkPipelineCreateFlags createFlags;
@@ -132,6 +126,16 @@ typedef struct _PipelineSlot
     VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     VkFormat depthStencilFormat;
 } PipelineSlot;
+
+typedef struct _UpdateTemplateEntry {
+    VkDescriptorUpdateTemplate updateTemplate;
+    bool isDynamic;
+    unsigned pathDepth;
+    unsigned path[MAX_PATH_DEPTH];
+    unsigned strideCount;
+    unsigned strideIndexes[MAX_STRIDES];
+    unsigned strideSlotIndexes[MAX_STRIDES];
+} UpdateTemplateEntry;
 
 // Base object
 typedef struct _GrBaseObject {
@@ -306,9 +310,9 @@ typedef struct _GrPipeline {
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayout;
-    unsigned descriptorEntryCount;
-    DescriptorEntry* descriptorEntries;
     unsigned dynamicOffsetCount;
+    unsigned updateTemplateEntryCount;
+    UpdateTemplateEntry* updateTemplateEntries;
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
