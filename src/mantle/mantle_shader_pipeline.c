@@ -263,6 +263,7 @@ static void getDescriptorUpdateEntries(
     const GrDevice* grDevice,
     unsigned stageCount,
     const Stage* stages,
+    unsigned mappingIndex,
     VkDescriptorSetLayout descriptorSetLayout)
 {
     addDynamicUpdateTemplateEntry(updateTemplateEntryCount, updateTemplateEntries, grDevice,
@@ -280,7 +281,7 @@ static void getDescriptorUpdateEntries(
 
         // TODO merge entries across stages
         addUpdateTemplateEntriesFromMapping(updateTemplateEntryCount, updateTemplateEntries,
-                                            grDevice, &shader->descriptorSetMapping[0],
+                                            grDevice, &shader->descriptorSetMapping[mappingIndex],
                                             grShader->bindingCount, grShader->bindings,
                                             descriptorSetLayout, 0, path);
     }
@@ -707,8 +708,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkShaderModule rectangleShaderModule = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
-    unsigned updateTemplateEntryCount = 0;
-    UpdateTemplateEntry* updateTemplateEntries = NULL;
+    unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
+    UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS] = { NULL };
     VkResult vkRes;
 
     // TODO validate parameters
@@ -856,8 +857,10 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         goto bail;
     }
 
-    getDescriptorUpdateEntries(&updateTemplateEntryCount, &updateTemplateEntries, grDevice,
-                               COUNT_OF(stages), stages, descriptorSetLayout);
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        getDescriptorUpdateEntries(&updateTemplateEntryCounts[i], &updateTemplateEntries[i],
+                                   grDevice, COUNT_OF(stages), stages, i, descriptorSetLayout);
+    }
 
     // TODO keep track of rectangle shader module
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
@@ -871,9 +874,14 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayout = descriptorSetLayout,
         .dynamicOffsetCount = dynamicOffsetCount,
-        .updateTemplateEntryCount = updateTemplateEntryCount,
-        .updateTemplateEntries = updateTemplateEntries,
+        .updateTemplateEntryCounts = { 0 }, // Initialized below
+        .updateTemplateEntries = { NULL }, // Initialized below
     };
+
+    memcpy(grPipeline->updateTemplateEntryCounts, updateTemplateEntryCounts,
+           sizeof(grPipeline->updateTemplateEntryCounts));
+    memcpy(grPipeline->updateTemplateEntries, updateTemplateEntries,
+           sizeof(grPipeline->updateTemplateEntries));
 
     *pPipeline = (GR_PIPELINE)grPipeline;
     return GR_SUCCESS;
@@ -898,8 +906,8 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
-    unsigned updateTemplateEntryCount = 0;
-    UpdateTemplateEntry* updateTemplateEntries = NULL;
+    unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
+    UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS] = { NULL };
 
     // TODO validate parameters
 
@@ -935,8 +943,10 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         goto bail;
     }
 
-    getDescriptorUpdateEntries(&updateTemplateEntryCount, &updateTemplateEntries, grDevice,
-                               1, &stage, descriptorSetLayout);
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        getDescriptorUpdateEntries(&updateTemplateEntryCounts[i], &updateTemplateEntries[i],
+                                   grDevice, 1, &stage, i, descriptorSetLayout);
+    }
 
     const VkComputePipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
@@ -974,9 +984,14 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .stageCount = 1,
         .descriptorSetLayout = descriptorSetLayout,
         .dynamicOffsetCount = dynamicOffsetCount,
-        .updateTemplateEntryCount = updateTemplateEntryCount,
-        .updateTemplateEntries = updateTemplateEntries,
+        .updateTemplateEntryCounts = { 0 }, // Initialized below
+        .updateTemplateEntries = { NULL }, // Initialized below
     };
+
+    memcpy(grPipeline->updateTemplateEntryCounts, updateTemplateEntryCounts,
+           sizeof(grPipeline->updateTemplateEntryCounts));
+    memcpy(grPipeline->updateTemplateEntries, updateTemplateEntries,
+           sizeof(grPipeline->updateTemplateEntries));
 
     *pPipeline = (GR_PIPELINE)grPipeline;
     return GR_SUCCESS;

@@ -93,8 +93,8 @@ typedef struct _BindPoint
 {
     uint32_t dirtyFlags;
     GrPipeline* grPipeline;
-    GrDescriptorSet* grDescriptorSet;
-    unsigned slotOffset;
+    GrDescriptorSet* grDescriptorSets[GR_MAX_DESCRIPTOR_SETS];
+    unsigned slotOffsets[GR_MAX_DESCRIPTOR_SETS];
     DescriptorSetSlot dynamicMemoryView;
     uint32_t dynamicOffset;
     VkDescriptorSet descriptorSet;
@@ -303,8 +303,8 @@ typedef struct _GrPipeline {
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayout;
     unsigned dynamicOffsetCount;
-    unsigned updateTemplateEntryCount;
-    UpdateTemplateEntry* updateTemplateEntries;
+    unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS];
+    UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS];
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {

@@ -48,16 +48,20 @@ static void updateVkDescriptorSet(
     const GrDevice* grDevice,
     const GrCmdBuffer* grCmdBuffer,
     const BindPoint* bindPoint,
-    const GrPipeline* grPipeline)
+    const GrDescriptorSet* grDescriptorSet,
+    unsigned slotOffset,
+    unsigned updateTemplateEntryCount,
+    const UpdateTemplateEntry* updateTemplateEntries,
+    VkPipelineLayout pipelineLayout)
 {
-    for (unsigned i = 0; i < grPipeline->updateTemplateEntryCount; i++) {
-        const UpdateTemplateEntry* entry = &grPipeline->updateTemplateEntries[i];
+    for (unsigned i = 0; i < updateTemplateEntryCount; i++) {
+        const UpdateTemplateEntry* entry = &updateTemplateEntries[i];
         const DescriptorSetSlot* slot;
 
         if (entry->isDynamic) {
             slot = &bindPoint->dynamicMemoryView;
         } else {
-            slot = &bindPoint->grDescriptorSet->slots[bindPoint->slotOffset];
+            slot = &grDescriptorSet->slots[slotOffset];
 
             for (unsigned j = 0; j < entry->pathDepth; j++) {
                 slot = &slot[entry->path[j]];
@@ -70,7 +74,7 @@ static void updateVkDescriptorSet(
 
         // Pass buffer strides down to the shader
         for (unsigned j = 0; j < entry->strideCount; j++) {
-            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, grPipeline->pipelineLayout,
+            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, pipelineLayout,
                                    VK_SHADER_STAGE_VERTEX_BIT,
                                    entry->strideOffsets[j], sizeof(uint32_t),
                                    &slot[entry->strideSlotIndexes[j]].buffer.stride);
@@ -168,7 +172,13 @@ static void grCmdBufferUpdateDescriptorSet(
         }
     }
 
-    updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint, grPipeline);
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint,
+                              bindPoint->grDescriptorSets[i], bindPoint->slotOffsets[i],
+                              grPipeline->updateTemplateEntryCounts[i],
+                              grPipeline->updateTemplateEntries[i],
+                              grPipeline->pipelineLayout);
+    }
 }
 
 static void grCmdBufferBindDescriptorSet(
@@ -396,17 +406,12 @@ GR_VOID GR_STDCALL grCmdBindDescriptorSet(
     VkPipelineBindPoint vkBindPoint = getVkPipelineBindPoint(pipelineBindPoint);
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
 
-    if (index != 0) {
-        LOGW("unsupported index %u\n", index);
+    if (grDescriptorSet != bindPoint->grDescriptorSets[index] ||
+        slotOffset != bindPoint->slotOffsets[index]) {
+        bindPoint->grDescriptorSets[index] = grDescriptorSet;
+        bindPoint->slotOffsets[index] = slotOffset;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
     }
-
-    if (grDescriptorSet == bindPoint->grDescriptorSet && slotOffset == bindPoint->slotOffset) {
-        return;
-    }
-
-    bindPoint->grDescriptorSet = grDescriptorSet;
-    bindPoint->slotOffset = slotOffset;
-    bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
 }
 
 GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
