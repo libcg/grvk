@@ -1850,6 +1850,17 @@ static void emitIntegerOp(
         resId = ilcSpvPutOp2(compiler->module, op, compiler->int4Id,
                              srcIds[0], emitShiftMask(compiler, srcIds[1]));
     }   break;
+    case IL_OP_I_FIRSTBIT: {
+        IlcSpvWord op;
+        if (instr->control == 0) {
+            op = GLSLstd450FindILsb; // lo
+        } else if (instr->control == 1) {
+            op = GLSLstd450FindUMsb; // hi
+        } else {
+            op = GLSLstd450FindSMsb; // shi
+        }
+        resId = ilcSpvPutGLSLOp(compiler->module, op, compiler->int4Id, 1, srcIds);
+    }   break;
     case IL_OP_U_BIT_EXTRACT: {
         IlcSpvId widthsId = emitShiftMask(compiler, srcIds[0]);
         IlcSpvId offsetsId = emitShiftMask(compiler, srcIds[1]);
@@ -3089,6 +3100,7 @@ static void emitInstr(
     case IL_OP_U_MAX:
     case IL_OP_U_MIN:
     case IL_OP_AND:
+    case IL_OP_I_FIRSTBIT:
     case IL_OP_U_BIT_EXTRACT:
     case IL_OP_U_BIT_INSERT:
         emitIntegerOp(compiler, instr);

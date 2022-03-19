@@ -261,6 +261,12 @@ static const char* mIlBufNumFormatNames[16] = {
     "15?"
 };
 
+static const char* mIlFfbOptionNames[3] = {
+    "lo",
+    "hi",
+    "shi",
+};
+
 static void dumpSource(
     FILE* file,
     const Source* src);
@@ -906,6 +912,9 @@ static void dumpInstruction(
         break;
     case IL_DCL_MAX_TESSFACTOR:
         fprintf(file, "dcl_max_tessfactor %g", *((float*)&instr->extras[0]));
+        break;
+    case IL_OP_I_FIRSTBIT:
+        fprintf(file, "ffb(%s)", mIlFfbOptionNames[instr->control]);
         break;
     case IL_OP_U_BIT_INSERT:
         fprintf(file, "ubit_insert");
