@@ -124,6 +124,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_DCL_STRUCT_LDS] = { IL_DCL_STRUCT_LDS, 0, 0, 2 },
     [IL_OP_LDS_READ_ADD] = { IL_OP_LDS_READ_ADD, 1, 2, 0 },
     [IL_OP_I_FIRSTBIT] = { IL_OP_I_FIRSTBIT, 1, 1, 0 },
+    [IL_OP_I_BIT_EXTRACT] = { IL_OP_I_BIT_EXTRACT, 1, 3, 0 },
     [IL_OP_U_BIT_EXTRACT] = { IL_OP_U_BIT_EXTRACT, 1, 3, 0 },
     [IL_DCL_NUM_ICP] = { IL_DCL_NUM_ICP, 0, 0, 1 },
     [IL_DCL_NUM_OCP] = { IL_DCL_NUM_OCP, 0, 0, 1 },

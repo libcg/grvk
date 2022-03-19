@@ -1861,7 +1861,9 @@ static void emitIntegerOp(
         }
         resId = ilcSpvPutGLSLOp(compiler->module, op, compiler->int4Id, 1, srcIds);
     }   break;
+    case IL_OP_I_BIT_EXTRACT:
     case IL_OP_U_BIT_EXTRACT: {
+        bool isSigned = instr->opcode == IL_OP_I_BIT_EXTRACT;
         IlcSpvId widthsId = emitShiftMask(compiler, srcIds[0]);
         IlcSpvId offsetsId = emitShiftMask(compiler, srcIds[1]);
         IlcSpvId bfId[4];
@@ -1870,8 +1872,9 @@ static void emitIntegerOp(
             IlcSpvId widthId = emitVectorTrim(compiler, widthsId, compiler->int4Id, i, 1);
             IlcSpvId offsetId = emitVectorTrim(compiler, offsetsId, compiler->int4Id, i, 1);
             IlcSpvId baseId = emitVectorTrim(compiler, srcIds[2], compiler->int4Id, i, 1);
-            bfId[i] = ilcSpvPutOp3(compiler->module, SpvOpBitFieldUExtract, compiler->intId,
-                                   baseId, offsetId, widthId);
+            bfId[i] = ilcSpvPutOp3(compiler->module,
+                                   isSigned ? SpvOpBitFieldSExtract : SpvOpBitFieldUExtract,
+                                   compiler->intId, baseId, offsetId, widthId);
         }
         resId = ilcSpvPutCompositeConstruct(compiler->module, compiler->int4Id, 4, bfId);
     }   break;
@@ -3153,6 +3156,7 @@ static void emitInstr(
     case IL_OP_U_MIN:
     case IL_OP_AND:
     case IL_OP_I_FIRSTBIT:
+    case IL_OP_I_BIT_EXTRACT:
     case IL_OP_U_BIT_EXTRACT:
     case IL_OP_U_BIT_INSERT:
         emitIntegerOp(compiler, instr);

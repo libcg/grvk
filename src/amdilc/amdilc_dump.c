@@ -904,6 +904,9 @@ static void dumpInstruction(
     case IL_OP_LDS_READ_ADD:
         fprintf(file, "lds_read_add_resource(%u)", GET_BITS(instr->control, 0, 13));
         break;
+    case IL_OP_I_BIT_EXTRACT:
+        fprintf(file, "ibit_extract");
+        break;
     case IL_OP_U_BIT_EXTRACT:
         fprintf(file, "ubit_extract");
         break;
