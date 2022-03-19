@@ -833,6 +833,9 @@ static void dumpInstruction(
     case IL_OP_UAV_LOAD:
         fprintf(file, "uav_load_id(%u)", GET_BITS(instr->control, 0, 13));
         break;
+    case IL_OP_UAV_STRUCT_LOAD:
+        fprintf(file, "uav_struct_load_id(%u)", GET_BITS(instr->control, 0, 13));
+        break;
     case IL_OP_UAV_STORE:
         fprintf(file, "uav_store_id(%u)", GET_BITS(instr->control, 0, 13));
         break;

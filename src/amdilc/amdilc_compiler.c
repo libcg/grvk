@@ -2603,6 +2603,58 @@ static void emitUavLoad(
     storeDestination(compiler, dst, readId, texel4TypeId);
 }
 
+static void emitUavStructLoad(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    uint16_t ilResourceId = GET_BITS(instr->control, 0, 14);
+
+    const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
+    const Destination* dst = &instr->dsts[0];
+
+    if (resource == NULL) {
+        LOGE("resource %d not found\n", ilResourceId);
+        return;
+    }
+
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
+    IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
+    IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
+
+    // Read up to four components based on the destination mask
+    IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassStorageBuffer,
+                                              resource->texelTypeId);
+    IlcSpvId fZeroId = ilcSpvPutConstant(compiler->module, compiler->floatId, ZERO_LITERAL);
+    IlcSpvId constituentIds[] = { fZeroId, fZeroId, fZeroId, fZeroId };
+
+    for (unsigned i = 0; i < 4; i++) {
+        IlcSpvId addrId;
+
+        if (dst->component[i] == IL_MODCOMP_NOWRITE) {
+            continue;
+        }
+
+        if (i == 0) {
+            addrId = wordAddrId;
+        } else {
+            IlcSpvId offsetId = ilcSpvPutConstant(compiler->module, compiler->intId, i);
+            addrId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId,
+                                  wordAddrId, offsetId);
+        }
+
+        const IlcSpvId indexIds[] = { zeroId, addrId };
+        IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, resource->id,
+                                              2, indexIds);
+        constituentIds[i] = ilcSpvPutLoad(compiler->module, resource->texelTypeId, ptrId);
+    }
+
+    IlcSpvId loadId = ilcSpvPutCompositeConstruct(compiler->module, compiler->float4Id,
+                                                  4, constituentIds);
+    storeDestination(compiler, dst, loadId, compiler->float4Id);
+}
+
 static void emitUavStore(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2629,7 +2681,7 @@ static void emitUavRawStructStore(
     const Instruction* instr)
 {
     bool isRaw = instr->opcode == IL_OP_UAV_RAW_STORE;
-    uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
+    uint16_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const Destination* dst = &instr->dsts[0];
@@ -3216,6 +3268,9 @@ static void emitInstr(
         break;
     case IL_OP_UAV_LOAD:
         emitUavLoad(compiler, instr);
+        break;
+    case IL_OP_UAV_STRUCT_LOAD:
+        emitUavStructLoad(compiler, instr);
         break;
     case IL_OP_UAV_STORE:
         emitUavStore(compiler, instr);
