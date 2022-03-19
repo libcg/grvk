@@ -468,6 +468,9 @@ static void dumpInstruction(
     case IL_OP_ELSE:
     case IL_OP_ENDIF:
     case IL_OP_ENDLOOP:
+    case IL_OP_CASE:
+    case IL_OP_DEFAULT:
+    case IL_OP_ENDSWITCH:
         (*indentLevel)--;
         break;
     }
@@ -556,11 +559,22 @@ static void dumpInstruction(
     case IL_OP_BREAK_LOGICALNZ:
         fprintf(file, "break_logicalnz");
         break;
+    case IL_OP_CASE:
+        fprintf(file, "case %d", instr->extras[0]);
+        (*indentLevel)++;
+        break;
     case IL_OP_CONTINUE_LOGICALZ:
         fprintf(file, "continue_logicalz");
         break;
     case IL_OP_CONTINUE_LOGICALNZ:
         fprintf(file, "continue_logicalnz");
+        break;
+    case IL_OP_DEFAULT:
+        fprintf(file, "default");
+        (*indentLevel)++;
+        break;
+    case IL_OP_ENDSWITCH:
+        fprintf(file, "endswitch");
         break;
     case IL_OP_IF_LOGICALZ:
         fprintf(file, "if_logicalz");
@@ -572,6 +586,10 @@ static void dumpInstruction(
         break;
     case IL_OP_WHILE:
         fprintf(file, "whileloop");
+        (*indentLevel)++;
+        break;
+    case IL_OP_SWITCH:
+        fprintf(file, "switch");
         (*indentLevel)++;
         break;
     case IL_OP_RET_DYN:
