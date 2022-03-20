@@ -2046,32 +2046,6 @@ static void emitElse(
     pushControlFlowBlock(compiler, &block);
 }
 
-static void emitWhile(
-    IlcCompiler* compiler,
-    const Instruction* instr)
-{
-    const IlcLoopBlock loopBlock = {
-        .labelHeaderId = ilcSpvAllocId(compiler->module),
-        .labelContinueId = ilcSpvAllocId(compiler->module),
-        .labelBreakId = ilcSpvAllocId(compiler->module),
-    };
-
-    ilcSpvPutBranch(compiler->module, loopBlock.labelHeaderId);
-    ilcSpvPutLabel(compiler->module, loopBlock.labelHeaderId);
-
-    ilcSpvPutLoopMerge(compiler->module, loopBlock.labelBreakId, loopBlock.labelContinueId);
-
-    IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
-    ilcSpvPutBranch(compiler->module, labelBeginId);
-    ilcSpvPutLabel(compiler->module, labelBeginId);
-
-    const IlcControlFlowBlock block = {
-        .type = BLOCK_LOOP,
-        .loop = loopBlock,
-    };
-    pushControlFlowBlock(compiler, &block);
-}
-
 static void emitEndIf(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -2096,6 +2070,32 @@ static void emitEndIf(
 
     ilcSpvPutBranch(compiler->module, block.ifElse.labelEndId);
     ilcSpvPutLabel(compiler->module, block.ifElse.labelEndId);
+}
+
+static void emitWhile(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    const IlcLoopBlock loopBlock = {
+        .labelHeaderId = ilcSpvAllocId(compiler->module),
+        .labelContinueId = ilcSpvAllocId(compiler->module),
+        .labelBreakId = ilcSpvAllocId(compiler->module),
+    };
+
+    ilcSpvPutBranch(compiler->module, loopBlock.labelHeaderId);
+    ilcSpvPutLabel(compiler->module, loopBlock.labelHeaderId);
+
+    ilcSpvPutLoopMerge(compiler->module, loopBlock.labelBreakId, loopBlock.labelContinueId);
+
+    IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
+    ilcSpvPutBranch(compiler->module, labelBeginId);
+    ilcSpvPutLabel(compiler->module, labelBeginId);
+
+    const IlcControlFlowBlock block = {
+        .type = BLOCK_LOOP,
+        .loop = loopBlock,
+    };
+    pushControlFlowBlock(compiler, &block);
 }
 
 static void emitEndLoop(
