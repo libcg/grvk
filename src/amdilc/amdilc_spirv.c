@@ -228,6 +228,31 @@ void ilcSpvFinish(
     }
 }
 
+unsigned ilcSpvGetWordIndex(
+    IlcSpvModule* module,
+    IlcSpvBufferId bufferId)
+{
+    return module->buffer[bufferId].wordCount;
+}
+
+void ilcSpvMoveWords(
+    IlcSpvModule* module,
+    IlcSpvBufferId bufferId,
+    unsigned dstWordIndex,
+    unsigned srcWordIndex)
+{
+    IlcSpvBuffer* buffer = &module->buffer[bufferId];
+    unsigned wordCount = buffer->wordCount - srcWordIndex;
+
+    // Move the end of the buffer starting at src to dst
+    IlcSpvWord* tmp = malloc(wordCount * sizeof(IlcSpvWord));
+    memcpy(tmp, &buffer->words[srcWordIndex], wordCount * sizeof(IlcSpvWord));
+    memmove(&buffer->words[dstWordIndex + wordCount], &buffer->words[dstWordIndex],
+            (srcWordIndex - dstWordIndex) * sizeof(IlcSpvWord));
+    memcpy(&buffer->words[dstWordIndex], tmp, wordCount * sizeof(IlcSpvWord));
+    free(tmp);
+}
+
 uint32_t ilcSpvAllocId(
     IlcSpvModule* module)
 {
@@ -1055,6 +1080,23 @@ void ilcSpvPutBranchConditional(
     putWord(buffer, conditionId);
     putWord(buffer, trueLabelId);
     putWord(buffer, falseLabelId);
+}
+
+void ilcSpvPutSwitch(
+    IlcSpvModule* module,
+    IlcSpvId selectorId,
+    IlcSpvId defaultId,
+    unsigned argCount,
+    const IlcSpvWord* args)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    putInstr(buffer, SpvOpSwitch, 3 + argCount);
+    putWord(buffer, selectorId);
+    putWord(buffer, defaultId);
+    for (unsigned i = 0; i < argCount; i++) {
+        putWord(buffer, args[i]);
+    }
 }
 
 void ilcSpvPutReturn(

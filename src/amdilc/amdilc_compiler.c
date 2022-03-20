@@ -30,6 +30,7 @@ typedef enum {
 typedef enum {
     BLOCK_IF_ELSE,
     BLOCK_LOOP,
+    BLOCK_SWITCH_CASE,
 } IlcControlFlowBlockType;
 
 typedef struct {
@@ -71,11 +72,28 @@ typedef struct {
     IlcSpvId labelBreakId;
 } IlcLoopBlock;
 
+// Used as OpSwitch variable args
+typedef struct {
+    IlcSpvWord literal;
+    IlcSpvId labelId;
+} IlcCase;
+
+typedef struct {
+    unsigned switchWordIndex;
+    IlcSpvId selectorId;
+    IlcSpvId labelBreakId;
+    IlcSpvId labelDefaultId;
+    bool hasDefaultBlock;
+    unsigned caseCount;
+    IlcCase* cases;
+} IlcSwitchCaseBlock;
+
 typedef struct {
     IlcControlFlowBlockType type;
     union {
         IlcIfElseBlock ifElse;
         IlcLoopBlock loop;
+        IlcSwitchCaseBlock switchCase;
     };
 } IlcControlFlowBlock;
 
@@ -533,12 +551,12 @@ static IlcControlFlowBlock popControlFlowBlock(
     return block;
 }
 
-static const IlcControlFlowBlock* findControlFlowBlock(
+static IlcControlFlowBlock* findControlFlowBlock(
     IlcCompiler* compiler,
     IlcControlFlowBlockType type)
 {
     for (int i = compiler->controlFlowBlockCount - 1; i >= 0; i--) {
-        const IlcControlFlowBlock* block = &compiler->controlFlowBlocks[i];
+        IlcControlFlowBlock* block = &compiler->controlFlowBlocks[i];
 
         if (block->type == type) {
             return block;
@@ -2115,6 +2133,103 @@ static void emitEndLoop(
     ilcSpvPutLabel(compiler->module, block.loop.labelBreakId);
 }
 
+static void emitSwitch(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId xId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
+
+    const IlcSwitchCaseBlock switchCaseBlock = {
+        .switchWordIndex = ilcSpvGetWordIndex(compiler->module, ID_CODE),
+        .selectorId = xId,
+        .labelBreakId = ilcSpvAllocId(compiler->module),
+        .labelDefaultId = ilcSpvAllocId(compiler->module),
+        .hasDefaultBlock = false,
+        .caseCount = 0,
+        .cases = NULL,
+    };
+
+    // OpSwitch block will be inserted later in emitEndSwitch() when the cases are known
+
+    const IlcControlFlowBlock block = {
+        .type = BLOCK_SWITCH_CASE,
+        .switchCase = switchCaseBlock,
+    };
+    pushControlFlowBlock(compiler, &block);
+}
+
+static void emitCase(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcControlFlowBlock* block = findControlFlowBlock(compiler, BLOCK_SWITCH_CASE);
+    if (block == NULL) {
+        LOGE("no matching switch/case block was found\n");
+        assert(false);
+    }
+
+    IlcSpvId labelId = ilcSpvAllocId(compiler->module);
+
+    ilcSpvPutBranch(compiler->module, labelId); // Fall-through
+    ilcSpvPutLabel(compiler->module, labelId);
+
+    block->switchCase.caseCount++;
+    block->switchCase.cases = realloc(block->switchCase.cases,
+                                      block->switchCase.caseCount * sizeof(IlcCase));
+    block->switchCase.cases[block->switchCase.caseCount - 1] = (IlcCase) {
+        .literal = instr->extras[0],
+        .labelId = labelId,
+    };
+}
+
+static void emitDefault(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcControlFlowBlock* block = findControlFlowBlock(compiler, BLOCK_SWITCH_CASE);
+    if (block == NULL) {
+        LOGE("no matching switch/case block was found\n");
+        assert(false);
+    }
+
+    ilcSpvPutBranch(compiler->module, block->switchCase.labelDefaultId); // Fall-through
+    ilcSpvPutLabel(compiler->module, block->switchCase.labelDefaultId);
+
+    block->switchCase.hasDefaultBlock = true;
+}
+
+static void emitEndSwitch(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    IlcControlFlowBlock block = popControlFlowBlock(compiler);
+    if (block.type != BLOCK_SWITCH_CASE) {
+        LOGE("no matching switch/case block was found\n");
+        assert(false);
+    }
+
+    // Retroactively insert OpSwitch
+    unsigned wordIndex = ilcSpvGetWordIndex(compiler->module, ID_CODE);
+    ilcSpvPutSelectionMerge(compiler->module, block.switchCase.labelBreakId);
+    ilcSpvPutSwitch(compiler->module, block.switchCase.selectorId, block.switchCase.labelDefaultId,
+                    block.switchCase.caseCount * sizeof(IlcCase) / sizeof(IlcSpvWord),
+                    (IlcSpvWord*)block.switchCase.cases);
+    ilcSpvPutLabel(compiler->module, ilcSpvAllocId(compiler->module));
+    ilcSpvMoveWords(compiler->module, ID_CODE, block.switchCase.switchWordIndex, wordIndex);
+
+    if (!block.switchCase.hasDefaultBlock) {
+        // Add dummy default block
+        ilcSpvPutBranch(compiler->module, block.switchCase.labelDefaultId);
+        ilcSpvPutLabel(compiler->module, block.switchCase.labelDefaultId);
+    }
+
+    ilcSpvPutBranch(compiler->module, block.switchCase.labelBreakId);
+    ilcSpvPutLabel(compiler->module, block.switchCase.labelBreakId);
+
+    free(block.switchCase.cases);
+}
+
 static void emitBreak(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -3190,6 +3305,15 @@ static void emitInstr(
     case IL_OP_ENDLOOP:
         emitEndLoop(compiler, instr);
         break;
+    case IL_OP_ENDSWITCH:
+        emitEndSwitch(compiler, instr);
+        break;
+    case IL_OP_CASE:
+        emitCase(compiler, instr);
+        break;
+    case IL_OP_DEFAULT:
+        emitDefault(compiler, instr);
+        break;
     case IL_OP_BREAK:
     case IL_OP_BREAK_LOGICALZ:
     case IL_OP_BREAK_LOGICALNZ:
@@ -3201,6 +3325,9 @@ static void emitInstr(
         break;
     case IL_OP_WHILE:
         emitWhile(compiler, instr);
+        break;
+    case IL_OP_SWITCH:
+        emitSwitch(compiler, instr);
         break;
     case IL_OP_RET_DYN:
         ilcSpvPutReturn(compiler->module);

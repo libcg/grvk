@@ -45,6 +45,16 @@ void ilcSpvInit(
 void ilcSpvFinish(
     IlcSpvModule* module);
 
+unsigned ilcSpvGetWordIndex(
+    IlcSpvModule* module,
+    IlcSpvBufferId bufferId);
+
+void ilcSpvMoveWords(
+    IlcSpvModule* module,
+    IlcSpvBufferId bufferId,
+    unsigned dstWordIndex,
+    unsigned srcWordIndex);
+
 uint32_t ilcSpvAllocId(
     IlcSpvModule* module);
 
@@ -370,6 +380,13 @@ void ilcSpvPutBranchConditional(
     IlcSpvId conditionId,
     IlcSpvId trueLabelId,
     IlcSpvId falseLabelId);
+
+void ilcSpvPutSwitch(
+    IlcSpvModule* module,
+    IlcSpvId selectorId,
+    IlcSpvId defaultId,
+    unsigned argCount,
+    const IlcSpvWord* args);
 
 void ilcSpvPutReturn(
     IlcSpvModule* module);
