@@ -238,9 +238,13 @@ typedef struct _GrDevice {
     GrQueue* grUniversalQueue;
     GrQueue* grComputeQueue;
     GrQueue* grDmaQueue;
+    VkDeviceMemory universalAtomicCounterMemory;
     VkBuffer universalAtomicCounterBuffer;
+    VkDescriptorPool universalAtomicCounterPool;
     VkDescriptorSet universalAtomicCounterSet;
+    VkDeviceMemory computeAtomicCounterMemory;
     VkBuffer computeAtomicCounterBuffer;
+    VkDescriptorPool computeAtomicCounterPool;
     VkDescriptorSet computeAtomicCounterSet;
     GrBorderColorPalette* grBorderColorPalette;
 } GrDevice;

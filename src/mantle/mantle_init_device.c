@@ -44,17 +44,17 @@ static VkDescriptorSetLayout getAtomicCounterDescriptorSetLayout(
     VkResult res = VKD.vkCreateDescriptorSetLayout(grDevice->device, &createInfo, NULL, &layout);
     if (res != VK_SUCCESS) {
         LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
+        assert(false);
     }
 
     return layout;
 }
 
-static VkBuffer allocateAtomicCounterBuffer(
+static VkDeviceMemory getAtomicCounterMemory(
     const GrDevice* grDevice,
     unsigned slotCount)
 {
-    VkDeviceMemory vkMemory = VK_NULL_HANDLE;
-    VkBuffer vkBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory vkDeviceMemory = VK_NULL_HANDLE;
     VkResult vkRes;
 
     unsigned memoryTypeIndex = 0;
@@ -74,17 +74,28 @@ static VkBuffer allocateAtomicCounterBuffer(
         .memoryTypeIndex = memoryTypeIndex,
     };
 
-    vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
+    vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkDeviceMemory);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkAllocateMemory failed (%d)\n", vkRes);
-        return VK_NULL_HANDLE;
+        assert(false);
     }
+
+    return vkDeviceMemory;
+}
+
+static VkBuffer getAtomicCounterBuffer(
+    const GrDevice* grDevice,
+    VkDeviceMemory vkDeviceMemory,
+    unsigned slotCount)
+{
+    VkBuffer vkBuffer = VK_NULL_HANDLE;
+    VkResult vkRes;
 
     const VkBufferCreateInfo bufferCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .size = allocateInfo.allocationSize,
+        .size = slotCount * sizeof(uint32_t),
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -96,28 +107,24 @@ static VkBuffer allocateAtomicCounterBuffer(
     vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateBuffer failed (%d)\n", vkRes);
-        return VK_NULL_HANDLE;
+        assert(false);
     }
 
-    vkRes = VKD.vkBindBufferMemory(grDevice->device, vkBuffer, vkMemory, 0);
+    vkRes = VKD.vkBindBufferMemory(grDevice->device, vkBuffer, vkDeviceMemory, 0);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkBindBufferMemory failed (%d)\n", vkRes);
-        return VK_NULL_HANDLE;
+        assert(false);
     }
 
     return vkBuffer;
 }
 
-static VkDescriptorSet getAtomicCounterDescriptorSet(
-    const GrDevice* grDevice,
-    VkDescriptorSetLayout descriptorSetLayout,
-    VkBuffer buffer)
+static VkDescriptorPool getAtomicCounterDescriptorPool(
+    const GrDevice* grDevice)
 {
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
     VkResult res;
 
-    // Create descriptor pool
     const VkDescriptorPoolSize poolSize = {
         .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
@@ -137,6 +144,18 @@ static VkDescriptorSet getAtomicCounterDescriptorSet(
         LOGE("vkCreateDescriptorPool failed (%d)\n", res);
         assert(false);
     }
+
+    return descriptorPool;
+}
+
+static VkDescriptorSet getAtomicCounterDescriptorSet(
+    const GrDevice* grDevice,
+    VkDescriptorSetLayout descriptorSetLayout,
+    VkDescriptorPool descriptorPool,
+    VkBuffer buffer)
+{
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkResult res;
 
     // Allocate descriptor set
     const VkDescriptorSetAllocateInfo allocateInfo = {
@@ -732,19 +751,31 @@ GR_RESULT GR_STDCALL grCreateDevice(
     if (universalQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grUniversalQueue =
             grQueueCreate(grDevice, universalQueueFamilyIndex, universalQueueIndex);
+        grDevice->universalAtomicCounterMemory =
+            getAtomicCounterMemory(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
         grDevice->universalAtomicCounterBuffer =
-            allocateAtomicCounterBuffer(grDevice, UNIVERSAL_ATOMIC_COUNTERS_COUNT);
+            getAtomicCounterBuffer(grDevice, grDevice->universalAtomicCounterMemory,
+                                   UNIVERSAL_ATOMIC_COUNTERS_COUNT);
+        grDevice->universalAtomicCounterPool =
+            getAtomicCounterDescriptorPool(grDevice);
         grDevice->universalAtomicCounterSet =
             getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
+                                          grDevice->universalAtomicCounterPool,
                                           grDevice->universalAtomicCounterBuffer);
     }
     if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grComputeQueue =
             grQueueCreate(grDevice, computeQueueFamilyIndex, computeQueueIndex);
+        grDevice->computeAtomicCounterMemory =
+            getAtomicCounterMemory(grDevice, COMPUTE_ATOMIC_COUNTERS_COUNT);
         grDevice->computeAtomicCounterBuffer =
-            allocateAtomicCounterBuffer(grDevice, COMPUTE_ATOMIC_COUNTERS_COUNT);
+            getAtomicCounterBuffer(grDevice, grDevice->computeAtomicCounterMemory,
+                                   COMPUTE_ATOMIC_COUNTERS_COUNT);
+        grDevice->computeAtomicCounterPool =
+            getAtomicCounterDescriptorPool(grDevice);
         grDevice->computeAtomicCounterSet =
             getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
+                                          grDevice->computeAtomicCounterPool,
                                           grDevice->computeAtomicCounterBuffer);
     }
     if (dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
@@ -773,6 +804,27 @@ GR_RESULT GR_STDCALL grDestroyDevice(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
+    VKD.vkDestroyDescriptorSetLayout(grDevice->device, grDevice->atomicCounterSetLayout, NULL);
+    if (grDevice->grUniversalQueue) {
+        free(grDevice->grUniversalQueue->globalMemRefs);
+        VKD.vkDestroyCommandPool(grDevice->device, grDevice->grUniversalQueue->commandPool, NULL);
+
+        VKD.vkDestroyBuffer(grDevice->device, grDevice->universalAtomicCounterBuffer, NULL);
+        VKD.vkFreeMemory(grDevice->device, grDevice->universalAtomicCounterMemory, NULL);
+        VKD.vkDestroyDescriptorPool(grDevice->device, grDevice->universalAtomicCounterPool, NULL);
+    }
+    if (grDevice->grComputeQueue) {
+        free(grDevice->grComputeQueue->globalMemRefs);
+        VKD.vkDestroyCommandPool(grDevice->device, grDevice->grComputeQueue->commandPool, NULL);
+
+        VKD.vkDestroyBuffer(grDevice->device, grDevice->computeAtomicCounterBuffer, NULL);
+        VKD.vkFreeMemory(grDevice->device, grDevice->computeAtomicCounterMemory, NULL);
+        VKD.vkDestroyDescriptorPool(grDevice->device, grDevice->computeAtomicCounterPool, NULL);
+    }
+    if (grDevice->grDmaQueue) {
+        free(grDevice->grDmaQueue->globalMemRefs);
+        VKD.vkDestroyCommandPool(grDevice->device, grDevice->grDmaQueue->commandPool, NULL);
+    }
     VKD.vkDestroyDevice(grDevice->device, NULL);
     free(grDevice);
 
