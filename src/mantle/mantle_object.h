@@ -273,6 +273,7 @@ typedef struct _GrImage {
     VkFormat format;
     VkImageUsageFlags usage;
     bool multiplyCubeLayers;
+    bool isOpaque;
 } GrImage;
 
 typedef struct _GrImageView {

@@ -248,6 +248,7 @@ GR_RESULT GR_STDCALL grCreateImage(
             .format = createInfo.format,
             .usage = createInfo.usage,
             .multiplyCubeLayers = false,
+            .isOpaque = false,
         };
 
         *pImage = (GR_IMAGE)grImage;
@@ -285,6 +286,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .format = createInfo.format,
         .usage = createInfo.usage,
         .multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && isCubic,
+        .isOpaque = pCreateInfo->tiling == GR_OPTIMAL_TILING,
     };
 
     // Mantle spec: "When [...] non-target images are bound to memory, they are assumed
@@ -349,6 +351,14 @@ GR_RESULT GR_STDCALL grGetImageSubresourceInfo(
                                                  pSubresource->mipLevel),
             .depthPitch = grImageGetBufferDepthPitch(grImage->extent, grImage->format,
                                                      pSubresource->mipLevel),
+        };
+    } else if (grImage->isOpaque) {
+        // Mantle spec: "For opaque images, the returned pitch values are zero."
+        *(GR_SUBRESOURCE_LAYOUT*)pData = (GR_SUBRESOURCE_LAYOUT) {
+            .offset = 0,
+            .size = 0,
+            .rowPitch = 0,
+            .depthPitch = 0,
         };
     } else {
         GrDevice* grDevice = GET_OBJ_DEVICE(grImage);
