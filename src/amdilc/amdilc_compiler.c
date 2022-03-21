@@ -775,13 +775,14 @@ static void storeDestination(
         IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->floatId, ONE_LITERAL);
         const IlcSpvId zeroConsistuentIds[] = { zeroId, zeroId, zeroId, zeroId };
         const IlcSpvId oneConsistuentIds[] = { oneId, oneId, oneId, oneId };
-        IlcSpvId zeroCompositeId = ilcSpvPutConstantComposite(compiler->module, reg->typeId,
+        IlcSpvId zeroCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
                                                               4, zeroConsistuentIds);
-        IlcSpvId oneCompositeId = ilcSpvPutConstantComposite(compiler->module, reg->typeId,
+        IlcSpvId oneCompositeId = ilcSpvPutConstantComposite(compiler->module, compiler->float4Id,
                                                              4, oneConsistuentIds);
 
         const IlcSpvId paramIds[] = { varId, zeroCompositeId, oneCompositeId };
-        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FClamp, reg->typeId, 3, paramIds);
+        varId = ilcSpvPutGLSLOp(compiler->module, GLSLstd450FClamp, compiler->float4Id,
+                                3, paramIds);
     }
 
     if (dst->component[0] == IL_MODCOMP_NOWRITE || dst->component[1] == IL_MODCOMP_NOWRITE ||
