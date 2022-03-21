@@ -658,12 +658,12 @@ GR_RESULT GR_STDCALL grCreateDevice(
             .fillModeNonSolid = VK_TRUE,
             .multiViewport = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
-            .fragmentStoresAndAtomics = VK_TRUE,
-            .shaderStorageImageReadWithoutFormat = VK_TRUE,
-            .shaderStorageImageWriteWithoutFormat = VK_TRUE,
             .occlusionQueryPrecise = VK_TRUE,
             .pipelineStatisticsQuery = VK_TRUE,
             .fragmentStoresAndAtomics = VK_TRUE,
+            .shaderStorageImageReadWithoutFormat = VK_TRUE,
+            .shaderStorageImageWriteWithoutFormat = VK_TRUE,
+            .shaderClipDistance = VK_TRUE,
         },
     };
 

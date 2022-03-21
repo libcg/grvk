@@ -991,7 +991,26 @@ static void emitOutput(
     unsigned outputComponentCount = 0;
     const char* outputPrefix = NULL;
 
-    if (dst->registerType == IL_REGTYPE_OUTPUT) {
+    if (dst->registerType == IL_REGTYPE_OUTPUT && importUsage == IL_IMPORTUSAGE_CLIPDISTANCE) {
+        // Clip distance is an array of one element
+        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
+        IlcSpvId arrayTypeId = ilcSpvPutArrayType(compiler->module, compiler->floatId, oneId);
+        IlcSpvId arrayId = emitVariable(compiler, arrayTypeId, SpvStorageClassOutput);
+
+        IlcSpvWord builtInType = SpvBuiltInClipDistance;
+        ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationBuiltIn, 1, &builtInType);
+
+        // The output register points to the first element in the array
+        outputTypeId = compiler->floatId;
+        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput,
+                                                  outputTypeId);
+        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
+        outputId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, arrayId, 1, &indexId);
+        outputInterfaceId = arrayId;
+        outputComponentTypeId = compiler->floatId;
+        outputComponentCount = 1;
+        outputPrefix = "o";
+    } else if (dst->registerType == IL_REGTYPE_OUTPUT) {
         outputTypeId = compiler->float4Id;
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
         outputInterfaceId = outputId;
