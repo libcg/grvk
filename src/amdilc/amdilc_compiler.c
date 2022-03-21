@@ -28,9 +28,9 @@ typedef enum {
 } IlcResourceType;
 
 typedef enum {
-    BLOCK_IF_ELSE,
-    BLOCK_LOOP,
-    BLOCK_SWITCH_CASE,
+    BLOCK_IF_ELSE = 1,
+    BLOCK_LOOP = 2,
+    BLOCK_SWITCH_CASE = 4,
 } IlcControlFlowBlockType;
 
 typedef struct {
@@ -558,7 +558,7 @@ static IlcControlFlowBlock* findControlFlowBlock(
     for (int i = compiler->controlFlowBlockCount - 1; i >= 0; i--) {
         IlcControlFlowBlock* block = &compiler->controlFlowBlocks[i];
 
-        if (block->type == type) {
+        if (block->type & type) {
             return block;
         }
     }
@@ -2234,22 +2234,25 @@ static void emitBreak(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    const IlcControlFlowBlock* block = findControlFlowBlock(compiler, BLOCK_LOOP);
+    const IlcControlFlowBlock* block = findControlFlowBlock(compiler,
+                                                            BLOCK_LOOP | BLOCK_SWITCH_CASE);
     if (block == NULL) {
-        LOGE("no matching loop block was found\n");
+        LOGE("no matching loop or switch/case block was found\n");
         assert(false);
     }
 
     IlcSpvId labelId = ilcSpvAllocId(compiler->module);
+    IlcSpvId labelBreakId = block->type == BLOCK_LOOP ? block->loop.labelBreakId
+                                                      : block->switchCase.labelBreakId;
 
     if (instr->opcode == IL_OP_BREAK) {
-        ilcSpvPutBranch(compiler->module, block->loop.labelBreakId);
+        ilcSpvPutBranch(compiler->module, labelBreakId);
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
         IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
         IlcSpvId condId = emitConditionCheck(compiler, srcId,
                                              instr->opcode == IL_OP_BREAK_LOGICALNZ);
-        ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelBreakId, labelId);
+        ilcSpvPutBranchConditional(compiler->module, condId, labelBreakId, labelId);
     } else {
         assert(false);
     }
