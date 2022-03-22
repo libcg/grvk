@@ -209,10 +209,10 @@ GR_RESULT GR_STDCALL grWaitForFences(
         GrFence* grFence = (GrFence*)pFences[i];
 
         if (grFence == NULL) {
-            free(vkFences);
+            STACK_ARRAY_FINISH(vkFences);
             return GR_ERROR_INVALID_HANDLE;
         } else if (!grFence->submitted) {
-            free(vkFences);
+            STACK_ARRAY_FINISH(vkFences);
             return GR_ERROR_UNAVAILABLE;
         }
 
