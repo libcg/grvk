@@ -68,6 +68,7 @@ typedef struct _GrMsaaStateObject GrMsaaStateObject;
 typedef struct _GrPipeline GrPipeline;
 typedef struct _GrQueue GrQueue;
 typedef struct _GrRasterStateObject GrRasterStateObject;
+typedef struct _GrShader GrShader;
 typedef struct _GrViewportStateObject GrViewportStateObject;
 
 typedef struct _DescriptorSetSlot
@@ -300,6 +301,7 @@ typedef struct _GrPhysicalGpu {
 
 typedef struct _GrPipeline {
     GrObject grObj;
+    GrShader* grShaderRefs[MAX_STAGE_COUNT];
     PipelineCreateInfo* createInfo;
     unsigned pipelineSlotCount;
     PipelineSlot* pipelineSlots;
@@ -335,6 +337,7 @@ typedef struct _GrSampler {
 
 typedef struct _GrShader {
     GrObject grObj;
+    unsigned refCount;
     VkShaderModule shaderModule;
     unsigned bindingCount;
     IlcBinding* bindings;

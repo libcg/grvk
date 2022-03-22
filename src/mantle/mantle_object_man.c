@@ -76,7 +76,10 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_PIPELINE: {
         GrPipeline* grPipeline = (GrPipeline*)grObject;
 
-        // FIXME destroy shader modules
+        for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+            grDestroyObject((GR_OBJECT)grPipeline->grShaderRefs[i]);
+        }
+
         free(grPipeline->createInfo);
         for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
             PipelineSlot* slot = &grPipeline->pipelineSlots[i];
@@ -110,7 +113,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_SHADER: {
         GrShader* grShader = (GrShader*)grObject;
 
-        // FIXME the shader modules are used for deferred pipeline creation
+        if (--grShader->refCount > 0) {
+            return GR_SUCCESS;
+        }
+
+        VKD.vkDestroyShaderModule(grDevice->device, grShader->shaderModule, NULL);
         free(grShader->bindings);
         free(grShader->inputs);
         free(grShader->name);

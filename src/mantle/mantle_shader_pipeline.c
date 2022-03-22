@@ -684,6 +684,7 @@ GR_RESULT GR_STDCALL grCreateShader(
     GrShader* grShader = malloc(sizeof(GrShader));
     *grShader = (GrShader) {
         .grObj = { GR_OBJ_TYPE_SHADER, grDevice },
+        .refCount = 1,
         .shaderModule = vkShaderModule,
         .bindingCount = ilcShader.bindingCount,
         .bindings = ilcShader.bindings,
@@ -710,6 +711,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     unsigned dynamicOffsetCount = 0;
     unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
     UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS] = { NULL };
+    GrShader* grShaderRefs[MAX_STAGE_COUNT] = { NULL };
     VkResult vkRes;
 
     // TODO validate parameters
@@ -742,6 +744,9 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         }
 
         GrShader* grShader = (GrShader*)stage->shader->shader;
+
+        grShaderRefs[i] = grShader;
+        grShader->refCount++;
 
         shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -866,6 +871,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
+        .grShaderRefs = { NULL }, // Initialized below
         .createInfo = pipelineCreateInfo,
         .pipelineSlotCount = 0,
         .pipelineSlots = NULL,
@@ -878,6 +884,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .updateTemplateEntries = { NULL }, // Initialized below
     };
 
+    memcpy(grPipeline->grShaderRefs, grShaderRefs, sizeof(grPipeline->grShaderRefs));
     memcpy(grPipeline->updateTemplateEntryCounts, updateTemplateEntryCounts,
            sizeof(grPipeline->updateTemplateEntryCounts));
     memcpy(grPipeline->updateTemplateEntries, updateTemplateEntries,
@@ -919,6 +926,8 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     }
 
     GrShader* grShader = (GrShader*)stage.shader->shader;
+
+    grShader->refCount++;
 
     const VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -976,6 +985,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
+        .grShaderRefs = { grShader },
         .createInfo = NULL,
         .pipelineSlotCount = 1,
         .pipelineSlots = pipelineSlot,
