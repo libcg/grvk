@@ -206,7 +206,7 @@ GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
     GR_PHYSICAL_GPU gpus[GR_MAX_PHYSICAL_GPUS])
 {
     LOGT("%p %p %p\n", pAppInfo, pAllocCb, pGpuCount);
-    VkInstance vkInstance = VK_NULL_HANDLE;
+    static VkInstance vkInstance = VK_NULL_HANDLE;
     VkResult vkRes;
 
     vulkanLoaderLibraryInit(&vkl);
@@ -222,48 +222,50 @@ GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
         LOGW("unhandled alloc callbacks\n");
     }
 
-    char* grvkEngineName = getGrvkEngineName(pAppInfo->pEngineName);
+    if (vkInstance == VK_NULL_HANDLE) {
+        char* grvkEngineName = getGrvkEngineName(pAppInfo->pEngineName);
 
-    const VkApplicationInfo appInfo = {
-        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pNext = NULL,
-        .pApplicationName = pAppInfo->pAppName,
-        .applicationVersion = pAppInfo->appVersion,
-        .pEngineName = grvkEngineName,
-        .engineVersion = pAppInfo->engineVersion,
-        .apiVersion = VK_API_VERSION_1_2,
-    };
+        const VkApplicationInfo appInfo = {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pNext = NULL,
+            .pApplicationName = pAppInfo->pAppName,
+            .applicationVersion = pAppInfo->appVersion,
+            .pEngineName = grvkEngineName,
+            .engineVersion = pAppInfo->engineVersion,
+            .apiVersion = VK_API_VERSION_1_2,
+        };
 
-    const char *instanceExtensions[] = {
-        VK_KHR_SURFACE_EXTENSION_NAME,
-        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
-    };
+        const char *instanceExtensions[] = {
+            VK_KHR_SURFACE_EXTENSION_NAME,
+            VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+        };
 
-    const VkInstanceCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .pApplicationInfo = &appInfo,
-        .enabledLayerCount = 0,
-        .ppEnabledLayerNames = NULL,
-        .enabledExtensionCount = COUNT_OF(instanceExtensions),
-        .ppEnabledExtensionNames = instanceExtensions,
-    };
+        const VkInstanceCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .pApplicationInfo = &appInfo,
+            .enabledLayerCount = 0,
+            .ppEnabledLayerNames = NULL,
+            .enabledExtensionCount = COUNT_OF(instanceExtensions),
+            .ppEnabledExtensionNames = instanceExtensions,
+        };
 
-    vkRes = vkl.vkCreateInstance(&createInfo, NULL, &vkInstance);
-    free(grvkEngineName);
+        vkRes = vkl.vkCreateInstance(&createInfo, NULL, &vkInstance);
+        free(grvkEngineName);
 
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkCreateInstance failed (%d)\n", vkRes);
+        if (vkRes != VK_SUCCESS) {
+            LOGE("vkCreateInstance failed (%d)\n", vkRes);
 
-        if (vkRes == VK_ERROR_INCOMPATIBLE_DRIVER) {
-            LOGE("incompatible driver detected. Vulkan 1.2 support is required\n");
+            if (vkRes == VK_ERROR_INCOMPATIBLE_DRIVER) {
+                LOGE("incompatible driver detected. Vulkan 1.2 support is required\n");
+            }
+
+            return GR_ERROR_INITIALIZATION_FAILED;
         }
 
-        return GR_ERROR_INITIALIZATION_FAILED;
+        vulkanLoaderInstanceInit(&vki, vkInstance);
     }
-
-    vulkanLoaderInstanceInit(&vki, vkInstance);
 
     uint32_t vkPhysicalDeviceCount = 0;
     vki.vkEnumeratePhysicalDevices(vkInstance, &vkPhysicalDeviceCount, NULL);
