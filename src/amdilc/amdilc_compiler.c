@@ -1015,26 +1015,7 @@ static void emitOutput(
     unsigned outputComponentCount = 0;
     const char* outputPrefix = NULL;
 
-    if (dst->registerType == IL_REGTYPE_OUTPUT && importUsage == IL_IMPORTUSAGE_CLIPDISTANCE) {
-        // Clip distance is an array of one element
-        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
-        IlcSpvId arrayTypeId = ilcSpvPutArrayType(compiler->module, compiler->floatId, oneId);
-        IlcSpvId arrayId = emitVariable(compiler, arrayTypeId, SpvStorageClassOutput);
-
-        IlcSpvWord builtInType = SpvBuiltInClipDistance;
-        ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationBuiltIn, 1, &builtInType);
-
-        // The output register points to the first element in the array
-        outputTypeId = compiler->floatId;
-        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput,
-                                                  outputTypeId);
-        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
-        outputId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, arrayId, 1, &indexId);
-        outputInterfaceId = arrayId;
-        outputComponentTypeId = compiler->floatId;
-        outputComponentCount = 1;
-        outputPrefix = "o";
-    } else if (dst->registerType == IL_REGTYPE_OUTPUT) {
+    if (dst->registerType == IL_REGTYPE_OUTPUT) {
         outputTypeId = compiler->float4Id;
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
         outputInterfaceId = outputId;
@@ -1045,7 +1026,7 @@ static void emitOutput(
         if (importUsage == IL_IMPORTUSAGE_POS) {
             IlcSpvWord builtInType = SpvBuiltInPosition;
             ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
-        } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+        } else if (importUsage == IL_IMPORTUSAGE_GENERIC || importUsage == IL_IMPORTUSAGE_CLIPDISTANCE || importUsage == IL_IMPORTUSAGE_CULLDISTANCE) {
             IlcSpvWord locationIdx = dst->registerNum;
             ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
         } else {
@@ -3245,6 +3226,90 @@ static void finalizeVertexStage(
         };
 
         addRegister(compiler, &reg, "oPos");
+    }
+
+    const IlcRegister* cullRegs[2] = { NULL, NULL };
+    unsigned cullRegCount = 0;
+    const IlcRegister* clipRegs[2] = { NULL, NULL };
+    unsigned clipRegCount = 0;
+    for (int i = 0; i < compiler->regCount; i++) {
+        const IlcRegister* reg = &compiler->regs[i];
+
+        if (reg->ilType != IL_REGTYPE_OUTPUT) {
+            continue;
+        }
+        if (reg->ilImportUsage == IL_IMPORTUSAGE_CULLDISTANCE && cullRegCount < 2) {
+            cullRegs[cullRegCount++] = reg;
+        } else if (reg->ilImportUsage == IL_IMPORTUSAGE_CLIPDISTANCE && clipRegCount < 2) {
+            clipRegs[clipRegCount++] = reg;
+        }
+    }
+
+    if (clipRegCount == 0 && clipRegCount == 0) {
+        return;
+    }
+    IlcSpvId typeId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->floatId, true);
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, typeId);
+    IlcSpvId compPtrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, compiler->floatId);
+    if (cullRegCount > 0) {
+        IlcSpvId cullBuiltInId = ilcSpvPutVariable(compiler->module, ptrTypeId, SpvStorageClassOutput);
+        IlcSpvWord builtInType = SpvBuiltInCullDistance;
+        ilcSpvPutDecoration(compiler->module, cullBuiltInId, SpvDecorationBuiltIn, 1, &builtInType);
+        for (unsigned i = 0; i < cullRegCount; ++i) {
+            IlcSpvId valId = ilcSpvPutLoad(compiler->module, cullRegs[i]->typeId, cullRegs[i]->id);
+            for (unsigned j = 0; j < 4; j++) {
+                if (cullRegs[i]->ilComponentMask[j] != IL_MODCOMP_WRITE) {
+                    continue;
+                }
+                IlcSpvId compId = ilcSpvPutCompositeExtract(compiler->module, cullRegs[i]->componentTypeId, valId, 1, &j);
+                IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, i * 4 + j);
+                IlcSpvId indexPtrId = ilcSpvPutAccessChain(compiler->module, compPtrTypeId, cullBuiltInId, 1, &indexId);
+                ilcSpvPutStore(compiler->module, indexPtrId, compId);
+            }
+        }
+        const IlcRegister cullBuiltInReg = {
+            .id = cullBuiltInId,
+            .interfaceId = cullBuiltInId,
+            .typeId = typeId,
+            .componentTypeId = compiler->floatId,
+            .componentCount = 1,
+            .ilType = IL_REGTYPE_OUTPUT,
+            .ilNum = 0,//idk what to place here (not needed :) )
+            .ilImportUsage = IL_IMPORTUSAGE_LAST,
+            .ilInterpMode = 0,
+        };
+
+        addRegister(compiler, &cullBuiltInReg, "gl_CullDistance");
+    }
+    if (clipRegCount > 0) {
+        IlcSpvId clipBuiltInId = ilcSpvPutVariable(compiler->module, ptrTypeId, SpvStorageClassOutput);
+        IlcSpvWord builtInType = SpvBuiltInClipDistance;
+        ilcSpvPutDecoration(compiler->module, clipBuiltInId, SpvDecorationBuiltIn, 1, &builtInType);
+        for (unsigned i = 0; i < clipRegCount; ++i) {
+            IlcSpvId valId = ilcSpvPutLoad(compiler->module, clipRegs[i]->typeId, clipRegs[i]->id);
+            for (unsigned j = 0; j < 4; j++) {
+                if (clipRegs[i]->ilComponentMask[j] != IL_MODCOMP_WRITE) {
+                    continue;
+                }
+                IlcSpvId compId = ilcSpvPutCompositeExtract(compiler->module, clipRegs[i]->componentTypeId, valId, 1, &j);
+                IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, i * 4  + j);
+                IlcSpvId indexPtrId = ilcSpvPutAccessChain(compiler->module, compPtrTypeId, clipBuiltInId, 1, &indexId);
+                ilcSpvPutStore(compiler->module, indexPtrId, compId);
+            }
+        }
+        const IlcRegister clipBuiltInReg = {
+            .id = clipBuiltInId,
+            .interfaceId = clipBuiltInId,
+            .typeId = typeId,
+            .componentTypeId = compiler->floatId,
+            .componentCount = 1,
+            .ilType = IL_REGTYPE_OUTPUT,
+            .ilNum = 0,//idk what to place here (not needed :) )
+            .ilImportUsage = IL_IMPORTUSAGE_LAST,
+            .ilInterpMode = 0,
+        };
+
+        addRegister(compiler, &clipBuiltInReg, "gl_ClipDistance");
     }
 }
 
