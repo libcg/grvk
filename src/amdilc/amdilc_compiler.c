@@ -43,6 +43,7 @@ typedef struct {
     uint32_t ilNum;
     uint8_t ilImportUsage; // Input/output only
     uint8_t ilInterpMode; // Input only
+    uint8_t ilComponentMask[4];
 } IlcRegister;
 
 typedef struct {
@@ -383,13 +384,13 @@ static const IlcRegister* addRegister(
     return &compiler->regs[compiler->regCount - 1];
 }
 
-static const IlcRegister* findRegister(
+static IlcRegister* findRegister(
     IlcCompiler* compiler,
     uint32_t type,
     uint32_t num)
 {
     for (int i = 0; i < compiler->regCount; i++) {
-        const IlcRegister* reg = &compiler->regs[i];
+        IlcRegister* reg = &compiler->regs[i];
 
         if (reg->ilType == type && reg->ilNum == num) {
             return reg;
@@ -988,11 +989,17 @@ static void emitOutput(
     uint8_t importUsage = GET_BITS(instr->control, 0, 4);
 
     const Destination* dst = &instr->dsts[0];
-    const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
         // Outputs are allowed to be redeclared with different components.
         // Can be safely ignored as long as the import usage is equivalent.
         if (dupeReg->ilImportUsage == importUsage) {
+            // copy component masks over
+            for (unsigned i = 0; i < 4; ++i) {
+                if (dupeReg->ilComponentMask[i] == IL_MODCOMP_NOWRITE) {
+                    dupeReg->ilComponentMask[i] = dst->component[i];
+                }
+            }
             return;
         } else {
             LOGE("unhandled o%d redeclaration with different import usage %d (was %d)\n",
@@ -1090,6 +1097,12 @@ static void emitOutput(
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
         .ilInterpMode = 0,
+        .ilComponentMask = {
+            dst->component[0],
+            dst->component[1],
+            dst->component[2],
+            dst->component[3]
+        }
     };
 
     addRegister(compiler, &reg, outputPrefix);
@@ -1116,11 +1129,17 @@ static void emitInput(
            !dst->clamp &&
            dst->shiftScale == IL_SHIFT_NONE);
 
-    const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
         // Inputs are allowed to be redeclared with different components.
         // Can be safely ignored as long as the import usage and interp mode are equivalent.
         if (dupeReg->ilImportUsage == importUsage && dupeReg->ilInterpMode == interpMode) {
+            // copy over the component mask
+            for (unsigned i = 0; i < 4; ++i) {
+                if (dupeReg->ilComponentMask[i] == IL_MODCOMP_NOWRITE) {
+                    dupeReg->ilComponentMask[i] = dst->component[i];
+                }
+            }
             return;
         } else {
             LOGE("unhandled v%d redeclaration with different import usage %d (was %d) or "
@@ -1220,6 +1239,12 @@ static void emitInput(
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
         .ilInterpMode = interpMode,
+        .ilComponentMask = {
+            dst->component[0],
+            dst->component[1],
+            dst->component[2],
+            dst->component[3]
+        }
     };
 
     addRegister(compiler, &reg, "v");
