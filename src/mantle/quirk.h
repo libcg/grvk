@@ -7,8 +7,8 @@ typedef enum {
     // Game crashes when size and alignment are zero for objects with no memory requirements
     QUIRK_NON_ZERO_MEM_REQ = 1 << 0,
 
-    // Read-only image bound to UAV slot
-    QUIRK_READ_ONLY_IMAGE_BOUND_TO_UAV = 1 << 1,
+    // Image view bound as read-only in target or descriptor, but image state doesn't match
+    QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH = 1 << 1,
 
     // Image transitioned to DATA_TRANSFER state for raw clears instead of CLEAR state
     QUIRK_IMAGE_DATA_TRANSFER_STATE_FOR_RAW_CLEAR = 1 << 2,
