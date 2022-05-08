@@ -2267,6 +2267,40 @@ static void emitBreak(
 
     if (instr->opcode == IL_OP_BREAK) {
         ilcSpvPutBranch(compiler->module, labelBreakId);
+    } else if (instr->opcode == IL_OP_BREAKC) {
+        IlcSpvId srcAId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvId xAId = emitVectorTrim(compiler, srcAId, compiler->float4Id, COMP_INDEX_X, 1);
+        IlcSpvId srcBId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvId xBId = emitVectorTrim(compiler, srcBId, compiler->float4Id, COMP_INDEX_X, 1);
+
+        uint8_t relop = GET_BITS(instr->control, 0, 2);
+        SpvOp compOp = 0;
+        switch (relop) {
+        case IL_RELOP_EQ:
+            compOp = SpvOpFOrdEqual;
+            break;
+        case IL_RELOP_GT:
+            compOp = SpvOpFOrdGreaterThan;
+            break;
+        case IL_RELOP_GE:
+            compOp = SpvOpFOrdGreaterThanEqual;
+            break;
+        case IL_RELOP_LE:
+            compOp = SpvOpFOrdLessThanEqual;
+            break;
+        case IL_RELOP_LT:
+            compOp = SpvOpFOrdLessThan;
+            break;
+        case IL_RELOP_NE:
+            compOp = SpvOpFOrdNotEqual;
+            break;
+        default:
+            assert(false);
+            break;
+        }
+        IlcSpvId condId = ilcSpvPutOp2(compiler->module, compOp, compiler->boolId,
+                                       xAId, xBId);
+        ilcSpvPutBranchConditional(compiler->module, condId, labelBreakId, labelId);
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
         IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
@@ -3338,6 +3372,7 @@ static void emitInstr(
         emitDefault(compiler, instr);
         break;
     case IL_OP_BREAK:
+    case IL_OP_BREAKC:
     case IL_OP_BREAK_LOGICALZ:
     case IL_OP_BREAK_LOGICALNZ:
         emitBreak(compiler, instr);

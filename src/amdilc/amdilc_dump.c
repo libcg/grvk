@@ -267,6 +267,15 @@ static const char* mIlFfbOptionNames[3] = {
     "shi",
 };
 
+static const char* mIlRelopNames[6] = {
+    "ne",
+    "eq",
+    "ge",
+    "gt",
+    "le",
+    "lt",
+};
+
 static void dumpSource(
     FILE* file,
     const Source* src);
@@ -497,6 +506,9 @@ static void dumpInstruction(
         break;
     case IL_OP_BREAK:
         fprintf(file, "break");
+        break;
+    case IL_OP_BREAKC:
+        fprintf(file, "breakc_relop(%s)", mIlRelopNames[GET_BITS(instr->control, 0, 2)]);
         break;
     case IL_OP_CONTINUE:
         fprintf(file, "continue");
