@@ -827,7 +827,10 @@ GR_RESULT GR_STDCALL grDestroyDevice(
         free(grDevice->grDmaQueue->globalMemRefs);
         VKD.vkDestroyCommandPool(grDevice->device, grDevice->grDmaQueue->commandPool, NULL);
     }
-    VKD.vkDestroyDevice(grDevice->device, NULL);
+
+    if (!quirkHas(QUIRK_KEEP_VK_DEVICE)) {
+        VKD.vkDestroyDevice(grDevice->device, NULL);
+    }
     free(grDevice);
 
     return GR_SUCCESS;

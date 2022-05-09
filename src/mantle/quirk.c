@@ -14,7 +14,8 @@ void quirkInit(
                   QUIRK_CUBEMAP_LAYER_DIV_6;
     } else if (!strcmp(appInfo->pEngineName, "CivTech")) {
         mQuirks = QUIRK_NON_ZERO_MEM_REQ |
-                  QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH;
+                  QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH |
+                  QUIRK_KEEP_VK_DEVICE;
     }
 
     if (mQuirks != 0) {

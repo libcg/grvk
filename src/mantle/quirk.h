@@ -21,6 +21,9 @@ typedef enum {
 
     // Cubemap layer index and count are divided by 6
     QUIRK_CUBEMAP_LAYER_DIV_6 = 1 << 5,
+
+    // Not all objects are destroyed before the device gets destroyed
+    QUIRK_KEEP_VK_DEVICE = 1 << 6,
 } QUIRK_FLAGS;
 
 void quirkInit(
