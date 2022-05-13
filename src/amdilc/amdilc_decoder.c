@@ -14,6 +14,7 @@ static const OpcodeInfo mOpcodeInfos[IL_OP_LAST] = {
     [IL_OP_ASIN] = { IL_OP_ASIN, 1, 1, 0 },
     [IL_OP_ATAN] = { IL_OP_ATAN, 1, 1, 0 },
     [IL_OP_BREAK] = { IL_OP_BREAK, 0, 0, 0 },
+    [IL_OP_BREAKC] = { IL_OP_BREAKC, 0, 2, 0 },
     [IL_OP_CONTINUE] = { IL_OP_CONTINUE, 0, 0, 0 },
     [IL_OP_DCLARRAY] = { IL_OP_DCLARRAY, 0, 2, 0 },
     [IL_OP_DIV] = { IL_OP_DIV, 1, 2, 0 },
