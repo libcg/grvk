@@ -605,15 +605,13 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
 
     AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
 
+    // Assume that the attachment formats never change to reduce pipeline lookup overhead
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
         if (grColorBlendState == slot->grColorBlendState &&
             grMsaaState == slot->grMsaaState &&
-            grRasterState == slot->grRasterState &&
-            colorFormatCount == slot->colorFormatCount &&
-            !memcmp(colorFormats, slot->colorFormats, colorFormatCount * sizeof(VkFormat)) &&
-            depthStencilFormat == slot->depthStencilFormat) {
+            grRasterState == slot->grRasterState) {
             vkPipeline = slot->pipeline;
             break;
         }
@@ -628,12 +626,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
             .grColorBlendState = grColorBlendState,
             .grMsaaState = grMsaaState,
             .grRasterState = grRasterState,
-            .colorFormatCount = colorFormatCount,
-            .colorFormats = { 0 }, // Initialized below
-            .depthStencilFormat = depthStencilFormat,
         };
-
-        memcpy(slot.colorFormats, colorFormats, colorFormatCount * sizeof(VkFormat));
 
         grPipeline->pipelineSlotCount++;
         grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,

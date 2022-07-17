@@ -615,19 +615,11 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         bindPoint->dirtyFlags |= FLAG_DIRTY_RENDER_PASS;
     }
 
-    if (colorAttachmentCount != grCmdBuffer->colorAttachmentCount ||
-        memcmp(colorFormats, grCmdBuffer->colorFormats, colorAttachmentCount * sizeof(VkFormat)) ||
-        hasDepth != grCmdBuffer->hasDepth || hasStencil != grCmdBuffer->hasStencil ||
-        ((hasDepth || hasStencil) && depthStencilFormat != grCmdBuffer->depthStencilFormat)) {
-        // Target formats have changed
-        grCmdBuffer->colorAttachmentCount = colorAttachmentCount;
-        memcpy(grCmdBuffer->colorFormats, colorFormats, colorAttachmentCount * sizeof(VkFormat));
-        grCmdBuffer->hasDepth = hasDepth;
-        grCmdBuffer->hasStencil = hasStencil;
-        grCmdBuffer->depthStencilFormat = depthStencilFormat;
-
-        bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
-    }
+    // Some games bind more targets than declared in the pipeline.
+    // Assume that the bound target formats never change for a given Mantle pipeline, meaning
+    // we don't have to track pipeline dirtiness here.
+    memcpy(grCmdBuffer->colorFormats, colorFormats, GR_MAX_COLOR_TARGETS * sizeof(VkFormat));
+    grCmdBuffer->depthStencilFormat = depthStencilFormat;
 }
 
 GR_VOID GR_STDCALL grCmdPrepareImages(

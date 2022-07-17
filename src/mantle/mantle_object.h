@@ -122,9 +122,6 @@ typedef struct _PipelineSlot
     const GrColorBlendStateObject* grColorBlendState;
     const GrMsaaStateObject* grMsaaState;
     const GrRasterStateObject* grRasterState;
-    unsigned colorFormatCount;
-    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
-    VkFormat depthStencilFormat;
 } PipelineSlot;
 
 typedef struct _UpdateTemplateEntry {
