@@ -7,11 +7,12 @@ GR_RESULT GR_STDCALL grDestroyObject(
 {
     LOGT("%p\n", object);
     GrObject* grObject = (GrObject*)object;
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
     if (grObject == NULL) {
         return GR_ERROR_INVALID_HANDLE;
     }
+
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
     switch (grObject->grObjType) {
     case GR_OBJ_TYPE_COMMAND_BUFFER: {
@@ -77,7 +78,9 @@ GR_RESULT GR_STDCALL grDestroyObject(
         GrPipeline* grPipeline = (GrPipeline*)grObject;
 
         for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
-            grDestroyObject((GR_OBJECT)grPipeline->grShaderRefs[i]);
+            if (grPipeline->grShaderRefs[i] != NULL) {
+                grDestroyObject((GR_OBJECT)grPipeline->grShaderRefs[i]);
+            }
         }
 
         free(grPipeline->createInfo);
