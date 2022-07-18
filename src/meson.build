@@ -1,6 +1,6 @@
-
 subdir('logger')
 subdir('amdilc')
 subdir('mantle')
 subdir('mantleaxl')
+subdir('mantleilc')
 subdir('mantleinfo')
