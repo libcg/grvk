@@ -23,6 +23,7 @@ jobs:
           ninja -C build.w64
           meson --cross-file build-win32.txt --prefix $(pwd) --buildtype release build.w32
           ninja -C build.w32
+          mv build.w64/src/amdilc/amdilc.exe .
           mv build.w64/src/mantle/mantle64.dll .
           mv build.w64/src/mantleaxl/mantleaxl64.dll .
           mv build.w64/src/mantleinfo/mantleinfo.exe .
@@ -35,6 +36,7 @@ jobs:
       with:
         name: grvk-${{ github.sha }}
         path: |
+          amdilc.exe
           mantle64.dll
           mantleaxl64.dll
           mantleinfo.exe
