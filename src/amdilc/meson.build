@@ -15,3 +15,7 @@ amdilc_lib = static_library('amdilc', amdilc_src,
 amdilc_dep = declare_dependency(
   link_with           : [ amdilc_lib ],
   include_directories : [ grvk_include_path, include_directories('.') ])
+
+amdilc_exe = executable('amdilc', 'main.c',
+  dependencies        : [ amdilc_dep, logger_dep ],
+  include_directories : [ grvk_include_path ])
