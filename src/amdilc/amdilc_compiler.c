@@ -43,6 +43,7 @@ typedef struct {
     uint32_t ilNum;
     uint8_t ilImportUsage; // Input/output only
     uint8_t ilInterpMode; // Input only
+    uint8_t ilComponentMask[4];
 } IlcRegister;
 
 typedef struct {
@@ -105,6 +106,7 @@ typedef struct {
     unsigned inputCount;
     IlcInput* inputs;
     IlcSpvId entryPointId;
+    IlcSpvId stageFunctionId;
     IlcSpvId uintId;
     IlcSpvId uint4Id;
     IlcSpvId intId;
@@ -382,15 +384,31 @@ static const IlcRegister* addRegister(
     return &compiler->regs[compiler->regCount - 1];
 }
 
-static const IlcRegister* findRegister(
+static IlcRegister* findRegister(
     IlcCompiler* compiler,
     uint32_t type,
     uint32_t num)
 {
     for (int i = 0; i < compiler->regCount; i++) {
-        const IlcRegister* reg = &compiler->regs[i];
+        IlcRegister* reg = &compiler->regs[i];
 
         if (reg->ilType == type && reg->ilNum == num) {
+            return reg;
+        }
+    }
+
+    return NULL;
+}
+
+static const IlcRegister* findRegisterByType(
+    IlcCompiler* compiler,
+    uint32_t type,
+    uint32_t importUsage)
+{
+    for (int i = 0; i < compiler->regCount; i++) {
+        const IlcRegister* reg = &compiler->regs[i];
+
+        if (reg->ilType == type && reg->ilImportUsage == importUsage) {
             return reg;
         }
     }
@@ -971,11 +989,17 @@ static void emitOutput(
     uint8_t importUsage = GET_BITS(instr->control, 0, 4);
 
     const Destination* dst = &instr->dsts[0];
-    const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
         // Outputs are allowed to be redeclared with different components.
         // Can be safely ignored as long as the import usage is equivalent.
         if (dupeReg->ilImportUsage == importUsage) {
+            // copy component masks over
+            for (unsigned i = 0; i < 4; ++i) {
+                if (dupeReg->ilComponentMask[i] == IL_MODCOMP_NOWRITE) {
+                    dupeReg->ilComponentMask[i] = dst->component[i];
+                }
+            }
             return;
         } else {
             LOGE("unhandled o%d redeclaration with different import usage %d (was %d)\n",
@@ -991,26 +1015,7 @@ static void emitOutput(
     unsigned outputComponentCount = 0;
     const char* outputPrefix = NULL;
 
-    if (dst->registerType == IL_REGTYPE_OUTPUT && importUsage == IL_IMPORTUSAGE_CLIPDISTANCE) {
-        // Clip distance is an array of one element
-        IlcSpvId oneId = ilcSpvPutConstant(compiler->module, compiler->intId, 1);
-        IlcSpvId arrayTypeId = ilcSpvPutArrayType(compiler->module, compiler->floatId, oneId);
-        IlcSpvId arrayId = emitVariable(compiler, arrayTypeId, SpvStorageClassOutput);
-
-        IlcSpvWord builtInType = SpvBuiltInClipDistance;
-        ilcSpvPutDecoration(compiler->module, arrayId, SpvDecorationBuiltIn, 1, &builtInType);
-
-        // The output register points to the first element in the array
-        outputTypeId = compiler->floatId;
-        IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput,
-                                                  outputTypeId);
-        IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, 0);
-        outputId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, arrayId, 1, &indexId);
-        outputInterfaceId = arrayId;
-        outputComponentTypeId = compiler->floatId;
-        outputComponentCount = 1;
-        outputPrefix = "o";
-    } else if (dst->registerType == IL_REGTYPE_OUTPUT) {
+    if (dst->registerType == IL_REGTYPE_OUTPUT) {
         outputTypeId = compiler->float4Id;
         outputId = emitVariable(compiler, outputTypeId, SpvStorageClassOutput);
         outputInterfaceId = outputId;
@@ -1021,7 +1026,7 @@ static void emitOutput(
         if (importUsage == IL_IMPORTUSAGE_POS) {
             IlcSpvWord builtInType = SpvBuiltInPosition;
             ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationBuiltIn, 1, &builtInType);
-        } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+        } else if (importUsage == IL_IMPORTUSAGE_GENERIC || importUsage == IL_IMPORTUSAGE_CLIPDISTANCE || importUsage == IL_IMPORTUSAGE_CULLDISTANCE) {
             IlcSpvWord locationIdx = dst->registerNum;
             ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
         } else {
@@ -1073,6 +1078,12 @@ static void emitOutput(
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
         .ilInterpMode = 0,
+        .ilComponentMask = {
+            dst->component[0],
+            dst->component[1],
+            dst->component[2],
+            dst->component[3]
+        }
     };
 
     addRegister(compiler, &reg, outputPrefix);
@@ -1099,11 +1110,17 @@ static void emitInput(
            !dst->clamp &&
            dst->shiftScale == IL_SHIFT_NONE);
 
-    const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
+    IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
         // Inputs are allowed to be redeclared with different components.
         // Can be safely ignored as long as the import usage and interp mode are equivalent.
         if (dupeReg->ilImportUsage == importUsage && dupeReg->ilInterpMode == interpMode) {
+            // copy over the component mask
+            for (unsigned i = 0; i < 4; ++i) {
+                if (dupeReg->ilComponentMask[i] == IL_MODCOMP_NOWRITE) {
+                    dupeReg->ilComponentMask[i] = dst->component[i];
+                }
+            }
             return;
         } else {
             LOGE("unhandled v%d redeclaration with different import usage %d (was %d) or "
@@ -1203,6 +1220,12 @@ static void emitInput(
         .ilNum = dst->registerNum,
         .ilImportUsage = importUsage,
         .ilInterpMode = interpMode,
+        .ilComponentMask = {
+            dst->component[0],
+            dst->component[1],
+            dst->component[2],
+            dst->component[3]
+        }
     };
 
     addRegister(compiler, &reg, "v");
@@ -3212,6 +3235,118 @@ static void emitStructuredSrvLoad(
     storeDestination(compiler, dst, resId, compiler->float4Id);
 }
 
+
+static void finalizeVertexStage(
+    IlcCompiler* compiler)
+{
+    const IlcRegister* posReg = findRegisterByType(compiler, IL_REGTYPE_OUTPUT, IL_IMPORTUSAGE_POS);
+    if (posReg != NULL) {
+        IlcSpvId outputId = emitVariable(compiler, posReg->typeId, SpvStorageClassOutput);
+        IlcSpvId locationIdx = posReg->ilNum;
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationLocation, 1, &locationIdx);
+        ilcSpvPutDecoration(compiler->module, outputId, SpvDecorationInvariant, 0, NULL);
+        IlcSpvId loadedPosId = ilcSpvPutLoad(compiler->module, posReg->typeId, posReg->id);
+        ilcSpvPutStore(compiler->module, outputId, loadedPosId);
+        const IlcRegister reg = {
+            .id = outputId,
+            .interfaceId = outputId,
+            .typeId = posReg->typeId,
+            .componentTypeId = posReg->componentTypeId,
+            .componentCount = posReg->componentCount,
+            .ilType = IL_REGTYPE_OUTPUT,
+            .ilNum = posReg->ilNum,//idk what to place here (not needed :) )
+            .ilImportUsage = IL_IMPORTUSAGE_GENERIC,
+            .ilInterpMode = 0,
+        };
+
+        addRegister(compiler, &reg, "oPos");
+    }
+
+    const IlcRegister* cullRegs[2] = { NULL, NULL };
+    unsigned cullRegCount = 0;
+    const IlcRegister* clipRegs[2] = { NULL, NULL };
+    unsigned clipRegCount = 0;
+    for (int i = 0; i < compiler->regCount; i++) {
+        const IlcRegister* reg = &compiler->regs[i];
+
+        if (reg->ilType != IL_REGTYPE_OUTPUT) {
+            continue;
+        }
+        if (reg->ilImportUsage == IL_IMPORTUSAGE_CULLDISTANCE && cullRegCount < 2) {
+            cullRegs[cullRegCount++] = reg;
+        } else if (reg->ilImportUsage == IL_IMPORTUSAGE_CLIPDISTANCE && clipRegCount < 2) {
+            clipRegs[clipRegCount++] = reg;
+        }
+    }
+
+    if (clipRegCount == 0 && clipRegCount == 0) {
+        return;
+    }
+    IlcSpvId typeId = ilcSpvPutRuntimeArrayType(compiler->module, compiler->floatId, true);
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, typeId);
+    IlcSpvId compPtrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassOutput, compiler->floatId);
+    if (cullRegCount > 0) {
+        IlcSpvId cullBuiltInId = ilcSpvPutVariable(compiler->module, ptrTypeId, SpvStorageClassOutput);
+        IlcSpvWord builtInType = SpvBuiltInCullDistance;
+        ilcSpvPutDecoration(compiler->module, cullBuiltInId, SpvDecorationBuiltIn, 1, &builtInType);
+        for (unsigned i = 0; i < cullRegCount; ++i) {
+            IlcSpvId valId = ilcSpvPutLoad(compiler->module, cullRegs[i]->typeId, cullRegs[i]->id);
+            for (unsigned j = 0; j < 4; j++) {
+                if (cullRegs[i]->ilComponentMask[j] != IL_MODCOMP_WRITE) {
+                    continue;
+                }
+                IlcSpvId compId = ilcSpvPutCompositeExtract(compiler->module, cullRegs[i]->componentTypeId, valId, 1, &j);
+                IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, i * 4 + j);
+                IlcSpvId indexPtrId = ilcSpvPutAccessChain(compiler->module, compPtrTypeId, cullBuiltInId, 1, &indexId);
+                ilcSpvPutStore(compiler->module, indexPtrId, compId);
+            }
+        }
+        const IlcRegister cullBuiltInReg = {
+            .id = cullBuiltInId,
+            .interfaceId = cullBuiltInId,
+            .typeId = typeId,
+            .componentTypeId = compiler->floatId,
+            .componentCount = 1,
+            .ilType = IL_REGTYPE_OUTPUT,
+            .ilNum = 0,//idk what to place here (not needed :) )
+            .ilImportUsage = IL_IMPORTUSAGE_LAST,
+            .ilInterpMode = 0,
+        };
+
+        addRegister(compiler, &cullBuiltInReg, "gl_CullDistance");
+    }
+    if (clipRegCount > 0) {
+        IlcSpvId clipBuiltInId = ilcSpvPutVariable(compiler->module, ptrTypeId, SpvStorageClassOutput);
+        IlcSpvWord builtInType = SpvBuiltInClipDistance;
+        ilcSpvPutDecoration(compiler->module, clipBuiltInId, SpvDecorationBuiltIn, 1, &builtInType);
+        for (unsigned i = 0; i < clipRegCount; ++i) {
+            IlcSpvId valId = ilcSpvPutLoad(compiler->module, clipRegs[i]->typeId, clipRegs[i]->id);
+            for (unsigned j = 0; j < 4; j++) {
+                if (clipRegs[i]->ilComponentMask[j] != IL_MODCOMP_WRITE) {
+                    continue;
+                }
+                IlcSpvId compId = ilcSpvPutCompositeExtract(compiler->module, clipRegs[i]->componentTypeId, valId, 1, &j);
+                IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, i * 4  + j);
+                IlcSpvId indexPtrId = ilcSpvPutAccessChain(compiler->module, compPtrTypeId, clipBuiltInId, 1, &indexId);
+                ilcSpvPutStore(compiler->module, indexPtrId, compId);
+            }
+        }
+        const IlcRegister clipBuiltInReg = {
+            .id = clipBuiltInId,
+            .interfaceId = clipBuiltInId,
+            .typeId = typeId,
+            .componentTypeId = compiler->floatId,
+            .componentCount = 1,
+            .ilType = IL_REGTYPE_OUTPUT,
+            .ilNum = 0,//idk what to place here (not needed :) )
+            .ilImportUsage = IL_IMPORTUSAGE_LAST,
+            .ilInterpMode = 0,
+        };
+
+        addRegister(compiler, &clipBuiltInReg, "gl_ClipDistance");
+    }
+}
+
 static void emitImplicitInput(
     IlcCompiler* compiler,
     SpvBuiltIn spvBuiltIn,
@@ -3354,6 +3489,7 @@ static void emitInstr(
         if (compiler->isInFunction) {
             ilcSpvPutFunctionEnd(compiler->module);
             compiler->isInFunction = false;
+            compiler->isAfterReturn = false;
         }
         break;
     case IL_OP_ENDIF:
@@ -3597,6 +3733,7 @@ IlcShader ilcCompileKernel(
         .inputCount = 0,
         .inputs = NULL,
         .entryPointId = ilcSpvAllocId(&module),
+        .stageFunctionId = (compiler.kernel->shaderType != IL_SHADER_HULL && compiler.kernel->shaderType != IL_SHADER_DOMAIN) ? ilcSpvAllocId(&module) : 0,
         .uintId = uintId,
         .uint4Id = ilcSpvPutVectorType(&module, uintId, 4),
         .intId = intId,
@@ -3614,22 +3751,70 @@ IlcShader ilcCompileKernel(
         .samplers = NULL,
         .controlFlowBlockCount = 0,
         .controlFlowBlocks = NULL,
-        .isInFunction = true,
+        .isInFunction = false,
         .isAfterReturn = false,
     };
 
     emitImplicitInputs(&compiler);
-    emitFunc(&compiler, compiler.entryPointId);
 
     if (compiler.kernel->shaderType == IL_SHADER_HULL ||
         compiler.kernel->shaderType == IL_SHADER_DOMAIN) {
         LOGW("unhandled hull/domain shader type\n");
-        ilcSpvPutReturn(compiler.module);
-        ilcSpvPutFunctionEnd(compiler.module);
     } else {
+        compiler.isInFunction = true;
+        emitFunc(&compiler, compiler.stageFunctionId);
+        const char* stageFunctionName = "stage_main";
+        switch (compiler.kernel->shaderType) {
+        case IL_SHADER_VERTEX:
+            stageFunctionName = "vs_main";
+            break;
+        case IL_SHADER_GEOMETRY:
+            stageFunctionName = "gs_main";
+            break;
+        case IL_SHADER_PIXEL:
+            stageFunctionName = "ps_main";
+            break;
+        case IL_SHADER_COMPUTE:
+            stageFunctionName = "cs_main";
+            break;
+        default:
+            break;
+        }
+        ilcSpvPutName(compiler.module, compiler.stageFunctionId, stageFunctionName);
+
         for (int i = 0; i < kernel->instrCount; i++) {
             emitInstr(&compiler, &kernel->instrs[i]);
         }
+        // close stage main function if not yet ended
+        if (compiler.isInFunction) {
+            if (!compiler.isAfterReturn) {
+                ilcSpvPutReturn(compiler.module);
+                compiler.isAfterReturn = true;
+            }
+            ilcSpvPutFunctionEnd(compiler.module);
+            compiler.isInFunction = false;
+        }
+    }
+
+    compiler.isInFunction = true;
+    compiler.isAfterReturn = false;
+    emitFunc(&compiler, compiler.entryPointId);
+    if (compiler.stageFunctionId != 0) {
+        IlcSpvId voidTypeId = ilcSpvPutVoidType(compiler.module);
+        // call stage main
+        ilcSpvPutFunctionCall(compiler.module, voidTypeId, compiler.stageFunctionId, 0, NULL);
+    }
+    if (compiler.kernel->shaderType == IL_SHADER_VERTEX) {
+        finalizeVertexStage(&compiler);
+    }
+    // close real main function
+    if (compiler.isInFunction) {
+        if (!compiler.isAfterReturn) {
+            ilcSpvPutReturn(compiler.module);
+            compiler.isAfterReturn = true;
+        }
+        ilcSpvPutFunctionEnd(compiler.module);
+        compiler.isInFunction = false;
     }
 
     emitEntryPoint(&compiler);
