@@ -173,8 +173,19 @@ void ilcSpvPutFunction(
     SpvFunctionControlMask control,
     IlcSpvId type);
 
+IlcSpvId ilcSpvPutFunctionParameter(
+    IlcSpvModule* module,
+    IlcSpvId resultType);
+
 void ilcSpvPutFunctionEnd(
     IlcSpvModule* module);
+
+IlcSpvId ilcSpvPutFunctionCall(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId functionId,
+    unsigned paramCount,
+    IlcSpvId* parameters);
 
 IlcSpvId ilcSpvPutVariable(
     IlcSpvModule* module,
@@ -401,4 +412,10 @@ IlcSpvId ilcSpvPutGLSLOp(
 void ilcSpvPutDemoteToHelperInvocation(
     IlcSpvModule* module);
 
+void ilcSpvUnwrapBuffer(
+    IlcSpvBuffer* buffer,
+    const IlcSpvWord* src,
+    unsigned wordCount);
+
+unsigned getBufferIndex(SpvOp opCode);
 #endif // AMDILC_SPIRV_H_

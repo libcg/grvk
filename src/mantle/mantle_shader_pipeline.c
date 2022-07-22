@@ -668,21 +668,25 @@ GR_RESULT GR_STDCALL grCreateShader(
         free(ilcShader.code);
         free(ilcShader.bindings);
         free(ilcShader.inputs);
+        free(ilcShader.outputLocations);
         free(ilcShader.name);
         return getGrResult(res);
     }
 
-    free(ilcShader.code);
-
+    // TODO: check if the shader needs to be patched in order to free the code memory here
     GrShader* grShader = malloc(sizeof(GrShader));
     *grShader = (GrShader) {
         .grObj = { GR_OBJ_TYPE_SHADER, grDevice },
         .refCount = 1,
         .shaderModule = vkShaderModule,
+        .code = ilcShader.code,
+        .codeSize = ilcShader.codeSize,
         .bindingCount = ilcShader.bindingCount,
         .bindings = ilcShader.bindings,
         .inputCount = ilcShader.inputCount,
         .inputs = ilcShader.inputs,
+        .outputCount = ilcShader.outputCount,
+        .outputLocations = ilcShader.outputLocations,
         .name = ilcShader.name,
     };
 
@@ -701,6 +705,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkShaderModule rectangleShaderModule = VK_NULL_HANDLE;
+    VkShaderModule tessellationControlShader = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
     unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
     UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS] = { NULL };
@@ -737,16 +742,36 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         }
 
         GrShader* grShader = (GrShader*)stage->shader->shader;
+        VkShaderModule shaderModule = grShader->shaderModule;
 
-        grShaderRefs[i] = grShader;
-        grShader->refCount++;
-
+        if (stage->flags == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT && stages[0].shader->shader != GR_NULL_HANDLE) {
+            GrShader* grVertexShader = (GrShader*)stages[0].shader->shader;
+            IlcRecompiledShader recompiledShader = ilcRecompileShader(grShader->code, grShader->codeSize,
+                                                                      grVertexShader->outputLocations, grVertexShader->outputCount);
+            const VkShaderModuleCreateInfo tessShaderCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .pNext = NULL,
+                .flags = 0,
+                .codeSize = recompiledShader.codeSize,
+                .pCode = recompiledShader.code,
+            };
+            VkResult vkRes = VKD.vkCreateShaderModule(grDevice->device, &tessShaderCreateInfo, NULL, &tessellationControlShader);
+            free(recompiledShader.code);
+            if (vkRes != VK_SUCCESS) {
+                res = getGrResult(vkRes);
+                goto bail;
+            }
+            shaderModule = tessellationControlShader;
+        } else {
+            grShaderRefs[i] = grShader;
+            grShader->refCount++;
+        }
         shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
             .stage = stage->flags,
-            .module = grShader->shaderModule,
+            .module = shaderModule,
             .pName = "main",
             .pSpecializationInfo = NULL,
         };
@@ -875,6 +900,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .dynamicOffsetCount = dynamicOffsetCount,
         .updateTemplateEntryCounts = { 0 }, // Initialized below
         .updateTemplateEntries = { NULL }, // Initialized below
+        .tessellationModule = tessellationControlShader,
+        .rectangleShaderModule = rectangleShaderModule,
     };
 
     memcpy(grPipeline->grShaderRefs, grShaderRefs, sizeof(grPipeline->grShaderRefs));
@@ -888,6 +915,9 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
 bail:
     VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayout, NULL);
+    if (tessellationControlShader != VK_NULL_HANDLE) {
+        VKD.vkDestroyShaderModule(grDevice->device, tessellationControlShader, NULL);
+    }
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
     VKD.vkDestroyShaderModule(grDevice->device, rectangleShaderModule, NULL);
     return res;

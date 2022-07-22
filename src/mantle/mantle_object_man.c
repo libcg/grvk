@@ -99,6 +99,12 @@ GR_RESULT GR_STDCALL grDestroyObject(
             }
             free(grPipeline->updateTemplateEntries[i]);
         }
+        if (grPipeline->tessellationModule != VK_NULL_HANDLE) {
+            VKD.vkDestroyShaderModule(grDevice->device, grPipeline->tessellationModule, NULL);
+        }
+        if (grPipeline->rectangleShaderModule != VK_NULL_HANDLE) {
+            VKD.vkDestroyShaderModule(grDevice->device, grPipeline->rectangleShaderModule, NULL);
+        }
     }   break;
     case GR_OBJ_TYPE_QUEUE_SEMAPHORE: {
         GrQueueSemaphore* grQueueSemaphore = (GrQueueSemaphore*)grObject;
@@ -123,6 +129,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
         VKD.vkDestroyShaderModule(grDevice->device, grShader->shaderModule, NULL);
         free(grShader->bindings);
         free(grShader->inputs);
+        free(grShader->outputLocations);
         free(grShader->name);
     }   break;
     case GR_OBJ_TYPE_QUERY_POOL: {

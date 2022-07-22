@@ -79,7 +79,7 @@ static const char* mIlRegTypeNames[IL_REGTYPE_LAST] = {
     "vicp",
     "vpc",
     "vDomain",
-    "51?",
+    "vocp",
     "52?",
     "vInstanceID",
     "54?",
