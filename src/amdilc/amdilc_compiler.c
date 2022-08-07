@@ -348,7 +348,7 @@ static void emitBinding(
         vkIndex = compiler->bindingCount;
         break;
     default:
-        assert(0);
+        assert(false);
     }
 
     IlcSpvWord set = DESCRIPTOR_SET_ID;
@@ -828,6 +828,30 @@ static void storeDestination(
     }
 
     ilcSpvPutStore(compiler->module, ptrId, varId);
+}
+
+static void emitTessDomain(
+    IlcCompiler* compiler,
+    const Instruction* instr)
+{
+    SpvExecutionMode execMode = 0;
+
+    switch (instr->control) {
+    case IL_TS_DOMAIN_ISOLINE:
+        execMode = SpvExecutionModeIsolines;
+        break;
+    case IL_TS_DOMAIN_TRI:
+        execMode = SpvExecutionModeTriangles;
+        break;
+    case IL_TS_DOMAIN_QUAD:
+        execMode = SpvExecutionModeQuads;
+        break;
+    default:
+        LOGE("unhandled tess domain %d\n", instr->control);
+        assert(false);
+    }
+
+    ilcSpvPutExecMode(compiler->module, compiler->entryPointId, execMode, 0, NULL);
 }
 
 static void emitGlobalFlags(
@@ -3489,6 +3513,9 @@ static void emitInstr(
         break;
     case IL_OP_LDS_READ_ADD:
         emitLdsAtomicOp(compiler, instr);
+        break;
+    case IL_DCL_TS_DOMAIN:
+        emitTessDomain(compiler, instr);
         break;
     case IL_DCL_GLOBAL_FLAGS:
         emitGlobalFlags(compiler, instr);
