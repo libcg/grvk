@@ -508,18 +508,18 @@ IlcSpvId ilcSpvPutConstantComposite(
 
 void ilcSpvPutFunction(
     IlcSpvModule* module,
-    IlcSpvId resultType,
+    IlcSpvId resultTypeId,
     IlcSpvId id,
     SpvFunctionControlMask control,
-    IlcSpvId type)
+    IlcSpvId typeId)
 {
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     putInstr(buffer, SpvOpFunction, 5);
-    putWord(buffer, resultType);
+    putWord(buffer, resultTypeId);
     putWord(buffer, id);
     putWord(buffer, control);
-    putWord(buffer, type);
+    putWord(buffer, typeId);
 }
 
 void ilcSpvPutFunctionEnd(
@@ -528,6 +528,21 @@ void ilcSpvPutFunctionEnd(
     IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
 
     putInstr(buffer, SpvOpFunctionEnd, 1);
+}
+
+IlcSpvId ilcSpvPutFunctionCall(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId functionId)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CODE];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpFunctionCall, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, functionId);
+    return id;
 }
 
 IlcSpvId ilcSpvPutVariable(

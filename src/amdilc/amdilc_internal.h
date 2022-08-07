@@ -16,6 +16,9 @@
 #define GET_BIT(dword, bit) \
     (GET_BITS(dword, bit, bit))
 
+#define MAX(a, b) \
+    ((a) > (b) ? (a) : (b))
+
 typedef uint32_t Token;
 typedef struct _Source Source;
 

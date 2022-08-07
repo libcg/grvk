@@ -176,6 +176,11 @@ void ilcSpvPutFunction(
 void ilcSpvPutFunctionEnd(
     IlcSpvModule* module);
 
+IlcSpvId ilcSpvPutFunctionCall(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvId functionId);
+
 IlcSpvId ilcSpvPutVariable(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
