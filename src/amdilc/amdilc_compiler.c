@@ -1119,9 +1119,7 @@ static void emitInput(
 
     const Destination* dst = &instr->dsts[0];
 
-    assert(dst->registerType == IL_REGTYPE_INPUT &&
-           !dst->clamp &&
-           dst->shiftScale == IL_SHIFT_NONE);
+    assert(!dst->clamp && dst->shiftScale == IL_SHIFT_NONE);
 
     const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
@@ -1138,64 +1136,78 @@ static void emitInput(
         }
     }
 
-    if (importUsage == IL_IMPORTUSAGE_POS) {
+    if (dst->registerType == IL_REGTYPE_DOMAINLOCATION) {
         inputComponentTypeId = compiler->floatId;
-        inputComponentCount = 4;
-        inputTypeId = compiler->float4Id;
+        inputComponentCount = 3;
+        inputTypeId = ilcSpvPutVectorType(compiler->module, compiler->floatId, 3);
         inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
-        IlcSpvWord builtInType = SpvBuiltInFragCoord;
+        IlcSpvWord builtInType = SpvBuiltInTessCoord;
         ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
-    } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
-        inputComponentTypeId = compiler->floatId;
-        inputComponentCount = 4;
-        inputTypeId = compiler->float4Id;
-        inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+    } else if (dst->registerType == IL_REGTYPE_INPUT) {
+        if (importUsage == IL_IMPORTUSAGE_POS) {
+            inputComponentTypeId = compiler->floatId;
+            inputComponentCount = 4;
+            inputTypeId = compiler->float4Id;
+            inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
-        IlcSpvWord locationIdx = dst->registerNum;
-        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
+            IlcSpvWord builtInType = SpvBuiltInFragCoord;
+            ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
+        } else if (importUsage == IL_IMPORTUSAGE_GENERIC) {
+            inputComponentTypeId = compiler->floatId;
+            inputComponentCount = 4;
+            inputTypeId = compiler->float4Id;
+            inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
 
-        // Register generic input
-        compiler->inputCount++;
-        compiler->inputs = realloc(compiler->inputs, compiler->inputCount * sizeof(IlcInput));
-        compiler->inputs[compiler->inputCount - 1] = (IlcInput) {
-            .locationIndex = locationIdx,
-            .interpMode = interpMode,
-        };
-    } else if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID ||
-               importUsage == IL_IMPORTUSAGE_VERTEXID ||
-               importUsage == IL_IMPORTUSAGE_INSTANCEID ||
-               importUsage == IL_IMPORTUSAGE_SAMPLE_INDEX) {
-        inputComponentTypeId = compiler->intId;
-        inputComponentCount = 1;
-        inputTypeId = compiler->intId;
-        inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+            IlcSpvWord locationIdx = dst->registerNum;
+            ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationLocation, 1, &locationIdx);
 
-        IlcSpvWord builtInType = 0;
-        if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID) {
-            builtInType = SpvBuiltInPrimitiveId;
-            ilcSpvPutCapability(compiler->module, SpvCapabilityGeometry);
-        } else if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
-            builtInType = SpvBuiltInVertexIndex;
-        } else if (importUsage == IL_IMPORTUSAGE_INSTANCEID) {
-            builtInType = SpvBuiltInInstanceIndex;
-        } else if (importUsage == IL_IMPORTUSAGE_SAMPLE_INDEX) {
-            builtInType = SpvBuiltInSampleId;
-            ilcSpvPutCapability(compiler->module, SpvCapabilitySampleRateShading);
+            // Register generic input
+            compiler->inputCount++;
+            compiler->inputs = realloc(compiler->inputs, compiler->inputCount * sizeof(IlcInput));
+            compiler->inputs[compiler->inputCount - 1] = (IlcInput) {
+                .locationIndex = locationIdx,
+                .interpMode = interpMode,
+            };
+        } else if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID ||
+                   importUsage == IL_IMPORTUSAGE_VERTEXID ||
+                   importUsage == IL_IMPORTUSAGE_INSTANCEID ||
+                   importUsage == IL_IMPORTUSAGE_SAMPLE_INDEX) {
+            inputComponentTypeId = compiler->intId;
+            inputComponentCount = 1;
+            inputTypeId = compiler->intId;
+            inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+
+            IlcSpvWord builtInType = 0;
+            if (importUsage == IL_IMPORTUSAGE_PRIMITIVEID) {
+                builtInType = SpvBuiltInPrimitiveId;
+                ilcSpvPutCapability(compiler->module, SpvCapabilityGeometry);
+            } else if (importUsage == IL_IMPORTUSAGE_VERTEXID) {
+                builtInType = SpvBuiltInVertexIndex;
+            } else if (importUsage == IL_IMPORTUSAGE_INSTANCEID) {
+                builtInType = SpvBuiltInInstanceIndex;
+            } else if (importUsage == IL_IMPORTUSAGE_SAMPLE_INDEX) {
+                builtInType = SpvBuiltInSampleId;
+                ilcSpvPutCapability(compiler->module, SpvCapabilitySampleRateShading);
+            } else {
+                assert(false);
+            }
+            ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
+        } else if (importUsage == IL_IMPORTUSAGE_ISFRONTFACE) {
+            inputComponentTypeId = compiler->boolId;
+            inputComponentCount = 1;
+            inputTypeId = compiler->boolId;
+            inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
+
+            IlcSpvWord builtInType = SpvBuiltInFrontFacing;
+            ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
         } else {
+            LOGE("unhandled import usage %d\n", importUsage);
             assert(false);
         }
-        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
-    } else if (importUsage == IL_IMPORTUSAGE_ISFRONTFACE) {
-        inputComponentTypeId = compiler->boolId;
-        inputComponentCount = 1;
-        inputTypeId = compiler->boolId;
-        inputId = emitVariable(compiler, inputTypeId, SpvStorageClassInput);
-
-        IlcSpvWord builtInType = SpvBuiltInFrontFacing;
-        ilcSpvPutDecoration(compiler->module, inputId, SpvDecorationBuiltIn, 1, &builtInType);
     } else {
-        LOGW("unhandled import usage %d\n", importUsage);
+        LOGE("unhandled register type %d\n", dst->registerType);
+        assert(false);
     }
 
     // Handle interpolation modes in pixel shaders
