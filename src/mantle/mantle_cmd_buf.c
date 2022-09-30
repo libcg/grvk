@@ -227,14 +227,14 @@ static void grCmdBufferUpdateResources(
     }
 
     if (dirtyFlags & FLAG_DIRTY_PIPELINE) {
-        VkPipeline vkPipeline = grPipelineFindOrCreateVkPipeline(grPipeline,
-                                                                 grCmdBuffer->grColorBlendState,
-                                                                 grCmdBuffer->grMsaaState,
-                                                                 grCmdBuffer->grRasterState,
-                                                                 grCmdBuffer->depthFormat,
-                                                                 grCmdBuffer->stencilFormat);
+        if (grPipeline->pipeline == VK_NULL_HANDLE) {
+            // Assume that the depth-stencil attachment formats never change per pipeline
+            grPipeline->pipeline = grPipelineGetVkPipeline(grPipeline,
+                                                           grCmdBuffer->depthFormat,
+                                                           grCmdBuffer->stencilFormat);
+        }
 
-        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, vkPipeline);
+        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
     }
 
     bindPoint->dirtyFlags = 0;
@@ -264,10 +264,7 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
         bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET | FLAG_DIRTY_PIPELINE;
     } else {
         // Pipeline creation isn't deferred for compute, bind now
-        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
-                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL,
-                                                               VK_FORMAT_UNDEFINED,
-                                                               VK_FORMAT_UNDEFINED));
+        VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
     }
@@ -281,7 +278,6 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
     LOGT("%p 0x%X %p\n", cmdBuffer, stateBindPoint, state);
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-    BindPoint* bindPoint = &grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
     // TODO compare objects instead of just pointers
 
@@ -305,15 +301,11 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
             break;
         }
 
+        VKD.vkCmdSetPolygonModeEXT(grCmdBuffer->commandBuffer, rasterState->polygonMode);
         VKD.vkCmdSetCullModeEXT(grCmdBuffer->commandBuffer, rasterState->cullMode);
         VKD.vkCmdSetFrontFaceEXT(grCmdBuffer->commandBuffer, rasterState->frontFace);
         VKD.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
-
-        if (grCmdBuffer->grRasterState == NULL ||
-            rasterState->polygonMode != grCmdBuffer->grRasterState->polygonMode) {
-            bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
-        }
 
         grCmdBuffer->grRasterState = rasterState;
     }   break;
@@ -366,13 +358,11 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
             break;
         }
 
+        VKD.vkCmdSetColorBlendEnableEXT(grCmdBuffer->commandBuffer, 0, GR_MAX_COLOR_TARGETS,
+                                        colorBlendState->colorBlendEnables);
+        VKD.vkCmdSetColorBlendEquationEXT(grCmdBuffer->commandBuffer, 0, GR_MAX_COLOR_TARGETS,
+                                          colorBlendState->colorBlendEquations);
         VKD.vkCmdSetBlendConstants(grCmdBuffer->commandBuffer, colorBlendState->blendConstants);
-
-        if (grCmdBuffer->grColorBlendState == NULL ||
-            memcmp(colorBlendState->states, grCmdBuffer->grColorBlendState->states,
-                   sizeof(colorBlendState->states)) != 0) {
-            bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
-        }
 
         grCmdBuffer->grColorBlendState = colorBlendState;
     }   break;
@@ -382,11 +372,10 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
             break;
         }
 
-        if (grCmdBuffer->grMsaaState == NULL ||
-            msaaState->sampleCountFlags != grCmdBuffer->grMsaaState->sampleCountFlags ||
-            msaaState->sampleMask != grCmdBuffer->grMsaaState->sampleMask) {
-            bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
-        }
+        VKD.vkCmdSetRasterizationSamplesEXT(grCmdBuffer->commandBuffer,
+                                            msaaState->sampleCountFlags);
+        VKD.vkCmdSetSampleMaskEXT(grCmdBuffer->commandBuffer,
+                                  msaaState->sampleCountFlags, &msaaState->sampleMask);
 
         grCmdBuffer->grMsaaState = msaaState;
     }   break;

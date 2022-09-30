@@ -415,11 +415,10 @@ static VkPipelineLayout getVkPipelineLayout(
     return pipelineLayout;
 }
 
-static VkPipeline getVkPipeline(
+// Exported Functions
+
+VkPipeline grPipelineGetVkPipeline(
     const GrPipeline* grPipeline,
-    const GrColorBlendStateObject* grColorBlendState,
-    const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState,
     VkFormat depthFormat,
     VkFormat stencilFormat)
 {
@@ -477,7 +476,7 @@ static VkPipeline getVkPipeline(
         .flags = 0,
         .depthClampEnable = VK_TRUE,
         .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = grRasterState->polygonMode,
+        .polygonMode = 0, // Dynamic state
         .cullMode = 0, // Dynamic state
         .frontFace = 0, // Dynamic state
         .depthBiasEnable = VK_TRUE,
@@ -491,10 +490,10 @@ static VkPipeline getVkPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .rasterizationSamples = grMsaaState->sampleCountFlags,
+        .rasterizationSamples = 0, // Dynamic state
         .sampleShadingEnable = VK_FALSE,
         .minSampleShading = 0.f,
-        .pSampleMask = &grMsaaState->sampleMask,
+        .pSampleMask = NULL, // Dynamic state
         .alphaToCoverageEnable = createInfo->alphaToCoverageEnable,
         .alphaToOneEnable = VK_FALSE,
     };
@@ -517,8 +516,16 @@ static VkPipeline getVkPipeline(
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
 
     for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
-        attachments[i] = grColorBlendState->states[i];
-        attachments[i].colorWriteMask = createInfo->colorWriteMasks[i];
+        attachments[i] = (VkPipelineColorBlendAttachmentState) {
+            .blendEnable = false, // Dynamic state
+            .srcColorBlendFactor = 0, // Dynamic state
+            .dstColorBlendFactor = 0, // Dynamic state
+            .colorBlendOp = 0, // Dynamic state
+            .srcAlphaBlendFactor = 0, // Dynamic state
+            .dstAlphaBlendFactor = 0, // Dynamic state
+            .alphaBlendOp = 0, // Dynamic state
+            .colorWriteMask = createInfo->colorWriteMasks[i],
+        };
     }
 
     const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
@@ -549,6 +556,11 @@ static VkPipeline getVkPipeline(
         VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT,
         VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT,
         VK_DYNAMIC_STATE_STENCIL_OP_EXT,
+        VK_DYNAMIC_STATE_POLYGON_MODE_EXT,
+        VK_DYNAMIC_STATE_RASTERIZATION_SAMPLES_EXT,
+        VK_DYNAMIC_STATE_SAMPLE_MASK_EXT,
+        VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT,
+        VK_DYNAMIC_STATE_COLOR_BLEND_EQUATION_EXT,
     };
 
     const VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
@@ -602,54 +614,6 @@ static VkPipeline getVkPipeline(
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateGraphicsPipelines failed (%d)\n", vkRes);
     }
-
-    return vkPipeline;
-}
-
-// Exported Functions
-
-VkPipeline grPipelineFindOrCreateVkPipeline(
-    GrPipeline* grPipeline,
-    const GrColorBlendStateObject* grColorBlendState,
-    const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState,
-    VkFormat depthFormat,
-    VkFormat stencilFormat)
-{
-    VkPipeline vkPipeline = VK_NULL_HANDLE;
-
-    AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
-
-    // Assume that the depth-stencil target format never changes to reduce pipeline lookup overhead
-    for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
-        const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
-
-        if (grColorBlendState == slot->grColorBlendState &&
-            grMsaaState == slot->grMsaaState &&
-            grRasterState == slot->grRasterState) {
-            vkPipeline = slot->pipeline;
-            break;
-        }
-    }
-
-    if (vkPipeline == VK_NULL_HANDLE) {
-        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState,
-                                   depthFormat, stencilFormat);
-
-        PipelineSlot slot = {
-            .pipeline = vkPipeline,
-            .grColorBlendState = grColorBlendState,
-            .grMsaaState = grMsaaState,
-            .grRasterState = grRasterState,
-        };
-
-        grPipeline->pipelineSlotCount++;
-        grPipeline->pipelineSlots = realloc(grPipeline->pipelineSlots,
-                                            grPipeline->pipelineSlotCount * sizeof(PipelineSlot));
-        grPipeline->pipelineSlots[grPipeline->pipelineSlotCount - 1] = slot;
-    }
-
-    ReleaseSRWLockExclusive(&grPipeline->pipelineSlotsLock);
 
     return vkPipeline;
 }
@@ -885,9 +849,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .grShaderRefs = { NULL }, // Initialized below
         .createInfo = pipelineCreateInfo,
         .hasTessellation = hasTessellation,
-        .pipelineSlotCount = 0,
-        .pipelineSlots = NULL,
-        .pipelineSlotsLock = SRWLOCK_INIT,
+        .pipeline = VK_NULL_HANDLE, // We don't know the attachment formats yet (Frostbite bug)
         .pipelineLayout = pipelineLayout,
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayout = descriptorSetLayout,
@@ -923,7 +885,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     VkResult vkRes;
     VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkPipeline vkPipeline = VK_NULL_HANDLE;
+    VkPipeline pipeline = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
     unsigned updateTemplateSlotCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
     UpdateTemplateSlot* updateTemplateSlots[GR_MAX_DESCRIPTOR_SETS] = { NULL };
@@ -981,18 +943,12 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     };
 
     vkRes = VKD.vkCreateComputePipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
-                                         NULL, &vkPipeline);
+                                         NULL, &pipeline);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateComputePipelines failed (%d)\n", vkRes);
         res = getGrResult(vkRes);
         goto bail;
     }
-
-    PipelineSlot* pipelineSlot = malloc(sizeof(PipelineSlot));
-    *pipelineSlot = (PipelineSlot) {
-        .pipeline = vkPipeline,
-        .grColorBlendState = NULL,
-    };
 
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
@@ -1000,9 +956,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .grShaderRefs = { grShader },
         .createInfo = NULL,
         .hasTessellation = false,
-        .pipelineSlotCount = 1,
-        .pipelineSlots = pipelineSlot,
-        .pipelineSlotsLock = SRWLOCK_INIT,
+        .pipeline = pipeline,
         .pipelineLayout = pipelineLayout,
         .stageCount = 1,
         .descriptorSetLayout = descriptorSetLayout,

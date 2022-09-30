@@ -212,6 +212,14 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdSetStencilTestEnableEXT);
     VULKAN_FN(vkCmdSetViewportWithCountEXT);
 #endif
+
+#ifdef VK_EXT_extended_dynamic_state3
+    VULKAN_FN(vkCmdSetColorBlendEnableEXT);
+    VULKAN_FN(vkCmdSetColorBlendEquationEXT);
+    VULKAN_FN(vkCmdSetPolygonModeEXT);
+    VULKAN_FN(vkCmdSetRasterizationSamplesEXT);
+    VULKAN_FN(vkCmdSetSampleMaskEXT);
+#endif
 } VULKAN_DEVICE;
 
 extern VULKAN_LIBRARY vkl;

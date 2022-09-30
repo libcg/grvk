@@ -132,7 +132,8 @@ GR_RESULT GR_STDCALL grCreateColorBlendState(
 
     *grColorBlendStateObject = (GrColorBlendStateObject) {
         .grObj = { GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT, grDevice },
-        .states = { { 0 } }, // Initialized below
+        .colorBlendEnables = { 0 }, // Initialized below
+        .colorBlendEquations = { { 0 } }, // Initialized below
         .blendConstants = {
             pCreateInfo->blendConst[0], pCreateInfo->blendConst[1],
             pCreateInfo->blendConst[2], pCreateInfo->blendConst[3],
@@ -143,26 +144,24 @@ GR_RESULT GR_STDCALL grCreateColorBlendState(
         const GR_COLOR_TARGET_BLEND_STATE* blendState = &pCreateInfo->target[i];
 
         if (blendState->blendEnable) {
-            grColorBlendStateObject->states[i] = (VkPipelineColorBlendAttachmentState) {
-                .blendEnable = VK_TRUE,
+            grColorBlendStateObject->colorBlendEnables[i] = VK_TRUE;
+            grColorBlendStateObject->colorBlendEquations[i] = (VkColorBlendEquationEXT) {
                 .srcColorBlendFactor = getVkBlendFactor(blendState->srcBlendColor),
                 .dstColorBlendFactor = getVkBlendFactor(blendState->destBlendColor),
                 .colorBlendOp = getVkBlendOp(blendState->blendFuncColor),
                 .srcAlphaBlendFactor = getVkBlendFactor(blendState->srcBlendAlpha),
                 .dstAlphaBlendFactor = getVkBlendFactor(blendState->destBlendAlpha),
                 .alphaBlendOp = getVkBlendOp(blendState->blendFuncAlpha),
-                .colorWriteMask = 0, // Defined at pipeline creation
             };
         } else {
-            grColorBlendStateObject->states[i] = (VkPipelineColorBlendAttachmentState) {
-                .blendEnable = VK_FALSE,
+            grColorBlendStateObject->colorBlendEnables[i] = VK_FALSE;
+            grColorBlendStateObject->colorBlendEquations[i] = (VkColorBlendEquationEXT) {
                 .srcColorBlendFactor = 0, // Ignored
                 .dstColorBlendFactor = 0, // Ignored
                 .colorBlendOp = 0, // Ignored
                 .srcAlphaBlendFactor = 0, // Ignored
                 .dstAlphaBlendFactor = 0, // Ignored
                 .alphaBlendOp = 0, // Ignored
-                .colorWriteMask = 0, // Defined at pipeline creation
             };
         }
     }

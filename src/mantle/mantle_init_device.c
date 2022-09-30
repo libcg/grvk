@@ -643,9 +643,18 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = &customBorderColor,
         .extendedDynamicState = VK_TRUE,
     };
+    VkPhysicalDeviceExtendedDynamicState3FeaturesEXT extendedDynamicState3 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT,
+        .pNext = &extendedDynamicState,
+        .extendedDynamicState3PolygonMode = VK_TRUE,
+        .extendedDynamicState3RasterizationSamples = VK_TRUE,
+        .extendedDynamicState3SampleMask = VK_TRUE,
+        .extendedDynamicState3ColorBlendEnable = VK_TRUE,
+        .extendedDynamicState3ColorBlendEquation = VK_TRUE,
+    };
     VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT,
-        .pNext = &extendedDynamicState,
+        .pNext = &extendedDynamicState3,
         .shaderDemoteToHelperInvocation = VK_TRUE,
     };
     VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRendering = {
@@ -691,6 +700,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
     const char *deviceExtensions[] = {
         VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
+        VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
         VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,

@@ -118,15 +118,6 @@ typedef struct _PipelineCreateInfo
     VkFormat stencilFormat;
 } PipelineCreateInfo;
 
-typedef struct _PipelineSlot
-{
-    VkPipeline pipeline;
-    // TODO keep track of individual parameters to minimize pipeline count
-    const GrColorBlendStateObject* grColorBlendState;
-    const GrMsaaStateObject* grMsaaState;
-    const GrRasterStateObject* grRasterState;
-} PipelineSlot;
-
 typedef struct _UpdateTemplateSlot {
     VkDescriptorUpdateTemplate updateTemplate;
     bool isDynamic;
@@ -191,7 +182,8 @@ typedef struct _GrCmdBuffer {
 
 typedef struct _GrColorBlendStateObject {
     GrObject grObj;
-    VkPipelineColorBlendAttachmentState states[GR_MAX_COLOR_TARGETS];
+    VkBool32 colorBlendEnables[GR_MAX_COLOR_TARGETS];
+    VkColorBlendEquationEXT colorBlendEquations[GR_MAX_COLOR_TARGETS];
     float blendConstants[4];
 } GrColorBlendStateObject;
 
@@ -309,9 +301,7 @@ typedef struct _GrPipeline {
     GrShader* grShaderRefs[MAX_STAGE_COUNT];
     PipelineCreateInfo* createInfo;
     bool hasTessellation;
-    unsigned pipelineSlotCount;
-    PipelineSlot* pipelineSlots;
-    SRWLOCK pipelineSlotsLock;
+    VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayout;
@@ -389,13 +379,10 @@ void grCmdBufferEndRenderPass(
 void grCmdBufferResetState(
     GrCmdBuffer* grCmdBuffer);
 
-VkPipeline grPipelineFindOrCreateVkPipeline(
-    GrPipeline* grPipeline,
-    const GrColorBlendStateObject* grColorBlendState,
-    const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState,
+VkPipeline grPipelineGetVkPipeline(
+    const GrPipeline* grPipeline,
     VkFormat depthFormat,
-    VkFormat stenctilFormat);
+    VkFormat stencilFormat);
 
 GrQueue* grQueueCreate(
     GrDevice* grDevice,

@@ -230,4 +230,12 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetStencilTestEnableEXT);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetViewportWithCountEXT);
 #endif
+
+#ifdef VK_EXT_extended_dynamic_state3
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetColorBlendEnableEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetColorBlendEquationEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetPolygonModeEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetRasterizationSamplesEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetSampleMaskEXT);
+#endif
 }

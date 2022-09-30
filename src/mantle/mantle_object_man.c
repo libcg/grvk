@@ -83,11 +83,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
         }
 
         free(grPipeline->createInfo);
-        for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
-            PipelineSlot* slot = &grPipeline->pipelineSlots[i];
-            VKD.vkDestroyPipeline(grDevice->device, slot->pipeline, NULL);
-        }
-        free(grPipeline->pipelineSlots);
+        VKD.vkDestroyPipeline(grDevice->device, grPipeline->pipeline, NULL);
         VKD.vkDestroyPipelineLayout(grDevice->device, grPipeline->pipelineLayout, NULL);
         VKD.vkDestroyDescriptorSetLayout(grDevice->device, grPipeline->descriptorSetLayout, NULL);
         for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
