@@ -3766,9 +3766,20 @@ IlcShader ilcCompileKernel(
 
     emitImplicitInputs(&compiler);
 
+#ifdef TESS
     if (compiler.kernel->shaderType != IL_SHADER_HULL) {
         emitFunc(&compiler, compiler.entryPointId);
     }
+
+    for (int i = 0; i < kernel->instrCount; i++) {
+        emitInstr(&compiler, &kernel->instrs[i]);
+    }
+
+    if (compiler.kernel->shaderType == IL_SHADER_HULL) {
+        emitHullMainFunction(&compiler);
+    }
+#else
+    emitFunc(&compiler, compiler.entryPointId);
 
     if (compiler.kernel->shaderType == IL_SHADER_HULL ||
         compiler.kernel->shaderType == IL_SHADER_DOMAIN) {
@@ -3780,10 +3791,8 @@ IlcShader ilcCompileKernel(
             emitInstr(&compiler, &kernel->instrs[i]);
         }
     }
+#endif
 
-    if (compiler.kernel->shaderType == IL_SHADER_HULL) {
-        emitHullMainFunction(&compiler);
-    }
     emitEntryPoint(&compiler);
 
     free(compiler.regs);
