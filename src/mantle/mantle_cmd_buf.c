@@ -50,34 +50,34 @@ static void updateVkDescriptorSet(
     const BindPoint* bindPoint,
     const GrDescriptorSet* grDescriptorSet,
     unsigned slotOffset,
-    unsigned updateTemplateEntryCount,
-    const UpdateTemplateEntry* updateTemplateEntries,
+    unsigned updateTemplateSlotCount,
+    const UpdateTemplateSlot* updateTemplateSlots,
     VkPipelineLayout pipelineLayout)
 {
-    for (unsigned i = 0; i < updateTemplateEntryCount; i++) {
-        const UpdateTemplateEntry* entry = &updateTemplateEntries[i];
+    for (unsigned i = 0; i < updateTemplateSlotCount; i++) {
+        const UpdateTemplateSlot* templateSlot = &updateTemplateSlots[i];
         const DescriptorSetSlot* slot;
 
-        if (entry->isDynamic) {
+        if (templateSlot->isDynamic) {
             slot = &bindPoint->dynamicMemoryView;
         } else {
             slot = &grDescriptorSet->slots[slotOffset];
 
-            for (unsigned j = 0; j < entry->pathDepth; j++) {
-                slot = &slot[entry->path[j]];
+            for (unsigned j = 0; j < templateSlot->pathDepth; j++) {
+                slot = &slot[templateSlot->path[j]];
                 slot = &slot->nested.nextSet->slots[slot->nested.slotOffset];
             }
         }
 
         VKD.vkUpdateDescriptorSetWithTemplate(grDevice->device, bindPoint->descriptorSet,
-                                              entry->updateTemplate, (void*)slot);
+                                              templateSlot->updateTemplate, (void*)slot);
 
         // Pass buffer strides down to the shader
-        for (unsigned j = 0; j < entry->strideCount; j++) {
+        for (unsigned j = 0; j < templateSlot->strideCount; j++) {
             VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, pipelineLayout,
                                    VK_SHADER_STAGE_VERTEX_BIT,
-                                   entry->strideOffsets[j], sizeof(uint32_t),
-                                   &slot[entry->strideSlotIndexes[j]].buffer.stride);
+                                   templateSlot->strideOffsets[j], sizeof(uint32_t),
+                                   &slot[templateSlot->strideSlotIndexes[j]].buffer.stride);
         }
     }
 }
@@ -175,8 +175,8 @@ static void grCmdBufferUpdateDescriptorSet(
     for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
         updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint,
                               bindPoint->grDescriptorSets[i], bindPoint->slotOffsets[i],
-                              grPipeline->updateTemplateEntryCounts[i],
-                              grPipeline->updateTemplateEntries[i],
+                              grPipeline->updateTemplateSlotCounts[i],
+                              grPipeline->updateTemplateSlots[i],
                               grPipeline->pipelineLayout);
     }
 }

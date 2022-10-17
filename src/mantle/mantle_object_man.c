@@ -92,12 +92,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
         VKD.vkDestroyPipelineLayout(grDevice->device, grPipeline->pipelineLayout, NULL);
         VKD.vkDestroyDescriptorSetLayout(grDevice->device, grPipeline->descriptorSetLayout, NULL);
         for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-            for (unsigned j = 0; j < grPipeline->updateTemplateEntryCounts[i]; j++) {
-                UpdateTemplateEntry* entry = &grPipeline->updateTemplateEntries[i][j];
-                VKD.vkDestroyDescriptorUpdateTemplate(grDevice->device, entry->updateTemplate,
-                                                      NULL);
+            for (unsigned j = 0; j < grPipeline->updateTemplateSlotCounts[i]; j++) {
+                UpdateTemplateSlot* slot = &grPipeline->updateTemplateSlots[i][j];
+                VKD.vkDestroyDescriptorUpdateTemplate(grDevice->device, slot->updateTemplate, NULL);
             }
-            free(grPipeline->updateTemplateEntries[i]);
+            free(grPipeline->updateTemplateSlots[i]);
         }
     }   break;
     case GR_OBJ_TYPE_QUEUE_SEMAPHORE: {

@@ -38,9 +38,9 @@ static VkDescriptorUpdateTemplate getVkDescriptorUpdateTemplate(
     return descriptorUpdateTemplate;
 }
 
-static void addDynamicUpdateTemplateEntry(
-    unsigned* updateTemplateEntryCount,
-    UpdateTemplateEntry** updateTemplateEntries,
+static void addDynamicUpdateTemplateSlot(
+    unsigned* updateTemplateSlotCount,
+    UpdateTemplateSlot** updateTemplateSlots,
     const GrDevice* grDevice,
     unsigned stageCount,
     const Stage* stages,
@@ -104,10 +104,10 @@ static void addDynamicUpdateTemplateEntry(
             getVkDescriptorUpdateTemplate(grDevice, descriptorUpdateEntryCount,
                                           descriptorUpdateEntries, descriptorSetLayout);
 
-        (*updateTemplateEntryCount)++;
-        *updateTemplateEntries = realloc(*updateTemplateEntries,
-                                         *updateTemplateEntryCount * sizeof(UpdateTemplateEntry));
-        (*updateTemplateEntries)[*updateTemplateEntryCount - 1] = (UpdateTemplateEntry) {
+        (*updateTemplateSlotCount)++;
+        *updateTemplateSlots = realloc(*updateTemplateSlots,
+                                       *updateTemplateSlotCount * sizeof(UpdateTemplateSlot));
+        (*updateTemplateSlots)[*updateTemplateSlotCount - 1] = (UpdateTemplateSlot) {
             .updateTemplate = updateTemplate,
             .isDynamic = true,
             .pathDepth = 0,
@@ -117,18 +117,18 @@ static void addDynamicUpdateTemplateEntry(
             .strideSlotIndexes = { 0 }, // Initialized below
         };
 
-        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideOffsets,
+        memcpy((*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideOffsets,
                strideOffsets, strideCount * sizeof(unsigned));
-        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideSlotIndexes,
+        memcpy((*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideSlotIndexes,
                strideSlotIndexes, strideCount * sizeof(unsigned));
 
         free(descriptorUpdateEntries);
     }
 }
 
-static void addUpdateTemplateEntriesFromMapping(
-    unsigned* updateTemplateEntryCount,
-    UpdateTemplateEntry** updateTemplateEntries,
+static void addUpdateTemplateSlotsFromMapping(
+    unsigned* updateTemplateSlotCount,
+    UpdateTemplateSlot** updateTemplateSlots,
     const GrDevice* grDevice,
     const GR_DESCRIPTOR_SET_MAPPING* mapping,
     unsigned bindingCount,
@@ -159,10 +159,10 @@ static void addUpdateTemplateEntriesFromMapping(
             path[pathDepth] = i;
 
             // Build update template for the nested set
-            addUpdateTemplateEntriesFromMapping(updateTemplateEntryCount, updateTemplateEntries,
-                                                grDevice, slotInfo->pNextLevelSet,
-                                                bindingCount, bindings, descriptorSetLayout,
-                                                pathDepth + 1, path);
+            addUpdateTemplateSlotsFromMapping(updateTemplateSlotCount, updateTemplateSlots,
+                                              grDevice, slotInfo->pNextLevelSet,
+                                              bindingCount, bindings, descriptorSetLayout,
+                                              pathDepth + 1, path);
             continue;
         }
 
@@ -233,10 +233,10 @@ static void addUpdateTemplateEntriesFromMapping(
             getVkDescriptorUpdateTemplate(grDevice, descriptorUpdateEntryCount,
                                           descriptorUpdateEntries, descriptorSetLayout);
 
-        (*updateTemplateEntryCount)++;
-        *updateTemplateEntries = realloc(*updateTemplateEntries,
-                                         *updateTemplateEntryCount * sizeof(UpdateTemplateEntry));
-        (*updateTemplateEntries)[*updateTemplateEntryCount - 1] = (UpdateTemplateEntry) {
+        (*updateTemplateSlotCount)++;
+        *updateTemplateSlots = realloc(*updateTemplateSlots,
+                                       *updateTemplateSlotCount * sizeof(UpdateTemplateSlot));
+        (*updateTemplateSlots)[*updateTemplateSlotCount - 1] = (UpdateTemplateSlot) {
             .updateTemplate = updateTemplate,
             .isDynamic = false,
             .pathDepth = pathDepth,
@@ -246,28 +246,28 @@ static void addUpdateTemplateEntriesFromMapping(
             .strideSlotIndexes = { 0 }, // Initialized below
         };
 
-        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].path,
+        memcpy((*updateTemplateSlots)[*updateTemplateSlotCount - 1].path,
                path, pathDepth * sizeof(unsigned));
-        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideOffsets,
+        memcpy((*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideOffsets,
                strideOffsets, strideCount * sizeof(unsigned));
-        memcpy((*updateTemplateEntries)[*updateTemplateEntryCount - 1].strideSlotIndexes,
+        memcpy((*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideSlotIndexes,
                strideSlotIndexes, strideCount * sizeof(unsigned));
 
         free(descriptorUpdateEntries);
     }
 }
 
-static void getDescriptorUpdateEntries(
-    unsigned* updateTemplateEntryCount,
-    UpdateTemplateEntry** updateTemplateEntries,
+static void getUpdateTemplateSlots(
+    unsigned* updateTemplateSlotCount,
+    UpdateTemplateSlot** updateTemplateSlots,
     const GrDevice* grDevice,
     unsigned stageCount,
     const Stage* stages,
     unsigned mappingIndex,
     VkDescriptorSetLayout descriptorSetLayout)
 {
-    addDynamicUpdateTemplateEntry(updateTemplateEntryCount, updateTemplateEntries, grDevice,
-                                  stageCount, stages, descriptorSetLayout);
+    addDynamicUpdateTemplateSlot(updateTemplateSlotCount, updateTemplateSlots, grDevice,
+                                 stageCount, stages, descriptorSetLayout);
 
     for (unsigned i = 0; i < stageCount; i++) {
         const Stage* stage = &stages[i];
@@ -280,10 +280,10 @@ static void getDescriptorUpdateEntries(
         }
 
         // TODO merge entries across stages
-        addUpdateTemplateEntriesFromMapping(updateTemplateEntryCount, updateTemplateEntries,
-                                            grDevice, &shader->descriptorSetMapping[mappingIndex],
-                                            grShader->bindingCount, grShader->bindings,
-                                            descriptorSetLayout, 0, path);
+        addUpdateTemplateSlotsFromMapping(updateTemplateSlotCount, updateTemplateSlots,
+                                          grDevice, &shader->descriptorSetMapping[mappingIndex],
+                                          grShader->bindingCount, grShader->bindings,
+                                          descriptorSetLayout, 0, path);
     }
 }
 
@@ -702,8 +702,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkShaderModule rectangleShaderModule = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
-    unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
-    UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS] = { NULL };
+    unsigned updateTemplateSlotCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
+    UpdateTemplateSlot* updateTemplateSlots[GR_MAX_DESCRIPTOR_SETS] = { NULL };
     GrShader* grShaderRefs[MAX_STAGE_COUNT] = { NULL };
     VkResult vkRes;
 
@@ -856,8 +856,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     }
 
     for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-        getDescriptorUpdateEntries(&updateTemplateEntryCounts[i], &updateTemplateEntries[i],
-                                   grDevice, COUNT_OF(stages), stages, i, descriptorSetLayout);
+        getUpdateTemplateSlots(&updateTemplateSlotCounts[i], &updateTemplateSlots[i],
+                               grDevice, COUNT_OF(stages), stages, i, descriptorSetLayout);
     }
 
     // TODO keep track of rectangle shader module
@@ -873,15 +873,15 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .stageCount = COUNT_OF(stages),
         .descriptorSetLayout = descriptorSetLayout,
         .dynamicOffsetCount = dynamicOffsetCount,
-        .updateTemplateEntryCounts = { 0 }, // Initialized below
-        .updateTemplateEntries = { NULL }, // Initialized below
+        .updateTemplateSlotCounts = { 0 }, // Initialized below
+        .updateTemplateSlots = { NULL }, // Initialized below
     };
 
     memcpy(grPipeline->grShaderRefs, grShaderRefs, sizeof(grPipeline->grShaderRefs));
-    memcpy(grPipeline->updateTemplateEntryCounts, updateTemplateEntryCounts,
-           sizeof(grPipeline->updateTemplateEntryCounts));
-    memcpy(grPipeline->updateTemplateEntries, updateTemplateEntries,
-           sizeof(grPipeline->updateTemplateEntries));
+    memcpy(grPipeline->updateTemplateSlotCounts, updateTemplateSlotCounts,
+           sizeof(grPipeline->updateTemplateSlotCounts));
+    memcpy(grPipeline->updateTemplateSlots, updateTemplateSlots,
+           sizeof(grPipeline->updateTemplateSlots));
 
     *pPipeline = (GR_PIPELINE)grPipeline;
     return GR_SUCCESS;
@@ -906,8 +906,8 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
     unsigned dynamicOffsetCount = 0;
-    unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
-    UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS] = { NULL };
+    unsigned updateTemplateSlotCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
+    UpdateTemplateSlot* updateTemplateSlots[GR_MAX_DESCRIPTOR_SETS] = { NULL };
 
     // TODO validate parameters
 
@@ -946,8 +946,8 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     }
 
     for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-        getDescriptorUpdateEntries(&updateTemplateEntryCounts[i], &updateTemplateEntries[i],
-                                   grDevice, 1, &stage, i, descriptorSetLayout);
+        getUpdateTemplateSlots(&updateTemplateSlotCounts[i], &updateTemplateSlots[i],
+                               grDevice, 1, &stage, i, descriptorSetLayout);
     }
 
     const VkComputePipelineCreateInfo pipelineCreateInfo = {
@@ -987,14 +987,14 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .stageCount = 1,
         .descriptorSetLayout = descriptorSetLayout,
         .dynamicOffsetCount = dynamicOffsetCount,
-        .updateTemplateEntryCounts = { 0 }, // Initialized below
-        .updateTemplateEntries = { NULL }, // Initialized below
+        .updateTemplateSlotCounts = { 0 }, // Initialized below
+        .updateTemplateSlots = { NULL }, // Initialized below
     };
 
-    memcpy(grPipeline->updateTemplateEntryCounts, updateTemplateEntryCounts,
-           sizeof(grPipeline->updateTemplateEntryCounts));
-    memcpy(grPipeline->updateTemplateEntries, updateTemplateEntries,
-           sizeof(grPipeline->updateTemplateEntries));
+    memcpy(grPipeline->updateTemplateSlotCounts, updateTemplateSlotCounts,
+           sizeof(grPipeline->updateTemplateSlotCounts));
+    memcpy(grPipeline->updateTemplateSlots, updateTemplateSlots,
+           sizeof(grPipeline->updateTemplateSlots));
 
     *pPipeline = (GR_PIPELINE)grPipeline;
     return GR_SUCCESS;
