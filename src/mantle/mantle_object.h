@@ -124,7 +124,7 @@ typedef struct _PipelineSlot
     const GrRasterStateObject* grRasterState;
 } PipelineSlot;
 
-typedef struct _UpdateTemplateEntry {
+typedef struct _UpdateTemplateSlot {
     VkDescriptorUpdateTemplate updateTemplate;
     bool isDynamic;
     unsigned pathDepth;
@@ -132,7 +132,7 @@ typedef struct _UpdateTemplateEntry {
     unsigned strideCount;
     unsigned strideOffsets[MAX_STRIDES];
     unsigned strideSlotIndexes[MAX_STRIDES];
-} UpdateTemplateEntry;
+} UpdateTemplateSlot;
 
 // Base object
 typedef struct _GrBaseObject {
@@ -307,8 +307,8 @@ typedef struct _GrPipeline {
     unsigned stageCount;
     VkDescriptorSetLayout descriptorSetLayout;
     unsigned dynamicOffsetCount;
-    unsigned updateTemplateEntryCounts[GR_MAX_DESCRIPTOR_SETS];
-    UpdateTemplateEntry* updateTemplateEntries[GR_MAX_DESCRIPTOR_SETS];
+    unsigned updateTemplateSlotCounts[GR_MAX_DESCRIPTOR_SETS];
+    UpdateTemplateSlot* updateTemplateSlots[GR_MAX_DESCRIPTOR_SETS];
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
