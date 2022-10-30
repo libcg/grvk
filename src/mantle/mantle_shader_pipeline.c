@@ -38,63 +38,51 @@ static VkDescriptorUpdateTemplate getVkDescriptorUpdateTemplate(
     return descriptorUpdateTemplate;
 }
 
-static void addDynamicUpdateTemplateSlot(
+static void addDynamicUpdateTemplateSlots(
     unsigned* updateTemplateSlotCount,
     UpdateTemplateSlot** updateTemplateSlots,
-    unsigned stageCount,
-    const Stage* stages)
+    const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping,
+    unsigned bindingCount,
+    const IlcBinding* bindings)
 {
-    // Find all dynamic memory view descriptors across all stages,
-    // to be updated in a single update template
-    for (unsigned i = 0; i < stageCount; i++) {
-        const Stage* stage = &stages[i];
-        const GR_PIPELINE_SHADER* shader = stage->shader;
-        const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicSlotInfo = &shader->dynamicMemoryViewMapping;
-        const GrShader* grShader = shader->shader;
+    for (unsigned i = 0; i < bindingCount; i++) {
+        const IlcBinding* binding = &bindings[i];
 
-        if (grShader == NULL) {
-            continue;
-        }
+        if (dynamicMapping->slotObjectType != GR_SLOT_UNUSED &&
+            binding->ilIndex == dynamicMapping->shaderEntityIndex &&
+            binding->type == ILC_BINDING_RESOURCE) {
+            // Found a dynamic memory view descriptor
+            VkDescriptorUpdateTemplateEntry* entry =
+                malloc(sizeof(VkDescriptorUpdateTemplateEntry));
+            *entry = (VkDescriptorUpdateTemplateEntry) {
+                .dstBinding = binding->vkIndex,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+                .offset = OFFSET_OF_UNION(DescriptorSetSlot, buffer, bufferInfo),
+                .stride = 0,
+            };
 
-        for (unsigned j = 0; j < grShader->bindingCount; j++) {
-            const IlcBinding* binding = &grShader->bindings[j];
+            (*updateTemplateSlotCount)++;
+            *updateTemplateSlots = realloc(*updateTemplateSlots,
+                                           *updateTemplateSlotCount *
+                                           sizeof(UpdateTemplateSlot));
+            (*updateTemplateSlots)[*updateTemplateSlotCount - 1] = (UpdateTemplateSlot) {
+                .updateTemplate = (VkDescriptorUpdateTemplate)entry, // Stuff the entry here
+                .isDynamic = true,
+                .pathDepth = 0,
+                .path = { 0 },
+                .strideCount = 0, // Initialized below
+                .strideOffsets = { 0 }, // Initialized below
+                .strideSlotIndexes = { 0 }, // Initialized below
+            };
 
-            if (dynamicSlotInfo->slotObjectType != GR_SLOT_UNUSED &&
-                binding->ilIndex == dynamicSlotInfo->shaderEntityIndex &&
-                binding->type == ILC_BINDING_RESOURCE) {
-                // Found a dynamic memory view descriptor
-                VkDescriptorUpdateTemplateEntry* entry =
-                    malloc(sizeof(VkDescriptorUpdateTemplateEntry));
-                *entry = (VkDescriptorUpdateTemplateEntry) {
-                    .dstBinding = binding->vkIndex,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-                    .offset = OFFSET_OF_UNION(DescriptorSetSlot, buffer, bufferInfo),
-                    .stride = 0,
-                };
-
-                (*updateTemplateSlotCount)++;
-                *updateTemplateSlots = realloc(*updateTemplateSlots,
-                                               *updateTemplateSlotCount *
-                                               sizeof(UpdateTemplateSlot));
-                (*updateTemplateSlots)[*updateTemplateSlotCount - 1] = (UpdateTemplateSlot) {
-                    .updateTemplate = (VkDescriptorUpdateTemplate)entry, // Stuff the entry here
-                    .isDynamic = true,
-                    .pathDepth = 0,
-                    .path = { 0 },
-                    .strideCount = 0, // Initialized below
-                    .strideOffsets = { 0 }, // Initialized below
-                    .strideSlotIndexes = { 0 }, // Initialized below
-                };
-
-                if (binding->strideIndex >= 0) {
-                    unsigned strideOffset = binding->strideIndex * sizeof(uint32_t);
-                    (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideCount = 1;
-                    (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideOffsets[0] =
-                        strideOffset;
-                    (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideSlotIndexes[0] = 0;
-                }
+            if (binding->strideIndex >= 0) {
+                unsigned strideOffset = binding->strideIndex * sizeof(uint32_t);
+                (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideCount = 1;
+                (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideOffsets[0] =
+                    strideOffset;
+                (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideSlotIndexes[0] = 0;
             }
         }
     }
@@ -305,9 +293,6 @@ static void getUpdateTemplateSlots(
     unsigned mappingIndex,
     VkDescriptorSetLayout descriptorSetLayout)
 {
-    // TODO move to loop below
-    addDynamicUpdateTemplateSlot(updateTemplateSlotCount, updateTemplateSlots, stageCount, stages);
-
     for (unsigned i = 0; i < stageCount; i++) {
         const Stage* stage = &stages[i];
         const GR_PIPELINE_SHADER* shader = stage->shader;
@@ -318,6 +303,9 @@ static void getUpdateTemplateSlots(
             continue;
         }
 
+        addDynamicUpdateTemplateSlots(updateTemplateSlotCount, updateTemplateSlots,
+                                      &shader->dynamicMemoryViewMapping,
+                                      grShader->bindingCount, grShader->bindings);
         addUpdateTemplateSlotsFromMapping(updateTemplateSlotCount, updateTemplateSlots,
                                           &shader->descriptorSetMapping[mappingIndex],
                                           grShader->bindingCount, grShader->bindings, 0, path);
