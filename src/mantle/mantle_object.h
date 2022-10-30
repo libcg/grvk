@@ -10,7 +10,7 @@
 
 #define MAX_STAGE_COUNT     5 // VS, HS, DS, GS, PS
 #define MAX_PATH_DEPTH      8 // Levels of nested descriptor sets
-#define MAX_STRIDES         8 // Number of strides per descriptor update entry
+#define MAX_STRIDES         8 // Number of buffer strides per update template slot
 
 #define UNIVERSAL_ATOMIC_COUNTERS_COUNT (512)
 #define COMPUTE_ATOMIC_COUNTERS_COUNT   (1024)
