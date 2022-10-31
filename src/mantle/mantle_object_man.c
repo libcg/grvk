@@ -61,7 +61,6 @@ GR_RESULT GR_STDCALL grDestroyObject(
         GrImage* grImage = (GrImage*)grObject;
 
         VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
-        VKD.vkDestroyBuffer(grDevice->device, grImage->buffer, NULL);
 
         grQueueRemoveInitialImage(grImage);
         grWsiDestroyImage(grImage);
@@ -185,12 +184,7 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
             GrImage* grImage = (GrImage*)grBaseObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
 
-            if (grImage->image != VK_NULL_HANDLE) {
-                VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
-            } else {
-                VKD.vkGetBufferMemoryRequirements(grDevice->device, grImage->buffer, &memReqs);
-            }
-
+            VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
             *grMemReqs = getGrMemoryRequirements(memReqs);
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
@@ -308,13 +302,8 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
             GrImage* grImage = (GrImage*)grObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
-            if (grImage->image != VK_NULL_HANDLE) {
-                vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
-                                              grGpuMemory->deviceMemory, offset);
-            } else {
-                vkRes = VKD.vkBindBufferMemory(grDevice->device, grImage->buffer,
-                                               grGpuMemory->deviceMemory, offset);
-            }
+            vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
+                                          grGpuMemory->deviceMemory, offset);
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
         case GR_OBJ_TYPE_COLOR_TARGET_VIEW:

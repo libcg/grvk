@@ -21,57 +21,6 @@ static bool isMsaaSupported(
     return formatProps.sampleCounts > VK_SAMPLE_COUNT_1_BIT;
 }
 
-unsigned grImageGetBufferOffset(
-    VkExtent3D extent,
-    VkFormat format,
-    unsigned arraySlice,
-    unsigned arraySize,
-    unsigned mipLevel)
-{
-    unsigned offset = 0;
-
-    // Find mipmap base offset
-    for (unsigned i = 0; i < mipLevel; i++) {
-        for (unsigned j = 0; j < arraySize; j++) {
-            offset += grImageGetBufferDepthPitch(extent, format, i) *
-                      MIP(extent.depth, i);
-        }
-    }
-
-    // Find slice offset
-    for (unsigned i = 0; i < arraySlice; i++) {
-        offset += grImageGetBufferDepthPitch(extent, format, mipLevel) *
-                  MIP(extent.depth, i);
-    }
-
-    return offset;
-}
-
-unsigned grImageGetBufferRowPitch(
-    VkExtent3D extent,
-    VkFormat format,
-    unsigned mipLevel)
-{
-    unsigned texelSize = getVkFormatTexelSize(format);
-    unsigned tileSize = getVkFormatTileSize(format);
-
-    return texelSize *
-           MIP(CEILDIV(extent.width, tileSize), mipLevel);
-}
-
-unsigned grImageGetBufferDepthPitch(
-    VkExtent3D extent,
-    VkFormat format,
-    unsigned mipLevel)
-{
-    unsigned texelSize = getVkFormatTexelSize(format);
-    unsigned tileSize = getVkFormatTileSize(format);
-
-    return texelSize *
-           MIP(CEILDIV(extent.width, tileSize), mipLevel) *
-           MIP(CEILDIV(extent.height, tileSize), mipLevel);
-}
-
 // Image and Sample Functions
 
 GR_RESULT GR_STDCALL grGetFormatInfo(
@@ -210,51 +159,6 @@ GR_RESULT GR_STDCALL grCreateImage(
                                   : VK_IMAGE_LAYOUT_PREINITIALIZED,
     };
 
-    // Use a buffer for linear transfer-only images
-    if (pCreateInfo->samples <= 1 &&
-        pCreateInfo->tiling == GR_LINEAR_TILING &&
-        pCreateInfo->usage == 0) {
-        VkBuffer vkBuffer = VK_NULL_HANDLE;
-
-        unsigned size = grImageGetBufferOffset(createInfo.extent, createInfo.format,
-                                               0, createInfo.arrayLayers, createInfo.mipLevels);
-
-        const VkBufferCreateInfo bufferCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .pNext = NULL,
-            .flags = 0,
-            .size = size,
-            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                     VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .queueFamilyIndexCount = 0,
-            .pQueueFamilyIndices = NULL,
-        };
-
-        vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
-        if (vkRes != VK_SUCCESS) {
-            LOGE("vkCreateBuffer failed (%d)\n", vkRes);
-            return getGrResult(vkRes);
-        }
-
-        GrImage* grImage = malloc(sizeof(GrImage));
-        *grImage = (GrImage) {
-            .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
-            .image = VK_NULL_HANDLE,
-            .buffer = vkBuffer,
-            .imageType = createInfo.imageType,
-            .extent = createInfo.extent,
-            .arrayLayers = createInfo.arrayLayers,
-            .format = createInfo.format,
-            .usage = createInfo.usage,
-            .multiplyCubeLayers = false,
-            .isOpaque = false,
-        };
-
-        *pImage = (GR_IMAGE)grImage;
-        return GR_SUCCESS;
-    }
-
     VkImageFormatProperties imageFormatProperties;
     vkRes = vki.vkGetPhysicalDeviceImageFormatProperties(grDevice->physicalDevice,
                                                          createInfo.format, createInfo.imageType,
@@ -279,7 +183,6 @@ GR_RESULT GR_STDCALL grCreateImage(
     *grImage = (GrImage) {
         .grObj = { GR_OBJ_TYPE_IMAGE, grDevice },
         .image = vkImage,
-        .buffer = VK_NULL_HANDLE,
         .imageType = createInfo.imageType,
         .extent = createInfo.extent,
         .arrayLayers = createInfo.arrayLayers,
@@ -331,28 +234,7 @@ GR_RESULT GR_STDCALL grGetImageSubresourceInfo(
         return GR_SUCCESS;
     }
 
-    if (grImage->buffer != VK_NULL_HANDLE) {
-        if (pSubresource->aspect != GR_IMAGE_ASPECT_COLOR) {
-            LOGE("unhandled non-color aspect 0x%X\n", pSubresource->aspect);
-            assert(false);
-        }
-
-        unsigned offset = grImageGetBufferOffset(grImage->extent, grImage->format,
-                                                 pSubresource->arraySlice, grImage->arrayLayers,
-                                                 pSubresource->mipLevel);
-        unsigned size = grImageGetBufferOffset(grImage->extent, grImage->format,
-                                               pSubresource->arraySlice + 1, grImage->arrayLayers,
-                                               pSubresource->mipLevel) - offset;
-
-        *(GR_SUBRESOURCE_LAYOUT*)pData = (GR_SUBRESOURCE_LAYOUT) {
-            .offset = offset,
-            .size = size,
-            .rowPitch = grImageGetBufferRowPitch(grImage->extent, grImage->format,
-                                                 pSubresource->mipLevel),
-            .depthPitch = grImageGetBufferDepthPitch(grImage->extent, grImage->format,
-                                                     pSubresource->mipLevel),
-        };
-    } else if (grImage->isOpaque) {
+    if (grImage->isOpaque) {
         // Mantle spec: "For opaque images, the returned pitch values are zero."
         *(GR_SUBRESOURCE_LAYOUT*)pData = (GR_SUBRESOURCE_LAYOUT) {
             .offset = 0,
