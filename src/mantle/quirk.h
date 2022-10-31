@@ -24,6 +24,10 @@ typedef enum {
 
     // Not all objects are destroyed before the device gets destroyed
     QUIRK_KEEP_VK_DEVICE = 1 << 6,
+
+    // RADV doesn't support linear transfer-only images used by Star Swarm, but it has no effect
+    // on rendering. Silence it.
+    QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS = 1 << 7,
 } QUIRK_FLAGS;
 
 void quirkInit(
