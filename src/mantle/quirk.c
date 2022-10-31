@@ -11,7 +11,8 @@ void quirkInit(
                   QUIRK_IMAGE_DATA_TRANSFER_STATE_FOR_RAW_CLEAR |
                   QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS |
                   QUIRK_INVALID_CMD_BUFFER_RESET |
-                  QUIRK_CUBEMAP_LAYER_DIV_6;
+                  QUIRK_CUBEMAP_LAYER_DIV_6 |
+                  QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS;
     } else if (!strcmp(appInfo->pEngineName, "CivTech")) {
         mQuirks = QUIRK_NON_ZERO_MEM_REQ |
                   QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH |
