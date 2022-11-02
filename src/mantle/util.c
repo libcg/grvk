@@ -276,29 +276,6 @@ VkFormat getVkFormat(
     return VK_FORMAT_UNDEFINED;
 }
 
-unsigned getVkFormatTexelSize(
-    VkFormat vkFormat)
-{
-    switch (vkFormat) {
-    case VK_FORMAT_R8_UNORM:
-        return 1;
-    case VK_FORMAT_R8G8B8A8_UNORM:
-    case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
-    case VK_FORMAT_R32_SFLOAT:
-        return 4;
-    case VK_FORMAT_BC4_UNORM_BLOCK:
-        return 8;
-    case VK_FORMAT_R32G32B32A32_SFLOAT:
-    case VK_FORMAT_BC7_UNORM_BLOCK:
-        return 16;
-    default:
-        break;
-    }
-
-    LOGW("unhandled format %d\n", vkFormat);
-    return 0;
-}
-
 unsigned getVkFormatTileSize(
     VkFormat vkFormat)
 {
