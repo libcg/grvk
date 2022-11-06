@@ -17,7 +17,7 @@ GR_RESULT GR_STDCALL grGetMemoryHeapCount(
         return GR_ERROR_INVALID_POINTER;
     }
 
-    *pCount = grDevice->memoryProperties.memoryTypeCount;
+    *pCount = grDevice->memoryHeapCount;
     return GR_SUCCESS;
 }
 
@@ -43,7 +43,7 @@ GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
         return GR_ERROR_INVALID_MEMORY_SIZE;
     }
 
-    if (heapId >= grDevice->memoryProperties.memoryTypeCount) {
+    if (heapId >= grDevice->memoryHeapCount) {
         return GR_ERROR_INVALID_ORDINAL;
     }
 
@@ -53,8 +53,10 @@ GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
         return GR_SUCCESS;
     }
 
-    VkMemoryPropertyFlags flags = grDevice->memoryProperties.memoryTypes[heapId].propertyFlags;
-    uint32_t vkHeapIndex = grDevice->memoryProperties.memoryTypes[heapId].heapIndex;
+    const VkPhysicalDeviceMemoryProperties* memoryProperties = &grDevice->memoryProperties;
+    uint32_t vkMemoryTypeIndex = grDevice->memoryHeapMap[heapId];
+    VkMemoryPropertyFlags flags = memoryProperties->memoryTypes[vkMemoryTypeIndex].propertyFlags;
+    uint32_t vkHeapIndex = memoryProperties->memoryTypes[vkMemoryTypeIndex].heapIndex;
     bool deviceLocal = (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
     bool hostVisible = (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
     bool hostCoherent = (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
@@ -67,7 +69,7 @@ GR_RESULT GR_STDCALL grGetMemoryHeapInfo(
     // https://gpuopen.com/learn/vulkan-device-memory/
     *(GR_MEMORY_HEAP_PROPERTIES*)pData = (GR_MEMORY_HEAP_PROPERTIES) {
         .heapMemoryType = deviceLocal ? GR_HEAP_MEMORY_LOCAL : GR_HEAP_MEMORY_REMOTE,
-        .heapSize = grDevice->memoryProperties.memoryHeaps[vkHeapIndex].size,
+        .heapSize = memoryProperties->memoryHeaps[vkHeapIndex].size,
         .pageSize = 65536, // 19.4.3
         .flags = (hostVisible ? GR_MEMORY_HEAP_CPU_VISIBLE : 0) |
                  (hostCoherent ? GR_MEMORY_HEAP_CPU_GPU_COHERENT : 0) |
@@ -121,11 +123,15 @@ GR_RESULT GR_STDCALL grAllocMemory(
     // Try to allocate from the best heap
     vkRes = VK_ERROR_UNKNOWN;
     for (int i = 0; i < pAllocInfo->heapCount; i++) {
+        if (pAllocInfo->heaps[i] >= grDevice->memoryHeapCount) {
+            return GR_ERROR_INVALID_ORDINAL;
+        }
+
         const VkMemoryAllocateInfo allocateInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
             .pNext = NULL,
             .allocationSize = pAllocInfo->size,
-            .memoryTypeIndex = pAllocInfo->heaps[i],
+            .memoryTypeIndex = grDevice->memoryHeapMap[pAllocInfo->heaps[i]],
         };
 
         vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);

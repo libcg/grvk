@@ -232,6 +232,8 @@ typedef struct _GrDevice {
     VkDevice device;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;
+    uint32_t memoryHeapMap[GR_MAX_MEMORY_HEAPS];
+    unsigned memoryHeapCount;
     VkDescriptorSetLayout atomicCounterSetLayout;
     GrQueue* grUniversalQueue;
     GrQueue* grComputeQueue;
