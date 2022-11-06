@@ -730,6 +730,25 @@ GR_RESULT GR_STDCALL grCreateDevice(
     VkPhysicalDeviceMemoryProperties memoryProperties;
     vki.vkGetPhysicalDeviceMemoryProperties(grPhysicalGpu->physicalDevice, &memoryProperties);
 
+    // Build memory heap map
+    uint32_t memoryHeapMap[GR_MAX_MEMORY_HEAPS];
+    unsigned memoryHeapCount = 0;
+    for (unsigned i = 0; i < memoryProperties.memoryTypeCount; i++) {
+        if (memoryProperties.memoryTypes[i].propertyFlags &
+            (VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD |
+             VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD)) {
+            LOGW("ignoring device coherent/uncached memory type %d\n", i);
+            continue;
+        }
+
+        if (memoryHeapCount >= GR_MAX_MEMORY_HEAPS) {
+            LOGW("can't map memory type (exceeded %d Mantle heaps)\n", GR_MAX_MEMORY_HEAPS);
+        }
+
+        memoryHeapCount++;
+        memoryHeapMap[memoryHeapCount - 1] = i;
+    }
+
     GrDevice* grDevice = malloc(sizeof(GrDevice));
     *grDevice = (GrDevice) {
         .grBaseObj = { GR_OBJ_TYPE_DEVICE },
@@ -737,6 +756,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
+        .memoryHeapMap = { 0 }, // Initialized below
+        .memoryHeapCount = memoryHeapCount,
         .atomicCounterSetLayout = VK_NULL_HANDLE, // Initialized below
         .grUniversalQueue = NULL, // Initialized below
         .grComputeQueue = NULL, // Initialized below
@@ -748,6 +769,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .grBorderColorPalette = NULL,
     };
 
+    memcpy(grDevice->memoryHeapMap, memoryHeapMap, memoryHeapCount * sizeof(uint32_t));
     grDevice->atomicCounterSetLayout = getAtomicCounterDescriptorSetLayout(grDevice);
 
     if (universalQueueFamilyIndex != INVALID_QUEUE_INDEX) {
