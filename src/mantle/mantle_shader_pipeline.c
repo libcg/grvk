@@ -583,8 +583,8 @@ static VkPipeline getVkPipeline(
         .viewMask = 0,
         .colorAttachmentCount = colorFormatCount,
         .pColorAttachmentFormats = colorFormats,
-        .depthAttachmentFormat = depthStencilFormat,
-        .stencilAttachmentFormat = depthStencilFormat,
+        .depthAttachmentFormat = vkFormatSupportsDepth(depthStencilFormat) ? depthStencilFormat : VK_FORMAT_UNDEFINED,
+        .stencilAttachmentFormat = vkFormatSupportsStencil(depthStencilFormat) ? depthStencilFormat : VK_FORMAT_UNDEFINED,
     };
 
     const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
