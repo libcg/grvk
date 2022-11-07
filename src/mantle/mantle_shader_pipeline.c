@@ -518,6 +518,8 @@ static VkPipeline getVkPipeline(
     unsigned attachmentCount = 0;
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
 
+    assert(colorFormatCount < GR_MAX_COLOR_TARGETS);
+
     for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const VkPipelineColorBlendAttachmentState* blendState = &grColorBlendState->states[i];
         VkColorComponentFlags colorWriteMask = createInfo->colorWriteMasks[i];
@@ -539,13 +541,28 @@ static VkPipeline getVkPipeline(
         attachmentCount++;
     }
 
+    if (attachmentCount < colorFormatCount) {
+        for (unsigned i = attachmentCount; i < colorFormatCount; ++i) {
+            attachments[i] = (VkPipelineColorBlendAttachmentState) {
+                .blendEnable = false,
+                .srcColorBlendFactor = 0,
+                .dstColorBlendFactor = 0,
+                .colorBlendOp = 0,
+                .srcAlphaBlendFactor = 0,
+                .dstAlphaBlendFactor = 0,
+                .alphaBlendOp = 0,
+                .colorWriteMask = 0,
+            };
+        }
+    }
+
     const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .logicOpEnable = createInfo->logicOpEnable,
         .logicOp = createInfo->logicOp,
-        .attachmentCount = attachmentCount,
+        .attachmentCount = colorFormatCount,
         .pAttachments = attachments,
         .blendConstants = { 0.f }, // Dynamic state
     };
