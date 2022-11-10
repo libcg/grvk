@@ -653,9 +653,19 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = &demoteToHelperInvocation,
         .dynamicRendering = VK_TRUE,
     };
+    VkPhysicalDeviceInlineUniformBlockFeaturesEXT inlineUniformBlockFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
+        .pNext = &dynamicRendering,
+        .inlineUniformBlock = VK_TRUE,
+    };
+    VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT texelBufferAlignment = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT,
+        .pNext = &inlineUniformBlockFeatures,
+        .texelBufferAlignment = VK_TRUE,
+    };
     VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
-        .pNext = &dynamicRendering,
+        .pNext = &texelBufferAlignment,
         .synchronization2 = VK_TRUE,
     };
     VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
@@ -695,6 +705,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+        VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME,
+        VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME,
     };
 
     const VkDeviceCreateInfo createInfo = {

@@ -19,12 +19,14 @@
 #define COMP_MASK_XYZ       (COMP_MASK_XY | COMP_MASK_Z)
 #define COMP_MASK_XYZW      (COMP_MASK_XYZ | COMP_MASK_W)
 #define NO_STRIDE_INDEX     (-1)
+#define NO_OFFSET_INDEX     (-1)
 
 typedef enum {
     RES_TYPE_GENERIC,
     RES_TYPE_LDS,
     RES_TYPE_ATOMIC_COUNTER,
     RES_TYPE_PUSH_CONSTANTS,
+    RES_TYPE_OFFSET_BUFFER,
 } IlcResourceType;
 
 typedef enum {
@@ -53,6 +55,7 @@ typedef struct {
     uint32_t ilId;
     uint8_t ilType;
     IlcSpvId strideId;
+    IlcSpvId offsetId;
 } IlcResource;
 
 typedef struct {
@@ -114,6 +117,7 @@ typedef struct {
     IlcSpvId boolId;
     IlcSpvId bool4Id;
     unsigned currentStrideIndex;
+    unsigned currentOffsetIndex;
     unsigned regCount;
     IlcRegister* regs;
     unsigned resourceCount;
@@ -335,31 +339,33 @@ static void emitBinding(
     IlcSpvId bindingId,
     IlcSpvWord ilId,
     VkDescriptorType vkDescriptorType,
-    int strideIndex)
+    int strideIndex,
+    int offsetIndex)
 {
     unsigned vkIndex = 0;
 
     // We want the Vulkan binding index to be unique across shader stages to use a single
     // descriptor set, but the shaders are compiled in advance. Interleave the index based on the
-    // shader stage so there's no collision.
+    // shader stage so there's no collision. Also note, that the first index will be occupied
+    // by the offset buffer for texel buffer objects
     switch (compiler->kernel->shaderType) {
     case IL_SHADER_VERTEX:
-        vkIndex = compiler->bindingCount * 5 + 0;
+        vkIndex = (compiler->bindingCount + 1) * 5 + 0;
         break;
     case IL_SHADER_HULL:
-        vkIndex = compiler->bindingCount * 5 + 1;
+        vkIndex = (compiler->bindingCount + 1) * 5 + 1;
         break;
     case IL_SHADER_DOMAIN:
-        vkIndex = compiler->bindingCount * 5 + 2;
+        vkIndex = (compiler->bindingCount + 1) * 5 + 2;
         break;
     case IL_SHADER_GEOMETRY:
-        vkIndex = compiler->bindingCount * 5 + 3;
+        vkIndex = (compiler->bindingCount + 1) * 5 + 3;
         break;
     case IL_SHADER_PIXEL:
-        vkIndex = compiler->bindingCount * 5 + 4;
+        vkIndex = (compiler->bindingCount + 1) * 5 + 4;
         break;
     case IL_SHADER_COMPUTE:
-        vkIndex = compiler->bindingCount;
+        vkIndex = compiler->bindingCount + 1;
         break;
     default:
         assert(false);
@@ -377,6 +383,7 @@ static void emitBinding(
         .vkIndex = vkIndex,
         .descriptorType = vkDescriptorType,
         .strideIndex = strideIndex,
+        .offsetIndex = offsetIndex,
     };
 }
 
@@ -526,7 +533,7 @@ static const IlcSampler* findOrCreateSampler(
                                                SpvStorageClassUniformConstant);
 
         emitBinding(compiler, ILC_BINDING_SAMPLER, samplerId, ilId, VK_DESCRIPTOR_TYPE_SAMPLER,
-                    NO_STRIDE_INDEX);
+                    NO_STRIDE_INDEX, NO_OFFSET_INDEX);
 
         const IlcSampler newSampler = {
             .id = samplerId,
@@ -1255,6 +1262,92 @@ static void emitInput(
     addRegister(compiler, &reg, "v");
 }
 
+static IlcSpvId generateOffsetVariable(
+    IlcCompiler* compiler,
+    unsigned* pOffsetIndex)
+{
+    if (compiler->currentOffsetIndex >= ILC_MAX_OFFSET_CONSTANTS) {
+        LOGE("too many buffer view offsets\n");
+        assert(false);
+    }
+    const IlcResource* offsetResource = findResource(compiler, RES_TYPE_OFFSET_BUFFER, 0);
+
+    if (offsetResource == NULL) {
+        // Lazily create offset buffer resource
+
+        IlcSpvId elementsIds[ILC_MAX_OFFSET_CONSTANTS];
+        for (int i = 0; i < ILC_MAX_OFFSET_CONSTANTS; i++) {
+            elementsIds[i] = compiler->intId;
+        }
+
+        IlcSpvId structId = ilcSpvPutStructType(compiler->module, ILC_MAX_OFFSET_CONSTANTS, elementsIds);
+        IlcSpvId resourceId = emitVariable(compiler, structId, SpvStorageClassUniform);
+
+        ilcSpvPutDecoration(compiler->module, structId, SpvDecorationBlock, 0, NULL);
+        for (int i = 0; i < ILC_MAX_OFFSET_CONSTANTS; i++) {
+            IlcSpvWord memberOffset = i * 4;
+            ilcSpvPutMemberDecoration(compiler->module, structId, i, SpvDecorationOffset,
+                                      1, &memberOffset);
+        }
+
+        ilcSpvPutName(compiler->module, resourceId, "texelBufferOffsets");
+        IlcSpvWord set = DESCRIPTOR_SET_ID;
+        IlcSpvWord binding;
+
+        switch (compiler->kernel->shaderType) {
+        case IL_SHADER_COMPUTE:
+        case IL_SHADER_VERTEX:
+            binding = 0;
+            break;
+        case IL_SHADER_HULL:
+            binding = 1;
+            break;
+        case IL_SHADER_DOMAIN:
+            binding = 2;
+            break;
+        case IL_SHADER_GEOMETRY:
+            binding = 3;
+            break;
+        case IL_SHADER_PIXEL:
+            binding = 4;
+            break;
+        default:
+            assert(false);
+        }
+
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationDescriptorSet, 1, &set);
+        ilcSpvPutDecoration(compiler->module, resourceId, SpvDecorationBinding, 1, &binding);
+
+        const IlcResource offsetBufferResource = {
+            .resType = RES_TYPE_OFFSET_BUFFER,
+            .id = resourceId,
+            .typeId = 0,
+            .texelTypeId = 0,
+            .ilId = 0,
+            .ilType = IL_USAGE_PIXTEX_UNKNOWN,
+            .strideId = 0,
+            .offsetId = 0,
+        };
+
+        offsetResource = addResource(compiler, &offsetBufferResource);
+    }
+
+    IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassUniform,
+                                              compiler->intId);
+    IlcSpvId indexId = ilcSpvPutConstant(compiler->module, compiler->intId, compiler->currentOffsetIndex);
+    IlcSpvId ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, offsetResource->id,
+                                          1, &indexId);
+    IlcSpvId offsetId = ilcSpvPutLoad(compiler->module, compiler->intId, ptrId);
+
+    if (pOffsetIndex != NULL) {
+        *pOffsetIndex = compiler->currentOffsetIndex;
+    }
+
+    compiler->currentOffsetIndex++;
+
+    return offsetId;
+}
+
 static void emitResource(
     IlcCompiler* compiler,
     const Instruction* instr)
@@ -1308,11 +1401,17 @@ static void emitResource(
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
+    IlcSpvId offsetId = 0;
+    unsigned offsetIndex = 0;
+
+    if (spvDim == SpvDimBuffer) {
+        offsetId = generateOffsetVariable(compiler, &offsetIndex);
+    }
 
     emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id,
                 spvDim == SpvDimBuffer ? VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER :
                                          VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                NO_STRIDE_INDEX);
+                NO_STRIDE_INDEX, spvDim == SpvDimBuffer ? offsetIndex : NO_OFFSET_INDEX);
 
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
@@ -1322,6 +1421,7 @@ static void emitResource(
         .ilId = id,
         .ilType = type,
         .strideId = 0,
+        .offsetId = offsetId,
     };
 
     addResource(compiler, &resource);
@@ -1375,12 +1475,19 @@ static void emitTypedUav(
                                              imageId);
     IlcSpvId resourceId = ilcSpvPutVariable(compiler->module, pImageId,
                                             SpvStorageClassUniformConstant);
+    IlcSpvId offsetId = 0;
+    unsigned offsetIndex = 0;
+
+    if (spvDim == SpvDimBuffer) {
+        // TODO: extract in separate function
+        offsetId = generateOffsetVariable(compiler, &offsetIndex);
+    }
 
     ilcSpvPutName(compiler->module, imageId, "typedUav");
     emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id,
                 spvDim == SpvDimBuffer ? VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER :
                                          VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                NO_STRIDE_INDEX);
+                NO_STRIDE_INDEX, spvDim == SpvDimBuffer ? offsetIndex : NO_OFFSET_INDEX);
 
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
@@ -1390,6 +1497,7 @@ static void emitTypedUav(
         .ilId = id,
         .ilType = type,
         .strideId = 0,
+        .offsetId = offsetId,
     };
 
     addResource(compiler, &resource);
@@ -1417,7 +1525,7 @@ static void emitUav(
 
     ilcSpvPutName(compiler->module, arrayId, isStructured ? "structUav" : "rawUav");
     emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                NO_STRIDE_INDEX);
+                NO_STRIDE_INDEX, NO_OFFSET_INDEX);
 
     IlcSpvId strideId = 0;
 
@@ -1435,6 +1543,7 @@ static void emitUav(
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = strideId,
+        .offsetId = 0,
     };
 
     addResource(compiler, &resource);
@@ -1463,7 +1572,7 @@ static void emitSrv(
 
     ilcSpvPutName(compiler->module, arrayId, isStructured ? "structSrv" : "rawSrv");
     emitBinding(compiler, ILC_BINDING_RESOURCE, resourceId, id, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                isStructured ? NO_STRIDE_INDEX : compiler->currentStrideIndex);
+                isStructured ? NO_STRIDE_INDEX : compiler->currentStrideIndex, NO_OFFSET_INDEX);
 
     IlcSpvId strideId = 0;
 
@@ -1505,6 +1614,7 @@ static void emitSrv(
                 .ilId = 0,
                 .ilType = IL_USAGE_PIXTEX_UNKNOWN,
                 .strideId = 0,
+                .offsetId = 0,
             };
 
             pcResource = addResource(compiler, &pushConstantsResource);
@@ -1531,6 +1641,7 @@ static void emitSrv(
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = strideId,
+        .offsetId = 0,
     };
 
     addResource(compiler, &resource);
@@ -1560,6 +1671,7 @@ static void emitLds(
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
         .strideId = isStructured ? ilcSpvPutConstant(compiler->module, compiler->intId, stride) : 0,
+        .offsetId = 0,
     };
 
     addResource(compiler, &resource);
@@ -2491,6 +2603,10 @@ static void emitLoad(
     }
 
     IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    if (resource->ilType == IL_USAGE_PIXTEX_BUFFER) {
+        srcId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
+        srcId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, srcId, resource->offsetId);
+    }
 
     SpvImageOperandsMask operandsMask = 0;
     unsigned operandIdCount = 0;
@@ -2499,7 +2615,7 @@ static void emitLoad(
     if (resource->ilType == IL_USAGE_PIXTEX_2DMSAA) {
         // Sample number is stored in src.w
         operandsMask |= SpvImageOperandsSampleMask;
-        operandIds[0] = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_W, 1);
+        operandIds[operandIdCount] = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_W, 1);
         operandIdCount++;
     }
 
@@ -2852,6 +2968,11 @@ static void emitUavLoad(
     IlcSpvId texel4TypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    if (resource->ilType == IL_USAGE_PIXTEX_BUFFER) {
+        addressId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X, 1);
+        addressId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, addressId, resource->offsetId);
+    }
+
     IlcSpvId readId = ilcSpvPutImageRead(compiler->module, texel4TypeId, resourceId, addressId);
     storeDestination(compiler, dst, readId, texel4TypeId);
 }
@@ -2923,6 +3044,11 @@ static void emitUavStore(
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
     IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    if (resource->ilType == IL_USAGE_PIXTEX_BUFFER) {
+        addressId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X, 1);
+        addressId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, addressId, resource->offsetId);
+    }
+
     IlcSpvId elementTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
     IlcSpvId elementId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, elementTypeId);
 
@@ -3105,6 +3231,7 @@ static void emitAppendBufOp(
             .ilId = 0,
             .ilType = IL_USAGE_PIXTEX_UNKNOWN,
             .strideId = 0,
+            .offsetId = 0,
         };
 
         resource = addResource(compiler, &atomicCounterResource);
@@ -3749,6 +3876,7 @@ IlcShader ilcCompileKernel(
         .boolId = boolId,
         .bool4Id = ilcSpvPutVectorType(&module, boolId, 4),
         .currentStrideIndex = 0,
+        .currentOffsetIndex = 0,
         .regCount = 0,
         .regs = NULL,
         .resourceCount = 0,

@@ -10,10 +10,12 @@
 #define ATOMIC_COUNTER_SET_ID       (1)
 
 #define ILC_MAX_STRIDE_CONSTANTS    (8)
+#define ILC_MAX_OFFSET_CONSTANTS    (8)
 
 typedef enum _IlcBindingType {
     ILC_BINDING_SAMPLER,
     ILC_BINDING_RESOURCE,
+    ILC_BINDING_OFFSET_BUFFER,
 } IlcBindingType;
 
 typedef struct _IlcBinding {
@@ -22,6 +24,7 @@ typedef struct _IlcBinding {
     uint32_t vkIndex; // Unique across shader stages
     VkDescriptorType descriptorType;
     int strideIndex; // Stride location in push constants (<0 means non-existent)
+    int offsetIndex; // Offset index for texel buffers
 } IlcBinding;
 
 typedef struct _IlcInput {

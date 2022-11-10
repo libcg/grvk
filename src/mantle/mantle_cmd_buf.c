@@ -24,11 +24,17 @@ static VkDescriptorPool getVkDescriptorPool(
         { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,      SETS_PER_POOL },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,            SETS_PER_POOL },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,    SETS_PER_POOL },
+        { VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT,  SETS_PER_POOL * 8 * sizeof(int) },
     };
 
+    const VkDescriptorPoolInlineUniformBlockCreateInfoEXT uniformblockBindings = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .maxInlineUniformBlockBindings = SETS_PER_POOL
+    };
     const VkDescriptorPoolCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .pNext = NULL,
+        .pNext = &uniformblockBindings,
         .flags = 0,
         .maxSets = SETS_PER_POOL,
         .poolSizeCount = COUNT_OF(poolSizes),

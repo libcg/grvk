@@ -86,7 +86,9 @@ typedef struct _DescriptorSetSlot
         struct {
             VkBufferView bufferView;
             VkDescriptorBufferInfo bufferInfo;
+            int bufferViewOffset;
             VkDeviceSize stride;
+            bool localBufferView;
         } buffer;
         struct {
             const GrDescriptorSet* nextSet;
@@ -265,11 +267,20 @@ typedef struct _GrFence {
     bool submitted;
 } GrFence;
 
+typedef struct _BufferViewSlot {
+    VkBufferView bufferView;
+    VkFormat format;
+    VkDeviceSize offset;
+} BufferViewSlot;
+
 typedef struct _GrGpuMemory {
     GrObject grObj; // FIXME base object?
     VkDeviceMemory deviceMemory;
     VkDeviceSize deviceSize;
     VkBuffer buffer;
+    BufferViewSlot* bufferViewSlots;
+    int bufferViewSlotCount;
+    SRWLOCK bufferViewLock;
 } GrGpuMemory;
 
 typedef struct _GrImage {

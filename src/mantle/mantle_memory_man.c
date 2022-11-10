@@ -188,6 +188,9 @@ GR_RESULT GR_STDCALL grAllocMemory(
         .deviceMemory = vkMemory,
         .deviceSize = pAllocInfo->size,
         .buffer = vkBuffer,
+        .bufferViewSlots = NULL,
+        .bufferViewSlotCount = 0,
+        .bufferViewLock = SRWLOCK_INIT,
     };
 
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
@@ -208,6 +211,11 @@ GR_RESULT GR_STDCALL grFreeMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
+    for (int i = 0; i < grGpuMemory->bufferViewSlotCount; ++i) {
+        VKD.vkDestroyBufferView(grDevice->device, grGpuMemory->bufferViewSlots[i].bufferView, NULL);
+    }
+
+    free(grGpuMemory->bufferViewSlots);
     VKD.vkDestroyBuffer(grDevice->device, grGpuMemory->buffer, NULL);
     VKD.vkFreeMemory(grDevice->device, grGpuMemory->deviceMemory, NULL);
     free(grGpuMemory);

@@ -95,7 +95,8 @@ static void addUpdateTemplateSlotsFromMapping(
     unsigned bindingCount,
     const IlcBinding* bindings,
     unsigned pathDepth,
-    unsigned* path)
+    unsigned* path,
+    VkShaderStageFlags stageFlags)
 {
     for (unsigned i = 0; i < mapping->descriptorCount; i++) {
         const GR_DESCRIPTOR_SLOT_INFO* slotInfo = &mapping->pDescriptorInfo[i];
@@ -115,7 +116,8 @@ static void addUpdateTemplateSlotsFromMapping(
             // Add slots from the nested set
             addUpdateTemplateSlotsFromMapping(updateTemplateSlotCount, updateTemplateSlots,
                                               slotInfo->pNextLevelSet, bindingCount, bindings,
-                                              pathDepth + 1, path);
+                                              pathDepth + 1, path,
+                                              stageFlags);
             continue;
         }
 
@@ -186,6 +188,56 @@ static void addUpdateTemplateSlotsFromMapping(
             (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideCount = 1;
             (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideOffsets[0] = strideOffset;
             (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideSlotIndexes[0] = i;
+        }
+
+        if (binding->offsetIndex >= 0) {
+            unsigned bindingIndex = 0;
+            switch (stageFlags) {
+            case VK_SHADER_STAGE_COMPUTE_BIT:
+            case VK_SHADER_STAGE_VERTEX_BIT:
+                bindingIndex = 0;
+                break;
+            case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+                bindingIndex = 1;
+                break;
+            case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+                bindingIndex = 2;
+                break;
+            case VK_SHADER_STAGE_GEOMETRY_BIT:
+                bindingIndex = 3;
+                break;
+            case VK_SHADER_STAGE_FRAGMENT_BIT:
+                bindingIndex = 4;
+                break;
+            default:
+                assert(false);
+                break;
+            }
+            VkDescriptorUpdateTemplateEntry* entry = malloc(sizeof(VkDescriptorUpdateTemplateEntry));
+            *entry = (VkDescriptorUpdateTemplateEntry) {
+                .dstBinding = bindingIndex,
+                .dstArrayElement = binding->offsetIndex * sizeof(int),
+                .descriptorCount = sizeof(int),
+                .descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT,
+                .offset = i * sizeof(DescriptorSetSlot) + OFFSET_OF_UNION(DescriptorSetSlot, buffer, bufferViewOffset),
+                .stride = 0,
+            };
+
+            (*updateTemplateSlotCount)++;
+            *updateTemplateSlots = realloc(*updateTemplateSlots,
+                                           *updateTemplateSlotCount * sizeof(UpdateTemplateSlot));
+            (*updateTemplateSlots)[*updateTemplateSlotCount - 1] = (UpdateTemplateSlot) {
+                .updateTemplate = (VkDescriptorUpdateTemplate)entry, // Stuff the entry here
+                .isDynamic = false,
+                .pathDepth = pathDepth,
+                .path = { 0 }, // Initialized below
+                .strideCount = 0, // Initialized below
+                .strideOffsets = { 0 }, // Initialized below
+                .strideSlotIndexes = { 0 }, // Initialized below
+            };
+
+            memcpy((*updateTemplateSlots)[*updateTemplateSlotCount - 1].path,
+                   path, pathDepth * sizeof(unsigned));
         }
     }
 }
@@ -308,7 +360,8 @@ static void getUpdateTemplateSlots(
                                       grShader->bindingCount, grShader->bindings);
         addUpdateTemplateSlotsFromMapping(updateTemplateSlotCount, updateTemplateSlots,
                                           &shader->descriptorSetMapping[mappingIndex],
-                                          grShader->bindingCount, grShader->bindings, 0, path);
+                                          grShader->bindingCount, grShader->bindings, 0, path,
+                                          stage->flags);
     }
 
     mergeUpdateTemplateSlots(updateTemplateSlotCount, updateTemplateSlots, grDevice,
@@ -335,6 +388,7 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
             continue;
         }
 
+        bool offsetUboUsed = false;
         for (unsigned j = 0; j < grShader->bindingCount; j++) {
             const IlcBinding* binding = &grShader->bindings[j];
             bool isDynamic = false;
@@ -348,6 +402,18 @@ static VkDescriptorSetLayout getVkDescriptorSetLayout(
                 (*dynamicOffsetCount)++;
             }
 
+            if (!offsetUboUsed && binding->offsetIndex >= 0) {
+                bindingCount++;
+                bindings = realloc(bindings, bindingCount * sizeof(VkDescriptorSetLayoutBinding));
+                bindings[bindingCount - 1] = (VkDescriptorSetLayoutBinding) {
+                    .binding = i,// matches shader stage index
+                    .descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT,
+                    .descriptorCount = 8 * sizeof(int),
+                    .stageFlags = stage->flags,
+                    .pImmutableSamplers = NULL,
+                };
+                offsetUboUsed = true;
+            }
             // Add new binding
             bindingCount++;
             bindings = realloc(bindings, bindingCount * sizeof(VkDescriptorSetLayoutBinding));
