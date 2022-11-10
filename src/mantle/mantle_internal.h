@@ -60,6 +60,9 @@ GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
     const GrDevice* grDevice,
     VkMemoryRequirements vkMemReqs);
 
+const GrFormatInfo* getGrFormatInfo(
+    GR_FORMAT format);
+
 VkFormat getVkFormat(
     GR_FORMAT format);
 

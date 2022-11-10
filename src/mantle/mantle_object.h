@@ -71,6 +71,11 @@ typedef struct _GrRasterStateObject GrRasterStateObject;
 typedef struct _GrShader GrShader;
 typedef struct _GrViewportStateObject GrViewportStateObject;
 
+typedef struct _GrFormatInfo {
+    VkFormat vkFormat;
+    uint32_t byteCount;
+} GrFormatInfo;
+
 typedef struct _DescriptorSetSlot
 {
     DescriptorSetSlotType type;
