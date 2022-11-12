@@ -165,8 +165,6 @@ typedef struct _GrCmdBuffer {
     // NOTE: grCmdBufferResetState resets everything past that point
     bool isBuilding;
     bool isRendering;
-    bool isGraphicsAtomicSetBound;
-    bool isComputeAtomicSetBound;
     int descriptorPoolIndex;
     GrFence* submitFence;
     // Graphics and compute bind points

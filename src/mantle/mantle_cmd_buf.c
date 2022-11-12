@@ -189,21 +189,10 @@ static void grCmdBufferBindDescriptorSet(
     const BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
     const GrPipeline* grPipeline = bindPoint->grPipeline;
 
-    unsigned descriptorSetCount = 1;
     const VkDescriptorSet descriptorSets[] = {
         bindPoint->descriptorSet,
         grCmdBuffer->atomicCounterSet,
     };
-
-    if (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS &&
-        !grCmdBuffer->isGraphicsAtomicSetBound) {
-        descriptorSetCount = 2;
-        grCmdBuffer->isGraphicsAtomicSetBound = true;
-    } else if (vkBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE &&
-               !grCmdBuffer->isComputeAtomicSetBound) {
-        descriptorSetCount = 2;
-        grCmdBuffer->isComputeAtomicSetBound = true;
-    }
 
     uint32_t dynamicOffsets[MAX_STAGE_COUNT];
 
@@ -212,7 +201,7 @@ static void grCmdBufferBindDescriptorSet(
     }
 
     VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
-                                0, descriptorSetCount, descriptorSets,
+                                0, COUNT_OF(descriptorSets), descriptorSets,
                                 grPipeline->dynamicOffsetCount, dynamicOffsets);
 }
 
