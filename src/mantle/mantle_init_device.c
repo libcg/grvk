@@ -731,8 +731,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
     vki.vkGetPhysicalDeviceMemoryProperties(grPhysicalGpu->physicalDevice, &memoryProperties);
 
     // Build memory heap map
-    uint32_t memoryHeapMap[GR_MAX_MEMORY_HEAPS];
     unsigned memoryHeapCount = 0;
+    uint32_t memoryHeapMap[GR_MAX_MEMORY_HEAPS];
     for (unsigned i = 0; i < memoryProperties.memoryTypeCount; i++) {
         if (memoryProperties.memoryTypes[i].propertyFlags &
             (VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD |
@@ -756,8 +756,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
-        .memoryHeapMap = { 0 }, // Initialized below
         .memoryHeapCount = memoryHeapCount,
+        .memoryHeapMap = { 0 }, // Initialized below
         .atomicCounterSetLayout = VK_NULL_HANDLE, // Initialized below
         .grUniversalQueue = NULL, // Initialized below
         .grComputeQueue = NULL, // Initialized below

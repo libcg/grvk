@@ -57,6 +57,7 @@ GR_FORMAT_FEATURE_FLAGS getGrFormatFeatureFlags(
     VkFormatFeatureFlags vkFeatureFlags);
 
 GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
+    const GrDevice* grDevice,
     VkMemoryRequirements vkMemReqs);
 
 VkFormat getVkFormat(

@@ -185,7 +185,7 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
             GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
 
             VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
-            *grMemReqs = getGrMemoryRequirements(memReqs);
+            *grMemReqs = getGrMemoryRequirements(grDevice, memReqs);
         }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
         case GR_OBJ_TYPE_COLOR_TARGET_VIEW:

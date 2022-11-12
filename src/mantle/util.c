@@ -95,6 +95,7 @@ GR_FORMAT_FEATURE_FLAGS getGrFormatFeatureFlags(
 }
 
 GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
+    const GrDevice* grDevice,
     VkMemoryRequirements vkMemReqs)
 {
     GR_MEMORY_REQUIREMENTS memReqs = {
@@ -104,8 +105,8 @@ GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
         .heaps = { 0 }, // Initialized below
     };
 
-    for (unsigned i = 0; i < GR_MAX_MEMORY_HEAPS; i++) {
-        if (vkMemReqs.memoryTypeBits & (1 << i)) {
+    for (unsigned i = 0; i < grDevice->memoryHeapCount; i++) {
+        if (vkMemReqs.memoryTypeBits & (1 << grDevice->memoryHeapMap[i])) {
             memReqs.heaps[memReqs.heapCount] = i;
             memReqs.heapCount++;
         }
