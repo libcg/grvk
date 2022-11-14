@@ -28,6 +28,9 @@ typedef enum {
     // RADV doesn't support linear transfer-only images used by Star Swarm, but it has no effect
     // on rendering. Silence it.
     QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS = 1 << 7,
+
+    // Some applications (Battlefield 4) use TARGET_AND_SHADER_READ_ONLY state when overwriting a stencil target, which causes rendering bugs
+    QUIRK_TARGET_AND_SHADER_READ_ONLY_IMAGE_STATE_MISMATCH = 1 << 8,
 } QUIRK_FLAGS;
 
 void quirkInit(

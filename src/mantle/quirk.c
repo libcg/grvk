@@ -13,6 +13,8 @@ void quirkInit(
                   QUIRK_INVALID_CMD_BUFFER_RESET |
                   QUIRK_CUBEMAP_LAYER_DIV_6 |
                   QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS;
+    } else if (!strcmp(appInfo->pAppName, "Battlefield")) {
+        mQuirks = QUIRK_TARGET_AND_SHADER_READ_ONLY_IMAGE_STATE_MISMATCH;
     } else if (!strcmp(appInfo->pEngineName, "CivTech")) {
         mQuirks = QUIRK_NON_ZERO_MEM_REQ |
                   QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH |
