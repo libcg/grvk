@@ -726,6 +726,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     LOGT("%p %p %p\n", device, pCreateInfo, pPipeline);
     GrDevice* grDevice = (GrDevice*)device;
     GR_RESULT res = GR_SUCCESS;
+    bool hasTessellation = false;
     VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkShaderModule rectangleShaderModule = VK_NULL_HANDLE;
@@ -780,6 +781,11 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         };
 
         stageCount++;
+
+        if (stage->flags == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT ||
+            stage->flags == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT) {
+            hasTessellation = true;
+        }
     }
 
     // Use a geometry shader to emulate RECT_LIST primitive topology
@@ -894,6 +900,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .grShaderRefs = { NULL }, // Initialized below
         .createInfo = pipelineCreateInfo,
+        .hasTessellation = hasTessellation,
         .pipelineSlotCount = 0,
         .pipelineSlots = NULL,
         .pipelineSlotsLock = SRWLOCK_INIT,
@@ -1008,6 +1015,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
         .grShaderRefs = { grShader },
         .createInfo = NULL,
+        .hasTessellation = false,
         .pipelineSlotCount = 1,
         .pipelineSlots = pipelineSlot,
         .pipelineSlotsLock = SRWLOCK_INIT,

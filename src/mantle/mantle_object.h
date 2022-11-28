@@ -301,6 +301,7 @@ typedef struct _GrPipeline {
     GrObject grObj;
     GrShader* grShaderRefs[MAX_STAGE_COUNT];
     PipelineCreateInfo* createInfo;
+    bool hasTessellation;
     unsigned pipelineSlotCount;
     PipelineSlot* pipelineSlots;
     SRWLOCK pipelineSlotsLock;
