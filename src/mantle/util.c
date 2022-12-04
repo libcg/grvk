@@ -1134,3 +1134,25 @@ VkImageSubresourceRange getVkImageSubresourceRange(
                       VK_REMAINING_ARRAY_LAYERS : subresourceRange.arraySize * layerFactor,
     };
 }
+
+unsigned getDescriptorOffset(
+    VkDescriptorType vkDescriptorType)
+{
+    switch (vkDescriptorType) {
+    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+        return 0;
+    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+        return 1;
+    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+        return 0;
+    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+        return 1;
+    case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+        return 2;
+    case VK_DESCRIPTOR_TYPE_SAMPLER:
+        return 0;
+    default:
+        LOGE("unsupported descriptor type for offset 0x%X\n", vkDescriptorType);
+        return 0;
+    }
+}

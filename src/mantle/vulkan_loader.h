@@ -217,6 +217,10 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdSetRasterizationSamplesEXT);
     VULKAN_FN(vkCmdSetSampleMaskEXT);
 #endif
+
+#ifdef VK_KHR_push_descriptor
+    VULKAN_FN(vkCmdPushDescriptorSetKHR);
+#endif
 } VULKAN_DEVICE;
 
 extern VULKAN_LIBRARY vkl;

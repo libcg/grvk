@@ -7,80 +7,9 @@ typedef enum _DirtyFlags {
     FLAG_DIRTY_DESCRIPTOR_SET       = 1u << 0,
     FLAG_DIRTY_RENDER_PASS          = 1u << 1,
     FLAG_DIRTY_PIPELINE             = 1u << 2,
-    FLAG_DIRTY_DYNAMIC_OFFSET       = 1u << 3,
+    FLAG_DIRTY_DYNAMIC_MAPPING      = 1u << 3,
+    FLAG_DIRTY_DYNAMIC_STRIDE       = 1u << 4,
 } DirtyFlags;
-
-static VkDescriptorPool getVkDescriptorPool(
-    const GrDevice* grDevice)
-{
-    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-
-    // TODO rebalance
-    const VkDescriptorPoolSize poolSizes[] = {
-        { VK_DESCRIPTOR_TYPE_SAMPLER,                   SETS_PER_POOL },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,             SETS_PER_POOL },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,             SETS_PER_POOL },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,      SETS_PER_POOL },
-        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,      SETS_PER_POOL },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,            SETS_PER_POOL },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,    SETS_PER_POOL },
-    };
-
-    const VkDescriptorPoolCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .maxSets = SETS_PER_POOL,
-        .poolSizeCount = COUNT_OF(poolSizes),
-        .pPoolSizes = poolSizes,
-    };
-
-    VkResult res = VKD.vkCreateDescriptorPool(grDevice->device, &createInfo, NULL, &descriptorPool);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateDescriptorPool failed (%d)\n", res);
-        assert(false);
-    }
-
-    return descriptorPool;
-}
-
-static void updateVkDescriptorSet(
-    const GrDevice* grDevice,
-    const GrCmdBuffer* grCmdBuffer,
-    const BindPoint* bindPoint,
-    const GrDescriptorSet* grDescriptorSet,
-    unsigned slotOffset,
-    unsigned updateTemplateSlotCount,
-    const UpdateTemplateSlot* updateTemplateSlots,
-    VkPipelineLayout pipelineLayout)
-{
-    for (unsigned i = 0; i < updateTemplateSlotCount; i++) {
-        const UpdateTemplateSlot* templateSlot = &updateTemplateSlots[i];
-        const DescriptorSetSlot* slot;
-
-        if (templateSlot->isDynamic) {
-            slot = &bindPoint->dynamicMemoryView;
-        } else {
-            slot = &grDescriptorSet->slots[slotOffset];
-
-            for (unsigned j = 0; j < templateSlot->pathDepth; j++) {
-                slot = &slot[templateSlot->path[j]];
-                slot = &slot->nested.nextSet->slots[slot->nested.slotOffset];
-            }
-        }
-
-        VKD.vkUpdateDescriptorSetWithTemplate(grDevice->device, bindPoint->descriptorSet,
-                                              templateSlot->updateTemplate, (void*)slot);
-
-        // Pass buffer strides down to the shader
-        for (unsigned j = 0; j < templateSlot->strideCount; j++) {
-            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, pipelineLayout,
-                                   VK_SHADER_STAGE_VERTEX_BIT,
-                                   templateSlot->strideOffsets[j], sizeof(uint32_t),
-                                   &slot[templateSlot->strideSlotIndexes[j]].buffer.stride);
-        }
-    }
-}
 
 static void grCmdBufferBeginRenderPass(
     GrCmdBuffer* grCmdBuffer)
@@ -124,64 +53,134 @@ void grCmdBufferEndRenderPass(
     grCmdBuffer->isRendering = false;
 }
 
-static void grCmdBufferUpdateDescriptorSet(
+static void setupDescriptorSets(
+    const GrDevice* grDevice,
+    const GrCmdBuffer* grCmdBuffer,
+    const BindPoint* bindPoint,
+    const GrDescriptorSet* grDescriptorSet,
+    unsigned slotOffset,
+    unsigned pipelineDescriptorSetCount,
+    const PipelineDescriptorSlot* pipelineDescriptorSlots,
+    VkPipelineLayout pipelineLayout,
+    VkDescriptorSet* pDescriptorSets,
+    unsigned* pOffsets)
+{
+    for (unsigned i = 0; i < pipelineDescriptorSetCount; i++) {
+        const PipelineDescriptorSlot* descriptorSlot = &pipelineDescriptorSlots[i];
+        const DescriptorSetSlot* slot;
+        unsigned descriptorSlotOffset = slotOffset;
+        const GrDescriptorSet* currentSet = grDescriptorSet;
+
+        slot = &currentSet->slots[descriptorSlotOffset];
+
+        for (unsigned j = 0; j < descriptorSlot->pathDepth; j++) {
+            slot = &slot[descriptorSlot->path[j]];
+            descriptorSlotOffset = slot->nested.slotOffset;
+            currentSet = slot->nested.nextSet;
+            slot = &currentSet->slots[descriptorSlotOffset];
+        }
+
+        pDescriptorSets[i] = currentSet->descriptorSet;
+        pOffsets[i] = descriptorSlotOffset * DESCRIPTORS_PER_SLOT;
+        // Pass buffer strides down to the shader
+        for (unsigned j = 0; j < descriptorSlot->strideCount; j++) {
+            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, pipelineLayout,
+                                   VK_SHADER_STAGE_ALL_GRAPHICS,
+                                   descriptorSlot->strideOffsets[j], sizeof(uint32_t),
+                                   &slot[descriptorSlot->strideSlotIndexes[j]].buffer.stride);
+        }
+    }
+}
+
+static void grCmdBufferBindVkDescriptorSets(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint vkBindPoint)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
     GrPipeline* grPipeline = bindPoint->grPipeline;
-    VkResult vkRes;
 
-    for (unsigned i = 0; i < 2; i++) {
-        if (grCmdBuffer->descriptorPoolIndex < grCmdBuffer->descriptorPoolCount) {
-            const VkDescriptorSetAllocateInfo descSetAllocateInfo = {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                .pNext = NULL,
-                .descriptorPool = grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolIndex],
-                .descriptorSetCount = 1,
-                .pSetLayouts = &grPipeline->descriptorSetLayout,
-            };
-
-            vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &descSetAllocateInfo,
-                                                 &bindPoint->descriptorSet);
-            if (vkRes == VK_SUCCESS) {
-                break;
-            } else if (vkRes != VK_ERROR_OUT_OF_POOL_MEMORY) {
-                LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
-                break;
-            } else if (i > 0) {
-                LOGE("descriptor set allocation failed with a new pool\n");
-                assert(false);
-            } else {
-                // Use the next pool
-                grCmdBuffer->descriptorPoolIndex++;
-            }
-        }
-
-        if (grCmdBuffer->descriptorPoolIndex == grCmdBuffer->descriptorPoolCount) {
-            // Need to allocate a new pool
-            VkDescriptorPool descriptorPool = getVkDescriptorPool(grDevice);
-
-            // Track descriptor pool
-            grCmdBuffer->descriptorPoolCount++;
-            grCmdBuffer->descriptorPools = realloc(grCmdBuffer->descriptorPools,
-                                                   grCmdBuffer->descriptorPoolCount *
-                                                   sizeof(VkDescriptorPool));
-            grCmdBuffer->descriptorPools[grCmdBuffer->descriptorPoolCount - 1] = descriptorPool;
-        }
-    }
+    bindPoint->boundDescriptorSetCount = 0;
 
     for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-        updateVkDescriptorSet(grDevice, grCmdBuffer, bindPoint,
-                              bindPoint->grDescriptorSets[i], bindPoint->slotOffsets[i],
-                              grPipeline->updateTemplateSlotCounts[i],
-                              grPipeline->updateTemplateSlots[i],
-                              grPipeline->pipelineLayout);
+        assert((bindPoint->boundDescriptorSetCount + grPipeline->descriptorSetCounts[i]) < COUNT_OF(bindPoint->descriptorSets));
+        setupDescriptorSets(grDevice, grCmdBuffer, bindPoint,
+                               bindPoint->grDescriptorSets[i], bindPoint->slotOffsets[i],
+                               grPipeline->descriptorSetCounts[i],
+                               grPipeline->descriptorSlots[i],
+                               grPipeline->pipelineLayout,
+                               &bindPoint->descriptorSets[bindPoint->boundDescriptorSetCount],
+                               &bindPoint->descriptorArrayOffsets[bindPoint->boundDescriptorSetCount]);
+        bindPoint->boundDescriptorSetCount += grPipeline->descriptorSetCounts[i];
+    }
+
+    uint32_t descriptorOffsets[] = { 0, 0 };
+    VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, grPipeline->pipelineLayout,
+                           vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS ? VK_SHADER_STAGE_ALL_GRAPHICS : VK_SHADER_STAGE_COMPUTE_BIT,
+                           DESCRIPTOR_CONST_OFFSETS_OFFSET, sizeof(descriptorOffsets),
+                           descriptorOffsets);
+    if (bindPoint->boundDescriptorSetCount > 0) {
+        VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, grPipeline->pipelineLayout,
+                               vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS ? VK_SHADER_STAGE_ALL_GRAPHICS : VK_SHADER_STAGE_COMPUTE_BIT,
+                               sizeof(uint32_t) * 2 + DESCRIPTOR_CONST_OFFSETS_OFFSET, sizeof(uint32_t) * bindPoint->boundDescriptorSetCount,
+                               bindPoint->descriptorArrayOffsets);
+        VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
+                                    DESCRIPTOR_SET_ID, bindPoint->boundDescriptorSetCount, bindPoint->descriptorSets,
+                                    0, NULL);
     }
 }
 
-static void grCmdBufferBindDescriptorSet(
+static void grCmdBufferSetupDynamicBufferStride(
+    GrCmdBuffer* grCmdBuffer,
+    VkPipelineBindPoint vkBindPoint)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    GrPipeline* grPipeline = bindPoint->grPipeline;
+
+    if (bindPoint->dynamicMemoryView.buffer.bufferInfo.buffer == VK_NULL_HANDLE || !grPipeline->dynamicMappingUsed) {
+        return;
+    }
+    const PipelineDescriptorSlot* dynamicDescriptorSlot = &grPipeline->dynamicDescriptorSlot;
+
+    for (unsigned j = 0; j < dynamicDescriptorSlot->strideCount; j++) {
+        VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, grPipeline->pipelineLayout,
+                               VK_SHADER_STAGE_ALL_GRAPHICS,
+                               dynamicDescriptorSlot->strideOffsets[j], sizeof(uint32_t),
+                               &bindPoint->dynamicMemoryView.buffer.stride);
+    }
+}
+
+static void grCmdBufferBindDynamicDescriptorSet(
+    GrCmdBuffer* grCmdBuffer,
+    VkPipelineBindPoint vkBindPoint)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    GrPipeline* grPipeline = bindPoint->grPipeline;
+
+    if (bindPoint->dynamicMemoryView.buffer.bufferInfo.buffer == VK_NULL_HANDLE) {
+        return;
+    }
+
+    VkWriteDescriptorSet dynamicBufferWrite = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .dstArrayElement = 0,
+        .dstBinding = DYNAMIC_MEMORY_VIEW_BINDING_ID,
+        .dstSet = 0,// ignored
+        .pBufferInfo = &bindPoint->dynamicMemoryView.buffer.bufferInfo,
+    };
+    VKD.vkCmdPushDescriptorSetKHR(
+        grCmdBuffer->commandBuffer,
+        vkBindPoint,
+        grPipeline->pipelineLayout,
+        DYNAMIC_MEMORY_VIEW_DESCRIPTOR_SET_ID,
+        1, &dynamicBufferWrite);
+}
+
+static void grCmdBufferBindAtomicDescriptorSet(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint vkBindPoint)
 {
@@ -190,19 +189,12 @@ static void grCmdBufferBindDescriptorSet(
     const GrPipeline* grPipeline = bindPoint->grPipeline;
 
     const VkDescriptorSet descriptorSets[] = {
-        bindPoint->descriptorSet,
         grCmdBuffer->atomicCounterSet,
     };
 
-    uint32_t dynamicOffsets[MAX_STAGE_COUNT];
-
-    for (unsigned i = 0; i < grPipeline->dynamicOffsetCount; i++) {
-        dynamicOffsets[i] = bindPoint->dynamicOffset;
-    }
-
     VKD.vkCmdBindDescriptorSets(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipelineLayout,
-                                0, COUNT_OF(descriptorSets), descriptorSets,
-                                grPipeline->dynamicOffsetCount, dynamicOffsets);
+                                ATOMIC_COUNTER_SET_ID, COUNT_OF(descriptorSets), descriptorSets,
+                                0, NULL);
 }
 
 static void grCmdBufferUpdateResources(
@@ -215,11 +207,19 @@ static void grCmdBufferUpdateResources(
     uint32_t dirtyFlags = bindPoint->dirtyFlags;
 
     if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
-        grCmdBufferUpdateDescriptorSet(grCmdBuffer, vkBindPoint);
+        grCmdBufferBindVkDescriptorSets(grCmdBuffer, vkBindPoint);
     }
 
-    if (dirtyFlags & (FLAG_DIRTY_DESCRIPTOR_SET | FLAG_DIRTY_DYNAMIC_OFFSET)) {
-        grCmdBufferBindDescriptorSet(grCmdBuffer, vkBindPoint);
+    if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
+        grCmdBufferBindAtomicDescriptorSet(grCmdBuffer, vkBindPoint);
+    }
+
+    if (dirtyFlags & FLAG_DIRTY_DYNAMIC_MAPPING) {
+        grCmdBufferBindDynamicDescriptorSet(grCmdBuffer, vkBindPoint);
+    }
+
+    if (dirtyFlags & FLAG_DIRTY_DYNAMIC_STRIDE) {
+        grCmdBufferSetupDynamicBufferStride(grCmdBuffer, vkBindPoint);
     }
 
     if (dirtyFlags & FLAG_DIRTY_RENDER_PASS) {
@@ -261,7 +261,7 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
     bindPoint->grPipeline = grPipeline;
 
     if (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
-        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET | FLAG_DIRTY_PIPELINE;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET | FLAG_DIRTY_DYNAMIC_STRIDE | FLAG_DIRTY_PIPELINE;
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, grPipeline->pipeline);
@@ -416,14 +416,9 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
 
     // FIXME what is pMemView->state for?
 
-    if (pMemView->offset != bindPoint->dynamicOffset) {
-        bindPoint->dynamicOffset = pMemView->offset;
-
-        bindPoint->dirtyFlags |= FLAG_DIRTY_DYNAMIC_OFFSET;
-    }
-
     if (grGpuMemory->buffer != bindPoint->dynamicMemoryView.buffer.bufferInfo.buffer ||
         pMemView->range != bindPoint->dynamicMemoryView.buffer.bufferInfo.range ||
+        pMemView->offset != bindPoint->dynamicMemoryView.buffer.bufferInfo.offset ||
         pMemView->stride != bindPoint->dynamicMemoryView.buffer.stride) {
         bindPoint->dynamicMemoryView = (DescriptorSetSlot) {
             .type = SLOT_TYPE_BUFFER,
@@ -431,14 +426,14 @@ GR_VOID GR_STDCALL grCmdBindDynamicMemoryView(
                 .bufferView = VK_NULL_HANDLE,
                 .bufferInfo = {
                     .buffer = grGpuMemory->buffer,
-                    .offset = 0,
+                    .offset = pMemView->offset,
                     .range = pMemView->range,
                 },
                 .stride = pMemView->stride,
             },
         };
 
-        bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
+        bindPoint->dirtyFlags |= FLAG_DIRTY_DYNAMIC_MAPPING | FLAG_DIRTY_DYNAMIC_STRIDE;
     }
 }
 

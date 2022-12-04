@@ -4,7 +4,7 @@ inline static void releaseSlot(
     const GrDevice* grDevice,
     DescriptorSetSlot* slot)
 {
-    if (slot->type == SLOT_TYPE_BUFFER) {
+    if (slot->type == SLOT_TYPE_BUFFER && slot->buffer.bufferView != VK_NULL_HANDLE) {
         VKD.vkDestroyBufferView(grDevice->device, slot->buffer.bufferView, NULL);
     }
 }
@@ -27,15 +27,87 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
         return GR_ERROR_INVALID_POINTER;
     }
 
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+    VkResult vkRes = VK_SUCCESS;
+    const VkDescriptorType descriptorTypes[] = {
+        VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+        VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        VK_DESCRIPTOR_TYPE_SAMPLER
+    };
+    const VkMutableDescriptorTypeListEXT mutableTypeList = {
+        .descriptorTypeCount = COUNT_OF(descriptorTypes),
+        .pDescriptorTypes = descriptorTypes,
+    };
+    const VkMutableDescriptorTypeCreateInfoEXT mutableTypeInfo = {
+        .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .mutableDescriptorTypeListCount = 1,
+        .pMutableDescriptorTypeLists = &mutableTypeList,
+    };
+    const VkDescriptorPoolSize poolSize = {
+        .type = VK_DESCRIPTOR_TYPE_MUTABLE_EXT,
+        .descriptorCount = DESCRIPTORS_PER_SLOT * pCreateInfo->slots,
+    };
+
+    const VkDescriptorPoolCreateInfo poolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext = &mutableTypeInfo,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize,
+    };
+
+    vkRes = VKD.vkCreateDescriptorPool(grDevice->device, &poolCreateInfo, NULL, &descriptorPool);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateDescriptorPool failed (%d)\n", vkRes);
+        goto bail;
+    }
+
+    const VkDescriptorSetVariableDescriptorCountAllocateInfo descriptorCountInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
+        .pNext = NULL,
+        .descriptorSetCount = 1,
+        .pDescriptorCounts = &poolSize.descriptorCount,
+    };
+    const VkDescriptorSetAllocateInfo allocateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = &descriptorCountInfo,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &grDevice->defaultDescriptorSetLayout,
+    };
+
+    vkRes = VKD.vkAllocateDescriptorSets(grDevice->device, &allocateInfo, &descriptorSet);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkAllocateDescriptorSets failed (%d)\n", vkRes);
+        goto bail;
+    }
+
     GrDescriptorSet* grDescriptorSet = malloc(sizeof(GrDescriptorSet));
+    if (grDescriptorSet == NULL) {
+        return GR_ERROR_OUT_OF_MEMORY;
+    }
+
     *grDescriptorSet = (GrDescriptorSet) {
         .grObj = { GR_OBJ_TYPE_DESCRIPTOR_SET, grDevice },
         .slotCount = pCreateInfo->slots,
         .slots = calloc(pCreateInfo->slots, sizeof(DescriptorSetSlot)),
+        .descriptorPool = descriptorPool,
+        .descriptorSet = descriptorSet,
     };
 
     *pDescriptorSet = (GR_DESCRIPTOR_SET)grDescriptorSet;
     return GR_SUCCESS;
+
+bail:
+    VKD.vkDestroyDescriptorPool(grDevice->device, descriptorPool, NULL);
+    return getGrResult(vkRes);
 }
 
 GR_VOID GR_STDCALL grBeginDescriptorSetUpdate(
@@ -64,6 +136,9 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
+    STACK_ARRAY(VkWriteDescriptorSet, writeDescriptors, 128, slotCount);
+    unsigned descriptorWriteCount = 0;
+
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
         const GrSampler* grSampler = (GrSampler*)pSamplers[i];
@@ -80,7 +155,24 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
                 },
             },
         };
+
+        writeDescriptors[descriptorWriteCount++] = (VkWriteDescriptorSet) {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext = NULL,
+            .dstSet = grDescriptorSet->descriptorSet,
+            .dstBinding = 0,
+            .dstArrayElement = (startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_SAMPLER),
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .pImageInfo = &slot->image.imageInfo,
+            .pBufferInfo = NULL,
+            .pTexelBufferView = NULL,
+        };
     }
+
+    VKD.vkUpdateDescriptorSets(grDevice->device, descriptorWriteCount, writeDescriptors, 0, NULL);
+
+    STACK_ARRAY_FINISH(writeDescriptors);
 }
 
 GR_VOID GR_STDCALL grAttachImageViewDescriptors(
@@ -92,6 +184,9 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pImageViews);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
+
+    STACK_ARRAY(VkWriteDescriptorSet, writeDescriptors, 128, slotCount * 2);
+    unsigned descriptorWriteCount = 0;
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
@@ -110,7 +205,38 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
                 },
             },
         };
+
+        if (grImageView->usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+            writeDescriptors[descriptorWriteCount++] = (VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = NULL,
+                .dstSet = grDescriptorSet->descriptorSet,
+                .dstBinding = 0,
+                .dstArrayElement = (startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                .pImageInfo = &slot->image.imageInfo,
+                .pBufferInfo = NULL,
+                .pTexelBufferView = NULL,
+            };
+        }
+        writeDescriptors[descriptorWriteCount++] = (VkWriteDescriptorSet) {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext = NULL,
+            .dstSet = grDescriptorSet->descriptorSet,
+            .dstBinding = 0,
+            .dstArrayElement = (startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE),
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .pImageInfo = &slot->image.imageInfo,
+            .pBufferInfo = NULL,
+            .pTexelBufferView = NULL,
+        };
     }
+
+    VKD.vkUpdateDescriptorSets(grDevice->device, descriptorWriteCount, writeDescriptors, 0, NULL);
+
+    STACK_ARRAY_FINISH(writeDescriptors);
 }
 
 GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
@@ -123,6 +249,9 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
     VkResult vkRes;
+
+    STACK_ARRAY(VkWriteDescriptorSet, writeDescriptors, 128, slotCount * 3);
+    unsigned descriptorWriteCount = 0;
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
@@ -149,7 +278,45 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
             if (vkRes != VK_SUCCESS) {
                 LOGE("vkCreateBufferView failed (%d)\n", vkRes);
             }
+
+            writeDescriptors[descriptorWriteCount++] = (VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = NULL,
+                .dstSet = grDescriptorSet->descriptorSet,
+                .dstBinding = 0,
+                .dstArrayElement = (startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER),
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+                .pImageInfo = NULL,
+                .pBufferInfo = NULL,
+                .pTexelBufferView = &slot->buffer.bufferView,
+            };
+            writeDescriptors[descriptorWriteCount++] = (VkWriteDescriptorSet) {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = NULL,
+                .dstSet = grDescriptorSet->descriptorSet,
+                .dstBinding = 0,
+                .dstArrayElement = (startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER),
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+                .pImageInfo = NULL,
+                .pBufferInfo = NULL,
+                .pTexelBufferView = &slot->buffer.bufferView,
+            };
         }
+
+        writeDescriptors[descriptorWriteCount++] = (VkWriteDescriptorSet) {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext = NULL,
+            .dstSet = grDescriptorSet->descriptorSet,
+            .dstBinding = 0,
+            .dstArrayElement = (startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER),
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .pImageInfo = NULL,
+            .pBufferInfo = &slot->buffer.bufferInfo,
+            .pTexelBufferView = NULL,
+        };
 
         *slot = (DescriptorSetSlot) {
             .type = SLOT_TYPE_BUFFER,
@@ -164,6 +331,10 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
             },
         };
     }
+
+    VKD.vkUpdateDescriptorSets(grDevice->device, descriptorWriteCount, writeDescriptors, 0, NULL);
+
+    STACK_ARRAY_FINISH(writeDescriptors);
 }
 
 GR_VOID GR_STDCALL grAttachNestedDescriptors(

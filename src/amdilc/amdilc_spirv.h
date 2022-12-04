@@ -166,6 +166,11 @@ IlcSpvId ilcSpvPutConstantComposite(
     unsigned consistuentCount,
     const IlcSpvId* consistuents);
 
+IlcSpvId ilcSpvPutSpecConstant(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord literal);
+
 void ilcSpvPutFunction(
     IlcSpvModule* module,
     IlcSpvId resultType,

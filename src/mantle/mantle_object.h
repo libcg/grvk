@@ -95,10 +95,11 @@ typedef struct _BindPoint
     uint32_t dirtyFlags;
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSets[GR_MAX_DESCRIPTOR_SETS];
+    VkDescriptorSet descriptorSets[30];
+    unsigned descriptorArrayOffsets[30];
+    unsigned boundDescriptorSetCount;
     unsigned slotOffsets[GR_MAX_DESCRIPTOR_SETS];
     DescriptorSetSlot dynamicMemoryView;
-    uint32_t dynamicOffset;
-    VkDescriptorSet descriptorSet;
 } BindPoint;
 
 typedef struct _PipelineCreateInfo
@@ -106,6 +107,9 @@ typedef struct _PipelineCreateInfo
     VkPipelineCreateFlags createFlags;
     unsigned stageCount;
     VkPipelineShaderStageCreateInfo stageCreateInfos[MAX_STAGE_COUNT];
+    VkSpecializationInfo specInfos[MAX_STAGE_COUNT];
+    void* specData[MAX_STAGE_COUNT];
+    VkSpecializationMapEntry* mapEntries[MAX_STAGE_COUNT];
     VkPrimitiveTopology topology;
     uint32_t patchControlPoints;
     bool depthClipEnable;
@@ -118,15 +122,14 @@ typedef struct _PipelineCreateInfo
     VkFormat stencilFormat;
 } PipelineCreateInfo;
 
-typedef struct _UpdateTemplateSlot {
-    VkDescriptorUpdateTemplate updateTemplate;
-    bool isDynamic;
+typedef struct _PipelineDescriptorSlot {
     unsigned pathDepth;
     unsigned path[MAX_PATH_DEPTH];
     unsigned strideCount;
     unsigned strideOffsets[MAX_STRIDES];
     unsigned strideSlotIndexes[MAX_STRIDES];
-} UpdateTemplateSlot;
+    unsigned descriptorCount;
+} PipelineDescriptorSlot;
 
 // Base object
 typedef struct _GrBaseObject {
@@ -152,10 +155,8 @@ typedef struct _GrCmdBuffer {
     VkCommandBuffer commandBuffer;
     VkQueryPool timestampQueryPool;
     VkBuffer atomicCounterBuffer;
+    VkDeviceSize atomicCounterBufferSize;
     VkDescriptorSet atomicCounterSet;
-    // Resource tracking
-    unsigned descriptorPoolCount;
-    VkDescriptorPool* descriptorPools;
     // NOTE: grCmdBufferResetState resets everything past that point
     bool isBuilding;
     bool isRendering;
@@ -221,6 +222,8 @@ typedef struct _GrDescriptorSet {
     GrObject grObj;
     unsigned slotCount;
     DescriptorSetSlot* slots;
+    VkDescriptorPool descriptorPool;
+    VkDescriptorSet descriptorSet;
 } GrDescriptorSet;
 
 typedef struct _GrDevice {
@@ -232,6 +235,8 @@ typedef struct _GrDevice {
     unsigned memoryHeapCount;
     uint32_t memoryHeapMap[GR_MAX_MEMORY_HEAPS];
     VkDescriptorSetLayout atomicCounterSetLayout;
+    VkDescriptorSetLayout dynamicMemorySetLayout;
+    VkDescriptorSetLayout defaultDescriptorSetLayout;
     GrQueue* grUniversalQueue;
     GrQueue* grComputeQueue;
     GrQueue* grDmaQueue;
@@ -282,6 +287,7 @@ typedef struct _GrImageView {
     GrObject grObj;
     VkImageView imageView;
     VkFormat format;
+    VkImageUsageFlags usage;
 } GrImageView;
 
 typedef struct _GrMsaaStateObject {
@@ -298,16 +304,16 @@ typedef struct _GrPhysicalGpu {
 
 typedef struct _GrPipeline {
     GrObject grObj;
-    GrShader* grShaderRefs[MAX_STAGE_COUNT];
+    VkShaderModule shaderModules[MAX_STAGE_COUNT];
     PipelineCreateInfo* createInfo;
     bool hasTessellation;
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
     unsigned stageCount;
-    VkDescriptorSetLayout descriptorSetLayout;
-    unsigned dynamicOffsetCount;
-    unsigned updateTemplateSlotCounts[GR_MAX_DESCRIPTOR_SETS];
-    UpdateTemplateSlot* updateTemplateSlots[GR_MAX_DESCRIPTOR_SETS];
+    bool dynamicMappingUsed;
+    PipelineDescriptorSlot dynamicDescriptorSlot;
+    unsigned descriptorSetCounts[GR_MAX_DESCRIPTOR_SETS];
+    PipelineDescriptorSlot* descriptorSlots[GR_MAX_DESCRIPTOR_SETS];
 } GrPipeline;
 
 typedef struct _GrQueueSemaphore {
@@ -333,13 +339,13 @@ typedef struct _GrSampler {
 
 typedef struct _GrShader {
     GrObject grObj;
-    unsigned refCount;
-    VkShaderModule shaderModule;
     unsigned bindingCount;
     IlcBinding* bindings;
     unsigned inputCount;
     IlcInput* inputs;
     char* name;
+    unsigned codeSize;
+    void* code;
 } GrShader;
 
 typedef struct _GrQueryPool {

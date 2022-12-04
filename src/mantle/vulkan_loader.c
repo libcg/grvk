@@ -235,4 +235,8 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetRasterizationSamplesEXT);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetSampleMaskEXT);
 #endif
+
+#ifdef VK_KHR_push_descriptor
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdPushDescriptorSetKHR);
+#endif
 }
