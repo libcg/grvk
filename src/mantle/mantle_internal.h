@@ -48,6 +48,8 @@
 #define STACK_ARRAY_FINISH(name) \
    if (name != _stack_##name) free(name)
 
+#define DESCRIPTORS_PER_SLOT (3)
+
 GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
     VkPhysicalDeviceType type);
 
@@ -170,6 +172,9 @@ VkImageSubresourceLayers getVkImageSubresourceLayers(
 VkImageSubresourceRange getVkImageSubresourceRange(
     GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
     bool multiplyCubeLayers);
+
+unsigned getDescriptorOffset(
+    VkDescriptorType vkDescriptorType);
 
 void grQueueAddInitialImage(
     GrImage* grImage);

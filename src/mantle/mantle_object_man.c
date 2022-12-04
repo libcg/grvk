@@ -20,10 +20,6 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
         VKD.vkDestroyQueryPool(grDevice->device, grCmdBuffer->timestampQueryPool, NULL);
-        for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
-            VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
-        }
-        free(grCmdBuffer->descriptorPools);
     }   break;
     case GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT:
         // Nothing to do
@@ -46,6 +42,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         grClearDescriptorSetSlots(grDescriptorSet, 0, grDescriptorSet->slotCount);
         free(grDescriptorSet->slots);
+        VKD.vkDestroyDescriptorPool(grDevice->device, grDescriptorSet->descriptorPool, NULL);
     }   break;
     case GR_OBJ_TYPE_EVENT: {
         GrEvent* grEvent = (GrEvent*)grObject;
@@ -77,9 +74,11 @@ GR_RESULT GR_STDCALL grDestroyObject(
         GrPipeline* grPipeline = (GrPipeline*)grObject;
 
         for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
-            if (grPipeline->grShaderRefs[i] != NULL) {
-                grDestroyObject((GR_OBJECT)grPipeline->grShaderRefs[i]);
+            if (grPipeline->createInfo != NULL) {
+                free(grPipeline->createInfo->specData[i]);
+                free(grPipeline->createInfo->mapEntries[i]);
             }
+            VKD.vkDestroyShaderModule(grDevice->device, grPipeline->shaderModules[i], NULL);
         }
 
         free(grPipeline->createInfo);
@@ -89,13 +88,9 @@ GR_RESULT GR_STDCALL grDestroyObject(
         }
         free(grPipeline->pipelineSlots);
         VKD.vkDestroyPipelineLayout(grDevice->device, grPipeline->pipelineLayout, NULL);
-        VKD.vkDestroyDescriptorSetLayout(grDevice->device, grPipeline->descriptorSetLayout, NULL);
+
         for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-            for (unsigned j = 0; j < grPipeline->updateTemplateSlotCounts[i]; j++) {
-                UpdateTemplateSlot* slot = &grPipeline->updateTemplateSlots[i][j];
-                VKD.vkDestroyDescriptorUpdateTemplate(grDevice->device, slot->updateTemplate, NULL);
-            }
-            free(grPipeline->updateTemplateSlots[i]);
+            free(grPipeline->descriptorSlots[i]);
         }
     }   break;
     case GR_OBJ_TYPE_QUEUE_SEMAPHORE: {
@@ -114,14 +109,10 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_SHADER: {
         GrShader* grShader = (GrShader*)grObject;
 
-        if (--grShader->refCount > 0) {
-            return GR_SUCCESS;
-        }
-
-        VKD.vkDestroyShaderModule(grDevice->device, grShader->shaderModule, NULL);
         free(grShader->bindings);
         free(grShader->inputs);
         free(grShader->name);
+        free(grShader->code);
     }   break;
     case GR_OBJ_TYPE_QUERY_POOL: {
         GrQueryPool* grQueryPool = (GrQueryPool*)grObject;

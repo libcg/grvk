@@ -230,4 +230,8 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetStencilTestEnableEXT);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetViewportWithCountEXT);
 #endif
+
+#ifdef VK_KHR_push_descriptor
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdPushDescriptorSetKHR);
+#endif
 }

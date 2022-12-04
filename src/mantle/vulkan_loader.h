@@ -212,6 +212,10 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdSetStencilTestEnableEXT);
     VULKAN_FN(vkCmdSetViewportWithCountEXT);
 #endif
+
+#ifdef VK_KHR_push_descriptor
+    VULKAN_FN(vkCmdPushDescriptorSetKHR);
+#endif
 } VULKAN_DEVICE;
 
 extern VULKAN_LIBRARY vkl;

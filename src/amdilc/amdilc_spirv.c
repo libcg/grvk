@@ -506,6 +506,22 @@ IlcSpvId ilcSpvPutConstantComposite(
                        consistuentCount, consistuents);
 }
 
+IlcSpvId ilcSpvPutSpecConstant(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord literal)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CONSTANTS];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpSpecConstant, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, literal);
+
+    return id;
+}
+
 void ilcSpvPutFunction(
     IlcSpvModule* module,
     IlcSpvId resultTypeId,
