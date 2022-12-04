@@ -925,7 +925,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
     *pDevice = (GR_DEVICE)grDevice;
 
 bail:
-    if (res != GR_SUCCESS) {
+    if (res != GR_SUCCESS && vkDevice != VK_NULL_HANDLE) {
         vkd.vkDestroyDevice(vkDevice, NULL);
     }
 
