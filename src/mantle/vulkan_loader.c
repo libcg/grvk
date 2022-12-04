@@ -67,6 +67,7 @@ void vulkanLoaderInstanceInit(
     LOAD_VULKAN_FN(vki, instance, vkCreateWin32SurfaceKHR);
     LOAD_VULKAN_FN(vki, instance, vkGetPhysicalDeviceWin32PresentationSupportKHR);
 #endif
+
 }
 
 void vulkanLoaderDeviceInit(
@@ -173,6 +174,7 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkFreeMemory);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetBufferMemoryRequirements);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetBufferMemoryRequirements2);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkGetBufferDeviceAddress);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetDeviceMemoryCommitment);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetDeviceQueue);
     LOAD_VULKAN_DEV_FN(vkd, device, vkGetEventStatus);
@@ -238,5 +240,13 @@ void vulkanLoaderDeviceInit(
 
 #ifdef VK_KHR_push_descriptor
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdPushDescriptorSetKHR);
+#endif
+
+#ifdef VK_EXT_descriptor_buffer
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBindDescriptorBuffersEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdSetDescriptorBufferOffsetsEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkGetDescriptorEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkGetDescriptorSetLayoutBindingOffsetEXT);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkGetDescriptorSetLayoutSizeEXT);
 #endif
 }
