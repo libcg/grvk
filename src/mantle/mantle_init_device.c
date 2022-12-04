@@ -80,6 +80,45 @@ static VkDescriptorSetLayout getDynamicMemoryDescriptorSetLayout(
     return layout;
 }
 
+static VkDescriptorSetLayout getBufferPushDescriptorSetLayout(
+    const GrDevice* grDevice)
+{
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+
+    const VkDescriptorSetLayoutBinding bindings[] = {
+        {
+            .binding = DESCRIPTOR_BUFFERS_ATOMIC_BINDING_ID,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+            .pImmutableSamplers = NULL,
+        },
+        {
+            .binding = DESCRIPTOR_BUFFERS_DYNAMIC_MAPPING_BINDING_ID,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_ALL,
+            .pImmutableSamplers = NULL,
+        },
+    };
+
+    const VkDescriptorSetLayoutCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR | VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+        .bindingCount = COUNT_OF(bindings),
+        .pBindings = bindings,
+    };
+
+    VkResult res = VKD.vkCreateDescriptorSetLayout(grDevice->device, &createInfo, NULL, &layout);
+    if (res != VK_SUCCESS) {
+        LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
+        assert(false);
+    }
+
+    return layout;
+}
+
 static VkDescriptorSetLayout getDefaultDescriptorSetLayout(
     const GrDevice* grDevice)
 {
@@ -106,7 +145,7 @@ static VkDescriptorSetLayout getDefaultDescriptorSetLayout(
     const VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT |
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
         VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT |
-        VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+        (!grDevice->descriptorBufferSupported ? VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT : 0);
     const VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
         .pNext = &mutableTypeInfo,
@@ -124,7 +163,7 @@ static VkDescriptorSetLayout getDefaultDescriptorSetLayout(
     const VkDescriptorSetLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .pNext = &bindingFlagsCreateInfo,
-        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT,
+        .flags = grDevice->descriptorBufferSupported ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT,
         .bindingCount = 1,
         .pBindings = &binding,
     };
@@ -370,11 +409,13 @@ GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
         *grPhysicalGpu = (GrPhysicalGpu) {
             .grBaseObj = { GR_OBJ_TYPE_PHYSICAL_GPU },
             .physicalDevice = physicalDevices[i],
+            .descriptorBufferProps = { 0 }, // Initialized below
             .physicalDeviceProps = { 0 }, // Initialized below
         };
 
         grPhysicalGpu->physicalDeviceProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-        grPhysicalGpu->physicalDeviceProps.pNext = NULL;
+        grPhysicalGpu->physicalDeviceProps.pNext = &grPhysicalGpu->descriptorBufferProps;
+        grPhysicalGpu->descriptorBufferProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
 
         vki.vkGetPhysicalDeviceProperties2(physicalDevices[i], &grPhysicalGpu->physicalDeviceProps);
 
@@ -755,9 +796,14 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = &vulkan13DeviceFeatures,
         .mutableDescriptorType = VK_TRUE,
     };
+    VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+        .pNext = &mutableDescriptorFeaturesEXT,
+        .descriptorBuffer = VK_TRUE,
+    };
     VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = &mutableDescriptorFeaturesEXT,
+        .pNext = &descriptorBufferFeatures,
         .runtimeDescriptorArray = VK_TRUE,
         .bufferDeviceAddress = VK_TRUE,
         .descriptorBindingVariableDescriptorCount = VK_TRUE,
@@ -796,15 +842,47 @@ GR_RESULT GR_STDCALL grCreateDevice(
         },
     };
 
+    unsigned supportedExtensionCount = 0;
+    if (vki.vkEnumerateDeviceExtensionProperties(grPhysicalGpu->physicalDevice, NULL, &supportedExtensionCount, NULL) != VK_SUCCESS) {
+        LOGE("vkEnumerateDeviceExtensionProperties failed\n");
+        res = GR_ERROR_INITIALIZATION_FAILED;
+        goto bail;
+    }
+
+    STACK_ARRAY(VkExtensionProperties, extensionProperties, 180, supportedExtensionCount);
+
+    if (vki.vkEnumerateDeviceExtensionProperties(grPhysicalGpu->physicalDevice, NULL, &supportedExtensionCount, extensionProperties) != VK_SUCCESS) {
+        STACK_ARRAY_FINISH(extensionProperties);
+        LOGE("vkEnumerateDeviceExtensionProperties failed\n");
+        res = GR_ERROR_INITIALIZATION_FAILED;
+        goto bail;
+    }
+
     const char *deviceExtensions[] = {
         VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+        // TODO: make descriptor buffer optional
         VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
         VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
+        VK_VALVE_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
+        NULL,
     };
+
+    unsigned deviceExtensionCount = COUNT_OF(deviceExtensions) - 1;
+    bool descriptorBufferSupported = false;
+
+    for (unsigned i = 0; i < supportedExtensionCount; i++) {
+        if (strcmp(extensionProperties[i].extensionName, VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME) == 0) {
+            descriptorBufferSupported = true; // TODO: also check the extension properties
+            deviceExtensions[deviceExtensionCount++] = VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME;
+            break;
+        }
+    }
+
+    STACK_ARRAY_FINISH(extensionProperties);
 
     const VkDeviceCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -814,7 +892,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pQueueCreateInfos = queueCreateInfos,
         .enabledLayerCount = 0,
         .ppEnabledLayerNames = NULL,
-        .enabledExtensionCount = COUNT_OF(deviceExtensions),
+        .enabledExtensionCount = deviceExtensionCount,
         .ppEnabledExtensionNames = deviceExtensions,
         .pEnabledFeatures = NULL,
     };
@@ -868,6 +946,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .device = vkDevice,
         .physicalDevice = grPhysicalGpu->physicalDevice,
         .memoryProperties = memoryProperties,
+        .descriptorBufferProps = grPhysicalGpu->descriptorBufferProps,
         .memoryHeapCount = memoryHeapCount,
         .memoryHeapMap = { 0 }, // Initialized below
         .atomicCounterSetLayout = VK_NULL_HANDLE, // Initialized below
@@ -878,16 +957,37 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .grDmaQueue = NULL, // Initialized below
         .universalAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .universalAtomicCounterSet = VK_NULL_HANDLE, // Initialized below
+        .descriptorPushSetLayout = VK_NULL_HANDLE,
         .computeAtomicCounterBuffer = VK_NULL_HANDLE, // Initialized below
         .computeAtomicCounterSet = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
+        .descriptorBufferSupported = descriptorBufferSupported,
+        .maxMutableUniformDescriptorSize = 0, // Initialized below
+        .maxMutableStorageDescriptorSize = 0, // Initialized below
+        .maxMutableDescriptorSize = 0, // Initialized below
     };
 
-    memcpy(grDevice->memoryHeapMap, memoryHeapMap, memoryHeapCount * sizeof(uint32_t));
-    grDevice->atomicCounterSetLayout = getAtomicCounterDescriptorSetLayout(grDevice);
-    grDevice->dynamicMemorySetLayout = getDynamicMemoryDescriptorSetLayout(grDevice);
-    grDevice->defaultDescriptorSetLayout = getDefaultDescriptorSetLayout(grDevice);
+    if (grDevice->descriptorBufferSupported) {
+        // TODO: handle descriptors in the case if mutable descriptors aren't supported
+        uint32_t maxUniformDescriptorSize = grPhysicalGpu->descriptorBufferProps.sampledImageDescriptorSize;
+        maxUniformDescriptorSize = MAX(maxUniformDescriptorSize, grPhysicalGpu->descriptorBufferProps.uniformTexelBufferDescriptorSize);
+        maxUniformDescriptorSize = MAX(maxUniformDescriptorSize, grPhysicalGpu->descriptorBufferProps.samplerDescriptorSize);
+        grDevice->maxMutableUniformDescriptorSize = maxUniformDescriptorSize;
+        uint32_t maxStorageDescriptorSize = grPhysicalGpu->descriptorBufferProps.storageImageDescriptorSize;
+        maxStorageDescriptorSize = MAX(maxStorageDescriptorSize, grPhysicalGpu->descriptorBufferProps.storageTexelBufferDescriptorSize);
+        maxStorageDescriptorSize = MAX(maxStorageDescriptorSize, grPhysicalGpu->descriptorBufferProps.storageBufferDescriptorSize);
+        grDevice->maxMutableStorageDescriptorSize = maxStorageDescriptorSize;
+        grDevice->maxMutableDescriptorSize = MAX(maxStorageDescriptorSize, maxUniformDescriptorSize);
+    }
 
+    memcpy(grDevice->memoryHeapMap, memoryHeapMap, memoryHeapCount * sizeof(uint32_t));
+    if (grDevice->descriptorBufferSupported) {
+        grDevice->descriptorPushSetLayout = getBufferPushDescriptorSetLayout(grDevice);
+    } else {
+        grDevice->atomicCounterSetLayout = getAtomicCounterDescriptorSetLayout(grDevice);
+        grDevice->dynamicMemorySetLayout = getDynamicMemoryDescriptorSetLayout(grDevice);
+    }
+    grDevice->defaultDescriptorSetLayout = getDefaultDescriptorSetLayout(grDevice);
     if (universalQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grUniversalQueue =
             grQueueCreate(grDevice, universalQueueFamilyIndex, universalQueueIndex);
@@ -896,12 +996,15 @@ GR_RESULT GR_STDCALL grCreateDevice(
         grDevice->universalAtomicCounterBuffer =
             getAtomicCounterBuffer(grDevice, grDevice->universalAtomicCounterMemory,
                                    UNIVERSAL_ATOMIC_COUNTERS_COUNT);
-        grDevice->universalAtomicCounterPool =
-            getAtomicCounterDescriptorPool(grDevice);
-        grDevice->universalAtomicCounterSet =
-            getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
-                                          grDevice->universalAtomicCounterPool,
-                                          grDevice->universalAtomicCounterBuffer);
+        grDevice->universalAtomicCounterBufferSize = UNIVERSAL_ATOMIC_COUNTERS_COUNT * sizeof(uint32_t);
+        if (!grDevice->descriptorBufferSupported) {
+            grDevice->universalAtomicCounterPool =
+                getAtomicCounterDescriptorPool(grDevice);
+            grDevice->universalAtomicCounterSet =
+                getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
+                                              grDevice->universalAtomicCounterPool,
+                                              grDevice->universalAtomicCounterBuffer);
+        }
     }
     if (computeQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grComputeQueue =
@@ -911,12 +1014,15 @@ GR_RESULT GR_STDCALL grCreateDevice(
         grDevice->computeAtomicCounterBuffer =
             getAtomicCounterBuffer(grDevice, grDevice->computeAtomicCounterMemory,
                                    COMPUTE_ATOMIC_COUNTERS_COUNT);
-        grDevice->computeAtomicCounterPool =
-            getAtomicCounterDescriptorPool(grDevice);
-        grDevice->computeAtomicCounterSet =
-            getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
-                                          grDevice->computeAtomicCounterPool,
-                                          grDevice->computeAtomicCounterBuffer);
+        grDevice->computeAtomicCounterBufferSize = COMPUTE_ATOMIC_COUNTERS_COUNT * sizeof(uint32_t);
+        if (!grDevice->descriptorBufferSupported) {
+            grDevice->computeAtomicCounterPool =
+                getAtomicCounterDescriptorPool(grDevice);
+            grDevice->computeAtomicCounterSet =
+                getAtomicCounterDescriptorSet(grDevice, grDevice->atomicCounterSetLayout,
+                                              grDevice->computeAtomicCounterPool,
+                                              grDevice->computeAtomicCounterBuffer);
+        }
     }
     if (dmaQueueFamilyIndex != INVALID_QUEUE_INDEX) {
         grDevice->grDmaQueue = grQueueCreate(grDevice, dmaQueueFamilyIndex, dmaQueueIndex);
@@ -944,8 +1050,13 @@ GR_RESULT GR_STDCALL grDestroyDevice(
         return GR_ERROR_INVALID_OBJECT_TYPE;
     }
 
-    VKD.vkDestroyDescriptorSetLayout(grDevice->device, grDevice->atomicCounterSetLayout, NULL);
-    VKD.vkDestroyDescriptorSetLayout(grDevice->device, grDevice->dynamicMemorySetLayout, NULL);
+    if (grDevice->descriptorBufferSupported) {
+        VKD.vkDestroyDescriptorSetLayout(grDevice->device, grDevice->descriptorPushSetLayout, NULL);
+    } else {
+        VKD.vkDestroyDescriptorSetLayout(grDevice->device, grDevice->atomicCounterSetLayout, NULL);
+        VKD.vkDestroyDescriptorSetLayout(grDevice->device, grDevice->dynamicMemorySetLayout, NULL);
+    }
+
     VKD.vkDestroyDescriptorSetLayout(grDevice->device, grDevice->defaultDescriptorSetLayout, NULL);
 
     if (grDevice->grUniversalQueue) {

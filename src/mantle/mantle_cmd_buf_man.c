@@ -79,11 +79,14 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
 
     VkBuffer atomicCounterBuffer = VK_NULL_HANDLE;
     VkDescriptorSet atomicCounterSet = VK_NULL_HANDLE;
+    VkDeviceSize atomicCounterBufferSize = 0ull;
     if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
         atomicCounterBuffer = grDevice->universalAtomicCounterBuffer;
+        atomicCounterBufferSize = grDevice->universalAtomicCounterBufferSize;
         atomicCounterSet = grDevice->universalAtomicCounterSet;
     } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
         atomicCounterBuffer = grDevice->computeAtomicCounterBuffer;
+        atomicCounterBufferSize = grDevice->computeAtomicCounterBufferSize;
         atomicCounterSet = grDevice->computeAtomicCounterSet;
     }
 
@@ -94,6 +97,7 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .commandBuffer = vkCommandBuffer,
         .timestampQueryPool = vkQueryPool,
         .atomicCounterBuffer = atomicCounterBuffer,
+        .atomicCounterBufferSize = atomicCounterBufferSize,
         .atomicCounterSet = atomicCounterSet,
     };
 
