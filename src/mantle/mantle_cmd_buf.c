@@ -130,6 +130,156 @@ static void grCmdBufferBindVkDescriptorSets(
     }
 }
 
+static void setupDescriptorBuffers(
+    const GrDevice* grDevice,
+    const GrCmdBuffer* grCmdBuffer,
+    const BindPoint* bindPoint,
+    const GrDescriptorSet* grDescriptorSet,
+    unsigned slotOffset,
+    unsigned pipelineDescriptorSetCount,
+    const PipelineDescriptorSlot* pipelineDescriptorSlots,
+    VkPipelineLayout pipelineLayout,
+    VkDeviceAddress* pBufferAddresses,
+    VkDeviceSize* pOffsets)
+{
+    for (unsigned i = 0; i < pipelineDescriptorSetCount; i++) {
+        const PipelineDescriptorSlot* descriptorSlot = &pipelineDescriptorSlots[i];
+        const DescriptorSetSlot* slot;
+        unsigned descriptorSlotOffset = slotOffset;
+        const GrDescriptorSet* currentSet = grDescriptorSet;
+
+        slot = &currentSet->slots[descriptorSlotOffset];
+
+        for (unsigned j = 0; j < descriptorSlot->pathDepth; j++) {
+            slot = &slot[descriptorSlot->path[j]];
+            descriptorSlotOffset = slot->nested.slotOffset;
+            currentSet = slot->nested.nextSet;
+            slot = &currentSet->slots[descriptorSlotOffset];
+        }
+
+        pBufferAddresses[i] = currentSet->descriptorBufferAddress;
+        pOffsets[i] = descriptorSlotOffset * DESCRIPTORS_PER_SLOT * grDevice->maxMutableDescriptorSize;
+        // Pass buffer strides down to the shader
+        for (unsigned j = 0; j < descriptorSlot->strideCount; j++) {
+            VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, pipelineLayout,
+                                   VK_SHADER_STAGE_ALL_GRAPHICS,
+                                   descriptorSlot->strideOffsets[j], sizeof(uint32_t),
+                                   &slot[descriptorSlot->strideSlotIndexes[j]].buffer.stride);
+        }
+    }
+}
+
+static void grCmdBufferBindDescriptorBuffers(
+    GrCmdBuffer* grCmdBuffer,
+    VkPipelineBindPoint vkBindPoint)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    GrPipeline* grPipeline = bindPoint->grPipeline;
+
+    bindPoint->boundDescriptorSetCount = 0;
+
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        assert((bindPoint->boundDescriptorSetCount + grPipeline->descriptorSetCounts[i]) < COUNT_OF(bindPoint->descriptorBufferAddresses));
+        setupDescriptorBuffers(grDevice, grCmdBuffer, bindPoint,
+                               bindPoint->grDescriptorSets[i], bindPoint->slotOffsets[i],
+                               grPipeline->descriptorSetCounts[i],
+                               grPipeline->descriptorSlots[i],
+                               grPipeline->pipelineLayout,
+                               &bindPoint->descriptorBufferAddresses[bindPoint->boundDescriptorSetCount],
+                               &bindPoint->descriptorOffsets[bindPoint->boundDescriptorSetCount]);
+        bindPoint->boundDescriptorSetCount += grPipeline->descriptorSetCounts[i];
+    }
+
+    // check if descriptor buffer state is dirty
+    bool dirtyBufferState = false;
+
+    uint32_t setIndices[COUNT_OF(bindPoint->descriptorOffsets) * COUNT_OF(grCmdBuffer->bindPoints)];
+    for (unsigned i = 0; i < bindPoint->boundDescriptorSetCount; ++i) {
+        unsigned bufferIndex = 0xFFFFFFFFu;
+        for (unsigned j = 0; j < grCmdBuffer->descriptorBufferCount; j++) {
+            if (grCmdBuffer->bufferAddresses[j] == bindPoint->descriptorBufferAddresses[i]) {
+                bufferIndex = j;
+                break;
+            }
+        }
+        if (bufferIndex >= grCmdBuffer->descriptorBufferCount) {
+            dirtyBufferState = true;
+            break;
+        } else {
+            setIndices[i] = bufferIndex;
+        }
+    }
+
+    if (!bindPoint->descriptorSetOffsetsPushed) {
+        bindPoint->descriptorSetOffsetsPushed = true;
+        uint32_t descriptorOffsets[DESCRIPTOR_OFFSET_COUNT] = { 0 };
+        VKD.vkCmdPushConstants(grCmdBuffer->commandBuffer, grPipeline->pipelineLayout,
+                               vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS ? VK_SHADER_STAGE_ALL_GRAPHICS : VK_SHADER_STAGE_COMPUTE_BIT,
+                               DESCRIPTOR_CONST_OFFSETS_OFFSET, sizeof(descriptorOffsets),
+                               descriptorOffsets);
+    }
+
+    if (dirtyBufferState) {
+        VkDescriptorBufferBindingInfoEXT bufferBindingInfos[COUNT_OF(grCmdBuffer->bufferAddresses)];
+        grCmdBuffer->descriptorBufferCount = 0;
+        // reinitialize descriptor buffer state and then bind descriptor sets for all bind points
+        for (unsigned i = 0; i < COUNT_OF(grCmdBuffer->bindPoints); i++) {
+            for (unsigned j = 0; j < grCmdBuffer->bindPoints[i].boundDescriptorSetCount; j++) {
+                unsigned descriptorBufferIndex = 0xFFFFFFFF;
+                for (unsigned k = 0; k < grCmdBuffer->descriptorBufferCount; k++) {
+                    if (grCmdBuffer->bindPoints[i].descriptorBufferAddresses[j] == grCmdBuffer->bufferAddresses[k]) {
+                        descriptorBufferIndex = k;
+                        break;
+                    }
+                }
+                if (descriptorBufferIndex >= grCmdBuffer->descriptorBufferCount) {
+                    if (grCmdBuffer->descriptorBufferCount >= COUNT_OF(grCmdBuffer->bufferAddresses)) {
+                        LOGE("descriptor buffer overflow\n");
+                        assert(false);
+                    }
+                    grCmdBuffer->descriptorBufferCount++;
+                    descriptorBufferIndex = grCmdBuffer->descriptorBufferCount - 1;
+                    grCmdBuffer->bufferAddresses[descriptorBufferIndex] = grCmdBuffer->bindPoints[i].descriptorBufferAddresses[j];
+                    bufferBindingInfos[descriptorBufferIndex] = (VkDescriptorBufferBindingInfoEXT) {
+                        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+                        .pNext = NULL,
+                        .address = grCmdBuffer->bindPoints[i].descriptorBufferAddresses[j],
+                        .usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT
+                            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                    };
+                }
+                setIndices[i * COUNT_OF(bindPoint->descriptorOffsets) + j] = descriptorBufferIndex;
+            }
+        }
+
+        VKD.vkCmdBindDescriptorBuffersEXT(grCmdBuffer->commandBuffer, grCmdBuffer->descriptorBufferCount, bufferBindingInfos);
+        // now set up the offsets
+        for (unsigned i = 0; i < COUNT_OF(grCmdBuffer->bindPoints); i++) {
+            BindPoint* descriptorBindPoint = &grCmdBuffer->bindPoints[(VkPipelineBindPoint)i];
+            GrPipeline* rebindPipeline = descriptorBindPoint->grPipeline;
+            if (rebindPipeline == NULL || descriptorBindPoint->boundDescriptorSetCount == 0) {
+                continue;
+            }
+            VKD.vkCmdSetDescriptorBufferOffsetsEXT(
+                grCmdBuffer->commandBuffer,
+                (VkPipelineBindPoint)i, rebindPipeline->pipelineLayout,
+                DESCRIPTOR_BUFFERS_BASE_DESCRIPTOR_SET_ID,
+                descriptorBindPoint->boundDescriptorSetCount,
+                &setIndices[i * COUNT_OF(descriptorBindPoint->descriptorOffsets)],
+                descriptorBindPoint->descriptorOffsets);
+        }
+    } else if (bindPoint->boundDescriptorSetCount > 0) {
+        // just associate the offsets for the bind point
+        VKD.vkCmdSetDescriptorBufferOffsetsEXT(
+            grCmdBuffer->commandBuffer,
+            vkBindPoint, grPipeline->pipelineLayout,
+            DESCRIPTOR_BUFFERS_BASE_DESCRIPTOR_SET_ID,
+            bindPoint->boundDescriptorSetCount,
+            setIndices, bindPoint->descriptorOffsets);
+    }
+}
+
 static void grCmdBufferSetupDynamicBufferStride(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint vkBindPoint)
@@ -197,6 +347,50 @@ static void grCmdBufferBindAtomicDescriptorSet(
                                 0, NULL);
 }
 
+static void grCmdBufferDescriptorBufferPushDescriptorSet(
+    GrCmdBuffer* grCmdBuffer,
+    VkPipelineBindPoint vkBindPoint)
+{
+    const GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
+    const BindPoint* bindPoint = &grCmdBuffer->bindPoints[vkBindPoint];
+    GrPipeline* grPipeline = bindPoint->grPipeline;
+
+    VkDescriptorBufferInfo atomicBufferInfo = {
+        .buffer = grCmdBuffer->atomicCounterBuffer,
+        .offset = 0,
+        .range = grCmdBuffer->atomicCounterBufferSize,
+    };
+    bool hasDynamic = (bindPoint->dynamicMemoryView.buffer.bufferInfo.buffer != VK_NULL_HANDLE);
+    unsigned descriptorCount = hasDynamic ? 2 : 1;
+
+    VkWriteDescriptorSet bufferWrites[] = {
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .dstArrayElement = 0,
+            .dstBinding = DESCRIPTOR_BUFFERS_ATOMIC_BINDING_ID,
+            .dstSet = 0,// ignored
+            .pBufferInfo = &atomicBufferInfo,
+        },
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1,
+            .dstArrayElement = 0,
+            .dstBinding = DESCRIPTOR_BUFFERS_DYNAMIC_MAPPING_BINDING_ID,
+            .dstSet = 0,// ignored
+            .pBufferInfo =  &bindPoint->dynamicMemoryView.buffer.bufferInfo,
+        }
+    };
+    VKD.vkCmdPushDescriptorSetKHR(
+        grCmdBuffer->commandBuffer,
+        vkBindPoint,
+        grPipeline->pipelineLayout,
+        DESCRIPTOR_BUFFERS_PUSH_DESCRIPTOR_SET_ID,
+        descriptorCount, bufferWrites);
+}
+
 static void grCmdBufferUpdateResources(
     GrCmdBuffer* grCmdBuffer,
     VkPipelineBindPoint vkBindPoint)
@@ -206,16 +400,25 @@ static void grCmdBufferUpdateResources(
     GrPipeline* grPipeline = bindPoint->grPipeline;
     uint32_t dirtyFlags = bindPoint->dirtyFlags;
 
-    if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
-        grCmdBufferBindVkDescriptorSets(grCmdBuffer, vkBindPoint);
-    }
+    if (grDevice->descriptorBufferSupported) {
+        if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
+            grCmdBufferBindDescriptorBuffers(grCmdBuffer, vkBindPoint);
+        }
+        if (dirtyFlags & (FLAG_DIRTY_DESCRIPTOR_SET | FLAG_DIRTY_DYNAMIC_MAPPING)) {
+            grCmdBufferDescriptorBufferPushDescriptorSet(grCmdBuffer, vkBindPoint);
+        }
+    } else {
+        if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
+            grCmdBufferBindVkDescriptorSets(grCmdBuffer, vkBindPoint);
+        }
 
-    if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
-        grCmdBufferBindAtomicDescriptorSet(grCmdBuffer, vkBindPoint);
-    }
+        if (dirtyFlags & FLAG_DIRTY_DESCRIPTOR_SET) {
+            grCmdBufferBindAtomicDescriptorSet(grCmdBuffer, vkBindPoint);
+        }
 
-    if (dirtyFlags & FLAG_DIRTY_DYNAMIC_MAPPING) {
-        grCmdBufferBindDynamicDescriptorSet(grCmdBuffer, vkBindPoint);
+        if (dirtyFlags & FLAG_DIRTY_DYNAMIC_MAPPING) {
+            grCmdBufferBindDynamicDescriptorSet(grCmdBuffer, vkBindPoint);
+        }
     }
 
     if (dirtyFlags & FLAG_DIRTY_DYNAMIC_STRIDE) {

@@ -95,11 +95,20 @@ typedef struct _BindPoint
     uint32_t dirtyFlags;
     GrPipeline* grPipeline;
     GrDescriptorSet* grDescriptorSets[GR_MAX_DESCRIPTOR_SETS];
-    VkDescriptorSet descriptorSets[30];
-    unsigned descriptorArrayOffsets[30];
+    union {
+        struct {
+            VkDeviceAddress descriptorBufferAddresses[30];
+            VkDeviceSize descriptorOffsets[30];
+        };
+        struct {
+            VkDescriptorSet descriptorSets[30];
+            unsigned descriptorArrayOffsets[30];
+        };
+    };
     unsigned boundDescriptorSetCount;
     unsigned slotOffsets[GR_MAX_DESCRIPTOR_SETS];
     DescriptorSetSlot dynamicMemoryView;
+    bool descriptorSetOffsetsPushed;
 } BindPoint;
 
 typedef struct _PipelineCreateInfo
@@ -181,6 +190,8 @@ typedef struct _GrCmdBuffer {
     GrColorBlendStateObject* grColorBlendState;
     // Render pass
     VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkDeviceAddress bufferAddresses[32];
+    unsigned descriptorBufferCount;
     bool hasDepth;
     bool hasStencil;
     VkRenderingAttachmentInfoKHR depthAttachment;
@@ -232,6 +243,11 @@ typedef struct _GrDescriptorSet {
     DescriptorSetSlot* slots;
     VkDescriptorPool descriptorPool;
     VkDescriptorSet descriptorSet;
+    void* descriptorBufferPtr;
+    VkBuffer descriptorBuffer;
+    VkDeviceSize descriptorBufferSize;
+    VkDeviceSize descriptorBufferMemoryOffset;
+    VkDeviceAddress descriptorBufferAddress;
 } GrDescriptorSet;
 
 typedef struct _GrDevice {
@@ -240,23 +256,35 @@ typedef struct _GrDevice {
     VkDevice device;
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceMemoryProperties memoryProperties;
+    VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorBufferProps;
     unsigned memoryHeapCount;
     uint32_t memoryHeapMap[GR_MAX_MEMORY_HEAPS];
-    VkDescriptorSetLayout atomicCounterSetLayout;
-    VkDescriptorSetLayout dynamicMemorySetLayout;
+    union {
+        struct {
+            VkDescriptorSetLayout atomicCounterSetLayout;
+            VkDescriptorSetLayout dynamicMemorySetLayout;
+        };
+        VkDescriptorSetLayout descriptorPushSetLayout;
+    };
     VkDescriptorSetLayout defaultDescriptorSetLayout;
     GrQueue* grUniversalQueue;
     GrQueue* grComputeQueue;
     GrQueue* grDmaQueue;
     VkDeviceMemory universalAtomicCounterMemory;
     VkBuffer universalAtomicCounterBuffer;
+    VkDeviceSize universalAtomicCounterBufferSize;
     VkDescriptorPool universalAtomicCounterPool;
     VkDescriptorSet universalAtomicCounterSet;
     VkDeviceMemory computeAtomicCounterMemory;
     VkBuffer computeAtomicCounterBuffer;
+    VkDeviceSize computeAtomicCounterBufferSize;
     VkDescriptorPool computeAtomicCounterPool;
     VkDescriptorSet computeAtomicCounterSet;
     GrBorderColorPalette* grBorderColorPalette;
+    bool descriptorBufferSupported;
+    uint32_t maxMutableUniformDescriptorSize;
+    uint32_t maxMutableStorageDescriptorSize;
+    uint32_t maxMutableDescriptorSize;
 } GrDevice;
 
 typedef struct _GrEvent {
@@ -274,7 +302,11 @@ typedef struct _GrGpuMemory {
     GrObject grObj; // FIXME base object?
     VkDeviceMemory deviceMemory;
     VkDeviceSize deviceSize;
+    unsigned memoryTypeIndex;
     VkBuffer buffer;
+    VkDeviceAddress address;
+    void* userPtr;
+    bool forceMapping;
 } GrGpuMemory;
 
 typedef struct _GrImage {
@@ -307,6 +339,7 @@ typedef struct _GrMsaaStateObject {
 typedef struct _GrPhysicalGpu {
     GrBaseObject grBaseObj;
     VkPhysicalDevice physicalDevice;
+    VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorBufferProps;
     VkPhysicalDeviceProperties2 physicalDeviceProps;
 } GrPhysicalGpu;
 

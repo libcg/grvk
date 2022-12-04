@@ -9,6 +9,7 @@ typedef struct _Stage {
 static bool handleDynamicDescriptorSlots(
     PipelineDescriptorSlot* descriptorSlot,
     const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping,
+    bool descriptorBufferUsed,
     unsigned bindingCount,
     const IlcBinding* bindings,
     uint32_t* offsets,
@@ -37,11 +38,11 @@ static bool handleDynamicDescriptorSlots(
             }
 
             offsets[i] = 0;
-            unsigned int descriptorSetIndex = DYNAMIC_MEMORY_VIEW_DESCRIPTOR_SET_ID;
+            unsigned int descriptorSetIndex = descriptorBufferUsed ? DESCRIPTOR_BUFFERS_PUSH_DESCRIPTOR_SET_ID : DYNAMIC_MEMORY_VIEW_DESCRIPTOR_SET_ID;
             descriptorSetIndices[i] = descriptorSetIndex;
             patchEntries[i] = (IlcBindingPatchEntry) {
                 .id = binding->id,
-                .bindingIndex = DYNAMIC_MEMORY_VIEW_BINDING_ID,
+                .bindingIndex = descriptorBufferUsed ? DESCRIPTOR_BUFFERS_DYNAMIC_MAPPING_BINDING_ID : DYNAMIC_MEMORY_VIEW_BINDING_ID,
                 .descriptorSetIndex = descriptorSetIndex,
             };
 
@@ -321,8 +322,8 @@ static VkPipelineLayout getVkPipelineLayout(
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
     VkDescriptorSetLayout setLayouts[32] = {
-        grDevice->dynamicMemorySetLayout,
-        grDevice->atomicCounterSetLayout,
+        grDevice->descriptorBufferSupported ? grDevice->defaultDescriptorSetLayout : grDevice->dynamicMemorySetLayout,
+        grDevice->descriptorBufferSupported ? grDevice->descriptorPushSetLayout : grDevice->atomicCounterSetLayout,
     };
 
     assert((descriptorSetCount + 2) <= COUNT_OF(setLayouts));
@@ -363,7 +364,7 @@ static VkPipeline getVkPipeline(
     VkFormat depthFormat,
     VkFormat stencilFormat)
 {
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
     const PipelineCreateInfo* createInfo = grPipeline->createInfo;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
     VkResult vkRes;
@@ -701,6 +702,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         dynamicMappingUsed |= handleDynamicDescriptorSlots(
             &dynamicDescriptorSlot,
             &stage->shader->dynamicMemoryViewMapping,
+            grDevice->descriptorBufferSupported,
             grShader->bindingCount, grShader->bindings,
             specData[i],
             &specData[i][grShader->bindingCount],
@@ -710,7 +712,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     unsigned descriptorSetCount = 0;
     for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
         getDescriptorSlotMappings(&descriptorSetCounts[i], &pipelineDescriptorSlots[i],
-                                  grDevice, COUNT_OF(stages), stages, patchEntries, specData, descriptorSetIndices, i, descriptorSetCount + DESCRIPTOR_SET_ID);
+                                  grDevice, COUNT_OF(stages), stages, patchEntries, specData, descriptorSetIndices, i,
+                                  descriptorSetCount + descriptorSetCount + grDevice->descriptorBufferSupported ? DESCRIPTOR_BUFFERS_BASE_DESCRIPTOR_SET_ID : DESCRIPTOR_SET_ID);
         descriptorSetCount += descriptorSetCounts[i];
     }
 
@@ -842,8 +845,10 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
     PipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(PipelineCreateInfo));
     *pipelineCreateInfo = (PipelineCreateInfo) {
-        .createFlags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
-                       VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
+        .createFlags =
+        ((pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
+                        VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0) |
+        (grDevice->descriptorBufferSupported ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
         .stageCount = stageCount,
         .stageCreateInfos = { { 0 } }, // Initialized below
         .specInfos = { { 0 } }, // Initialized below
@@ -989,6 +994,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     bool dynamicMappingUsed = handleDynamicDescriptorSlots(
         &dynamicDescriptorSlot,
         &stage.shader->dynamicMemoryViewMapping,
+        grDevice->descriptorBufferSupported,
         grShader->bindingCount, grShader->bindings,
         specData,
         &specData[grShader->bindingCount],
@@ -997,7 +1003,8 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     unsigned descriptorSetCount = 0;
     for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
         getDescriptorSlotMappings(&descriptorSetCounts[i], &pipelineDescriptorSlots[i],
-                                  grDevice, 1, &stage, &patchEntries, &descriptorOffsets, &descriptorSetIndices, i, descriptorSetCount + DESCRIPTOR_SET_ID);
+                                  grDevice, 1, &stage, &patchEntries, &descriptorOffsets, &descriptorSetIndices, i,
+                                  descriptorSetCount + grDevice->descriptorBufferSupported ? DESCRIPTOR_BUFFERS_BASE_DESCRIPTOR_SET_ID : DESCRIPTOR_SET_ID);
         descriptorSetCount += descriptorSetCounts[i];
     }
 
@@ -1048,8 +1055,9 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     const VkComputePipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext = NULL,
-        .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
-                 VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
+        .flags = ((pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
+                  VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0) |
+        (grDevice->descriptorBufferSupported ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
         .stage = shaderStageCreateInfo,
         .layout = pipelineLayout,
         .basePipelineHandle = VK_NULL_HANDLE,
