@@ -43,6 +43,7 @@ GR_RESULT GR_STDCALL grDestroyObject(
         grClearDescriptorSetSlots(grDescriptorSet, 0, grDescriptorSet->slotCount);
         free(grDescriptorSet->slots);
         VKD.vkDestroyBuffer(grDevice->device, grDescriptorSet->descriptorBuffer, NULL);
+        VKD.vkFreeMemory(grDevice->device, grDescriptorSet->descriptorBufferMemory, NULL);
         VKD.vkDestroyDescriptorPool(grDevice->device, grDescriptorSet->descriptorPool, NULL);
     }   break;
     case GR_OBJ_TYPE_EVENT: {
@@ -178,7 +179,7 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
         case GR_OBJ_TYPE_DESCRIPTOR_SET: {
             GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)grBaseObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
-            if (grDevice->descriptorBufferSupported) {
+            if (grDevice->descriptorBufferSupported && !quirkHas(QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION)) {
                 VKD.vkGetBufferMemoryRequirements(grDevice->device, grDescriptorSet->descriptorBuffer, &memReqs);
 
                 // exclude host non-visible memory types
@@ -323,7 +324,7 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
             GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)grObject;
             GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
 
-            if (grDevice->descriptorBufferSupported) {
+            if (grDevice->descriptorBufferSupported && !quirkHas(QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION)) {
                 vkRes = VKD.vkBindBufferMemory(grDevice->device, grDescriptorSet->descriptorBuffer, grGpuMemory->deviceMemory, offset);
                 if (vkRes == VK_SUCCESS) {
                     VkBufferDeviceAddressInfo vkBufferAddressInfo = {
