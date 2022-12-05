@@ -245,6 +245,7 @@ typedef struct _GrDescriptorSet {
     VkDescriptorSet descriptorSet;
     void* descriptorBufferPtr;
     VkBuffer descriptorBuffer;
+    VkDeviceMemory descriptorBufferMemory;
     VkDeviceSize descriptorBufferSize;
     VkDeviceSize descriptorBufferMemoryOffset;
     VkDeviceAddress descriptorBufferAddress;

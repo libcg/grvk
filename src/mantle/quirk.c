@@ -16,7 +16,8 @@ void quirkInit(
                   QUIRK_COMPRESSED_IMAGE_COPY_IN_TEXELS |
                   QUIRK_INVALID_CMD_BUFFER_RESET |
                   QUIRK_CUBEMAP_LAYER_DIV_6 |
-                  QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS;
+                  QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS |
+                  QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION;
     } else if (!strcmp(appInfo->pEngineName, "CivTech")) {
         mQuirks = QUIRK_NON_ZERO_MEM_REQ |
                   QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH |

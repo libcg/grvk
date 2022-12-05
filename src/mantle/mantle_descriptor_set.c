@@ -28,7 +28,10 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
     }
 
     VkBuffer vkBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory bufferMemory = VK_NULL_HANDLE;
     VkDeviceSize bufferSize = 0;
+    VkDeviceAddress bufferAddress = 0ull;
+    void* descriptorBufferPtr = NULL;
     VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
@@ -59,7 +62,69 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
         vkRes = VKD.vkCreateBuffer(grDevice->device, &bufferCreateInfo, NULL, &vkBuffer);
         if (vkRes != VK_SUCCESS) {
             LOGE("vkCreateBuffer failed (%d)\n", vkRes);
-            return getGrResult(vkRes);
+            goto bail;
+        }
+        if (quirkHas(QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION)) {
+            VkMemoryRequirements memReqs;
+            VKD.vkGetBufferMemoryRequirements(grDevice->device, vkBuffer, &memReqs);
+
+            const VkMemoryAllocateFlagsInfo flagsInfo = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+                .pNext = NULL,
+                .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+                .deviceMask = 0,
+            };
+            VkMemoryAllocateInfo allocateInfo = {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                .pNext = &flagsInfo,
+                .allocationSize = memReqs.size,
+                .memoryTypeIndex = 0xFFFF,
+            };
+            // exclude host non-visible memory types
+            for (unsigned i = 0; i < grDevice->memoryProperties.memoryTypeCount; ++i) {
+                if (!(memReqs.memoryTypeBits & (1 << i))) {
+                    continue;
+                }
+                if (!(grDevice->memoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
+                    continue;
+                }
+
+                allocateInfo.memoryTypeIndex = i;
+                vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &bufferMemory);
+                if (vkRes == VK_SUCCESS) {
+                    break;
+                }
+            }
+
+            if (vkRes != VK_SUCCESS) {
+                LOGE("failed to allocate memory for descriptor buffer (%d)\n", vkRes);
+                goto bail;
+            } else if (bufferMemory == VK_NULL_HANDLE) {
+                LOGE("failed to select memory memory for descriptor buffer\n");
+                goto bail;
+            }
+
+            vkRes = VKD.vkBindBufferMemory(grDevice->device, vkBuffer, bufferMemory, 0);
+            if (vkRes != VK_SUCCESS) {
+                LOGE("Buffer binding failed (%d)\n", vkRes);
+                goto bail;
+            }
+            VkBufferDeviceAddressInfo vkBufferAddressInfo = {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                .pNext = NULL,
+                .buffer = vkBuffer,
+            };
+
+            bufferAddress = VKD.vkGetBufferDeviceAddress(grDevice->device, &vkBufferAddressInfo);
+
+            vkRes = VKD.vkMapMemory(grDevice->device, bufferMemory,
+                                    0, VK_WHOLE_SIZE, 0, &descriptorBufferPtr);
+            if (vkRes != VK_SUCCESS) {
+                LOGE("vkMapMemory failed (%d)\n", vkRes);
+                goto bail;
+            }
+
+            memset(descriptorBufferPtr, 0, bufferSize);
         }
     } else {
         const VkDescriptorType descriptorTypes[] = {
@@ -132,11 +197,12 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
         .slots = calloc(pCreateInfo->slots, sizeof(DescriptorSetSlot)),
         .descriptorPool = descriptorPool,
         .descriptorSet = descriptorSet,
-        .descriptorBufferPtr = NULL,
+        .descriptorBufferPtr = descriptorBufferPtr,
         .descriptorBuffer = vkBuffer,
+        .descriptorBufferMemory = bufferMemory,
         .descriptorBufferSize = bufferSize,
         .descriptorBufferMemoryOffset = 0ull,
-        .descriptorBufferAddress = 0ull,
+        .descriptorBufferAddress = bufferAddress,
     };
 
     *pDescriptorSet = (GR_DESCRIPTOR_SET)grDescriptorSet;
@@ -145,6 +211,7 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
 bail:
     VKD.vkDestroyDescriptorPool(grDevice->device, descriptorPool, NULL);
     VKD.vkDestroyBuffer(grDevice->device, vkBuffer, NULL);
+    VKD.vkFreeMemory(grDevice->device, bufferMemory, NULL);
     return getGrResult(vkRes);
 }
 
