@@ -195,6 +195,7 @@ GR_RESULT GR_STDCALL grCreateDescriptorSet(
         .grObj = { GR_OBJ_TYPE_DESCRIPTOR_SET, grDevice },
         .slotCount = pCreateInfo->slots,
         .slots = calloc(pCreateInfo->slots, sizeof(DescriptorSetSlot)),
+        .descriptorLock = SRWLOCK_INIT,
         .descriptorPool = descriptorPool,
         .descriptorSet = descriptorSet,
         .descriptorBufferPtr = descriptorBufferPtr,
@@ -245,6 +246,10 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pSamplers);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        AcquireSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 
     if (grDevice->descriptorBufferSupported && grDevice->descriptorBufferAllowPreparedSampler) {
         for (unsigned i = 0; i < slotCount; i++) {
@@ -311,6 +316,9 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
         STACK_ARRAY_FINISH(writeDescriptors);
     }
 
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        ReleaseSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 }
 
 GR_VOID GR_STDCALL grAttachImageViewDescriptors(
@@ -322,6 +330,10 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pImageViews);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        AcquireSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 
     if (grDevice->descriptorBufferSupported && grDevice->descriptorBufferAllowPreparedImageView) {
         for (unsigned i = 0; i < slotCount; i++) {
@@ -428,6 +440,10 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
         VKD.vkUpdateDescriptorSets(grDevice->device, descriptorWriteCount, writeDescriptors, 0, NULL);
         STACK_ARRAY_FINISH(writeDescriptors);
     }
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        ReleaseSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 }
 
 GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
@@ -440,6 +456,10 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
     VkResult vkRes;
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        AcquireSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 
     if (grDevice->descriptorBufferSupported) {
         for (unsigned i = 0; i < slotCount; i++) {
@@ -596,6 +616,10 @@ GR_VOID GR_STDCALL grAttachMemoryViewDescriptors(
         VKD.vkUpdateDescriptorSets(grDevice->device, descriptorWriteCount, writeDescriptors, 0, NULL);
         STACK_ARRAY_FINISH(writeDescriptors);
     }
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        ReleaseSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 }
 
 GR_VOID GR_STDCALL grAttachNestedDescriptors(
@@ -607,6 +631,10 @@ GR_VOID GR_STDCALL grAttachNestedDescriptors(
     LOGT("%p %u %u %p\n", descriptorSet, startSlot, slotCount, pNestedDescriptorSets);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        AcquireSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 
     for (unsigned i = 0; i < slotCount; i++) {
         DescriptorSetSlot* slot = &grDescriptorSet->slots[startSlot + i];
@@ -622,6 +650,9 @@ GR_VOID GR_STDCALL grAttachNestedDescriptors(
             },
         };
     }
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        ReleaseSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 }
 
 GR_VOID GR_STDCALL grClearDescriptorSetSlots(
@@ -632,6 +663,10 @@ GR_VOID GR_STDCALL grClearDescriptorSetSlots(
     LOGT("%p %u %u\n", descriptorSet, startSlot, slotCount);
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        AcquireSRWLockExclusive(&grDescriptorSet->descriptorLock);
+    }
 
     if (grDevice->descriptorBufferSupported) {
         memset(grDescriptorSet->descriptorBufferPtr + (startSlot * DESCRIPTORS_PER_SLOT * grDevice->maxMutableDescriptorSize), 0, grDevice->maxMutableDescriptorSize * slotCount * DESCRIPTORS_PER_SLOT);
@@ -644,5 +679,9 @@ GR_VOID GR_STDCALL grClearDescriptorSetSlots(
 
             slot->type = SLOT_TYPE_NONE;
         }
+    }
+
+    if (quirkHas(QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED)) {
+        ReleaseSRWLockExclusive(&grDescriptorSet->descriptorLock);
     }
 }

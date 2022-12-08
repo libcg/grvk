@@ -241,6 +241,7 @@ typedef struct _GrDescriptorSet {
     GrObject grObj;
     unsigned slotCount;
     DescriptorSetSlot* slots;
+    SRWLOCK descriptorLock;
     VkDescriptorPool descriptorPool;
     VkDescriptorSet descriptorSet;
     void* descriptorBufferPtr;
