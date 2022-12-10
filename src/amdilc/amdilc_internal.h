@@ -22,6 +22,13 @@
 #define COUNT_OF(array) \
     (sizeof(array) / sizeof((array)[0]))
 
+#define STACK_ARRAY(type, name, stackCount, count) \
+    type _stack_##name[stackCount]; \
+    type* name = (count) <= (stackCount) ? _stack_##name : malloc((count) * sizeof(type))
+
+#define STACK_ARRAY_FINISH(name) \
+   if (name != _stack_##name) free(name)
+
 #define MAX_SRC_COUNT (8)
 #define MAX_DST_COUNT (1)
 
