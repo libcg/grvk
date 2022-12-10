@@ -18,7 +18,10 @@ static void putBuffer(
     unsigned size = (buffer->wordCount + otherBuffer->wordCount) * sizeof(IlcSpvWord);
     if (buffer->wordSize < size) {
         // Grow the buffer exponentially to minimize allocations
-        buffer->wordSize = sizeof(IlcSpvWord);
+        if (buffer->wordSize < sizeof(IlcSpvWord)) {
+            buffer->wordSize = sizeof(IlcSpvWord) * 1024;
+        }
+
         while (buffer->wordSize < size) {
             buffer->wordSize *= BUFFER_ALLOC_FACTOR;
         }
