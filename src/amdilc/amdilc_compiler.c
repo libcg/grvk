@@ -3804,7 +3804,7 @@ static void emitEntryPoint(
     unsigned interfaceCount = compiler->regCount +
                               compiler->resourceCount +
                               compiler->samplerCount;
-    IlcSpvWord* interfaces = malloc(sizeof(IlcSpvWord) * interfaceCount);
+    STACK_ARRAY(IlcSpvWord, interfaces, 128, interfaceCount);
     unsigned interfaceIndex = 0;
 
     for (int i = 0; i < compiler->regCount; i++) {
@@ -3838,7 +3838,7 @@ static void emitEntryPoint(
         break;
     }
 
-    free(interfaces);
+    STACK_ARRAY_FINISH(interfaces);
 }
 
 IlcShader ilcCompileKernel(
