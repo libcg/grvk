@@ -1,7 +1,8 @@
 #include "amdilc_spirv.h"
 #include "amdilc_internal.h"
 
-#define MAX_SRC_COUNT       (8)
+#define BUFFER_ALLOC_FACTOR (1.5f)
+
 #define ZERO_LITERAL        (0x00000000)
 #define ONE_LITERAL         (0x3F800000)
 #define FALSE_LITERAL       (0x00000000)
@@ -117,6 +118,7 @@ typedef struct {
     IlcSpvId bool4Id;
     unsigned currentStrideIndex;
     unsigned regCount;
+    unsigned regSize;
     IlcRegister* regs;
     unsigned resourceCount;
     IlcResource* resources;
@@ -372,7 +374,18 @@ static const IlcRegister* addRegister(
     emitName(compiler, reg->id, identifier, reg->ilNum);
 
     compiler->regCount++;
-    compiler->regs = realloc(compiler->regs, sizeof(IlcRegister) * compiler->regCount);
+    unsigned size = compiler->regCount * sizeof(IlcRegister);
+    if (compiler->regSize < size) {
+        if (compiler->regSize < sizeof(IlcRegister)) {
+            compiler->regSize = sizeof(IlcRegister) * 32;
+        }
+
+        while (compiler->regSize < size) {
+            compiler->regSize *= BUFFER_ALLOC_FACTOR;
+        }
+        compiler->regs = realloc(compiler->regs, compiler->regSize);
+    }
+
     compiler->regs[compiler->regCount - 1] = *reg;
 
     return &compiler->regs[compiler->regCount - 1];
@@ -690,7 +703,7 @@ static IlcSpvId loadSource(
                                              src->hasImmediate ? src->immediate : 0);
         if (src->srcCount > 0) {
             assert(src->srcCount == 1);
-            IlcSpvId rel4Id = loadSource(compiler, &src->srcs[0], COMP_MASK_XYZW,
+            IlcSpvId rel4Id = loadSource(compiler, &compiler->kernel->srcBuffer[src->srcs[0]], COMP_MASK_XYZW,
                                          compiler->int4Id);
             IlcSpvId relId = emitVectorTrim(compiler, rel4Id, compiler->int4Id, 0, 1);
             indexId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, indexId, relId);
@@ -825,7 +838,7 @@ static void storeDestination(
 
     IlcSpvId ptrId = 0;
     if (dst->registerType == IL_REGTYPE_ITEMP) {
-        if (dst->absoluteSrc != NULL) {
+        if (dst->hasAbsoluteSrc) {
             LOGW("unhandled absolute source\n");
         }
 
@@ -836,14 +849,14 @@ static void storeDestination(
                                              dst->hasImmediate ? dst->immediate : 0);
         if (dst->relativeSrcCount > 0) {
             assert(dst->relativeSrcCount == 1);
-            IlcSpvId rel4Id = loadSource(compiler, &dst->relativeSrcs[0], COMP_MASK_XYZW,
+            IlcSpvId rel4Id = loadSource(compiler, &compiler->kernel->srcBuffer[dst->relativeSrcs[0]], COMP_MASK_XYZW,
                                          compiler->int4Id);
             IlcSpvId relId = emitVectorTrim(compiler, rel4Id, compiler->int4Id, 0, 1);
             indexId = ilcSpvPutOp2(compiler->module, SpvOpIAdd, compiler->intId, indexId, relId);
         }
         ptrId = ilcSpvPutAccessChain(compiler->module, ptrTypeId, reg->id, 1, &indexId);
     } else {
-        if (dst->absoluteSrc != NULL) {
+        if (dst->hasAbsoluteSrc) {
             LOGW("unhandled absolute source\n");
         }
         if (dst->relativeSrcCount > 0) {
@@ -984,10 +997,10 @@ static void emitConstBuffer(
     IlcSpvId ptrTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassPrivate, typeId);
     for (unsigned i = 0; i < arraySize; i++) {
         IlcSpvId consistuentIds[] = {
-            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 0]),
-            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 1]),
-            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 2]),
-            ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[4 * i + 3]),
+            ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 4 * i + 0]),
+            ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 4 * i + 1]),
+            ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 4 * i + 2]),
+            ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 4 * i + 3]),
         };
         IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, typeId,
                                                           4, consistuentIds);
@@ -1016,7 +1029,7 @@ static void emitIndexedTempArray(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    const Source* src = &instr->srcs[0];
+    const Source* src = &compiler->kernel->srcBuffer[instr->srcs[0]];
 
     assert(src->registerType == IL_REGTYPE_ITEMP && src->hasImmediate);
 
@@ -1045,7 +1058,7 @@ static void emitLiteral(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    const Source* src = &instr->srcs[0];
+    const Source* src = &compiler->kernel->srcBuffer[instr->srcs[0]];
 
     assert(src->registerType == IL_REGTYPE_LITERAL);
 
@@ -1053,10 +1066,10 @@ static void emitLiteral(
     IlcSpvId literalId = emitVariable(compiler, literalTypeId, SpvStorageClassPrivate);
 
     IlcSpvId consistuentIds[] = {
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[0]),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[1]),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[2]),
-        ilcSpvPutConstant(compiler->module, compiler->floatId, instr->extras[3]),
+        ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 0]),
+        ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 1]),
+        ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 2]),
+        ilcSpvPutConstant(compiler->module, compiler->floatId, compiler->kernel->extrasBuffer[instr->extrasStartIndex + 3]),
     };
     IlcSpvId compositeId = ilcSpvPutConstantComposite(compiler->module, literalTypeId,
                                                       4, consistuentIds);
@@ -1084,7 +1097,7 @@ static void emitOutput(
 {
     uint8_t importUsage = GET_BITS(instr->control, 0, 4);
 
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
     const IlcRegister* dupeReg = findRegister(compiler, dst->registerType, dst->registerNum);
     if (dupeReg != NULL) {
         // Outputs are allowed to be redeclared with different components.
@@ -1207,7 +1220,7 @@ static void emitInput(
            instr->srcCount == 0 &&
            instr->extraCount == 0);
 
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     assert(!dst->clamp && dst->shiftScale == IL_SHIFT_NONE);
 
@@ -1345,10 +1358,10 @@ static void emitResource(
     uint8_t id = GET_BITS(instr->control, 0, 7);
     uint8_t type = GET_BITS(instr->control, 8, 11);
     bool unnorm = GET_BIT(instr->control, 31);
-    uint8_t fmtx = GET_BITS(instr->extras[0], 20, 22);
-    uint8_t fmty = GET_BITS(instr->extras[0], 23, 25);
-    uint8_t fmtz = GET_BITS(instr->extras[0], 26, 28);
-    uint8_t fmtw = GET_BITS(instr->extras[0], 29, 31);
+    uint8_t fmtx = GET_BITS(compiler->kernel->extrasBuffer[instr->extrasStartIndex], 20, 22);
+    uint8_t fmty = GET_BITS(compiler->kernel->extrasBuffer[instr->extrasStartIndex], 23, 25);
+    uint8_t fmtz = GET_BITS(compiler->kernel->extrasBuffer[instr->extrasStartIndex], 26, 28);
+    uint8_t fmtw = GET_BITS(compiler->kernel->extrasBuffer[instr->extrasStartIndex], 29, 31);
 
     SpvDim spvDim = getSpvDimension(compiler, type, true);
 
@@ -1433,8 +1446,8 @@ static void emitTypedUav(
         // IL_OP_DCL_TYPED_UAV allows 14-bit IDs
         assert(instr->extraCount == 1);
         id = GET_BITS(instr->control, 0, 13);
-        fmtx = GET_BITS(instr->extras[0], 0, 3);
-        type = GET_BITS(instr->extras[0], 4, 7);
+        fmtx = GET_BITS(compiler->kernel->extrasBuffer[instr->extrasStartIndex], 0, 3);
+        type = GET_BITS(compiler->kernel->extrasBuffer[instr->extrasStartIndex], 4, 7);
     } else {
         assert(false);
     }
@@ -1533,7 +1546,7 @@ static void emitUav(
     IlcSpvId strideId = 0;
 
     if (isStructured) {
-        strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]);
+        strideId = ilcSpvPutConstant(compiler->module, compiler->intId, compiler->kernel->extrasBuffer[instr->extrasStartIndex]);
     } else {
         // TODO get stride from descriptor
     }
@@ -1590,7 +1603,7 @@ static void emitSrv(
     IlcSpvId strideId = 0;
 
     if (isStructured) {
-        strideId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->extras[0]);
+        strideId = ilcSpvPutConstant(compiler->module, compiler->intId, compiler->kernel->extrasBuffer[instr->extrasStartIndex]);
     } else {
         if (compiler->kernel->shaderType != IL_SHADER_VERTEX) {
             LOGE("unhandled raw SRVs for shader type %u\n", compiler->kernel->shaderType);
@@ -1641,8 +1654,8 @@ static void emitLds(
 {
     bool isStructured = instr->opcode == IL_DCL_STRUCT_LDS;
     uint16_t id = GET_BITS(instr->control, 0, 13);
-    unsigned stride = isStructured ? instr->extras[0] : 1;
-    unsigned length = isStructured ? instr->extras[1] : instr->extras[0];
+    unsigned stride = isStructured ? compiler->kernel->extrasBuffer[instr->extrasStartIndex + 0] : 1;
+    unsigned length = isStructured ? compiler->kernel->extrasBuffer[instr->extrasStartIndex + 1] : compiler->kernel->extrasBuffer[instr->extrasStartIndex + 0];
 
     IlcSpvId lengthId = ilcSpvPutConstant(compiler->module, compiler->uintId, stride * length / 4);
     IlcSpvId arrayId = ilcSpvPutArrayType(compiler->module, compiler->uintId, lengthId);
@@ -1727,7 +1740,7 @@ static void emitFloatOp(
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], componentMask, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[i]], componentMask, compiler->float4Id);
     }
 
     switch (instr->opcode) {
@@ -1938,7 +1951,7 @@ static void emitFloatOp(
         break;
     }
 
-    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
+    storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], resId, compiler->float4Id);
 }
 
 static void emitFloatComparisonOp(
@@ -1949,7 +1962,7 @@ static void emitFloatComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[i]], COMP_MASK_XYZW, compiler->float4Id);
     }
 
     switch (instr->opcode) {
@@ -1979,7 +1992,7 @@ static void emitFloatComparisonOp(
     IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id,
                                      condId, true4Id, false4Id);
 
-    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
+    storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], resId, compiler->float4Id);
 }
 
 static void emitIntegerOp(
@@ -1998,7 +2011,7 @@ static void emitIntegerOp(
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, typeId);
+        srcIds[i] = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[i]], COMP_MASK_XYZW, typeId);
     }
 
     switch (instr->opcode) {
@@ -2113,7 +2126,7 @@ static void emitIntegerOp(
         break;
     }
 
-    storeDestination(compiler, &instr->dsts[0], resId, typeId);
+    storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], resId, typeId);
 }
 
 static void emitIntegerComparisonOp(
@@ -2124,7 +2137,7 @@ static void emitIntegerComparisonOp(
     SpvOp compOp = 0;
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->int4Id);
+        srcIds[i] = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[i]], COMP_MASK_XYZW, compiler->int4Id);
     }
 
     switch (instr->opcode) {
@@ -2164,7 +2177,7 @@ static void emitIntegerComparisonOp(
     IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
                                      trueCompositeId, falseCompositeId);
 
-    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
+    storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], resId, compiler->float4Id);
 }
 
 static void emitCmovLogical(
@@ -2174,7 +2187,7 @@ static void emitCmovLogical(
     IlcSpvId srcIds[MAX_SRC_COUNT] = { 0 };
 
     for (int i = 0; i < instr->srcCount; i++) {
-        srcIds[i] = loadSource(compiler, &instr->srcs[i], COMP_MASK_XYZW, compiler->float4Id);
+        srcIds[i] = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[i]], COMP_MASK_XYZW, compiler->float4Id);
     }
 
     // For each component, select src1 if src0 has any bit set, otherwise select src2
@@ -2188,7 +2201,7 @@ static void emitCmovLogical(
     IlcSpvId resId = ilcSpvPutSelect(compiler->module, compiler->float4Id, condId,
                                      srcIds[1], srcIds[2]);
 
-    storeDestination(compiler, &instr->dsts[0], resId, compiler->float4Id);
+    storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], resId, compiler->float4Id);
 }
 
 static void emitNumThreadPerGroup(
@@ -2196,9 +2209,9 @@ static void emitNumThreadPerGroup(
     const Instruction* instr)
 {
     IlcSpvWord sizes[] = {
-        instr->extraCount >= 1 ? instr->extras[0] : 1,
-        instr->extraCount >= 2 ? instr->extras[1] : 1,
-        instr->extraCount >= 3 ? instr->extras[2] : 1,
+        instr->extraCount >= 1 ? compiler->kernel->extrasBuffer[instr->extrasStartIndex + 0] : 1,
+        instr->extraCount >= 2 ? compiler->kernel->extrasBuffer[instr->extrasStartIndex + 1] : 1,
+        instr->extraCount >= 3 ? compiler->kernel->extrasBuffer[instr->extrasStartIndex + 2] : 1,
     };
     ilcSpvPutExecMode(compiler->module, compiler->entryPointId, SpvExecutionModeLocalSize,
                       3, sizes);
@@ -2225,7 +2238,7 @@ static void emitIf(
         .hasElseBlock = false,
     };
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
     IlcSpvId condId = emitConditionCheck(compiler, srcId, instr->opcode == IL_OP_IF_LOGICALNZ);
     ilcSpvPutSelectionMerge(compiler->module, ifElseBlock.labelEndId);
@@ -2335,7 +2348,7 @@ static void emitSwitch(
     IlcCompiler* compiler,
     const Instruction* instr)
 {
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId xId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
 
     const IlcSwitchCaseBlock switchCaseBlock = {
@@ -2376,7 +2389,7 @@ static void emitCase(
     block->switchCase.cases = realloc(block->switchCase.cases,
                                       block->switchCase.caseCount * sizeof(IlcCase));
     block->switchCase.cases[block->switchCase.caseCount - 1] = (IlcCase) {
-        .literal = instr->extras[0],
+        .literal = compiler->kernel->extrasBuffer[instr->extrasStartIndex],
         .labelId = labelId,
     };
 }
@@ -2446,9 +2459,9 @@ static void emitBreak(
     if (instr->opcode == IL_OP_BREAK) {
         ilcSpvPutBranch(compiler->module, labelBreakId);
     } else if (instr->opcode == IL_OP_BREAKC) {
-        IlcSpvId srcAId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvId srcAId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->float4Id);
         IlcSpvId xAId = emitVectorTrim(compiler, srcAId, compiler->float4Id, COMP_INDEX_X, 1);
-        IlcSpvId srcBId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvId srcBId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->float4Id);
         IlcSpvId xBId = emitVectorTrim(compiler, srcBId, compiler->float4Id, COMP_INDEX_X, 1);
 
         uint8_t relop = GET_BITS(instr->control, 0, 2);
@@ -2481,7 +2494,7 @@ static void emitBreak(
         ilcSpvPutBranchConditional(compiler->module, condId, labelBreakId, labelId);
     } else if (instr->opcode == IL_OP_BREAK_LOGICALZ ||
                instr->opcode == IL_OP_BREAK_LOGICALNZ) {
-        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+        IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
         IlcSpvId condId = emitConditionCheck(compiler, srcId,
                                              instr->opcode == IL_OP_BREAK_LOGICALNZ);
         ilcSpvPutBranchConditional(compiler->module, condId, labelBreakId, labelId);
@@ -2508,7 +2521,7 @@ static void emitContinue(
         ilcSpvPutBranch(compiler->module, block->loop.labelContinueId);
     } else if (instr->opcode == IL_OP_CONTINUE_LOGICALZ ||
                instr->opcode == IL_OP_CONTINUE_LOGICALNZ) {
-        IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+        IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
         IlcSpvId condId = emitConditionCheck(compiler, srcId,
                                              instr->opcode == IL_OP_CONTINUE_LOGICALNZ);
         ilcSpvPutBranchConditional(compiler->module, condId, block->loop.labelContinueId, labelId);
@@ -2526,7 +2539,7 @@ static void emitDiscard(
     IlcSpvId labelBeginId = ilcSpvAllocId(compiler->module);
     IlcSpvId labelEndId = ilcSpvAllocId(compiler->module);
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId condId = emitConditionCheck(compiler, srcId, instr->opcode == IL_OP_DISCARD_LOGICALNZ);
     ilcSpvPutSelectionMerge(compiler->module, labelEndId);
     ilcSpvPutBranchConditional(compiler->module, condId, labelBeginId, labelEndId);
@@ -2583,14 +2596,14 @@ static void emitLoad(
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 7);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
 
     SpvImageOperandsMask operandsMask = 0;
     unsigned operandIdCount = 0;
@@ -2617,7 +2630,7 @@ static void emitResinfo(
     bool ilReturnType = GET_BIT(instr->control, 8);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
@@ -2629,7 +2642,7 @@ static void emitResinfo(
     IlcSpvId vecTypeId = dimCount == 1 ? compiler->intId :
                          ilcSpvPutVectorType(compiler->module, compiler->intId, dimCount);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId lodId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     ilcSpvPutCapability(compiler->module, SpvCapabilityImageQuery);
     IlcSpvId sizesId = ilcSpvPutImageQuerySizeLod(compiler->module, vecTypeId, resourceId, lodId);
@@ -2669,7 +2682,7 @@ static void emitSample(
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const IlcSampler* sampler = findOrCreateSampler(compiler, ilSamplerId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
@@ -2678,7 +2691,7 @@ static void emitSample(
 
     unsigned dimCount = getResourceDimensionCount(resource->ilType);
     IlcSpvWord sampleOp = 0;
-    IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
+    IlcSpvId coordinateId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW,
                                        compiler->float4Id);
     IlcSpvId drefId = 0;
     SpvImageOperandsMask operandsMask = 0;
@@ -2691,18 +2704,18 @@ static void emitSample(
         sampleOp = SpvOpImageSampleImplicitLod;
         operandsMask |= SpvImageOperandsBiasMask;
 
-        IlcSpvId biasId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvId biasId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->float4Id);
         operandIds[0] = emitVectorTrim(compiler, biasId, compiler->float4Id, COMP_INDEX_X, 1);
         operandIdCount++;
     } else if (instr->opcode == IL_OP_SAMPLE_G) {
         sampleOp = SpvOpImageSampleExplicitLod;
         operandsMask |= SpvImageOperandsGradMask;
 
-        IlcSpvId xGradId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW,
+        IlcSpvId xGradId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW,
                                       compiler->float4Id);
         operandIds[0] = emitVectorTrim(compiler, xGradId, compiler->float4Id,
                                        COMP_INDEX_X, dimCount);
-        IlcSpvId yGradId = loadSource(compiler, &instr->srcs[2], COMP_MASK_XYZW,
+        IlcSpvId yGradId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[2]], COMP_MASK_XYZW,
                                       compiler->float4Id);
         operandIds[1] = emitVectorTrim(compiler, yGradId, compiler->float4Id,
                                        COMP_INDEX_X, dimCount);
@@ -2711,12 +2724,12 @@ static void emitSample(
         sampleOp = SpvOpImageSampleExplicitLod;
         operandsMask |= SpvImageOperandsLodMask;
 
-        IlcSpvId lodId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvId lodId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->float4Id);
         operandIds[0] = emitVectorTrim(compiler, lodId, compiler->float4Id, COMP_INDEX_X, 1);
         operandIdCount++;
     } else if (instr->opcode == IL_OP_SAMPLE_C_LZ) {
         sampleOp = SpvOpImageSampleDrefExplicitLod;
-        drefId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        drefId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->float4Id);
         drefId = emitVectorTrim(compiler, drefId, compiler->float4Id, COMP_INDEX_X, 1);
         operandsMask |= SpvImageOperandsLodMask;
 
@@ -2777,7 +2790,7 @@ static void emitFetch4(
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
     const IlcSampler* sampler = findOrCreateSampler(compiler, ilSamplerId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
@@ -2786,7 +2799,7 @@ static void emitFetch4(
 
     unsigned dimCount = getResourceDimensionCount(resource->ilType);
     IlcSpvWord sampleOp = 0;
-    IlcSpvId coordinateId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW,
+    IlcSpvId coordinateId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW,
                                        compiler->float4Id);
     IlcSpvId argId = 0;
     SpvImageOperandsMask operandsMask = 0;
@@ -2799,7 +2812,7 @@ static void emitFetch4(
         argId = ilcSpvPutConstant(compiler->module, compiler->intId, instr->primModifier);
     } else if (instr->opcode == IL_OP_FETCH4_C || instr->opcode == IL_OP_FETCH4_PO_C) {
         sampleOp = SpvOpImageDrefGather;
-        IlcSpvId drefId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+        IlcSpvId drefId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->float4Id);
         argId = emitVectorTrim(compiler, drefId, compiler->float4Id, COMP_INDEX_X, 1);
     } else {
         assert(false);
@@ -2808,7 +2821,7 @@ static void emitFetch4(
     if (instr->opcode == IL_OP_FETCH4_PO || instr->opcode == IL_OP_FETCH4_PO_C) {
         // Programmable offset
         unsigned srcIndex = instr->opcode == IL_OP_FETCH4_PO ? 1 : 2;
-        IlcSpvId offsetsId = loadSource(compiler, &instr->srcs[srcIndex], COMP_MASK_XYZW,
+        IlcSpvId offsetsId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[srcIndex]], COMP_MASK_XYZW,
                                         compiler->int4Id);
         offsetsId = emitVectorTrim(compiler, offsetsId, compiler->int4Id, COMP_INDEX_X, dimCount);
         operandsMask |= SpvImageOperandsOffsetMask;
@@ -2855,15 +2868,15 @@ static void emitLdsLoadVec(
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_LDS, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
         return;
     }
 
-    IlcSpvId index4Id = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId offset4Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId index4Id = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId offset4Id = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId indexId = emitVectorTrim(compiler, index4Id, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId offsetId = emitVectorTrim(compiler, offset4Id, compiler->int4Id, COMP_INDEX_X, 1);
 
@@ -2897,16 +2910,16 @@ static void emitLdsStoreVec(
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_LDS, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
         return;
     }
 
-    IlcSpvId index4Id = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId offset4Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId dataId = loadSource(compiler, &instr->srcs[2], COMP_MASK_XYZW, compiler->uint4Id);
+    IlcSpvId index4Id = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId offset4Id = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId dataId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[2]], COMP_MASK_XYZW, compiler->uint4Id);
     IlcSpvId indexId = emitVectorTrim(compiler, index4Id, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId offsetId = emitVectorTrim(compiler, offset4Id, compiler->int4Id, COMP_INDEX_X, 1);
 
@@ -2941,7 +2954,7 @@ static void emitUavLoad(
     uint8_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
@@ -2951,7 +2964,7 @@ static void emitUavLoad(
     // Vulkan spec: "The Result Type operand of OpImageRead must be a vector of four components."
     IlcSpvId texel4TypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId addressId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId readId = ilcSpvPutImageRead(compiler->module, texel4TypeId, resourceId, addressId);
     storeDestination(compiler, dst, readId, texel4TypeId);
 }
@@ -2963,14 +2976,14 @@ static void emitUavStructLoad(
     uint16_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
     IlcSpvId wordAddrId = emitWordAddress(compiler, indexId, resource->strideId, offsetId);
@@ -3022,9 +3035,9 @@ static void emitUavStore(
     }
 
     IlcSpvId resourceId = ilcSpvPutLoad(compiler->module, resource->typeId, resource->id);
-    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId addressId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId elementTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
-    IlcSpvId elementId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, elementTypeId);
+    IlcSpvId elementId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, elementTypeId);
 
     ilcSpvPutImageWrite(compiler->module, resourceId, addressId, elementId);
 }
@@ -3037,15 +3050,15 @@ static void emitUavRawStructStore(
     uint16_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId dataId = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->float4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId dataId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->float4Id);
     IlcSpvId wordAddrId = 0;
     if (isRaw) {
         IlcSpvId addrId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
@@ -3093,8 +3106,8 @@ static void emitLdsAtomicOp(
         return;
     }
 
-    IlcSpvId src0Id = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
-    IlcSpvId src1Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, compiler->uint4Id);
+    IlcSpvId src0Id = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId src1Id = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, compiler->uint4Id);
     IlcSpvId readId = 0;
     IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassWorkgroup,
                                                   resource->texelTypeId);
@@ -3118,7 +3131,7 @@ static void emitLdsAtomicOp(
 
     if (instr->dstCount > 0) {
         IlcSpvId resId = emitVectorGrow(compiler, readId, resource->texelTypeId, 1);
-        storeDestination(compiler, &instr->dsts[0], resId, compiler->int4Id);
+        storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], resId, compiler->int4Id);
     }
 }
 
@@ -3138,7 +3151,7 @@ static void emitUavAtomicOp(
     IlcSpvId vecTypeId = ilcSpvPutVectorType(compiler->module, resource->texelTypeId, 4);
     IlcSpvId pointerTypeId = ilcSpvPutPointerType(compiler->module, SpvStorageClassImage,
                                                   resource->texelTypeId);
-    IlcSpvId addressId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId addressId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId trimAddressId = emitVectorTrim(compiler, addressId, compiler->int4Id, COMP_INDEX_X,
                                             getResourceDimensionCount(resource->ilType));
     IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
@@ -3150,7 +3163,7 @@ static void emitUavAtomicOp(
     IlcSpvId semanticsId = ilcSpvPutConstant(compiler->module, compiler->intId,
                                              SpvMemorySemanticsAcquireReleaseMask |
                                              SpvMemorySemanticsImageMemoryMask);
-    IlcSpvId src1Id = loadSource(compiler, &instr->srcs[1], COMP_MASK_XYZW, vecTypeId);
+    IlcSpvId src1Id = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[1]], COMP_MASK_XYZW, vecTypeId);
     IlcSpvId valueId = emitVectorTrim(compiler, src1Id, vecTypeId, COMP_INDEX_X, 1);
 
     if (instr->opcode == IL_OP_UAV_ADD || instr->opcode == IL_OP_UAV_READ_ADD) {
@@ -3162,7 +3175,7 @@ static void emitUavAtomicOp(
 
     if (instr->dstCount > 0) {
         IlcSpvId resId = emitVectorGrow(compiler, readId, resource->texelTypeId, 1);
-        storeDestination(compiler, &instr->dsts[0], resId, vecTypeId);
+        storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], resId, vecTypeId);
     }
 }
 
@@ -3173,7 +3186,7 @@ static void emitAppendBufOp(
     uint16_t ilResourceId = GET_BITS(instr->control, 0, 14);
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_ATOMIC_COUNTER, 0);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         // Lazily declare atomic counter buffer
@@ -3269,14 +3282,14 @@ static void emitStructuredSrvLoad(
     }
 
     const IlcResource* resource = findResource(compiler, RES_TYPE_GENERIC, ilResourceId);
-    const Destination* dst = &instr->dsts[0];
+    const Destination* dst = &compiler->kernel->dstBuffer[instr->dsts[0]];
 
     if (resource == NULL) {
         LOGE("resource %d not found\n", ilResourceId);
         return;
     }
 
-    IlcSpvId srcId = loadSource(compiler, &instr->srcs[0], COMP_MASK_XYZW, compiler->int4Id);
+    IlcSpvId srcId = loadSource(compiler, &compiler->kernel->srcBuffer[instr->srcs[0]], COMP_MASK_XYZW, compiler->int4Id);
     IlcSpvId indexId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_X, 1);
     IlcSpvId offsetId = emitVectorTrim(compiler, srcId, compiler->int4Id, COMP_INDEX_Y, 1);
 
@@ -3684,7 +3697,7 @@ static void emitInstr(
         // FIXME seems to be some sort of vertex ID offset (as seen in 3DMark), store 0 for now
         IlcSpvId zeroId = ilcSpvPutConstant(compiler->module, compiler->intId, ZERO_LITERAL);
         IlcSpvId zero4Id = emitVectorGrow(compiler, zeroId, compiler->intId, 1);
-        storeDestination(compiler, &instr->dsts[0], zero4Id, compiler->int4Id);
+        storeDestination(compiler, &compiler->kernel->dstBuffer[instr->dsts[0]], zero4Id, compiler->int4Id);
     }   break;
     default:
         LOGW("unhandled instruction %d\n", instr->opcode);
@@ -3862,6 +3875,7 @@ IlcShader ilcCompileKernel(
         .bool4Id = ilcSpvPutVectorType(&module, boolId, 4),
         .currentStrideIndex = 0,
         .regCount = 0,
+        .regSize = 0,
         .regs = NULL,
         .resourceCount = 0,
         .resources = NULL,

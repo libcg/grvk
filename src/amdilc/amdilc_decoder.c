@@ -1,5 +1,7 @@
 #include "amdilc_internal.h"
 
+#define BUFFER_ALLOC_FACTOR 1.5f
+
 typedef struct {
     uint16_t opcode;
     uint8_t dstCount;
@@ -164,8 +166,73 @@ static bool hasIndexedResourceSampler(
            instr->opcode == IL_OP_FETCH4_PO_C;
 }
 
+static void reserveSources(
+    Kernel* kernel,
+    unsigned srcCount,
+    unsigned* srcIndices)
+{
+    unsigned size = (kernel->srcCount + srcCount) * sizeof(Source);
+
+    /* since this function can be called from decodeSource, indices will be written before possible realloc */
+    for (unsigned i = 0; i < srcCount; i++) {
+        srcIndices[i] = kernel->srcCount++;
+    }
+
+    if (kernel->srcSize < size) {
+        if (kernel->srcSize < sizeof(Source) * 128) {
+            kernel->srcSize = sizeof(Source) * 128;
+        }
+        while (kernel->srcSize < size) {
+            kernel->srcSize *= BUFFER_ALLOC_FACTOR;
+        }
+        kernel->srcBuffer = realloc(kernel->srcBuffer, kernel->srcSize);
+    }
+}
+
+static void reserveDestinations(
+    Kernel* kernel,
+    unsigned dstCount,
+    unsigned* dstIndices)
+{
+    unsigned size = (kernel->dstCount + dstCount) * sizeof(Destination);
+    if (kernel->dstSize < size) {
+        if (kernel->dstSize < sizeof(Destination) * 128) {
+            kernel->dstSize = sizeof(Destination) * 128;
+        }
+        while (kernel->dstSize < size) {
+            kernel->dstSize *= BUFFER_ALLOC_FACTOR;
+        }
+        kernel->dstBuffer = realloc(kernel->dstBuffer, kernel->dstSize);
+    }
+    for (unsigned i = 0; i < dstCount; i++) {
+        dstIndices[i] = kernel->dstCount++;
+    }
+}
+
+static unsigned reserveExtras(
+    Kernel* kernel,
+    unsigned extraCount)
+{
+    unsigned size = (kernel->extraCount + extraCount) * sizeof(Token);
+    unsigned currentExtrasCount = kernel->extraCount;
+    if (kernel->extraSize < size) {
+        if (kernel->extraSize < sizeof(Token) * 128) {
+            kernel->extraSize = sizeof(Token) * 128;
+        }
+        while (kernel->extraSize < size) {
+            kernel->extraSize *= BUFFER_ALLOC_FACTOR;
+        }
+        kernel->extrasBuffer = realloc(kernel->extrasBuffer, kernel->extraSize);
+    }
+
+    kernel->extraCount += extraCount;
+
+    return currentExtrasCount;
+}
+
 static unsigned decodeSource(
-    Source* src,
+    Kernel* kernel,
+    unsigned srcIndex,
     const Token* token);
 
 static unsigned getSourceCount(
@@ -228,6 +295,7 @@ static unsigned decodeIlVersion(
 }
 
 static unsigned decodeDestination(
+    Kernel* kernel,
     Destination* dst,
     const Token* token)
 {
@@ -267,8 +335,9 @@ static unsigned decodeDestination(
 
     if (relativeAddress == IL_ADDR_ABSOLUTE) {
         if (dimension) {
-            dst->absoluteSrc = malloc(sizeof(Source));
-            idx += decodeSource(dst->absoluteSrc, &token[idx]);
+            dst->hasAbsoluteSrc = true;
+            reserveSources(kernel, 1, &dst->absoluteSrc);
+            idx += decodeSource(kernel, dst->absoluteSrc, &token[idx]);
         }
     } else if (relativeAddress == IL_ADDR_RELATIVE) {
         // TODO
@@ -276,15 +345,15 @@ static unsigned decodeDestination(
         assert(!dimension);
     } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
         dst->relativeSrcCount = dimension ? 2 : 1;
-        dst->relativeSrcs = malloc(dst->relativeSrcCount * sizeof(Source));
-        idx += decodeSource(&dst->relativeSrcs[0], &token[idx]);
-        // the immediate after the first addr reg
+        reserveSources(kernel, dst->relativeSrcCount, dst->relativeSrcs);
+        idx += decodeSource(kernel, dst->relativeSrcs[0], &token[idx]);
+        // the immediate follows after the first addr reg
         if (dst->hasImmediate) {
             dst->immediate = token[idx];
             idx++;
         }
         if (dst->relativeSrcCount > 1) {
-            idx += decodeSource(&dst->relativeSrcs[1], &token[idx]);
+            idx += decodeSource(kernel, dst->relativeSrcs[1], &token[idx]);
         }
     } else {
         assert(false);
@@ -303,8 +372,10 @@ static unsigned decodeDestination(
     return idx;
 }
 
+/* this function can cause srcBuffer reallocation, so index is being used as well as a macro to resolve the pointer  */
 static unsigned decodeSource(
-    Source* src,
+    Kernel* kernel,
+    unsigned srcIndex,
     const Token* token)
 {
     unsigned idx = 0;
@@ -313,6 +384,7 @@ static unsigned decodeSource(
     bool dimension;
     bool extended;
 
+#define src (&kernel->srcBuffer[srcIndex])
     memset(src, 0, sizeof(*src));
 
     src->registerNum = GET_BITS(token[idx], 0, 15);
@@ -351,8 +423,8 @@ static unsigned decodeSource(
     if (relativeAddress == IL_ADDR_ABSOLUTE) {
         if (dimension) {
             src->srcCount = 1;
-            src->srcs = malloc(sizeof(Source));
-            idx += decodeSource(&src->srcs[0], &token[idx]);
+            reserveSources(kernel, src->srcCount, src->srcs);
+            idx += decodeSource(kernel, src->srcs[0], &token[idx]);
         }
     } else if (relativeAddress == IL_ADDR_RELATIVE) {
         // TODO
@@ -360,15 +432,15 @@ static unsigned decodeSource(
         assert(!dimension);
     } else if (relativeAddress == IL_ADDR_REG_RELATIVE) {
         src->srcCount = dimension ? 2 : 1;
-        src->srcs = malloc(src->srcCount * sizeof(Source));
-        idx += decodeSource(&src->srcs[0], &token[idx]);
-        // the immediate after the first addr reg
+        reserveSources(kernel, src->srcCount, src->srcs);
+        idx += decodeSource(kernel, src->srcs[0], &token[idx]);
+        // the immediate follows after the first addr reg
         if (src->hasImmediate) {
             src->immediate = token[idx];
             idx++;
         }
         if (src->srcCount > 1) {
-            idx += decodeSource(&src->srcs[1], &token[idx]);
+            idx += decodeSource(kernel, src->srcs[1], &token[idx]);
         }
     } else {
         assert(false);
@@ -383,11 +455,12 @@ static unsigned decodeSource(
         // TODO
         LOGW("unhandled extended register addressing\n");
     }
-
+#undef src
     return idx;
 }
 
 static unsigned decodeInstruction(
+    Kernel* kernel,
     Instruction* instr,
     const Token* token,
     uint16_t prefixControl)
@@ -402,7 +475,7 @@ static unsigned decodeInstruction(
 
     if (instr->opcode == IL_OP_PREFIX) {
         // Pass prefix info to the next instruction
-        return idx + decodeInstruction(instr, &token[idx], instr->control);
+        return idx + decodeInstruction(kernel, instr, &token[idx], instr->control);
     }
 
     if (instr->opcode >= IL_OP_LAST) {
@@ -442,20 +515,21 @@ static unsigned decodeInstruction(
     }
 
     instr->dstCount = info->dstCount;
-    instr->dsts = malloc(sizeof(Destination) * instr->dstCount);
+    reserveDestinations(kernel, instr->dstCount, instr->dsts);
     for (int i = 0; i < instr->dstCount; i++) {
-        idx += decodeDestination(&instr->dsts[i], &token[idx]);
+        idx += decodeDestination(kernel, &kernel->dstBuffer[instr->dsts[i]], &token[idx]);
     }
 
     instr->srcCount = getSourceCount(instr);
-    instr->srcs = malloc(sizeof(Source) * instr->srcCount);
+    reserveSources(kernel, instr->srcCount, instr->srcs);
     for (int i = 0; i < instr->srcCount; i++) {
-        idx += decodeSource(&instr->srcs[i], &token[idx]);
+        idx += decodeSource(kernel, instr->srcs[i], &token[idx]);
     }
 
     instr->extraCount = getExtraCount(instr);
-    instr->extras = malloc(sizeof(Token) * instr->extraCount);
-    memcpy(instr->extras, &token[idx], sizeof(Token) * instr->extraCount);
+    instr->extrasStartIndex = reserveExtras(kernel, instr->extraCount);
+
+    memcpy(&kernel->extrasBuffer[instr->extrasStartIndex], &token[idx], sizeof(Token) * instr->extraCount);
     idx += instr->extraCount;
 
     instr->preciseMask = GET_BITS(prefixControl, 0, 3);
@@ -463,23 +537,32 @@ static unsigned decodeInstruction(
     return idx;
 }
 
-Kernel* ilcDecodeStream(
+void ilcDecodeStream(
+    Kernel* kernel,
     const Token* tokens,
     unsigned count)
 {
-    Kernel* kernel = malloc(sizeof(Kernel));
     unsigned idx = 0;
 
     idx += decodeIlLang(kernel, &tokens[idx]);
     idx += decodeIlVersion(kernel, &tokens[idx]);
 
+    kernel->instrSize = 0;
     kernel->instrCount = 0;
     kernel->instrs = NULL;
+
     while (idx < count) {
         kernel->instrCount++;
-        kernel->instrs = realloc(kernel->instrs, sizeof(Instruction) * kernel->instrCount);
-        idx += decodeInstruction(&kernel->instrs[kernel->instrCount - 1], &tokens[idx], 0);
+        unsigned size = kernel->instrCount * sizeof(Instruction);
+        if (kernel->instrSize < size) {
+            if (kernel->instrSize == 0) {
+                kernel->instrSize = sizeof(Instruction) * MAX(count / 64, 1);
+            }
+            while (kernel->instrSize < size) {
+                kernel->instrSize *= BUFFER_ALLOC_FACTOR;
+            }
+            kernel->instrs = realloc(kernel->instrs, kernel->instrSize);
+        }
+        idx += decodeInstruction(kernel, &kernel->instrs[kernel->instrCount - 1], &tokens[idx], 0);
     }
-
-    return kernel;
 }
