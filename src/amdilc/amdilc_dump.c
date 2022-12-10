@@ -278,6 +278,7 @@ static const char* mIlRelopNames[6] = {
 
 static void dumpSource(
     FILE* file,
+    const Kernel* kernel,
     const Source* src);
 
 static const char* getComponentName(
@@ -309,6 +310,7 @@ static void dumpGlobalFlags(
 
 static void dumpDestination(
     FILE* file,
+    const Kernel* kernel,
     const Destination* dst)
 {
     fprintf(file, "%s%s %s",
@@ -324,7 +326,7 @@ static void dumpDestination(
 
     if (dst->registerType == IL_REGTYPE_ITEMP ||
         dst->registerType == IL_REGTYPE_OUTPUT) {
-        assert(dst->absoluteSrc == NULL);
+        assert(!dst->hasAbsoluteSrc);
         assert(dst->relativeSrcCount <= 1);
 
         bool indexed = dst->hasImmediate || dst->relativeSrcCount > 0;
@@ -333,7 +335,7 @@ static void dumpDestination(
             fprintf(file, "[");
         }
         if (dst->relativeSrcCount > 0) {
-            dumpSource(file, &dst->relativeSrcs[0]);
+            dumpSource(file, kernel, &kernel->srcBuffer[dst->relativeSrcs[0]]);
 
             if (dst->hasImmediate) {
                 fprintf(file, "+");
@@ -347,12 +349,12 @@ static void dumpDestination(
         }
     } else if (dst->registerType == IL_REGTYPE_INPUTCP) {
         // Attribute number
-        fprintf(file, "[%u]", dst->absoluteSrc->registerNum);
+        fprintf(file, "[%u]", kernel->srcBuffer[dst->absoluteSrc].registerNum);
     } else {
         if (dst->hasImmediate) {
             LOGW("unhandled immediate value\n");
         }
-        if (dst->absoluteSrc != NULL) {
+        if (dst->hasAbsoluteSrc) {
             LOGW("unhandled absolute source\n");
         }
         if (dst->relativeSrcCount > 0) {
@@ -374,6 +376,7 @@ static void dumpDestination(
 
 static void dumpSource(
     FILE* file,
+    const Kernel* kernel,
     const Source* src)
 {
     fprintf(file, "%s", mIlRegTypeNames[src->registerType]);
@@ -405,7 +408,7 @@ static void dumpSource(
             fprintf(file, "[");
         }
         if (srcCount > 0) {
-            dumpSource(file, &src->srcs[0]);
+            dumpSource(file, kernel, &kernel->srcBuffer[src->srcs[0]]);
 
             if (src->hasImmediate) {
                 fprintf(file, "+");
@@ -428,7 +431,7 @@ static void dumpSource(
 
     if (src->registerType == IL_REGTYPE_INPUTCP) {
         // Last source is reserved for the attribute number
-        fprintf(file, "[%u]", src->srcs[srcCount].registerNum);
+        fprintf(file, "[%u]", kernel->srcBuffer[src->srcs[srcCount]].registerNum);
     }
 
     if (src->swizzle[0] != IL_COMPSEL_X_R ||
@@ -470,6 +473,7 @@ static void dumpSource(
 
 static void dumpInstruction(
     FILE* file,
+    const Kernel* kernel,
     const Instruction* instr,
     int* indentLevel)
 {
@@ -572,7 +576,7 @@ static void dumpInstruction(
         fprintf(file, "break_logicalnz");
         break;
     case IL_OP_CASE:
-        fprintf(file, "case %d", instr->extras[0]);
+        fprintf(file, "case %d", kernel->extrasBuffer[instr->extrasStartIndex]);
         (*indentLevel)++;
         break;
     case IL_OP_CONTINUE_LOGICALZ:
@@ -635,10 +639,10 @@ static void dumpInstruction(
                 GET_BITS(instr->control, 0, 7),
                 mIlPixTexUsageNames[GET_BITS(instr->control, 8, 11)],
                 GET_BIT(instr->control, 31) ? ",unnorm" : "",
-                mIlElementFormatNames[GET_BITS(instr->extras[0], 20, 22)],
-                mIlElementFormatNames[GET_BITS(instr->extras[0], 23, 25)],
-                mIlElementFormatNames[GET_BITS(instr->extras[0], 26, 28)],
-                mIlElementFormatNames[GET_BITS(instr->extras[0], 29, 31)]);
+                mIlElementFormatNames[GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 20, 22)],
+                mIlElementFormatNames[GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 23, 25)],
+                mIlElementFormatNames[GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 26, 28)],
+                mIlElementFormatNames[GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 29, 31)]);
         break;
     case IL_OP_DISCARD_LOGICALNZ:
         fprintf(file, "discard_logicalnz");
@@ -832,7 +836,7 @@ static void dumpInstruction(
     case IL_OP_DCL_NUM_THREAD_PER_GROUP:
         fprintf(file, "dcl_num_thread_per_group");
         for (int i = 0; i < instr->extraCount; i++) {
-            fprintf(file, "%s %u", i != 0 ? "," : "", instr->extras[i]);
+            fprintf(file, "%s %u", i != 0 ? "," : "", kernel->extrasBuffer[instr->extrasStartIndex + i]);
         }
         break;
     case IL_OP_FENCE:
@@ -889,7 +893,7 @@ static void dumpInstruction(
         break;
     case IL_OP_DCL_STRUCT_SRV:
         fprintf(file, "dcl_struct_srv_id(%u) %u",
-                GET_BITS(instr->control, 0, 13), instr->extras[0]);
+                GET_BITS(instr->control, 0, 13), kernel->extrasBuffer[instr->extrasStartIndex]);
         break;
     case IL_OP_SRV_STRUCT_LOAD:
         if (GET_BIT(instr->control, 12)) {
@@ -907,11 +911,11 @@ static void dumpInstruction(
         break;
     case IL_DCL_LDS:
         fprintf(file, "dcl_lds_id(%u) %u",
-                GET_BITS(instr->control, 0, 13), instr->extras[0]);
+                GET_BITS(instr->control, 0, 13), kernel->extrasBuffer[instr->extrasStartIndex]);
         break;
     case IL_DCL_STRUCT_LDS:
         fprintf(file, "dcl_struct_lds_id(%u) %u, %u",
-                GET_BITS(instr->control, 0, 13), instr->extras[0], instr->extras[1]);
+                GET_BITS(instr->control, 0, 13), kernel->extrasBuffer[instr->extrasStartIndex + 0], kernel->extrasBuffer[instr->extrasStartIndex + 1]);
         break;
     case IL_OP_LDS_READ_ADD:
         fprintf(file, "lds_read_add_resource(%u)", GET_BITS(instr->control, 0, 13));
@@ -923,10 +927,10 @@ static void dumpInstruction(
         fprintf(file, "ubit_extract");
         break;
     case IL_DCL_NUM_ICP:
-        fprintf(file, "dcl_num_icp%u", instr->extras[0]);
+        fprintf(file, "dcl_num_icp%u", kernel->extrasBuffer[instr->extrasStartIndex]);
         break;
     case IL_DCL_NUM_OCP:
-        fprintf(file, "dcl_num_ocp%u", instr->extras[0]);
+        fprintf(file, "dcl_num_ocp%u", kernel->extrasBuffer[instr->extrasStartIndex]);
         break;
     case IL_OP_HS_FORK_PHASE:
         fprintf(file, "hs_fork_phase %u", instr->control);
@@ -947,7 +951,7 @@ static void dumpInstruction(
         fprintf(file, "dcl_ts_output_primitive_%s", mIlTsOutputPrimitiveNames[instr->control]);
         break;
     case IL_DCL_MAX_TESSFACTOR:
-        fprintf(file, "dcl_max_tessfactor %g", *((float*)&instr->extras[0]));
+        fprintf(file, "dcl_max_tessfactor %g", *((float*)&kernel->extrasBuffer[instr->extrasStartIndex]));
         break;
     case IL_OP_I_FIRSTBIT:
         fprintf(file, "ffb(%s)", mIlFfbOptionNames[instr->control]);
@@ -990,21 +994,21 @@ static void dumpInstruction(
         break;
     case IL_OP_DCL_TYPED_UAV:
         // FIXME guessed from IL_OP_DCL_UAV
-        if (GET_BITS(instr->extras[0], 8, 31)) {
-            LOGW("unhandled dcl_typed_uav bits 0x%X\n", instr->extras[0]);
+        if (GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 8, 31)) {
+            LOGW("unhandled dcl_typed_uav bits 0x%X\n", kernel->extrasBuffer[instr->extrasStartIndex]);
         }
         fprintf(file, "dcl_typed_uav_id(%u)_type(%s)_fmtx(%s)",
                 GET_BITS(instr->control, 0, 13),
-                mIlPixTexUsageNames[GET_BITS(instr->extras[0], 4, 7)],
-                mIlElementFormatNames[GET_BITS(instr->extras[0], 0, 3)]);
+                mIlPixTexUsageNames[GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 4, 7)],
+                mIlElementFormatNames[GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 0, 3)]);
         break;
     case IL_OP_DCL_TYPELESS_UAV:
         // FIXME guessed
-        if (GET_BITS(instr->extras[0], 8, 31) || instr->extras[1]) {
-            LOGW("unhandled dcl_typed_uav bits 0x%X 0x%X\n", instr->extras[0], instr->extras[1]);
+        if (GET_BITS(kernel->extrasBuffer[instr->extrasStartIndex], 8, 31) || kernel->extrasBuffer[instr->extrasStartIndex + 1]) {
+            LOGW("unhandled dcl_typed_uav bits 0x%X 0x%X\n", kernel->extrasBuffer[instr->extrasStartIndex], kernel->extrasBuffer[instr->extrasStartIndex + 1]);
         }
         fprintf(file, "dcl_typeless_uav_id(%u)_stride(%u)_length(?)_access(?)",
-                GET_BITS(instr->control, 0, 13), instr->extras[0]);
+                GET_BITS(instr->control, 0, 13), kernel->extrasBuffer[instr->extrasStartIndex]);
         break;
     case IL_UNK_660:
         fprintf(file, "unk_%u", instr->opcode);
@@ -1035,7 +1039,7 @@ static void dumpInstruction(
 
     assert(instr->dstCount <= 1);
     for (int i = 0; i < instr->dstCount; i++) {
-        dumpDestination(file, &instr->dsts[i]);
+        dumpDestination(file, kernel, &kernel->dstBuffer[instr->dsts[i]]);
     }
 
     for (int i = 0; i < instr->srcCount; i++) {
@@ -1044,12 +1048,12 @@ static void dumpInstruction(
         }
 
         fprintf(file, " ");
-        dumpSource(file, &instr->srcs[i]);
+        dumpSource(file, kernel, &kernel->srcBuffer[instr->srcs[i]]);
     }
 
     if (instr->opcode == IL_DCL_LITERAL) {
         for (int i = 0; i < instr->extraCount; i++) {
-            fprintf(file, ", 0x%08X", instr->extras[i]);
+            fprintf(file, ", 0x%08X", kernel->extrasBuffer[instr->extrasStartIndex + i]);
         }
     } else if (instr->opcode == IL_DCL_GLOBAL_FLAGS) {
         dumpGlobalFlags(file, instr->control);
@@ -1071,6 +1075,6 @@ void ilcDumpKernel(
             kernel->multipass ? "_mp" : "", kernel->realtime ? "_rt" : "");
 
     for (int i = 0; i < kernel->instrCount; i++) {
-        dumpInstruction(file, &kernel->instrs[i], &indentLevel);
+        dumpInstruction(file, kernel, &kernel->instrs[i], &indentLevel);
     }
 }
