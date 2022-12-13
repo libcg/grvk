@@ -559,6 +559,23 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
+    AcquireSRWLockShared(&grPipeline->pipelineSlotsLock);
+    // Assume that the attachment formats never change to reduce pipeline lookup overhead
+    for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
+        const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
+
+        if (grColorBlendState == slot->grColorBlendState &&
+            grMsaaState == slot->grMsaaState &&
+            grRasterState == slot->grRasterState) {
+            vkPipeline = slot->pipeline;
+            break;
+        }
+    }
+    ReleaseSRWLockShared(&grPipeline->pipelineSlotsLock);
+    if (vkPipeline != VK_NULL_HANDLE) {
+        return vkPipeline;
+    }
+
     AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
 
     // Assume that the depth-stencil target format never changes to reduce pipeline lookup overhead
