@@ -225,6 +225,14 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkGetDescriptorSetLayoutBindingOffsetEXT);
     VULKAN_FN(vkGetDescriptorSetLayoutSizeEXT);
 #endif
+
+#ifdef VK_EXT_extended_dynamic_state3
+    VULKAN_FN(vkCmdSetPolygonModeEXT);
+    VULKAN_FN(vkCmdSetColorBlendEnableEXT);
+    VULKAN_FN(vkCmdSetColorBlendEquationEXT);
+    VULKAN_FN(vkCmdSetSampleMaskEXT);
+    VULKAN_FN(vkCmdSetRasterizationSamplesEXT);
+#endif
 } VULKAN_DEVICE;
 
 extern VULKAN_LIBRARY vkl;
