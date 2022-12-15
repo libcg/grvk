@@ -512,9 +512,11 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         VKD.vkCmdSetFrontFaceEXT(grCmdBuffer->commandBuffer, rasterState->frontFace);
         VKD.vkCmdSetDepthBias(grCmdBuffer->commandBuffer, rasterState->depthBiasConstantFactor,
                               rasterState->depthBiasClamp, rasterState->depthBiasSlopeFactor);
-
-        if (grCmdBuffer->grRasterState == NULL ||
-            rasterState->polygonMode != grCmdBuffer->grRasterState->polygonMode) {
+        if (grDevice->dynamicPolygonModeSupported) {
+            VKD.vkCmdSetPolygonModeEXT(grCmdBuffer->commandBuffer, rasterState->polygonMode);
+        }
+        if ((grCmdBuffer->grRasterState == NULL ||
+             rasterState->polygonMode != grCmdBuffer->grRasterState->polygonMode) && !grDevice->dynamicPolygonModeSupported) {
             bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
         }
 
@@ -570,10 +572,18 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
         }
 
         VKD.vkCmdSetBlendConstants(grCmdBuffer->commandBuffer, colorBlendState->blendConstants);
-
-        if (grCmdBuffer->grColorBlendState == NULL ||
-            memcmp(colorBlendState->states, grCmdBuffer->grColorBlendState->states,
-                   sizeof(colorBlendState->states)) != 0) {
+        if (grDevice->dynamicBlendEnableSupported) {
+            VKD.vkCmdSetColorBlendEnableEXT(grCmdBuffer->commandBuffer, 0, GR_MAX_COLOR_TARGETS, colorBlendState->blendEnableStates);
+        }
+        if (grDevice->dynamicBlendEquationSupported) {
+            VKD.vkCmdSetColorBlendEquationEXT(grCmdBuffer->commandBuffer, 0, GR_MAX_COLOR_TARGETS, colorBlendState->equationStates);
+        }
+        if (!(grDevice->dynamicBlendEnableSupported && grDevice->dynamicBlendEquationSupported) &&
+            (grCmdBuffer->grColorBlendState == NULL ||
+             (!grDevice->dynamicBlendEquationSupported && memcmp(colorBlendState->equationStates, grCmdBuffer->grColorBlendState->equationStates,
+                                                                 sizeof(colorBlendState->equationStates)) != 0) ||
+             (!grDevice->dynamicBlendEnableSupported && memcmp(colorBlendState->blendEnableStates, grCmdBuffer->grColorBlendState->blendEnableStates,
+                                                              sizeof(colorBlendState->blendEnableStates)) != 0))) {
             bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
         }
 
@@ -585,9 +595,16 @@ GR_VOID GR_STDCALL grCmdBindStateObject(
             break;
         }
 
-        if (grCmdBuffer->grMsaaState == NULL ||
-            msaaState->sampleCountFlags != grCmdBuffer->grMsaaState->sampleCountFlags ||
-            msaaState->sampleMask != grCmdBuffer->grMsaaState->sampleMask) {
+        if (grDevice->dynamicSampleMaskSupported) {
+            VKD.vkCmdSetSampleMaskEXT(grCmdBuffer->commandBuffer, msaaState->sampleCountFlags, &msaaState->sampleMask);
+        }
+        if (grDevice->dynamicRasterizationSamplesSupported) {
+            VKD.vkCmdSetRasterizationSamplesEXT(grCmdBuffer->commandBuffer, msaaState->sampleCountFlags);
+        }
+        if (!(grDevice->dynamicSampleMaskSupported && grDevice->dynamicRasterizationSamplesSupported) &&
+            (grCmdBuffer->grMsaaState == NULL ||
+             (!grDevice->dynamicSampleMaskSupported && msaaState->sampleCountFlags != grCmdBuffer->grMsaaState->sampleCountFlags) ||
+             (!grDevice->dynamicRasterizationSamplesSupported && msaaState->sampleMask != grCmdBuffer->grMsaaState->sampleMask))) {
             bindPoint->dirtyFlags |= FLAG_DIRTY_PIPELINE;
         }
 

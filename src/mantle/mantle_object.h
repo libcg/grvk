@@ -203,7 +203,8 @@ typedef struct _GrCmdBuffer {
 
 typedef struct _GrColorBlendStateObject {
     GrObject grObj;
-    VkPipelineColorBlendAttachmentState states[GR_MAX_COLOR_TARGETS];
+    VkBool32 blendEnableStates[GR_MAX_COLOR_TARGETS];
+    VkColorBlendEquationEXT equationStates[GR_MAX_COLOR_TARGETS];
     float blendConstants[4];
 } GrColorBlendStateObject;
 
@@ -289,6 +290,12 @@ typedef struct _GrDevice {
     uint32_t maxMutableUniformDescriptorSize;
     uint32_t maxMutableStorageDescriptorSize;
     uint32_t maxMutableDescriptorSize;
+    bool dynamicBlendEnableSupported;
+    bool dynamicBlendEquationSupported;
+    bool dynamicSampleMaskSupported;
+    bool dynamicRasterizationSamplesSupported;
+    bool dynamicPolygonModeSupported;
+    bool singleSlotGraphicsPipelineSupported;
 } GrDevice;
 
 typedef struct _GrEvent {

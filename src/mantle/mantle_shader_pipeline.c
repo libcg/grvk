@@ -418,7 +418,7 @@ static VkPipeline getVkPipeline(
         .flags = 0,
         .depthClampEnable = VK_TRUE,
         .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = grRasterState->polygonMode,
+        .polygonMode = grDevice->dynamicPolygonModeSupported ? 0 : grRasterState->polygonMode, // Optional dynamic state
         .cullMode = 0, // Dynamic state
         .frontFace = 0, // Dynamic state
         .depthBiasEnable = VK_TRUE,
@@ -432,10 +432,10 @@ static VkPipeline getVkPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .rasterizationSamples = grMsaaState->sampleCountFlags,
+        .rasterizationSamples = grDevice->dynamicRasterizationSamplesSupported ? VK_SAMPLE_COUNT_1_BIT : grMsaaState->sampleCountFlags,
         .sampleShadingEnable = VK_FALSE,
         .minSampleShading = 0.f,
-        .pSampleMask = &grMsaaState->sampleMask,
+        .pSampleMask = grDevice->dynamicSampleMaskSupported ? NULL : &grMsaaState->sampleMask,
         .alphaToCoverageEnable = createInfo->alphaToCoverageEnable,
         .alphaToOneEnable = VK_FALSE,
     };
@@ -458,8 +458,18 @@ static VkPipeline getVkPipeline(
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
 
     for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
-        attachments[i] = grColorBlendState->states[i];
-        attachments[i].colorWriteMask = createInfo->colorWriteMasks[i];
+        const VkColorBlendEquationEXT* blendState = &grColorBlendState->equationStates[i];
+
+        attachments[i] = (VkPipelineColorBlendAttachmentState) {
+            .blendEnable = grColorBlendState->blendEnableStates[i],
+            .srcColorBlendFactor = blendState->srcColorBlendFactor,
+            .dstColorBlendFactor = blendState->dstColorBlendFactor,
+            .colorBlendOp = blendState->colorBlendOp,
+            .srcAlphaBlendFactor = blendState->srcAlphaBlendFactor,
+            .dstAlphaBlendFactor = blendState->dstAlphaBlendFactor,
+            .alphaBlendOp = blendState->alphaBlendOp,
+            .colorWriteMask = createInfo->colorWriteMasks[i],
+        };
     }
 
     const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
@@ -473,7 +483,7 @@ static VkPipeline getVkPipeline(
         .blendConstants = { 0.f }, // Dynamic state
     };
 
-    const VkDynamicState dynamicStates[] = {
+    VkDynamicState dynamicStates[] = {
         VK_DYNAMIC_STATE_DEPTH_BIAS,
         VK_DYNAMIC_STATE_BLEND_CONSTANTS,
         VK_DYNAMIC_STATE_DEPTH_BOUNDS,
@@ -490,13 +500,29 @@ static VkPipeline getVkPipeline(
         VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT,
         VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT,
         VK_DYNAMIC_STATE_STENCIL_OP_EXT,
+        0, 0, 0, 0, 0
     };
-
+    unsigned dynamicStateCount = COUNT_OF(dynamicStates) - 5;
+    if (grDevice->dynamicBlendEnableSupported) {
+        dynamicStates[dynamicStateCount++] = VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT;
+    }
+    if (grDevice->dynamicBlendEquationSupported) {
+        dynamicStates[dynamicStateCount++] = VK_DYNAMIC_STATE_COLOR_BLEND_EQUATION_EXT;
+    }
+    if (grDevice->dynamicSampleMaskSupported) {
+        dynamicStates[dynamicStateCount++] = VK_DYNAMIC_STATE_SAMPLE_MASK_EXT;
+    }
+    if (grDevice->dynamicRasterizationSamplesSupported) {
+        dynamicStates[dynamicStateCount++] = VK_DYNAMIC_STATE_RASTERIZATION_SAMPLES_EXT;
+    }
+    if (grDevice->dynamicPolygonModeSupported) {
+        dynamicStates[dynamicStateCount++] = VK_DYNAMIC_STATE_POLYGON_MODE_EXT;
+    }
     const VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .dynamicStateCount = COUNT_OF(dynamicStates),
+        .dynamicStateCount = dynamicStateCount,
         .pDynamicStates = dynamicStates,
     };
 
@@ -557,6 +583,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     VkFormat depthFormat,
     VkFormat stencilFormat)
 {
+    GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
     AcquireSRWLockShared(&grPipeline->pipelineSlotsLock);
@@ -564,9 +591,9 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
-        if (grColorBlendState == slot->grColorBlendState &&
-            grMsaaState == slot->grMsaaState &&
-            grRasterState == slot->grRasterState) {
+        if (((grDevice->dynamicBlendEnableSupported && grDevice->dynamicBlendEquationSupported) || grColorBlendState == slot->grColorBlendState) &&
+            ((grDevice->dynamicSampleMaskSupported && grDevice->dynamicRasterizationSamplesSupported) || grMsaaState == slot->grMsaaState) &&
+            (grDevice->dynamicPolygonModeSupported || grRasterState == slot->grRasterState)) {
             vkPipeline = slot->pipeline;
             break;
         }
@@ -582,9 +609,9 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
-        if (grColorBlendState == slot->grColorBlendState &&
-            grMsaaState == slot->grMsaaState &&
-            grRasterState == slot->grRasterState) {
+        if (((grDevice->dynamicBlendEnableSupported && grDevice->dynamicBlendEquationSupported) || grColorBlendState == slot->grColorBlendState) &&
+            ((grDevice->dynamicSampleMaskSupported && grDevice->dynamicRasterizationSamplesSupported) || grMsaaState == slot->grMsaaState) &&
+            (grDevice->dynamicPolygonModeSupported || grRasterState == slot->grRasterState)) {
             vkPipeline = slot->pipeline;
             break;
         }

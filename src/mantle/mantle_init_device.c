@@ -769,11 +769,15 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .pNext = NULL,
     };
 
-    VkPhysicalDeviceFeatures2 queriedDeviceFeatures = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+    VkPhysicalDeviceExtendedDynamicState3FeaturesEXT queriedDynamicState3Features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT,
         .pNext = &queriedDescriptorBufferFeatures,
     };
 
+    VkPhysicalDeviceFeatures2 queriedDeviceFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &queriedDynamicState3Features,
+    };
     vki.vkGetPhysicalDeviceFeatures2(grPhysicalGpu->physicalDevice, &queriedDeviceFeatures);
 
     VkPhysicalDeviceCustomBorderColorFeaturesEXT customBorderColor = {
@@ -813,9 +817,18 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .descriptorBuffer = VK_TRUE,
         .descriptorBufferImageLayoutIgnored = queriedDescriptorBufferFeatures.descriptorBufferImageLayoutIgnored,
     };
+    VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3Features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT,
+        .pNext = &descriptorBufferFeatures,
+        .extendedDynamicState3ColorBlendEnable = queriedDynamicState3Features.extendedDynamicState3ColorBlendEnable,
+        .extendedDynamicState3ColorBlendEquation = queriedDynamicState3Features.extendedDynamicState3ColorBlendEquation,
+        .extendedDynamicState3SampleMask = queriedDynamicState3Features.extendedDynamicState3SampleMask,
+        .extendedDynamicState3RasterizationSamples = queriedDynamicState3Features.extendedDynamicState3RasterizationSamples,
+        .extendedDynamicState3PolygonMode = queriedDynamicState3Features.extendedDynamicState3PolygonMode,
+    };
     VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = &descriptorBufferFeatures,
+        .pNext = &dynamicState3Features,
         .runtimeDescriptorArray = VK_TRUE,
         .bufferDeviceAddress = VK_TRUE,
         .descriptorBindingVariableDescriptorCount = VK_TRUE,
@@ -882,16 +895,18 @@ GR_RESULT GR_STDCALL grCreateDevice(
         VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
         VK_VALVE_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME,
         NULL,
+        NULL,
     };
 
-    unsigned deviceExtensionCount = COUNT_OF(deviceExtensions) - 1;
+    unsigned deviceExtensionCount = COUNT_OF(deviceExtensions) - 2;
     bool descriptorBufferSupported = false;
 
     for (unsigned i = 0; i < supportedExtensionCount; i++) {
         if (strcmp(extensionProperties[i].extensionName, VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME) == 0) {
             descriptorBufferSupported = true; // TODO: also check the extension properties
             deviceExtensions[deviceExtensionCount++] = VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME;
-            break;
+        } else if (strcmp(extensionProperties[i].extensionName, VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME) == 0) {
+            deviceExtensions[deviceExtensionCount++] = VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME;
         }
     }
 
@@ -977,6 +992,16 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .maxMutableUniformDescriptorSize = 0, // Initialized below
         .maxMutableStorageDescriptorSize = 0, // Initialized below
         .maxMutableDescriptorSize = 0, // Initialized below
+        .dynamicBlendEnableSupported = queriedDynamicState3Features.extendedDynamicState3ColorBlendEnable,
+        .dynamicBlendEquationSupported = queriedDynamicState3Features.extendedDynamicState3ColorBlendEquation,
+        .dynamicSampleMaskSupported = queriedDynamicState3Features.extendedDynamicState3SampleMask,
+        .dynamicRasterizationSamplesSupported = queriedDynamicState3Features.extendedDynamicState3RasterizationSamples,
+        .dynamicPolygonModeSupported = queriedDynamicState3Features.extendedDynamicState3PolygonMode,
+        .singleSlotGraphicsPipelineSupported = queriedDynamicState3Features.extendedDynamicState3ColorBlendEnable &&
+                                               queriedDynamicState3Features.extendedDynamicState3ColorBlendEquation &&
+                                               queriedDynamicState3Features.extendedDynamicState3SampleMask &&
+                                               queriedDynamicState3Features.extendedDynamicState3RasterizationSamples &&
+                                               queriedDynamicState3Features.extendedDynamicState3PolygonMode,
     };
 
     if (grDevice->descriptorBufferSupported) {
