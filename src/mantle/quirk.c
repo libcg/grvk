@@ -19,6 +19,8 @@ void quirkInit(
                   QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS |
                   QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION |
                   QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED;
+    } else if (!strcmp(appInfo->pAppName, "Battlefield")) {
+        mQuirks = QUIRK_GRAPHICS_PIPELINE_FORMAT_MISMATCH;
     } else if (!strcmp(appInfo->pEngineName, "CivTech")) {
         mQuirks = QUIRK_NON_ZERO_MEM_REQ |
                   QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH |

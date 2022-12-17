@@ -34,6 +34,9 @@ typedef enum {
 
     // Star Swarm also doesn't care about external sync
     QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED = 1 << 9,
+
+    // Battlefield 4 doesn't pass correct depth stencil format when creating the graphics pipeline
+    QUIRK_GRAPHICS_PIPELINE_FORMAT_MISMATCH = 1 << 10,
 } QUIRK_FLAGS;
 
 void quirkInit(
