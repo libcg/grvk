@@ -656,8 +656,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
     vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
                                                  &vkQueueFamilyPropertyCount, NULL);
 
-    VkQueueFamilyProperties* queueFamilyProperties =
-        malloc(sizeof(VkQueueFamilyProperties) * vkQueueFamilyPropertyCount);
+    STACK_ARRAY(VkQueueFamilyProperties, queueFamilyProperties, 8, vkQueueFamilyPropertyCount);
     vki.vkGetPhysicalDeviceQueueFamilyProperties(grPhysicalGpu->physicalDevice,
                                                  &vkQueueFamilyPropertyCount,
                                                  queueFamilyProperties);
@@ -679,6 +678,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         }
     }
 
+    STACK_ARRAY_FINISH(queueFamilyProperties);
     // Figure out which Vulkan queues of each family will be used
     // NOTE: we assume no more than one queue is requested per type
     for (unsigned i = 0; i < pCreateInfo->queueRecordCount; i++) {
