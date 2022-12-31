@@ -409,6 +409,7 @@ typedef struct _GrQueue {
     VkQueue queue;
     SRWLOCK queueLock;
     uint32_t queueFamilyIndex;
+    unsigned globalMemRefSize;
     unsigned globalMemRefCount;
     GR_MEMORY_REF* globalMemRefs;
     VkCommandPool commandPool;

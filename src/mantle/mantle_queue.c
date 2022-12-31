@@ -161,6 +161,7 @@ GrQueue* grQueueCreate(
         .queueLock = SRWLOCK_INIT,
         .queueFamilyIndex = queueFamilyIndex,
         .globalMemRefCount = 0,
+        .globalMemRefSize = 0,
         .globalMemRefs = NULL,
         .commandPool = vkCommandPool,
         .commandBuffers = { 0 }, // Initialized below
@@ -375,7 +376,16 @@ GR_RESULT GR_STDCALL grQueueSetGlobalMemReferences(
     }
 
     grQueue->globalMemRefCount = memRefCount;
-    grQueue->globalMemRefs = (GR_MEMORY_REF*)pMemRefs;
+    unsigned expectedSize = grQueue->globalMemRefCount * sizeof(GR_MEMORY_REF);
+    if (expectedSize > grQueue->globalMemRefSize || expectedSize <= grQueue->globalMemRefSize / 2) {
+        unsigned size = nextPowerOfTwo(grQueue->globalMemRefCount * sizeof(GR_MEMORY_REF));
+        if (size != grQueue->globalMemRefSize) {
+            grQueue->globalMemRefSize = size;
+            grQueue->globalMemRefs = realloc(grQueue->globalMemRefs, grQueue->globalMemRefSize);
+        }
+    }
+
+    memcpy(grQueue->globalMemRefs, pMemRefs, sizeof(GR_MEMORY_REF) * memRefCount);
 
     return GR_SUCCESS;
 }

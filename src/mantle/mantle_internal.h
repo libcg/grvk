@@ -188,4 +188,15 @@ void grQueueRemoveInitialImage(
 void grWsiDestroyImage(
     GrImage* grImage);
 
+static inline unsigned nextPowerOfTwo(unsigned value) {
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+    return value;
+}
+
 #endif // MANTLE_INTERNAL_H_
