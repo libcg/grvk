@@ -504,7 +504,7 @@ GR_RESULT GR_STDCALL grWsiWinCreatePresentableImage(
         .samples = 1,
         .tiling = GR_OPTIMAL_TILING,
         .usage = pCreateInfo->usage,
-        .flags = 0,
+        .flags = GR_IMAGE_CREATE_VIEW_FORMAT_CHANGE,
     };
 
     res = grCreateImage(device, &grImageCreateInfo, pImage);
