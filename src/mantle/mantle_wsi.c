@@ -23,6 +23,7 @@ typedef struct {
 static VkSurfaceKHR mSurface = VK_NULL_HANDLE;
 static VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 static bool mDirtySwapchain = true;
+static unsigned mPresentInterval = 0;
 static unsigned mPresentableImageCount = 0;
 static PresentableImage* mPresentableImages = NULL;
 static SRWLOCK mPresentableImagesLock = SRWLOCK_INIT;
@@ -197,7 +198,8 @@ static void recordCopyCommandBuffer(
 static void recreateSwapchain(
     GrDevice* grDevice,
     HWND hwnd,
-    unsigned queueFamilyIndex)
+    unsigned queueFamilyIndex,
+    VkPresentModeKHR presentMode)
 {
     VkResult res;
 
@@ -229,7 +231,7 @@ static void recreateSwapchain(
         .pQueueFamilyIndices = NULL,
         .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
+        .presentMode = presentMode,
         .clipped = VK_TRUE,
         .oldSwapchain = mSwapchain,
     };
@@ -574,9 +576,13 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
     GrDevice* grDevice = GET_OBJ_DEVICE(grQueue);
     GrImage* srcGrImage = (GrImage*)pPresentInfo->srcImage;
 
-    if (mDirtySwapchain) {
-        recreateSwapchain(grDevice, pPresentInfo->hWndDest, grQueue->queueFamilyIndex);
+    // TODO handle presentInterval > 1 properly
+    if (mDirtySwapchain || pPresentInfo->presentInterval != mPresentInterval) {
+        recreateSwapchain(grDevice, pPresentInfo->hWndDest, grQueue->queueFamilyIndex,
+                          pPresentInfo->presentInterval == 0 ? VK_PRESENT_MODE_IMMEDIATE_KHR
+                                                             : VK_PRESENT_MODE_FIFO_KHR);
         mDirtySwapchain = false;
+        mPresentInterval = pPresentInfo->presentInterval;
     }
 
     uint32_t vkImageIndex = 0;
