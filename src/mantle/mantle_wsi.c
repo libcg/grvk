@@ -62,6 +62,27 @@ static int __stdcall getDisplaysProc(
     return TRUE;
 }
 
+static VkSemaphore getVkSemaphore(
+    const GrDevice* grDevice)
+{
+    VkResult vkRes;
+    VkSemaphore vkSemaphore;
+
+    const VkSemaphoreCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+    };
+
+    vkRes = VKD.vkCreateSemaphore(grDevice->device, &createInfo, NULL, &vkSemaphore);
+    if (vkRes != VK_SUCCESS) {
+        LOGE("vkCreateSemaphore failed (%d)\n", vkRes);
+        assert(false);
+    }
+
+    return vkSemaphore;
+}
+
 static VkSurfaceKHR getVkSurface(
     const GrDevice* grDevice,
     HWND hwnd,
@@ -322,26 +343,12 @@ static void recreateSwapchain(
     free(commandBuffers);
 
     // Create semaphores
-    const VkSemaphoreCreateInfo semaphoreCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-    };
-
     if (mAcquireSemaphore == VK_NULL_HANDLE) {
-        res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mAcquireSemaphore);
-        if (res != VK_SUCCESS) {
-            LOGE("vkCreateSemaphore failed (%d)\n", res);
-            return;
-        }
+        mAcquireSemaphore = getVkSemaphore(grDevice);
     }
 
     if (mCopySemaphore == VK_NULL_HANDLE) {
-        res = VKD.vkCreateSemaphore(grDevice->device, &semaphoreCreateInfo, NULL, &mCopySemaphore);
-        if (res != VK_SUCCESS) {
-            LOGE("vkCreateSemaphore failed (%d)\n", res);
-            return;
-        }
+        mCopySemaphore = getVkSemaphore(grDevice);
     }
 }
 
