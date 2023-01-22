@@ -32,8 +32,9 @@ static VkImage* mSwapchainImages = NULL;
 static unsigned mCopyCommandBufferCount = 0;
 static VkCommandPool mCommandPool = VK_NULL_HANDLE;
 static CopyCommandBuffer* mCopyCommandBuffers = 0;
-static VkSemaphore mAcquireSemaphore = VK_NULL_HANDLE;
-static VkSemaphore mCopySemaphore = VK_NULL_HANDLE;
+static VkSemaphore* mAcquireSemaphores = NULL;
+static VkSemaphore* mCopySemaphores = NULL;
+static unsigned mFrameIndex = 0;
 
 static int __stdcall countDisplaysProc(
   HMONITOR hMonitor,
@@ -264,6 +265,7 @@ static void recreateSwapchain(
     }
 
     // Get swapchain images
+    unsigned lastImageCount = mSwapchainImageCount;
     VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mSwapchainImageCount, NULL);
     mSwapchainImages = realloc(mSwapchainImages, sizeof(VkImage) * mSwapchainImageCount);
     VKD.vkGetSwapchainImagesKHR(grDevice->device, mSwapchain, &mSwapchainImageCount,
@@ -342,13 +344,13 @@ static void recreateSwapchain(
     ReleaseSRWLockExclusive(&mPresentableImagesLock);
     free(commandBuffers);
 
-    // Create semaphores
-    if (mAcquireSemaphore == VK_NULL_HANDLE) {
-        mAcquireSemaphore = getVkSemaphore(grDevice);
-    }
-
-    if (mCopySemaphore == VK_NULL_HANDLE) {
-        mCopySemaphore = getVkSemaphore(grDevice);
+    // Create one acquire/copy semaphore per image. Old semaphores are reused when recreating the
+    // swapchain which can cause conflicts, but it resolves itself quickly
+    mAcquireSemaphores = realloc(mAcquireSemaphores, mSwapchainImageCount * sizeof(VkSemaphore));
+    mCopySemaphores = realloc(mCopySemaphores, mSwapchainImageCount * sizeof(VkSemaphore));
+    for (unsigned i = lastImageCount; i < mSwapchainImageCount; i++) {
+        mAcquireSemaphores[i] = getVkSemaphore(grDevice);
+        mCopySemaphores[i] = getVkSemaphore(grDevice);
     }
 }
 
@@ -592,9 +594,13 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         mPresentInterval = pPresentInfo->presentInterval;
     }
 
+    VkSemaphore acquireSemaphore = mAcquireSemaphores[mFrameIndex % mSwapchainImageCount];
+    VkSemaphore copySemaphore = mCopySemaphores[mFrameIndex % mSwapchainImageCount];
+    mFrameIndex++;
+
     uint32_t vkImageIndex = 0;
     vkRes = VKD.vkAcquireNextImageKHR(grDevice->device, mSwapchain, UINT64_MAX,
-                                      mAcquireSemaphore, VK_NULL_HANDLE, &vkImageIndex);
+                                      acquireSemaphore, VK_NULL_HANDLE, &vkImageIndex);
     if (vkRes == VK_SUBOPTIMAL_KHR) {
         // The swapchain needs to be recreated, but we can still present
         mDirtySwapchain = true;
@@ -626,12 +632,12 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = NULL,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &mAcquireSemaphore,
+        .pWaitSemaphores = &acquireSemaphore,
         .pWaitDstStageMask = &stageMask,
         .commandBufferCount = 1,
         .pCommandBuffers = &vkCopyCommandBuffer,
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &mCopySemaphore,
+        .pSignalSemaphores = &copySemaphore,
     };
 
     AcquireSRWLockExclusive(&grQueue->queueLock);
@@ -646,7 +652,7 @@ GR_RESULT GR_STDCALL grWsiWinQueuePresent(
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .pNext = NULL,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &mCopySemaphore,
+        .pWaitSemaphores = &copySemaphore,
         .swapchainCount = 1,
         .pSwapchains = &mSwapchain,
         .pImageIndices = &vkImageIndex,
