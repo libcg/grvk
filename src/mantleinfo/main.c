@@ -18,10 +18,10 @@ static bool getGpuInfo(
     }
 
     if (*dataSize > expectedSize) {
-        printf("%llu > %llu for type 0x%X\n", *dataSize, expectedSize, infoType);
+        printf("%zu > %zu for type 0x%X\n", *dataSize, expectedSize, infoType);
         *dataSize = expectedSize;
     } else if (*dataSize != expectedSize) {
-        printf("%llu != %llu for type 0x%X\n", *dataSize, expectedSize, infoType);
+        printf("%zu != %zu for type 0x%X\n", *dataSize, expectedSize, infoType);
     }
 
     res = gri.grGetGpuInfo(gpu, infoType, dataSize, data);
