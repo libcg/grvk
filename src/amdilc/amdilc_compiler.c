@@ -3590,6 +3590,7 @@ static void emitInstr(
     }
 }
 
+#ifdef TESS
 static void emitHullMainFunction(
     IlcCompiler* compiler)
 {
@@ -3646,6 +3647,7 @@ static void emitHullMainFunction(
     ilcSpvPutReturn(compiler->module);
     ilcSpvPutFunctionEnd(compiler->module);
 }
+#endif // TESS
 
 static void emitEntryPoint(
     IlcCompiler* compiler)
