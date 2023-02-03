@@ -1,0 +1,6 @@
+#ifndef VERSION_H_
+#define VERSION_H_
+
+#define GRVK_VERSION "@VCS_TAG@"
+
+#endif // VERSION_H_

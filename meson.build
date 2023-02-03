@@ -6,7 +6,13 @@ grvk_compiler = meson.get_compiler('c')
 grvk_c_std    = 'c99'
 grvk_msvc     = grvk_compiler.get_id() == 'msvc'
 
-grvk_include_path = include_directories('./include')
+grvk_include_path = include_directories('.', './include')
+
+grvk_version = vcs_tag(
+  command: ['git', 'describe', '--tags', '--dirty=+'],
+  input:  'version.h.in',
+  output: 'version.h',
+)
 
 if grvk_compiler.has_link_argument('-Wl,--file-alignment=4096')
   add_global_link_arguments('-Wl,--file-alignment=4096', language: 'c')

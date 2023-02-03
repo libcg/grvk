@@ -11,6 +11,7 @@
 #include "logger.h"
 #include "mantle_object.h"
 #include "quirk.h"
+#include "version.h"
 #include "vulkan_loader.h"
 
 #define VKD \

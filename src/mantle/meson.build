@@ -24,8 +24,8 @@ mantle_src = [
 mantle_def = 'mantle' + dll_variant + '.def'
 
 mantle_dll = shared_library('mantle' + dll_variant, mantle_src,
+  grvk_version,
   name_prefix         : '',
-  c_args              : '-DGRVK_VERSION="@0@"'.format(meson.project_version()),
   dependencies        : [ lib_vulkan, amdilc_dep, logger_dep ],
   include_directories : grvk_include_path,
   install             : true,

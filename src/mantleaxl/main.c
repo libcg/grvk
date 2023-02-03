@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "logger.h"
+#include "version.h"
 
 BOOLEAN WINAPI DllMain(
     HINSTANCE hDllHandle,
