@@ -112,7 +112,9 @@ typedef struct _PipelineCreateInfo
     bool alphaToCoverageEnable;
     bool logicOpEnable;
     VkLogicOp logicOp;
+    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     VkColorComponentFlags colorWriteMasks[GR_MAX_COLOR_TARGETS];
+    VkFormat depthStencilFormat;
 } PipelineCreateInfo;
 
 typedef struct _PipelineSlot
@@ -176,14 +178,11 @@ typedef struct _GrCmdBuffer {
     GrDepthStencilStateObject* grDepthStencilState;
     GrColorBlendStateObject* grColorBlendState;
     // Render pass
-    unsigned colorAttachmentCount;
     VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
-    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     bool hasDepth;
     bool hasStencil;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
-    VkFormat depthStencilFormat;
     VkExtent3D minExtent;
 } GrCmdBuffer;
 
@@ -386,10 +385,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState,
-    unsigned colorFormatCount,
-    const VkFormat* colorFormats,
-    VkFormat depthStencilFormat);
+    const GrRasterStateObject* grRasterState);
 
 GrQueue* grQueueCreate(
     GrDevice* grDevice,

@@ -101,7 +101,7 @@ static void grCmdBufferBeginRenderPass(
         },
         .layerCount = grCmdBuffer->minExtent.depth,
         .viewMask = 0,
-        .colorAttachmentCount = grCmdBuffer->colorAttachmentCount,
+        .colorAttachmentCount = GR_MAX_COLOR_TARGETS,
         .pColorAttachments = grCmdBuffer->colorAttachments,
         .pDepthAttachment = grCmdBuffer->hasDepth ? &grCmdBuffer->depthAttachment : NULL,
         .pStencilAttachment = grCmdBuffer->hasStencil ? &grCmdBuffer->stencilAttachment : NULL,
@@ -230,10 +230,7 @@ static void grCmdBufferUpdateResources(
         VkPipeline vkPipeline = grPipelineFindOrCreateVkPipeline(grPipeline,
                                                                  grCmdBuffer->grColorBlendState,
                                                                  grCmdBuffer->grMsaaState,
-                                                                 grCmdBuffer->grRasterState,
-                                                                 grCmdBuffer->colorAttachmentCount,
-                                                                 grCmdBuffer->colorFormats,
-                                                                 grCmdBuffer->depthStencilFormat);
+                                                                 grCmdBuffer->grRasterState);
 
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, vkPipeline);
     }
@@ -266,8 +263,7 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
-                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL,
-                                                               0, NULL, VK_FORMAT_UNDEFINED));
+                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL));
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
     }
@@ -519,35 +515,34 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
-    unsigned colorAttachmentCount = 0;
     VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
-    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     bool hasDepth = false;
     bool hasStencil = false;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
-    VkFormat depthStencilFormat = VK_FORMAT_UNDEFINED;
     VkExtent3D minExtent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
 
-    for (unsigned i = 0; i < colorTargetCount; i++) {
-        const GrColorTargetView* grColorTargetView = (GrColorTargetView*)pColorTargets[i].view;
+    for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+        const GrColorTargetView* grColorTargetView =
+            i < colorTargetCount ? (GrColorTargetView*)pColorTargets[i].view : NULL;
+
+        colorAttachments[i] = (VkRenderingAttachmentInfoKHR) {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+            .pNext = NULL,
+            .imageView = VK_NULL_HANDLE,
+            .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .resolveMode = VK_RESOLVE_MODE_NONE,
+            .resolveImageView = VK_NULL_HANDLE,
+            .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue = {{{ 0 }}},
+        };
 
         if (grColorTargetView != NULL &&
             pColorTargets[i].colorTargetState != GR_IMAGE_STATE_UNINITIALIZED) {
-            colorAttachments[colorAttachmentCount] = (VkRenderingAttachmentInfoKHR) {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .pNext = NULL,
-                .imageView = grColorTargetView->imageView,
-                .imageLayout = getVkImageLayout(pColorTargets[i].colorTargetState),
-                .resolveMode = VK_RESOLVE_MODE_NONE,
-                .resolveImageView = VK_NULL_HANDLE,
-                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                .clearValue = {{{ 0 }}},
-            };
-            colorFormats[colorAttachmentCount] = grColorTargetView->format;
-            colorAttachmentCount++;
+            colorAttachments[i].imageView = grColorTargetView->imageView;
+            colorAttachments[i].imageLayout = getVkImageLayout(pColorTargets[i].colorTargetState);
 
             minExtent.width = MIN(minExtent.width, grColorTargetView->extent.width);
             minExtent.height = MIN(minExtent.height, grColorTargetView->extent.height);
@@ -590,22 +585,19 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         }
 
         if (hasDepth || hasStencil) {
-            depthStencilFormat = grDepthStencilView->format;
             minExtent.width = MIN(minExtent.width, grDepthStencilView->extent.width);
             minExtent.height = MIN(minExtent.height, grDepthStencilView->extent.height);
             minExtent.depth = MIN(minExtent.depth, grDepthStencilView->extent.depth);
         }
     }
 
-    if (colorAttachmentCount != grCmdBuffer->colorAttachmentCount ||
-        memcmp(colorAttachments, grCmdBuffer->colorAttachments, colorAttachmentCount * sizeof(colorAttachments[0])) ||
+    if (memcmp(colorAttachments, grCmdBuffer->colorAttachments, GR_MAX_COLOR_TARGETS * sizeof(colorAttachments[0])) ||
         hasDepth != grCmdBuffer->hasDepth || hasStencil != grCmdBuffer->hasStencil ||
         (hasDepth && memcmp(&depthAttachment, &grCmdBuffer->depthAttachment, sizeof(depthAttachment))) ||
         (hasStencil && memcmp(&stencilAttachment, &grCmdBuffer->stencilAttachment, sizeof(stencilAttachment))) ||
         memcmp(&minExtent, &grCmdBuffer->minExtent, sizeof(minExtent))) {
         // Targets have changed
-        grCmdBuffer->colorAttachmentCount = colorAttachmentCount;
-        memcpy(grCmdBuffer->colorAttachments, colorAttachments, colorAttachmentCount * sizeof(colorAttachments[0]));
+        memcpy(grCmdBuffer->colorAttachments, colorAttachments, GR_MAX_COLOR_TARGETS * sizeof(colorAttachments[0]));
         grCmdBuffer->hasDepth = hasDepth;
         grCmdBuffer->hasStencil = hasStencil;
         grCmdBuffer->depthAttachment = depthAttachment;
@@ -614,12 +606,6 @@ GR_VOID GR_STDCALL grCmdBindTargets(
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_RENDER_PASS;
     }
-
-    // Some games bind more targets than declared in the pipeline.
-    // Assume that the bound target formats never change for a given Mantle pipeline, meaning
-    // we don't have to track pipeline dirtiness here.
-    memcpy(grCmdBuffer->colorFormats, colorFormats, GR_MAX_COLOR_TARGETS * sizeof(VkFormat));
-    grCmdBuffer->depthStencilFormat = depthStencilFormat;
 }
 
 GR_VOID GR_STDCALL grCmdPrepareImages(

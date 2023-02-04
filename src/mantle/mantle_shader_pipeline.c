@@ -419,10 +419,7 @@ static VkPipeline getVkPipeline(
     const GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState,
-    unsigned colorFormatCount,
-    const VkFormat* colorFormats,
-    VkFormat depthStencilFormat)
+    const GrRasterStateObject* grRasterState)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
     const PipelineCreateInfo* createInfo = grPipeline->createInfo;
@@ -515,28 +512,11 @@ static VkPipeline getVkPipeline(
         .maxDepthBounds = 0.f, // Dynamic state
     };
 
-    unsigned attachmentCount = 0;
     VkPipelineColorBlendAttachmentState attachments[GR_MAX_COLOR_TARGETS];
 
     for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
-        const VkPipelineColorBlendAttachmentState* blendState = &grColorBlendState->states[i];
-        VkColorComponentFlags colorWriteMask = createInfo->colorWriteMasks[i];
-
-        if (colorWriteMask == ~0u) {
-            continue;
-        }
-
-        attachments[attachmentCount] = (VkPipelineColorBlendAttachmentState) {
-            .blendEnable = blendState->blendEnable,
-            .srcColorBlendFactor = blendState->srcColorBlendFactor,
-            .dstColorBlendFactor = blendState->dstColorBlendFactor,
-            .colorBlendOp = blendState->colorBlendOp,
-            .srcAlphaBlendFactor = blendState->srcAlphaBlendFactor,
-            .dstAlphaBlendFactor = blendState->dstAlphaBlendFactor,
-            .alphaBlendOp = blendState->alphaBlendOp,
-            .colorWriteMask = colorWriteMask,
-        };
-        attachmentCount++;
+        attachments[i] = grColorBlendState->states[i];
+        attachments[i].colorWriteMask = createInfo->colorWriteMasks[i];
     }
 
     const VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {
@@ -545,7 +525,7 @@ static VkPipeline getVkPipeline(
         .flags = 0,
         .logicOpEnable = createInfo->logicOpEnable,
         .logicOp = createInfo->logicOp,
-        .attachmentCount = attachmentCount,
+        .attachmentCount = GR_MAX_COLOR_TARGETS,
         .pAttachments = attachments,
         .blendConstants = { 0.f }, // Dynamic state
     };
@@ -581,10 +561,10 @@ static VkPipeline getVkPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
         .pNext = NULL,
         .viewMask = 0,
-        .colorAttachmentCount = colorFormatCount,
-        .pColorAttachmentFormats = colorFormats,
-        .depthAttachmentFormat = depthStencilFormat,
-        .stencilAttachmentFormat = depthStencilFormat,
+        .colorAttachmentCount = GR_MAX_COLOR_TARGETS,
+        .pColorAttachmentFormats = createInfo->colorFormats,
+        .depthAttachmentFormat = createInfo->depthStencilFormat,
+        .stencilAttachmentFormat = createInfo->depthStencilFormat,
     };
 
     const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
@@ -624,16 +604,12 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState,
-    unsigned colorFormatCount,
-    const VkFormat* colorFormats,
-    VkFormat depthStencilFormat)
+    const GrRasterStateObject* grRasterState)
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
     AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
 
-    // Assume that the attachment formats never change to reduce pipeline lookup overhead
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
@@ -646,8 +622,7 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     }
 
     if (vkPipeline == VK_NULL_HANDLE) {
-        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState,
-                                   colorFormatCount, colorFormats, depthStencilFormat);
+        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState);
 
         PipelineSlot slot = {
             .pipeline = vkPipeline,
@@ -837,22 +812,14 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         LOGW("dual source blend is not implemented\n");
     }
 
-    unsigned attachmentCount = 0;
+    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     VkColorComponentFlags colorWriteMasks[GR_MAX_COLOR_TARGETS];
 
-    for (int i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
+    for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
         const GR_PIPELINE_CB_TARGET_STATE* target = &pCreateInfo->cbState.target[i];
 
-        if (!target->blendEnable &&
-            target->format.channelFormat == GR_CH_FMT_UNDEFINED &&
-            target->format.numericFormat == GR_NUM_FMT_UNDEFINED &&
-            target->channelWriteMask == 0) {
-            colorWriteMasks[attachmentCount] = ~0u;
-        } else {
-            colorWriteMasks[attachmentCount] = getVkColorComponentFlags(target->channelWriteMask);
-        }
-
-        attachmentCount++;
+        colorFormats[i] = getVkFormat(target->format);
+        colorWriteMasks[i] = getVkColorComponentFlags(target->channelWriteMask);
     }
 
     PipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(PipelineCreateInfo));
@@ -867,11 +834,15 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .alphaToCoverageEnable = !!pCreateInfo->cbState.alphaToCoverageEnable,
         .logicOpEnable = pCreateInfo->cbState.logicOp != GR_LOGIC_OP_COPY,
         .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
+        .colorFormats = { 0 }, // Initialized below
         .colorWriteMasks = { 0 }, // Initialized below
+        .depthStencilFormat = getVkFormat(pCreateInfo->dbState.format),
     };
 
     memcpy(pipelineCreateInfo->stageCreateInfos, shaderStageCreateInfo,
            stageCount * sizeof(VkPipelineShaderStageCreateInfo));
+    memcpy(pipelineCreateInfo->colorFormats, colorFormats,
+           GR_MAX_COLOR_TARGETS * sizeof(VkFormat));
     memcpy(pipelineCreateInfo->colorWriteMasks, colorWriteMasks,
            GR_MAX_COLOR_TARGETS * sizeof(VkColorComponentFlags));
 
