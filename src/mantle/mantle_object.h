@@ -216,7 +216,7 @@ typedef struct _GrDepthStencilView {
     GrObject grObj;
     VkImageView imageView;
     VkExtent3D extent;
-    VkFormat format;
+    VkImageAspectFlags aspectMask;
 } GrDepthStencilView;
 
 typedef struct _GrDescriptorSet {

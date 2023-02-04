@@ -553,7 +553,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     if (pDepthTarget != NULL && pDepthTarget->view != NULL) {
         const GrDepthStencilView* grDepthStencilView = (GrDepthStencilView*)pDepthTarget->view;
 
-        if (pDepthTarget->depthState != GR_IMAGE_STATE_UNINITIALIZED) {
+        if (pDepthTarget->depthState != GR_IMAGE_STATE_UNINITIALIZED &&
+            (grDepthStencilView->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != 0) {
             hasDepth = true;
             depthAttachment = (VkRenderingAttachmentInfoKHR) {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
@@ -568,7 +569,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                 .clearValue = {{{ 0 }}},
             };
         }
-        if (pDepthTarget->stencilState != GR_IMAGE_STATE_UNINITIALIZED) {
+        if (pDepthTarget->stencilState != GR_IMAGE_STATE_UNINITIALIZED &&
+            (grDepthStencilView->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != 0) {
             hasStencil = true;
             stencilAttachment = (VkRenderingAttachmentInfoKHR) {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
