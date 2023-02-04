@@ -563,8 +563,8 @@ static VkPipeline getVkPipeline(
         .viewMask = 0,
         .colorAttachmentCount = GR_MAX_COLOR_TARGETS,
         .pColorAttachmentFormats = createInfo->colorFormats,
-        .depthAttachmentFormat = createInfo->depthStencilFormat,
-        .stencilAttachmentFormat = createInfo->depthStencilFormat,
+        .depthAttachmentFormat = createInfo->depthFormat,
+        .stencilAttachmentFormat = createInfo->stencilFormat,
     };
 
     const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
@@ -836,7 +836,8 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         .logicOp = getVkLogicOp(pCreateInfo->cbState.logicOp),
         .colorFormats = { 0 }, // Initialized below
         .colorWriteMasks = { 0 }, // Initialized below
-        .depthStencilFormat = getVkFormat(pCreateInfo->dbState.format),
+        .depthFormat = getDepthVkFormat(pCreateInfo->dbState.format),
+        .stencilFormat = getStencilVkFormat(pCreateInfo->dbState.format),
     };
 
     memcpy(pipelineCreateInfo->stageCreateInfos, shaderStageCreateInfo,

@@ -277,6 +277,56 @@ VkFormat getVkFormat(
     return VK_FORMAT_UNDEFINED;
 }
 
+VkFormat getDepthVkFormat(
+    GR_FORMAT format)
+{
+    uint32_t packed = PACK_FORMAT(format.channelFormat, format.numericFormat);
+
+    // Table 23 in the Mantle API reference
+    switch (packed) {
+    case PACK_FORMAT(GR_CH_FMT_UNDEFINED, GR_NUM_FMT_UNDEFINED):
+        return VK_FORMAT_UNDEFINED;
+    case PACK_FORMAT(GR_CH_FMT_R8, GR_NUM_FMT_DS):
+        return VK_FORMAT_UNDEFINED;
+    case PACK_FORMAT(GR_CH_FMT_R16, GR_NUM_FMT_DS):
+        return VK_FORMAT_D16_UNORM;
+    case PACK_FORMAT(GR_CH_FMT_R32, GR_NUM_FMT_DS):
+        return VK_FORMAT_D32_SFLOAT;
+    case PACK_FORMAT(GR_CH_FMT_R16G8, GR_NUM_FMT_DS):
+        return VK_FORMAT_D16_UNORM_S8_UINT;
+    case PACK_FORMAT(GR_CH_FMT_R32G8, GR_NUM_FMT_DS):
+        return VK_FORMAT_D32_SFLOAT_S8_UINT;
+    }
+
+    LOGW("unsupported format %u %u\n", format.channelFormat, format.numericFormat);
+    return VK_FORMAT_UNDEFINED;
+}
+
+VkFormat getStencilVkFormat(
+    GR_FORMAT format)
+{
+    uint32_t packed = PACK_FORMAT(format.channelFormat, format.numericFormat);
+
+    // Table 23 in the Mantle API reference
+    switch (packed) {
+    case PACK_FORMAT(GR_CH_FMT_UNDEFINED, GR_NUM_FMT_UNDEFINED):
+        return VK_FORMAT_UNDEFINED;
+    case PACK_FORMAT(GR_CH_FMT_R8, GR_NUM_FMT_DS):
+        return VK_FORMAT_S8_UINT;
+    case PACK_FORMAT(GR_CH_FMT_R16, GR_NUM_FMT_DS):
+        return VK_FORMAT_UNDEFINED;
+    case PACK_FORMAT(GR_CH_FMT_R32, GR_NUM_FMT_DS):
+        return VK_FORMAT_UNDEFINED;
+    case PACK_FORMAT(GR_CH_FMT_R16G8, GR_NUM_FMT_DS):
+        return VK_FORMAT_D16_UNORM_S8_UINT;
+    case PACK_FORMAT(GR_CH_FMT_R32G8, GR_NUM_FMT_DS):
+        return VK_FORMAT_D32_SFLOAT_S8_UINT;
+    }
+
+    LOGW("unsupported format %u %u\n", format.channelFormat, format.numericFormat);
+    return VK_FORMAT_UNDEFINED;
+}
+
 unsigned getVkFormatTileSize(
     VkFormat vkFormat)
 {

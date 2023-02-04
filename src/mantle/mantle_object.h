@@ -114,7 +114,8 @@ typedef struct _PipelineCreateInfo
     VkLogicOp logicOp;
     VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     VkColorComponentFlags colorWriteMasks[GR_MAX_COLOR_TARGETS];
-    VkFormat depthStencilFormat;
+    VkFormat depthFormat;
+    VkFormat stencilFormat;
 } PipelineCreateInfo;
 
 typedef struct _PipelineSlot

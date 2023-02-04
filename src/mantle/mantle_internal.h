@@ -64,6 +64,12 @@ GR_MEMORY_REQUIREMENTS getGrMemoryRequirements(
 VkFormat getVkFormat(
     GR_FORMAT format);
 
+VkFormat getDepthVkFormat(
+    GR_FORMAT format);
+
+VkFormat getStencilVkFormat(
+    GR_FORMAT format);
+
 unsigned getVkFormatTileSize(
     VkFormat vkFormat);
 
