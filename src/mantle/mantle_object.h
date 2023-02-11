@@ -218,6 +218,7 @@ typedef struct _GrDepthStencilView {
     VkImageView imageView;
     VkExtent3D extent;
     VkImageAspectFlags aspectMask;
+    VkImageAspectFlags readOnlyAspectMask;
 } GrDepthStencilView;
 
 typedef struct _GrDescriptorSet {

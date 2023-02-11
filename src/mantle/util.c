@@ -354,7 +354,9 @@ VkImageLayout getVkImageLayout(
     case GR_IMAGE_STATE_COMPUTE_SHADER_READ_WRITE:
         return VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
-        return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR;
+        // Depth or stencil aspect can be read-only, but we don't know which one until it's bound
+        // as a target. See "Read-only Depth-Stencil Views" in Mantle spec.
+        return VK_IMAGE_LAYOUT_GENERAL;
     case GR_IMAGE_STATE_UNINITIALIZED:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
@@ -457,8 +459,11 @@ VkAccessFlags getVkAccessFlagsImage(
         return VK_ACCESS_SHADER_READ_BIT |
                VK_ACCESS_SHADER_WRITE_BIT;
     case GR_IMAGE_STATE_TARGET_AND_SHADER_READ_ONLY:
+        // Depth or stencil aspect can be read-only, but we don't know which one until it's bound
+        // as a target. See "Read-only Depth-Stencil Views" in Mantle spec.
         return VK_ACCESS_SHADER_READ_BIT |
-               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+               VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     case GR_IMAGE_STATE_UNINITIALIZED:
         return 0;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:

@@ -210,10 +210,6 @@ GR_RESULT GR_STDCALL grCreateDepthStencilView(
         assert(false);
     }
 
-    if (pCreateInfo->flags != 0) {
-        LOGW("unhandled flags 0x%X\n", pCreateInfo->flags);
-    }
-
     VkImageAspectFlags aspectMask = 0;
     switch (grImage->format) {
     case VK_FORMAT_D16_UNORM:
@@ -226,6 +222,14 @@ GR_RESULT GR_STDCALL grCreateDepthStencilView(
     default:
         aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
         break;
+    }
+
+    VkImageAspectFlags readOnlyAspectMask = 0;
+    if (pCreateInfo->flags & GR_DEPTH_STENCIL_VIEW_CREATE_READ_ONLY_DEPTH) {
+        readOnlyAspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+    }
+    if (pCreateInfo->flags & GR_DEPTH_STENCIL_VIEW_CREATE_READ_ONLY_STENCIL) {
+        readOnlyAspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
     const VkImageViewCreateInfo createInfo = {
@@ -266,6 +270,7 @@ GR_RESULT GR_STDCALL grCreateDepthStencilView(
             pCreateInfo->arraySize,
         },
         .aspectMask = aspectMask,
+        .readOnlyAspectMask = readOnlyAspectMask,
     };
 
     *pView = (GR_DEPTH_STENCIL_VIEW)grDepthStencilView;

@@ -565,7 +565,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                 .resolveImageView = VK_NULL_HANDLE,
                 .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .storeOp = grDepthStencilView->readOnlyAspectMask & VK_IMAGE_ASPECT_DEPTH_BIT ?
+                           VK_ATTACHMENT_STORE_OP_NONE_KHR : VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0 }}},
             };
         }
@@ -581,7 +582,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                 .resolveImageView = VK_NULL_HANDLE,
                 .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .storeOp = grDepthStencilView->readOnlyAspectMask & VK_IMAGE_ASPECT_STENCIL_BIT ?
+                           VK_ATTACHMENT_STORE_OP_NONE_KHR : VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0 }}},
             };
         }
