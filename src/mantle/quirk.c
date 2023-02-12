@@ -5,6 +5,10 @@ static QUIRK_FLAGS mQuirks = 0;
 void quirkInit(
     const GR_APPLICATION_INFO* appInfo)
 {
+    if (appInfo->pAppName == NULL || appInfo->pEngineName == NULL) {
+        return;
+    }
+
     if (!strcmp(appInfo->pAppName, "Star Swarm")) {
         mQuirks = QUIRK_NON_ZERO_MEM_REQ |
                   QUIRK_READ_ONLY_IMAGE_STATE_MISMATCH |
