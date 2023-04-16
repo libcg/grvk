@@ -269,6 +269,8 @@ GR_RESULT GR_STDCALL grCreateDepthStencilView(
             MIP(grImage->extent.height, pCreateInfo->mipLevel),
             pCreateInfo->arraySize,
         },
+        .depthFormat = grImage->depthFormat,
+        .stencilFormat = grImage->stencilFormat,
         .aspectMask = aspectMask,
         .readOnlyAspectMask = readOnlyAspectMask,
     };

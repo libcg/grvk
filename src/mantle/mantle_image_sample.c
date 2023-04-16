@@ -192,6 +192,10 @@ GR_RESULT GR_STDCALL grCreateImage(
         .extent = createInfo.extent,
         .arrayLayers = createInfo.arrayLayers,
         .format = createInfo.format,
+        .depthFormat = createInfo.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ?
+                       getDepthVkFormat(pCreateInfo->format) : VK_FORMAT_UNDEFINED,
+        .stencilFormat = createInfo.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ?
+                         getStencilVkFormat(pCreateInfo->format) : VK_FORMAT_UNDEFINED,
         .usage = createInfo.usage,
         .multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && isCubic,
         .isOpaque = pCreateInfo->tiling == GR_OPTIMAL_TILING,

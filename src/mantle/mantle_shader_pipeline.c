@@ -419,7 +419,9 @@ static VkPipeline getVkPipeline(
     const GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState)
+    const GrRasterStateObject* grRasterState,
+    VkFormat depthFormat,
+    VkFormat stencilFormat)
 {
     const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
     const PipelineCreateInfo* createInfo = grPipeline->createInfo;
@@ -557,14 +559,20 @@ static VkPipeline getVkPipeline(
         .pDynamicStates = dynamicStates,
     };
 
+    if (depthFormat != createInfo->depthFormat ||
+        stencilFormat != createInfo->stencilFormat) {
+        LOGD("depth-stencil attachment format mismatch, got %d %d, expected %d %d\n",
+             depthFormat, stencilFormat, createInfo->depthFormat, createInfo->stencilFormat);
+    }
+
     const VkPipelineRenderingCreateInfoKHR renderingCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
         .pNext = NULL,
         .viewMask = 0,
         .colorAttachmentCount = GR_MAX_COLOR_TARGETS,
         .pColorAttachmentFormats = createInfo->colorFormats,
-        .depthAttachmentFormat = createInfo->depthFormat,
-        .stencilAttachmentFormat = createInfo->stencilFormat,
+        .depthAttachmentFormat = depthFormat,
+        .stencilAttachmentFormat = stencilFormat,
     };
 
     const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
@@ -604,12 +612,15 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState)
+    const GrRasterStateObject* grRasterState,
+    VkFormat depthFormat,
+    VkFormat stencilFormat)
 {
     VkPipeline vkPipeline = VK_NULL_HANDLE;
 
     AcquireSRWLockExclusive(&grPipeline->pipelineSlotsLock);
 
+    // Assume that the depth-stencil target format never changes to reduce pipeline lookup overhead
     for (unsigned i = 0; i < grPipeline->pipelineSlotCount; i++) {
         const PipelineSlot* slot = &grPipeline->pipelineSlots[i];
 
@@ -622,7 +633,8 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     }
 
     if (vkPipeline == VK_NULL_HANDLE) {
-        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState);
+        vkPipeline = getVkPipeline(grPipeline, grColorBlendState, grMsaaState, grRasterState,
+                                   depthFormat, stencilFormat);
 
         PipelineSlot slot = {
             .pipeline = vkPipeline,

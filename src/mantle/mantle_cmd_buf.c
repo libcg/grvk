@@ -230,7 +230,9 @@ static void grCmdBufferUpdateResources(
         VkPipeline vkPipeline = grPipelineFindOrCreateVkPipeline(grPipeline,
                                                                  grCmdBuffer->grColorBlendState,
                                                                  grCmdBuffer->grMsaaState,
-                                                                 grCmdBuffer->grRasterState);
+                                                                 grCmdBuffer->grRasterState,
+                                                                 grCmdBuffer->depthFormat,
+                                                                 grCmdBuffer->stencilFormat);
 
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint, vkPipeline);
     }
@@ -263,7 +265,9 @@ GR_VOID GR_STDCALL grCmdBindPipeline(
     } else {
         // Pipeline creation isn't deferred for compute, bind now
         VKD.vkCmdBindPipeline(grCmdBuffer->commandBuffer, vkBindPoint,
-                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL));
+                              grPipelineFindOrCreateVkPipeline(grPipeline, NULL, NULL, NULL,
+                                                               VK_FORMAT_UNDEFINED,
+                                                               VK_FORMAT_UNDEFINED));
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_DESCRIPTOR_SET;
     }
@@ -520,6 +524,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     bool hasStencil = false;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkFormat depthFormat = VK_FORMAT_UNDEFINED;
+    VkFormat stencilFormat = VK_FORMAT_UNDEFINED;
     VkExtent3D minExtent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
 
     for (unsigned i = 0; i < GR_MAX_COLOR_TARGETS; i++) {
@@ -569,6 +575,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                            VK_ATTACHMENT_STORE_OP_NONE_KHR : VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0 }}},
             };
+            depthFormat = grDepthStencilView->depthFormat;
         }
         if (pDepthTarget->stencilState != GR_IMAGE_STATE_UNINITIALIZED &&
             (grDepthStencilView->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != 0) {
@@ -586,6 +593,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                            VK_ATTACHMENT_STORE_OP_NONE_KHR : VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0 }}},
             };
+            stencilFormat = grDepthStencilView->stencilFormat;
         }
 
         if (hasDepth || hasStencil) {
@@ -610,6 +618,12 @@ GR_VOID GR_STDCALL grCmdBindTargets(
 
         bindPoint->dirtyFlags |= FLAG_DIRTY_RENDER_PASS;
     }
+
+    // Some games bind depth-stencil targets that were not declared in the pipeline (BF4) and that
+    // we can't ignore, so we have to defer pipeline creation. Assume that the target format never
+    // changes for a given pipeline, meaning we don't have to track pipeline dirtiness here.
+    grCmdBuffer->depthFormat = depthFormat;
+    grCmdBuffer->stencilFormat = stencilFormat;
 }
 
 GR_VOID GR_STDCALL grCmdPrepareImages(

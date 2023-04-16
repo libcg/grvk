@@ -184,6 +184,8 @@ typedef struct _GrCmdBuffer {
     bool hasStencil;
     VkRenderingAttachmentInfoKHR depthAttachment;
     VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkFormat depthFormat;
+    VkFormat stencilFormat;
     VkExtent3D minExtent;
 } GrCmdBuffer;
 
@@ -217,6 +219,8 @@ typedef struct _GrDepthStencilView {
     GrObject grObj;
     VkImageView imageView;
     VkExtent3D extent;
+    VkFormat depthFormat;
+    VkFormat stencilFormat;
     VkImageAspectFlags aspectMask;
     VkImageAspectFlags readOnlyAspectMask;
 } GrDepthStencilView;
@@ -275,6 +279,8 @@ typedef struct _GrImage {
     VkExtent3D extent;
     unsigned arrayLayers;
     VkFormat format;
+    VkFormat depthFormat;
+    VkFormat stencilFormat;
     VkImageUsageFlags usage;
     bool multiplyCubeLayers;
     bool isOpaque;
@@ -387,7 +393,9 @@ VkPipeline grPipelineFindOrCreateVkPipeline(
     GrPipeline* grPipeline,
     const GrColorBlendStateObject* grColorBlendState,
     const GrMsaaStateObject* grMsaaState,
-    const GrRasterStateObject* grRasterState);
+    const GrRasterStateObject* grRasterState,
+    VkFormat depthFormat,
+    VkFormat stenctilFormat);
 
 GrQueue* grQueueCreate(
     GrDevice* grDevice,
