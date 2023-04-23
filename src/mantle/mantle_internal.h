@@ -38,6 +38,9 @@
 #define OFFSET_OF(struct, member) \
     (size_t)(&((struct*)0)->member)
 
+#define MEMBER_SIZEOF(struct, member) \
+    sizeof(((struct *)0)->member)
+
 #define OFFSET_OF_UNION(struct, unionMember, member) \
     (size_t)(&((struct*)0)->unionMember.member)
 
