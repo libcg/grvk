@@ -764,6 +764,18 @@ GR_RESULT GR_STDCALL grCreateDevice(
         goto bail;
     }
 
+    VkPhysicalDeviceDescriptorBufferFeaturesEXT queriedDescriptorBufferFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+        .pNext = NULL,
+    };
+
+    VkPhysicalDeviceFeatures2 queriedDeviceFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &queriedDescriptorBufferFeatures,
+    };
+
+    vki.vkGetPhysicalDeviceFeatures2(grPhysicalGpu->physicalDevice, &queriedDeviceFeatures);
+
     VkPhysicalDeviceCustomBorderColorFeaturesEXT customBorderColor = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT,
         .pNext = NULL,
@@ -800,6 +812,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
         .pNext = &mutableDescriptorFeaturesEXT,
         .descriptorBuffer = VK_TRUE,
+        .descriptorBufferImageLayoutIgnored = queriedDescriptorBufferFeatures.descriptorBufferImageLayoutIgnored,
     };
     VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
@@ -962,6 +975,8 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .computeAtomicCounterSet = VK_NULL_HANDLE, // Initialized below
         .grBorderColorPalette = NULL,
         .descriptorBufferSupported = descriptorBufferSupported,
+        .descriptorBufferAllowPreparedImageView = descriptorBufferSupported && grPhysicalGpu->descriptorBufferProps.storageImageDescriptorSize <= MEMBER_SIZEOF(GrImageView, storageDescriptor) && grPhysicalGpu->descriptorBufferProps.sampledImageDescriptorSize <= MEMBER_SIZEOF(GrImageView, sampledDescriptor) && queriedDescriptorBufferFeatures.descriptorBufferImageLayoutIgnored,
+        .descriptorBufferAllowPreparedSampler = descriptorBufferSupported && grPhysicalGpu->descriptorBufferProps.samplerDescriptorSize <= MEMBER_SIZEOF(GrSampler, descriptor),
         .maxMutableUniformDescriptorSize = 0, // Initialized below
         .maxMutableStorageDescriptorSize = 0, // Initialized below
         .maxMutableDescriptorSize = 0, // Initialized below

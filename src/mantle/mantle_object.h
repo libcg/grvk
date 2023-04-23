@@ -275,6 +275,8 @@ typedef struct _GrDevice {
     VkDescriptorSet computeAtomicCounterSet;
     GrBorderColorPalette* grBorderColorPalette;
     bool descriptorBufferSupported;
+    bool descriptorBufferAllowPreparedImageView;
+    bool descriptorBufferAllowPreparedSampler;
     uint32_t maxMutableUniformDescriptorSize;
     uint32_t maxMutableStorageDescriptorSize;
     uint32_t maxMutableDescriptorSize;
@@ -321,6 +323,8 @@ typedef struct _GrImageView {
     VkImageView imageView;
     VkFormat format;
     VkImageUsageFlags usage;
+    uint8_t storageDescriptor[32];
+    uint8_t sampledDescriptor[64];
 } GrImageView;
 
 typedef struct _GrMsaaStateObject {
@@ -369,6 +373,7 @@ typedef struct _GrRasterStateObject {
 typedef struct _GrSampler {
     GrObject grObj;
     VkSampler sampler;
+    uint8_t descriptor[32];
 } GrSampler;
 
 typedef struct _GrShader {

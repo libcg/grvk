@@ -246,7 +246,14 @@ GR_VOID GR_STDCALL grAttachSamplerDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
-    if (grDevice->descriptorBufferSupported) {
+    if (grDevice->descriptorBufferSupported && grDevice->descriptorBufferAllowPreparedSampler) {
+        for (unsigned i = 0; i < slotCount; i++) {
+            const GrSampler* grSampler = (GrSampler*)pSamplers[i];
+            memcpy(grDescriptorSet->descriptorBufferPtr + ((startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_SAMPLER)) * grDevice->maxMutableDescriptorSize,
+                   &grSampler->descriptor,
+                   grDevice->descriptorBufferProps.samplerDescriptorSize);
+        }
+    } else if (grDevice->descriptorBufferSupported) {
         for (unsigned i = 0; i < slotCount; i++) {
             const GrSampler* grSampler = (GrSampler*)pSamplers[i];
 
@@ -316,7 +323,23 @@ GR_VOID GR_STDCALL grAttachImageViewDescriptors(
     GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)descriptorSet;
     const GrDevice* grDevice = GET_OBJ_DEVICE(grDescriptorSet);
 
-    if (grDevice->descriptorBufferSupported) {
+    if (grDevice->descriptorBufferSupported && grDevice->descriptorBufferAllowPreparedImageView) {
+        for (unsigned i = 0; i < slotCount; i++) {
+            const GR_IMAGE_VIEW_ATTACH_INFO* info = &pImageViews[i];
+            const GrImageView* grImageView = (GrImageView*)info->view;
+            memcpy(grDescriptorSet->descriptorBufferPtr + ((startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)) * grDevice->maxMutableDescriptorSize,
+                   &grImageView->sampledDescriptor,
+                   grDevice->descriptorBufferProps.sampledImageDescriptorSize
+                );
+
+            if (grImageView->usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+                memcpy(
+                    grDescriptorSet->descriptorBufferPtr + ((startSlot + i) * DESCRIPTORS_PER_SLOT + getDescriptorOffset(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)) * grDevice->maxMutableDescriptorSize,
+                    &grImageView->storageDescriptor,
+                    grDevice->descriptorBufferProps.storageImageDescriptorSize);
+            }
+        }
+    } else if (grDevice->descriptorBufferSupported) {
         for (unsigned i = 0; i < slotCount; i++) {
             const GR_IMAGE_VIEW_ATTACH_INFO* info = &pImageViews[i];
             const GrImageView* grImageView = (GrImageView*)info->view;
