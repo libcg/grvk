@@ -112,8 +112,40 @@ GR_RESULT GR_STDCALL grCreateImageView(
         .grObj = { GR_OBJ_TYPE_IMAGE_VIEW, grDevice },
         .imageView = vkImageView,
         .format = createInfo.format,
+        .usage = grImage->usage,
     };
 
+    if (grDevice->descriptorBufferAllowPreparedImageView) {
+        VkDescriptorImageInfo imageInfo = {
+            .sampler = VK_NULL_HANDLE,
+            .imageView = vkImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        };
+
+        VkDescriptorGetInfoEXT descriptorInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+            .pNext = NULL,
+            .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            .data = {
+                .pSampledImage = &imageInfo,
+            }
+        };
+        VKD.vkGetDescriptorEXT(
+            grDevice->device,
+            &descriptorInfo,
+            grDevice->descriptorBufferProps.sampledImageDescriptorSize,
+            &grImageView->sampledDescriptor);
+        if (grImageView->usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+            descriptorInfo.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            descriptorInfo.data.pStorageImage = &imageInfo;
+
+            VKD.vkGetDescriptorEXT(
+                grDevice->device,
+                &descriptorInfo,
+                grDevice->descriptorBufferProps.storageImageDescriptorSize,
+                &grImageView->storageDescriptor);
+        }
+    }
     *pView = (GR_IMAGE_VIEW)grImageView;
     return GR_SUCCESS;
 }

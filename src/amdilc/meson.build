@@ -4,6 +4,7 @@ amdilc_src = [
   'amdilc_decoder.c',
   'amdilc_dump.c',
   'amdilc_rect_gs_compiler.c',
+  'amdilc_binding_patcher.c',
   'amdilc_spirv.c',
 ]
 

@@ -28,6 +28,15 @@ typedef enum {
     // RADV doesn't support linear transfer-only images used by Star Swarm, but it has no effect
     // on rendering. Silence it.
     QUIRK_SILENCE_TRANSFER_ONLY_LINEAR_IMAGE_WARNINGS = 1 << 7,
+
+    // Star Swarm uses completely incompatible memory types for descriptor buffers
+    QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION = 1 << 8,
+
+    // Star Swarm also doesn't care about external sync
+    QUIRK_DESCRIPTOR_SET_INTERNAL_SYNCHRONIZED = 1 << 9,
+
+    // Battlefield 4 doesn't pass correct depth stencil format when creating the graphics pipeline
+    QUIRK_GRAPHICS_PIPELINE_FORMAT_MISMATCH = 1 << 10,
 } QUIRK_FLAGS;
 
 void quirkInit(

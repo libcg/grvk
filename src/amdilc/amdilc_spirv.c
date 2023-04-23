@@ -18,7 +18,10 @@ static void putBuffer(
     unsigned size = (buffer->wordCount + otherBuffer->wordCount) * sizeof(IlcSpvWord);
     if (buffer->wordSize < size) {
         // Grow the buffer exponentially to minimize allocations
-        buffer->wordSize = sizeof(IlcSpvWord);
+        if (buffer->wordSize < sizeof(IlcSpvWord)) {
+            buffer->wordSize = sizeof(IlcSpvWord) * 1024;
+        }
+
         while (buffer->wordSize < size) {
             buffer->wordSize *= BUFFER_ALLOC_FACTOR;
         }
@@ -245,12 +248,12 @@ void ilcSpvMoveWords(
     unsigned wordCount = buffer->wordCount - srcWordIndex;
 
     // Move the end of the buffer starting at src to dst
-    IlcSpvWord* tmp = malloc(wordCount * sizeof(IlcSpvWord));
+    STACK_ARRAY(IlcSpvWord, tmp, 128, wordCount);
     memcpy(tmp, &buffer->words[srcWordIndex], wordCount * sizeof(IlcSpvWord));
     memmove(&buffer->words[dstWordIndex + wordCount], &buffer->words[dstWordIndex],
             (srcWordIndex - dstWordIndex) * sizeof(IlcSpvWord));
     memcpy(&buffer->words[dstWordIndex], tmp, wordCount * sizeof(IlcSpvWord));
-    free(tmp);
+    STACK_ARRAY_FINISH(tmp);
 }
 
 uint32_t ilcSpvAllocId(
@@ -477,13 +480,13 @@ IlcSpvId ilcSpvPutFunctionType(
     const IlcSpvId* argTypeIds)
 {
     unsigned argCount = 1 + argTypeIdCount;
-    IlcSpvWord* args = malloc(sizeof(args[0]) * argCount);
+    STACK_ARRAY(IlcSpvWord, args, 8, argCount);
 
     args[0] = returnTypeId;
     memcpy(&args[1], argTypeIds, sizeof(args[0]) * argTypeIdCount);
 
     IlcSpvId id = putType(module, SpvOpTypeFunction, argCount, args, false, false);
-    free(args);
+    STACK_ARRAY_FINISH(args);
 
     return id;
 }
@@ -504,6 +507,22 @@ IlcSpvId ilcSpvPutConstantComposite(
 {
     return putConstant(module, SpvOpConstantComposite, resultTypeId,
                        consistuentCount, consistuents);
+}
+
+IlcSpvId ilcSpvPutSpecConstant(
+    IlcSpvModule* module,
+    IlcSpvId resultTypeId,
+    IlcSpvWord literal)
+{
+    IlcSpvBuffer* buffer = &module->buffer[ID_CONSTANTS];
+
+    IlcSpvId id = ilcSpvAllocId(module);
+    putInstr(buffer, SpvOpSpecConstant, 4);
+    putWord(buffer, resultTypeId);
+    putWord(buffer, id);
+    putWord(buffer, literal);
+
+    return id;
 }
 
 void ilcSpvPutFunction(

@@ -153,6 +153,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkFreeMemory);
     VULKAN_FN(vkGetBufferMemoryRequirements);
     VULKAN_FN(vkGetBufferMemoryRequirements2);
+    VULKAN_FN(vkGetBufferDeviceAddress);
     VULKAN_FN(vkGetDeviceMemoryCommitment);
     VULKAN_FN(vkGetDeviceQueue);
     VULKAN_FN(vkGetEventStatus);
@@ -211,6 +212,26 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdSetStencilOpEXT);
     VULKAN_FN(vkCmdSetStencilTestEnableEXT);
     VULKAN_FN(vkCmdSetViewportWithCountEXT);
+#endif
+
+#ifdef VK_KHR_push_descriptor
+    VULKAN_FN(vkCmdPushDescriptorSetKHR);
+#endif
+
+#ifdef VK_EXT_descriptor_buffer
+    VULKAN_FN(vkCmdBindDescriptorBuffersEXT);
+    VULKAN_FN(vkCmdSetDescriptorBufferOffsetsEXT);
+    VULKAN_FN(vkGetDescriptorEXT);
+    VULKAN_FN(vkGetDescriptorSetLayoutBindingOffsetEXT);
+    VULKAN_FN(vkGetDescriptorSetLayoutSizeEXT);
+#endif
+
+#ifdef VK_EXT_extended_dynamic_state3
+    VULKAN_FN(vkCmdSetPolygonModeEXT);
+    VULKAN_FN(vkCmdSetColorBlendEnableEXT);
+    VULKAN_FN(vkCmdSetColorBlendEquationEXT);
+    VULKAN_FN(vkCmdSetSampleMaskEXT);
+    VULKAN_FN(vkCmdSetRasterizationSamplesEXT);
 #endif
 } VULKAN_DEVICE;
 

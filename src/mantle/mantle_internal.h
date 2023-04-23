@@ -38,6 +38,9 @@
 #define OFFSET_OF(struct, member) \
     (size_t)(&((struct*)0)->member)
 
+#define MEMBER_SIZEOF(struct, member) \
+    sizeof(((struct *)0)->member)
+
 #define OFFSET_OF_UNION(struct, unionMember, member) \
     (size_t)(&((struct*)0)->unionMember.member)
 
@@ -47,6 +50,8 @@
 
 #define STACK_ARRAY_FINISH(name) \
    if (name != _stack_##name) free(name)
+
+#define DESCRIPTORS_PER_SLOT (3)
 
 GR_PHYSICAL_GPU_TYPE getGrPhysicalGpuType(
     VkPhysicalDeviceType type);
@@ -171,6 +176,9 @@ VkImageSubresourceRange getVkImageSubresourceRange(
     GR_IMAGE_SUBRESOURCE_RANGE subresourceRange,
     bool multiplyCubeLayers);
 
+unsigned getDescriptorOffset(
+    VkDescriptorType vkDescriptorType);
+
 void grQueueAddInitialImage(
     GrImage* grImage);
 
@@ -179,5 +187,16 @@ void grQueueRemoveInitialImage(
 
 void grWsiDestroyImage(
     GrImage* grImage);
+
+static inline unsigned nextPowerOfTwo(unsigned value) {
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value++;
+    return value;
+}
 
 #endif // MANTLE_INTERNAL_H_

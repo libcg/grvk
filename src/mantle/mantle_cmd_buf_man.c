@@ -3,15 +3,6 @@
 void grCmdBufferResetState(
     GrCmdBuffer* grCmdBuffer)
 {
-    GrDevice* grDevice = GET_OBJ_DEVICE(grCmdBuffer);
-
-    // Reset descriptor pools
-    unsigned resetCount = MIN(grCmdBuffer->descriptorPoolIndex + 1,
-                              grCmdBuffer->descriptorPoolCount);
-    for (unsigned i = 0; i < resetCount; i++) {
-        VKD.vkResetDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], 0);
-    }
-
     // Clear state
     unsigned stateOffset = OFFSET_OF(GrCmdBuffer, isBuilding);
     memset(&((uint8_t*)grCmdBuffer)[stateOffset], 0, sizeof(GrCmdBuffer) - stateOffset);
@@ -88,11 +79,14 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
 
     VkBuffer atomicCounterBuffer = VK_NULL_HANDLE;
     VkDescriptorSet atomicCounterSet = VK_NULL_HANDLE;
+    VkDeviceSize atomicCounterBufferSize = 0ull;
     if (pCreateInfo->queueType == GR_QUEUE_UNIVERSAL) {
         atomicCounterBuffer = grDevice->universalAtomicCounterBuffer;
+        atomicCounterBufferSize = grDevice->universalAtomicCounterBufferSize;
         atomicCounterSet = grDevice->universalAtomicCounterSet;
     } else if (pCreateInfo->queueType == GR_QUEUE_COMPUTE) {
         atomicCounterBuffer = grDevice->computeAtomicCounterBuffer;
+        atomicCounterBufferSize = grDevice->computeAtomicCounterBufferSize;
         atomicCounterSet = grDevice->computeAtomicCounterSet;
     }
 
@@ -103,10 +97,8 @@ GR_RESULT GR_STDCALL grCreateCommandBuffer(
         .commandBuffer = vkCommandBuffer,
         .timestampQueryPool = vkQueryPool,
         .atomicCounterBuffer = atomicCounterBuffer,
+        .atomicCounterBufferSize = atomicCounterBufferSize,
         .atomicCounterSet = atomicCounterSet,
-        .descriptorPoolCount = 0,
-        .descriptorPools = NULL,
-        .descriptorPoolIndex = 0,
     };
 
     grCmdBufferResetState(grCmdBuffer);

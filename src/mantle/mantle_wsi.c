@@ -305,7 +305,7 @@ static void recreateSwapchain(
     mCopyCommandBufferCount = mSwapchainImageCount * mPresentableImageCount;
     mCopyCommandBuffers = realloc(mCopyCommandBuffers,
                                   mCopyCommandBufferCount * sizeof(CopyCommandBuffer));
-    VkCommandBuffer* commandBuffers = malloc(mCopyCommandBufferCount * sizeof(VkCommandBuffer));
+    STACK_ARRAY(VkCommandBuffer, commandBuffers, 16, mCopyCommandBufferCount);
 
     const VkCommandBufferAllocateInfo allocateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -342,7 +342,7 @@ static void recreateSwapchain(
     }
 
     ReleaseSRWLockExclusive(&mPresentableImagesLock);
-    free(commandBuffers);
+    STACK_ARRAY_FINISH(commandBuffers);
 
     // Create one acquire/copy semaphore per image. Old semaphores are reused when recreating the
     // swapchain which can cause conflicts, but it resolves itself quickly
