@@ -690,6 +690,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     // TODO validate parameters
 
     // Ignored parameters:
+    // - cbState.dualSourceBlendEnable (Vulkan handles it dynamically)
     // - iaState.disableVertexReuse (hint)
     // - tessState.optimalTessFactor (hint)
 
@@ -781,11 +782,6 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         };
 
         stageCount++;
-    }
-
-    // TODO implement
-    if (pCreateInfo->cbState.dualSourceBlendEnable) {
-        LOGW("dual source blend is not implemented\n");
     }
 
     VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
