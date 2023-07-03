@@ -232,7 +232,7 @@ GR_RESULT GR_STDCALL grInitAndEnumerateGpus(
             .applicationVersion = pAppInfo->appVersion,
             .pEngineName = grvkEngineName,
             .engineVersion = pAppInfo->engineVersion,
-            .apiVersion = VK_API_VERSION_1_2,
+            .apiVersion = VK_API_VERSION_1_3,
         };
 
         const char *instanceExtensions[] = {
@@ -652,24 +652,16 @@ GR_RESULT GR_STDCALL grCreateDevice(
         .extendedDynamicState3ColorBlendEnable = VK_TRUE,
         .extendedDynamicState3ColorBlendEquation = VK_TRUE,
     };
-    VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demoteToHelperInvocation = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT,
+    VkPhysicalDeviceVulkan13Features vulkan13DeviceFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
         .pNext = &extendedDynamicState3,
         .shaderDemoteToHelperInvocation = VK_TRUE,
-    };
-    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRendering = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
-        .pNext = &demoteToHelperInvocation,
-        .dynamicRendering = VK_TRUE,
-    };
-    VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2 = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
-        .pNext = &dynamicRendering,
         .synchronization2 = VK_TRUE,
+        .dynamicRendering = VK_TRUE,
     };
     VkPhysicalDeviceVulkan12Features vulkan12DeviceFeatures = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = &synchronization2,
+        .pNext = &vulkan13DeviceFeatures,
         .samplerMirrorClampToEdge = VK_TRUE,
         .separateDepthStencilLayouts = VK_TRUE,
     };
@@ -701,10 +693,7 @@ GR_RESULT GR_STDCALL grCreateDevice(
         VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
-        VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME,
-        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
     };
 
     const VkDeviceCreateInfo createInfo = {

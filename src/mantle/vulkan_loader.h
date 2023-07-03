@@ -62,6 +62,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkBindBufferMemory);
     VULKAN_FN(vkBindImageMemory);
     VULKAN_FN(vkCmdBeginQuery);
+    VULKAN_FN(vkCmdBeginRendering);
     VULKAN_FN(vkCmdBeginRenderPass);
     VULKAN_FN(vkCmdBindDescriptorSets);
     VULKAN_FN(vkCmdBindIndexBuffer);
@@ -83,6 +84,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdDrawIndexedIndirect);
     VULKAN_FN(vkCmdDrawIndirect);
     VULKAN_FN(vkCmdEndQuery);
+    VULKAN_FN(vkCmdEndRendering);
     VULKAN_FN(vkCmdEndRenderPass);
     VULKAN_FN(vkCmdExecuteCommands);
     VULKAN_FN(vkCmdFillBuffer);
@@ -181,11 +183,6 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkUpdateDescriptorSets);
     VULKAN_FN(vkUpdateDescriptorSetWithTemplate);
     VULKAN_FN(vkWaitForFences);
-
-#ifdef VK_KHR_dynamic_rendering
-    VULKAN_FN(vkCmdBeginRenderingKHR);
-    VULKAN_FN(vkCmdEndRenderingKHR);
-#endif
 
 #ifdef VK_KHR_swapchain
     VULKAN_FN(vkCreateSwapchainKHR);

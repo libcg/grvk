@@ -19,7 +19,7 @@ Development builds are available [here](https://github.com/libcg/grvk/actions?qu
 
 - [mingw-w64](https://www.mingw-w64.org) compiler
 - [Meson](https://mesonbuild.com/) build system
-- Vulkan 1.2 compatible GPU and recent drivers ([see wiki](https://github.com/libcg/grvk/wiki/Driver-Support))
+- Vulkan 1.3 compatible GPU and recent drivers ([see wiki](https://github.com/libcg/grvk/wiki/Driver-Support))
 
 NOTE: `binutils` 2.34 has [known issues](https://github.com/doitsujin/dxvk/issues/1625) and should be avoided.
 

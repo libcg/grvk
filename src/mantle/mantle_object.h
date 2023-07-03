@@ -170,11 +170,11 @@ typedef struct _GrCmdBuffer {
     GrDepthStencilStateObject* grDepthStencilState;
     GrColorBlendStateObject* grColorBlendState;
     // Render pass
-    VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkRenderingAttachmentInfo colorAttachments[GR_MAX_COLOR_TARGETS];
     bool hasDepth;
     bool hasStencil;
-    VkRenderingAttachmentInfoKHR depthAttachment;
-    VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkRenderingAttachmentInfo depthAttachment;
+    VkRenderingAttachmentInfo stencilAttachment;
     VkFormat depthFormat;
     VkFormat stencilFormat;
     VkExtent3D minExtent;

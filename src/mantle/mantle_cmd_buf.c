@@ -91,8 +91,8 @@ static void grCmdBufferBeginRenderPass(
         return;
     }
 
-    const VkRenderingInfoKHR renderingInfo = {
-        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+    const VkRenderingInfo renderingInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .pNext = NULL,
         .flags = 0,
         .renderArea = (VkRect2D) {
@@ -107,7 +107,7 @@ static void grCmdBufferBeginRenderPass(
         .pStencilAttachment = grCmdBuffer->hasStencil ? &grCmdBuffer->stencilAttachment : NULL,
     };
 
-    VKD.vkCmdBeginRenderingKHR(grCmdBuffer->commandBuffer, &renderingInfo);
+    VKD.vkCmdBeginRendering(grCmdBuffer->commandBuffer, &renderingInfo);
     grCmdBuffer->isRendering = true;
 }
 
@@ -120,7 +120,7 @@ void grCmdBufferEndRenderPass(
         return;
     }
 
-    VKD.vkCmdEndRenderingKHR(grCmdBuffer->commandBuffer);
+    VKD.vkCmdEndRendering(grCmdBuffer->commandBuffer);
     grCmdBuffer->isRendering = false;
 }
 
@@ -508,11 +508,11 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     GrCmdBuffer* grCmdBuffer = (GrCmdBuffer*)cmdBuffer;
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
-    VkRenderingAttachmentInfoKHR colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkRenderingAttachmentInfo colorAttachments[GR_MAX_COLOR_TARGETS];
     bool hasDepth = false;
     bool hasStencil = false;
-    VkRenderingAttachmentInfoKHR depthAttachment;
-    VkRenderingAttachmentInfoKHR stencilAttachment;
+    VkRenderingAttachmentInfo depthAttachment;
+    VkRenderingAttachmentInfo stencilAttachment;
     VkFormat depthFormat = VK_FORMAT_UNDEFINED;
     VkFormat stencilFormat = VK_FORMAT_UNDEFINED;
     VkExtent3D minExtent = { UINT32_MAX, UINT32_MAX, UINT32_MAX };
@@ -521,8 +521,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         const GrColorTargetView* grColorTargetView =
             i < colorTargetCount ? (GrColorTargetView*)pColorTargets[i].view : NULL;
 
-        colorAttachments[i] = (VkRenderingAttachmentInfoKHR) {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        colorAttachments[i] = (VkRenderingAttachmentInfo) {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .pNext = NULL,
             .imageView = VK_NULL_HANDLE,
             .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -551,8 +551,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         if (pDepthTarget->depthState != GR_IMAGE_STATE_UNINITIALIZED &&
             (grDepthStencilView->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != 0) {
             hasDepth = true;
-            depthAttachment = (VkRenderingAttachmentInfoKHR) {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+            depthAttachment = (VkRenderingAttachmentInfo) {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .pNext = NULL,
                 .imageView = grDepthStencilView->imageView,
                 .imageLayout = getVkImageLayout(pDepthTarget->depthState),
@@ -561,7 +561,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                 .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = grDepthStencilView->readOnlyAspectMask & VK_IMAGE_ASPECT_DEPTH_BIT ?
-                           VK_ATTACHMENT_STORE_OP_NONE_KHR : VK_ATTACHMENT_STORE_OP_STORE,
+                           VK_ATTACHMENT_STORE_OP_NONE : VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0 }}},
             };
             depthFormat = grDepthStencilView->depthFormat;
@@ -569,8 +569,8 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         if (pDepthTarget->stencilState != GR_IMAGE_STATE_UNINITIALIZED &&
             (grDepthStencilView->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != 0) {
             hasStencil = true;
-            stencilAttachment = (VkRenderingAttachmentInfoKHR) {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+            stencilAttachment = (VkRenderingAttachmentInfo) {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .pNext = NULL,
                 .imageView = grDepthStencilView->imageView,
                 .imageLayout = getVkImageLayout(pDepthTarget->stencilState),
@@ -579,7 +579,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
                 .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = grDepthStencilView->readOnlyAspectMask & VK_IMAGE_ASPECT_STENCIL_BIT ?
-                           VK_ATTACHMENT_STORE_OP_NONE_KHR : VK_ATTACHMENT_STORE_OP_STORE,
+                           VK_ATTACHMENT_STORE_OP_NONE : VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0 }}},
             };
             stencilFormat = grDepthStencilView->stencilFormat;

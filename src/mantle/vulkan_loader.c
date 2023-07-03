@@ -80,6 +80,7 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkBindBufferMemory);
     LOAD_VULKAN_DEV_FN(vkd, device, vkBindImageMemory);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginQuery);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginRendering);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginRenderPass);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBindDescriptorSets);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBindIndexBuffer);
@@ -101,6 +102,7 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdDrawIndexedIndirect);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdDrawIndirect);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndQuery);
+    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndRendering);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndRenderPass);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdExecuteCommands);
     LOAD_VULKAN_DEV_FN(vkd, device, vkCmdFillBuffer);
@@ -199,11 +201,6 @@ void vulkanLoaderDeviceInit(
     LOAD_VULKAN_DEV_FN(vkd, device, vkUpdateDescriptorSetWithTemplate);
     LOAD_VULKAN_DEV_FN(vkd, device, vkUpdateDescriptorSets);
     LOAD_VULKAN_DEV_FN(vkd, device, vkWaitForFences);
-
-#ifdef VK_KHR_dynamic_rendering
-    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdBeginRenderingKHR);
-    LOAD_VULKAN_DEV_FN(vkd, device, vkCmdEndRenderingKHR);
-#endif
 
 #ifdef VK_KHR_swapchain
     LOAD_VULKAN_DEV_FN(vkd, device, vkCreateSwapchainKHR);

@@ -360,7 +360,7 @@ VkImageLayout getVkImageLayout(
     case GR_IMAGE_STATE_UNINITIALIZED:
         return VK_IMAGE_LAYOUT_UNDEFINED;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
-        return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+        return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
         // We could technically use an attachment layout here, but this is meant for
         // light rendering followed by shader access, so a general layout is best
@@ -526,7 +526,7 @@ VkPipelineStageFlags getVkPipelineStageFlagsImage(
                VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
     case GR_IMAGE_STATE_UNINITIALIZED:
-        return VK_PIPELINE_STAGE_NONE_KHR;
+        return VK_PIPELINE_STAGE_NONE;
     case GR_IMAGE_STATE_TARGET_RENDER_ACCESS_OPTIMAL:
     case GR_IMAGE_STATE_TARGET_SHADER_ACCESS_OPTIMAL:
         return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
@@ -535,7 +535,7 @@ VkPipelineStageFlags getVkPipelineStageFlagsImage(
     case GR_IMAGE_STATE_CLEAR:
         return VK_PIPELINE_STAGE_TRANSFER_BIT;
     case GR_IMAGE_STATE_DISCARD:
-        return VK_PIPELINE_STAGE_NONE_KHR;
+        return VK_PIPELINE_STAGE_NONE;
     default:
         break;
     }
@@ -628,7 +628,7 @@ VkPipelineStageFlags getVkPipelineStageFlagsMemory(
     case GR_MEMORY_STATE_WRITE_TIMESTAMP:
         return VK_PIPELINE_STAGE_TRANSFER_BIT;
     case GR_MEMORY_STATE_DISCARD:
-        return VK_PIPELINE_STAGE_NONE_KHR;
+        return VK_PIPELINE_STAGE_NONE;
     case GR_MEMORY_STATE_DATA_TRANSFER_SOURCE:
     case GR_MEMORY_STATE_DATA_TRANSFER_DESTINATION:
         return VK_PIPELINE_STAGE_TRANSFER_BIT;

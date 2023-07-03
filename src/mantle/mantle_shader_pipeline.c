@@ -577,8 +577,8 @@ VkPipeline grPipelineGetVkPipeline(
              depthFormat, stencilFormat, createInfo->depthFormat, createInfo->stencilFormat);
     }
 
-    const VkPipelineRenderingCreateInfoKHR renderingCreateInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+    const VkPipelineRenderingCreateInfo renderingCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
         .pNext = NULL,
         .viewMask = 0,
         .colorAttachmentCount = GR_MAX_COLOR_TARGETS,
