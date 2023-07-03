@@ -490,7 +490,7 @@ VkPipeline grPipelineGetVkPipeline(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .rasterizationSamples = 0, // Dynamic state
+        .rasterizationSamples = 1, // Dynamic state
         .sampleShadingEnable = VK_FALSE,
         .minSampleShading = 0.f,
         .pSampleMask = NULL, // Dynamic state
