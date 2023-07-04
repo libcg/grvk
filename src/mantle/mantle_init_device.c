@@ -714,10 +714,13 @@ GR_RESULT GR_STDCALL grCreateDevice(
         LOGE("vkCreateDevice failed (%d)\n", vkRes);
 
         if (vkRes == VK_ERROR_EXTENSION_NOT_PRESENT) {
-            LOGE("missing extension. make sure your Vulkan driver supports:\n");
+            LOGE("missing extension, make sure your Vulkan driver supports:\n");
             for (unsigned i = 0; i < COUNT_OF(deviceExtensions); i++) {
                 LOGE("- %s\n", deviceExtensions[i]);
             }
+        } else if (vkRes == VK_ERROR_FEATURE_NOT_PRESENT) {
+            LOGE("missing feature, make sure your Vulkan driver is up-to-date. "
+                 "RADV is recommended.\n");
         }
 
         res = GR_ERROR_INITIALIZATION_FAILED;
