@@ -1430,7 +1430,7 @@ static void emitUav(
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
         .id = resourceId,
-        .typeId = arrayId,
+        .typeId = structId,
         .texelTypeId = compiler->floatId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
@@ -1526,7 +1526,7 @@ static void emitSrv(
     const IlcResource resource = {
         .resType = RES_TYPE_GENERIC,
         .id = resourceId,
-        .typeId = arrayId,
+        .typeId = structId,
         .texelTypeId = compiler->floatId,
         .ilId = id,
         .ilType = IL_USAGE_PIXTEX_UNKNOWN,
