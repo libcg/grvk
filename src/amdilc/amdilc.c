@@ -8,9 +8,6 @@
 
 static HCRYPTPROV mCryptProvider = 0;
 
-static void freeSource(
-    Source* src);
-
 static void calcSha1(
     uint8_t* digest,
     const uint8_t* data,
@@ -33,45 +30,13 @@ static void calcSha1(
     CryptDestroyHash(hash);
 }
 
-static void freeDestination(
-    Destination* dst)
-{
-    if (dst->absoluteSrc != NULL) {
-        freeSource(dst->absoluteSrc);
-    }
-    free(dst->absoluteSrc);
-}
-
-static void freeSource(
-    Source* src)
-{
-    for (unsigned i = 0; i < src->srcCount; i++) {
-        freeSource(&src->srcs[i]);
-    }
-    free(src->srcs);
-}
-
-static void freeInstruction(
-    Instruction* instr)
-{
-    for (unsigned i = 0; i < instr->dstCount; i++) {
-        freeDestination(&instr->dsts[i]);
-    }
-    for (unsigned i = 0; i < instr->srcCount; i++) {
-        freeSource(&instr->srcs[i]);
-    }
-    free(instr->dsts);
-    free(instr->srcs);
-    free(instr->extras);
-}
-
 static void freeKernel(
     Kernel* kernel)
 {
-    for (unsigned i = 0; i < kernel->instrCount; i++) {
-        freeInstruction(&kernel->instrs[i]);
-    }
     free(kernel->instrs);
+    free(kernel->srcBuffer);
+    free(kernel->dstBuffer);
+    free(kernel->extrasBuffer);
 }
 
 static bool isShaderDumpEnabled()
@@ -135,7 +100,10 @@ IlcShader ilcCompileShader(
     getShaderName(name, NAME_LEN, code, size);
     LOGV("compiling %s...\n", name);
 
-    Kernel* kernel = ilcDecodeStream((Token*)code, size / sizeof(Token));
+    Kernel* kernel = calloc(1, sizeof(Kernel));
+
+    ilcDecodeStream(kernel, (Token*)code, size / sizeof(Token));
+
     bool dump = isShaderDumpEnabled();
 
     if (dump) {
@@ -159,7 +127,9 @@ void ilcDisassembleShader(
     const void* code,
     unsigned size)
 {
-    Kernel* kernel = ilcDecodeStream((Token*)code, size / sizeof(Token));
+    Kernel* kernel =  calloc(1, sizeof(Kernel));
+
+    ilcDecodeStream(kernel, (Token*)code, size / sizeof(Token));
 
     ilcDumpKernel(file, kernel);
     freeKernel(kernel);

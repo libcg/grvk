@@ -19,6 +19,19 @@
 #define MAX(a, b) \
     ((a) > (b) ? (a) : (b))
 
+#define COUNT_OF(array) \
+    (sizeof(array) / sizeof((array)[0]))
+
+#define STACK_ARRAY(type, name, stackCount, count) \
+    type _stack_##name[stackCount]; \
+    type* name = (count) <= (stackCount) ? _stack_##name : malloc((count) * sizeof(type))
+
+#define STACK_ARRAY_FINISH(name) \
+   if (name != _stack_##name) free(name)
+
+#define MAX_SRC_COUNT (8)
+#define MAX_DST_COUNT (1)
+
 typedef uint32_t Token;
 typedef struct _Source Source;
 
@@ -28,9 +41,10 @@ typedef struct {
     uint8_t component[4];
     bool clamp;
     uint8_t shiftScale;
-    Source* absoluteSrc;
+    bool hasAbsoluteSrc;
+    unsigned absoluteSrc;
     unsigned relativeSrcCount;
-    Source* relativeSrcs;
+    unsigned relativeSrcs[2];
     bool hasImmediate;
     Token immediate;
 } Destination;
@@ -48,7 +62,7 @@ typedef struct _Source {
     uint8_t divComp;
     bool clamp;
     unsigned srcCount;
-    Source* srcs;
+    unsigned srcs[2];
     bool hasImmediate;
     Token immediate;
 } Source;
@@ -61,11 +75,11 @@ typedef struct {
     Token resourceFormat;
     Token addressOffset;
     unsigned dstCount;
-    Destination* dsts;
+    unsigned dsts[MAX_DST_COUNT];
     unsigned srcCount;
-    Source* srcs;
+    unsigned srcs[MAX_SRC_COUNT];
     unsigned extraCount;
-    Token* extras;
+    unsigned extrasStartIndex;
     uint8_t preciseMask;
 } Instruction;
 
@@ -76,13 +90,24 @@ typedef struct {
     uint8_t shaderType;
     bool multipass;
     bool realtime;
+    unsigned dstCount;
+    unsigned dstSize;
+    Destination* dstBuffer;
+    unsigned srcCount;
+    unsigned srcSize;
+    Source* srcBuffer;
+    unsigned extraCount;
+    unsigned extraSize;
+    Token* extrasBuffer;
+    unsigned instrSize;
     unsigned instrCount;
     Instruction* instrs;
 } Kernel;
 
 extern const char* mIlShaderTypeNames[IL_SHADER_LAST];
 
-Kernel* ilcDecodeStream(
+void ilcDecodeStream(
+    Kernel* kernel,
     const Token* tokens,
     unsigned count);
 
