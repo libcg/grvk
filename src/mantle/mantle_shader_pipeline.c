@@ -6,44 +6,15 @@ typedef struct _Stage {
     const VkShaderStageFlagBits flags;
 } Stage;
 
-static VkDescriptorUpdateTemplate getVkDescriptorUpdateTemplate(
-    const GrDevice* grDevice,
-    unsigned descriptorUpdateEntryCount,
-    const VkDescriptorUpdateTemplateEntry* descriptorUpdateEntries,
-    VkDescriptorSetLayout descriptorSetLayout)
-{
-    VkDescriptorUpdateTemplate descriptorUpdateTemplate = VK_NULL_HANDLE;
-    VkResult res;
-
-    const VkDescriptorUpdateTemplateCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .descriptorUpdateEntryCount = descriptorUpdateEntryCount,
-        .pDescriptorUpdateEntries = descriptorUpdateEntries,
-        .templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET,
-        .descriptorSetLayout = descriptorSetLayout,
-        .pipelineBindPoint = 0, // Ignored
-        .pipelineLayout = VK_NULL_HANDLE, // Ignored
-        .set = 0, // Ignored
-    };
-
-    res = VKD.vkCreateDescriptorUpdateTemplate(grDevice->device, &createInfo, NULL,
-                                               &descriptorUpdateTemplate);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateDescriptorUpdateTemplate failed (%d)\n", res);
-        assert(false);
-    }
-
-    return descriptorUpdateTemplate;
-}
-
-static void addDynamicUpdateTemplateSlots(
-    unsigned* updateTemplateSlotCount,
-    UpdateTemplateSlot** updateTemplateSlots,
+static bool handleDynamicDescriptorSlots(
+    PipelineDescriptorSlot* descriptorSlot,
     const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicMapping,
+    bool descriptorBufferUsed,
     unsigned bindingCount,
-    const IlcBinding* bindings)
+    const IlcBinding* bindings,
+    uint32_t* offsets,
+    uint32_t* descriptorSetIndices,
+    IlcBindingPatchEntry* patchEntries)
 {
     for (unsigned i = 0; i < bindingCount; i++) {
         const IlcBinding* binding = &bindings[i];
@@ -51,25 +22,7 @@ static void addDynamicUpdateTemplateSlots(
         if (dynamicMapping->slotObjectType != GR_SLOT_UNUSED &&
             binding->ilIndex == dynamicMapping->shaderEntityIndex &&
             binding->type == ILC_BINDING_RESOURCE) {
-            // Found a dynamic memory view descriptor
-            VkDescriptorUpdateTemplateEntry* entry =
-                malloc(sizeof(VkDescriptorUpdateTemplateEntry));
-            *entry = (VkDescriptorUpdateTemplateEntry) {
-                .dstBinding = binding->vkIndex,
-                .dstArrayElement = 0,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-                .offset = OFFSET_OF_UNION(DescriptorSetSlot, buffer, bufferInfo),
-                .stride = 0,
-            };
-
-            (*updateTemplateSlotCount)++;
-            *updateTemplateSlots = realloc(*updateTemplateSlots,
-                                           *updateTemplateSlotCount *
-                                           sizeof(UpdateTemplateSlot));
-            (*updateTemplateSlots)[*updateTemplateSlotCount - 1] = (UpdateTemplateSlot) {
-                .updateTemplate = (VkDescriptorUpdateTemplate)entry, // Stuff the entry here
-                .isDynamic = true,
+            *descriptorSlot = (PipelineDescriptorSlot) {
                 .pathDepth = 0,
                 .path = { 0 },
                 .strideCount = 0, // Initialized below
@@ -79,21 +32,35 @@ static void addDynamicUpdateTemplateSlots(
 
             if (binding->strideIndex >= 0) {
                 unsigned strideOffset = binding->strideIndex * sizeof(uint32_t);
-                (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideCount = 1;
-                (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideOffsets[0] =
-                    strideOffset;
-                (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideSlotIndexes[0] = 0;
+                descriptorSlot->strideCount++;
+                descriptorSlot->strideOffsets[descriptorSlot->strideCount - 1] = strideOffset;
+                descriptorSlot->strideSlotIndexes[descriptorSlot->strideCount - 1] = 0;
             }
+
+            offsets[i] = 0;
+            unsigned int descriptorSetIndex = descriptorBufferUsed ? DESCRIPTOR_BUFFERS_PUSH_DESCRIPTOR_SET_ID : DYNAMIC_MEMORY_VIEW_DESCRIPTOR_SET_ID;
+            descriptorSetIndices[i] = descriptorSetIndex;
+            patchEntries[i] = (IlcBindingPatchEntry) {
+                .id = binding->id,
+                .bindingIndex = descriptorBufferUsed ? DESCRIPTOR_BUFFERS_DYNAMIC_MAPPING_BINDING_ID : DYNAMIC_MEMORY_VIEW_BINDING_ID,
+                .descriptorSetIndex = descriptorSetIndex,
+            };
+
+            return true;
         }
     }
+
+    return false;
 }
 
-static void addUpdateTemplateSlotsFromMapping(
-    unsigned* updateTemplateSlotCount,
-    UpdateTemplateSlot** updateTemplateSlots,
+static void getDescriptorSlotsFromMapping(
+    unsigned* pDescriptorSlotCount,
+    PipelineDescriptorSlot** pDescriptorSlots,
     const GR_DESCRIPTOR_SET_MAPPING* mapping,
     unsigned bindingCount,
     const IlcBinding* bindings,
+    uint32_t* offsets,
+    IlcBindingPatchEntry* patchEntries,
     unsigned pathDepth,
     unsigned* path)
 {
@@ -113,9 +80,10 @@ static void addUpdateTemplateSlotsFromMapping(
             path[pathDepth] = i;
 
             // Add slots from the nested set
-            addUpdateTemplateSlotsFromMapping(updateTemplateSlotCount, updateTemplateSlots,
-                                              slotInfo->pNextLevelSet, bindingCount, bindings,
-                                              pathDepth + 1, path);
+            getDescriptorSlotsFromMapping(pDescriptorSlotCount, pDescriptorSlots,
+                                          slotInfo->pNextLevelSet, bindingCount, bindings,
+                                          offsets, patchEntries,
+                                          pathDepth + 1, path);
             continue;
         }
 
@@ -128,49 +96,23 @@ static void addUpdateTemplateSlotsFromMapping(
                   (slotInfo->slotObjectType == GR_SLOT_SHADER_RESOURCE ||
                    slotInfo->slotObjectType == GR_SLOT_SHADER_UAV)))) {
                 binding = &bindings[j];
+
+                uint32_t descriptorTypeOffset = getDescriptorOffset(bindings[j].descriptorType);
+                offsets[j] = i * DESCRIPTORS_PER_SLOT + descriptorTypeOffset;
+
                 break;
             }
         }
+
         if (binding == NULL) {
             // Unused mapping slot, skip
             continue;
         }
 
-        unsigned slotDataOffset = 0;
-        switch (binding->descriptorType) {
-        case VK_DESCRIPTOR_TYPE_SAMPLER:
-        case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-        case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-            slotDataOffset = OFFSET_OF_UNION(DescriptorSetSlot, image, imageInfo);
-            break;
-        case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-        case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-            slotDataOffset = OFFSET_OF_UNION(DescriptorSetSlot, buffer, bufferView);
-            break;
-        case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-            slotDataOffset = OFFSET_OF_UNION(DescriptorSetSlot, buffer, bufferInfo);
-            break;
-        default:
-            LOGE("unhandled descriptor type %d\n", binding->descriptorType);
-            assert(false);
-        }
-
-        VkDescriptorUpdateTemplateEntry* entry = malloc(sizeof(VkDescriptorUpdateTemplateEntry));
-        *entry = (VkDescriptorUpdateTemplateEntry) {
-            .dstBinding = binding->vkIndex,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = binding->descriptorType,
-            .offset = i * sizeof(DescriptorSetSlot) + slotDataOffset,
-            .stride = 0,
-        };
-
-        (*updateTemplateSlotCount)++;
-        *updateTemplateSlots = realloc(*updateTemplateSlots,
-                                       *updateTemplateSlotCount * sizeof(UpdateTemplateSlot));
-        (*updateTemplateSlots)[*updateTemplateSlotCount - 1] = (UpdateTemplateSlot) {
-            .updateTemplate = (VkDescriptorUpdateTemplate)entry, // Stuff the entry here
-            .isDynamic = false,
+        (*pDescriptorSlotCount)++;
+        *pDescriptorSlots = realloc(*pDescriptorSlots,
+                                       *pDescriptorSlotCount * sizeof(PipelineDescriptorSlot));
+        (*pDescriptorSlots)[*pDescriptorSlotCount - 1] = (PipelineDescriptorSlot) {
             .pathDepth = pathDepth,
             .path = { 0 }, // Initialized below
             .strideCount = 0, // Initialized below
@@ -178,83 +120,59 @@ static void addUpdateTemplateSlotsFromMapping(
             .strideSlotIndexes = { 0 }, // Initialized below
         };
 
-        memcpy((*updateTemplateSlots)[*updateTemplateSlotCount - 1].path,
+        memcpy((*pDescriptorSlots)[*pDescriptorSlotCount - 1].path,
                path, pathDepth * sizeof(unsigned));
 
         if (binding->strideIndex >= 0) {
             unsigned strideOffset = binding->strideIndex * sizeof(uint32_t);
-            (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideCount = 1;
-            (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideOffsets[0] = strideOffset;
-            (*updateTemplateSlots)[*updateTemplateSlotCount - 1].strideSlotIndexes[0] = i;
+            (*pDescriptorSlots)[*pDescriptorSlotCount - 1].strideCount = 1;
+            (*pDescriptorSlots)[*pDescriptorSlotCount - 1].strideOffsets[0] = strideOffset;
+            (*pDescriptorSlots)[*pDescriptorSlotCount - 1].strideSlotIndexes[0] = i;
         }
     }
 }
 
-static int compareUpdateTemplateSlots(
+static int compareDescriptorSlots(
     const void* a,
     const void* b)
 {
-    const UpdateTemplateSlot* slotA = a;
-    const UpdateTemplateSlot* slotB = b;
+    const PipelineDescriptorSlot* slotA = a;
+    const PipelineDescriptorSlot* slotB = b;
 
-    // Make slots with the same path adjacent
-    if (slotA->isDynamic != slotB->isDynamic) {
-        return (int)slotA->isDynamic - (int)slotB->isDynamic;
-    }
-    if (slotA->pathDepth != slotB->pathDepth) {
-        return (int)slotA->pathDepth - (int)slotB->pathDepth;
-    }
     return memcmp(slotA->path, slotB->path, slotA->pathDepth * sizeof(slotA->path[0]));
 }
 
-static void mergeUpdateTemplateSlots(
-    unsigned* updateTemplateSlotCount,
-    UpdateTemplateSlot** updateTemplateSlots,
-    const GrDevice* grDevice,
-    VkDescriptorSetLayout descriptorSetLayout)
+
+static void mergeDescriptorSlots(
+    unsigned* descriptorSlotCount,
+    PipelineDescriptorSlot** descriptorSlots)
 {
     // Group slots by path
-    qsort(*updateTemplateSlots, *updateTemplateSlotCount, sizeof(UpdateTemplateSlot),
-          compareUpdateTemplateSlots);
+    qsort(*descriptorSlots, *descriptorSlotCount, sizeof(PipelineDescriptorSlot),
+          compareDescriptorSlots);
 
-    unsigned descriptorUpdateEntryCount = 0;
-    VkDescriptorUpdateTemplateEntry* descriptorUpdateEntries = NULL;
+    unsigned mergingDescriptorCount = 0;
 
-    for (unsigned i = 0; i < *updateTemplateSlotCount; i++) {
-        bool isLastSlot = (i + 1) == *updateTemplateSlotCount;
-        UpdateTemplateSlot* slot = &(*updateTemplateSlots)[i];
-        UpdateTemplateSlot* nextSlot = &(*updateTemplateSlots)[i + 1];
+    for (unsigned i = 0; i < *descriptorSlotCount; i++) {
+        bool isLastSlot = (i + 1) == *descriptorSlotCount;
+        PipelineDescriptorSlot* slot = &(*descriptorSlots)[i];
+        PipelineDescriptorSlot* nextSlot = &(*descriptorSlots)[i + 1];
 
-        // Add new entry
-        VkDescriptorUpdateTemplateEntry* entry =
-            (VkDescriptorUpdateTemplateEntry*)slot->updateTemplate;
-
-        descriptorUpdateEntryCount++;
-        descriptorUpdateEntries = realloc(descriptorUpdateEntries,
-                                          descriptorUpdateEntryCount *
-                                          sizeof(VkDescriptorUpdateTemplateEntry));
-        descriptorUpdateEntries[descriptorUpdateEntryCount - 1] = *entry;
-        free(entry);
+        mergingDescriptorCount++;
 
         if (!isLastSlot &&
-            slot->isDynamic == nextSlot->isDynamic &&
             slot->pathDepth == nextSlot->pathDepth &&
             memcmp(slot->path, nextSlot->path, slot->pathDepth * sizeof(slot->path[0])) == 0) {
             // Can't merge yet
             continue;
         }
 
-        unsigned mergedIdx = i - descriptorUpdateEntryCount + 1;
-        UpdateTemplateSlot* mergedSlot = &(*updateTemplateSlots)[mergedIdx];
-
-        mergedSlot->updateTemplate =
-            getVkDescriptorUpdateTemplate(grDevice, descriptorUpdateEntryCount,
-                                          descriptorUpdateEntries, descriptorSetLayout);
-        free(descriptorUpdateEntries);
+        unsigned mergedIdx = i - mergingDescriptorCount + 1;
+        PipelineDescriptorSlot* mergedSlot = &(*descriptorSlots)[mergedIdx];
 
         // TODO deduplicate strides
         for (unsigned j = mergedIdx + 1; j <= i; j++) {
-            UpdateTemplateSlot* slotToMerge = &(*updateTemplateSlots)[j];
+            PipelineDescriptorSlot* slotToMerge = &(*descriptorSlots)[j];
 
             if (slotToMerge->strideCount == 1) {
                 if (mergedSlot->strideCount >= MAX_STRIDES) {
@@ -272,26 +190,91 @@ static void mergeUpdateTemplateSlots(
 
         // Drop temporary slots
         memmove(mergedSlot + 1, nextSlot,
-                (*updateTemplateSlotCount - i - 1) * sizeof(UpdateTemplateSlot));
-        *updateTemplateSlotCount -= descriptorUpdateEntryCount - 1;
-        *updateTemplateSlots = realloc(*updateTemplateSlots,
-                                       *updateTemplateSlotCount * sizeof(UpdateTemplateSlot));
+                (*descriptorSlotCount - i - 1) * sizeof(PipelineDescriptorSlot));
+        *descriptorSlotCount -= mergingDescriptorCount - 1;
+        *descriptorSlots = realloc(*descriptorSlots,
+                                   *descriptorSlotCount * sizeof(PipelineDescriptorSlot));
 
         // Update state
         i = mergedIdx;
-        descriptorUpdateEntryCount = 0;
-        descriptorUpdateEntries = NULL;
+        mergingDescriptorCount = 0;
     }
 }
 
-static void getUpdateTemplateSlots(
-    unsigned* updateTemplateSlotCount,
-    UpdateTemplateSlot** updateTemplateSlots,
+static void setupDescriptorSetIndices(
+    unsigned descriptorSetCount,
+    const PipelineDescriptorSlot* descriptorSlots,
+    const GR_DESCRIPTOR_SET_MAPPING* mapping,
+    unsigned bindingCount,
+    const IlcBinding* bindings,
+    IlcBindingPatchEntry* patchEntries,
+    unsigned* descriptorSetIndices,
+    unsigned descriptorSetIndexOffset,
+    unsigned pathDepth,
+    unsigned* path)
+{
+    unsigned descriptorSetIndex = 0xFFFFFFFF;
+    for (unsigned i = 0; i < descriptorSetCount; ++i) {
+        const PipelineDescriptorSlot* slot = (const PipelineDescriptorSlot*)(&descriptorSlots[i]);
+        if (slot->pathDepth == pathDepth && memcmp(slot->path, path, pathDepth * sizeof(path[0])) == 0) {
+            descriptorSetIndex = i;
+            break;
+        }
+    }
+    for (unsigned i = 0; i < mapping->descriptorCount; i++) {
+        const GR_DESCRIPTOR_SLOT_INFO* slotInfo = &mapping->pDescriptorInfo[i];
+
+        if (slotInfo->slotObjectType == GR_SLOT_UNUSED) {
+            continue;
+        } else if (slotInfo->slotObjectType == GR_SLOT_NEXT_DESCRIPTOR_SET) {
+            if (pathDepth >= MAX_PATH_DEPTH) {
+                LOGE("exceeded max path depth of %d\n", MAX_PATH_DEPTH);
+                assert(false);
+            }
+
+            // Mark path
+            path[pathDepth] = i;
+
+            // Add slots from the nested set
+            setupDescriptorSetIndices(descriptorSetCount, descriptorSlots,
+                                      slotInfo->pNextLevelSet, bindingCount, bindings,
+                                      patchEntries, descriptorSetIndices,
+                                      descriptorSetIndexOffset,
+                                      pathDepth + 1, path);
+            continue;
+        }
+        // Find matching binding
+        for (unsigned j = 0; j < bindingCount; j++) {
+            if (bindings[j].ilIndex == slotInfo->shaderEntityIndex &&
+                ((bindings[j].type == ILC_BINDING_SAMPLER &&
+                  slotInfo->slotObjectType == GR_SLOT_SHADER_SAMPLER) ||
+                 (bindings[j].type == ILC_BINDING_RESOURCE &&
+                  (slotInfo->slotObjectType == GR_SLOT_SHADER_RESOURCE ||
+                   slotInfo->slotObjectType == GR_SLOT_SHADER_UAV)))) {
+                unsigned computedDescriptorSetIndex = descriptorSetIndexOffset + descriptorSetIndex;
+                descriptorSetIndices[j] = computedDescriptorSetIndex;
+                patchEntries[j] = (IlcBindingPatchEntry) {
+                    .id = bindings[j].id,
+                    .bindingIndex = 0,
+                    .descriptorSetIndex = computedDescriptorSetIndex,
+                };
+                break;
+            }
+        }
+    }
+}
+
+static void getDescriptorSlotMappings(
+    unsigned* descriptorSlotCount,
+    PipelineDescriptorSlot** descriptorSlots,
     const GrDevice* grDevice,
     unsigned stageCount,
     const Stage* stages,
+    IlcBindingPatchEntry** patchEntries,
+    uint32_t** specOffsets,
+    uint32_t** specDescriptorIndices,
     unsigned mappingIndex,
-    VkDescriptorSetLayout descriptorSetLayout)
+    unsigned descriptorSetIndexOffset)
 {
     for (unsigned i = 0; i < stageCount; i++) {
         const Stage* stage = &stages[i];
@@ -303,108 +286,66 @@ static void getUpdateTemplateSlots(
             continue;
         }
 
-        addDynamicUpdateTemplateSlots(updateTemplateSlotCount, updateTemplateSlots,
-                                      &shader->dynamicMemoryViewMapping,
-                                      grShader->bindingCount, grShader->bindings);
-        addUpdateTemplateSlotsFromMapping(updateTemplateSlotCount, updateTemplateSlots,
-                                          &shader->descriptorSetMapping[mappingIndex],
-                                          grShader->bindingCount, grShader->bindings, 0, path);
+        getDescriptorSlotsFromMapping(descriptorSlotCount, descriptorSlots,
+                                      &shader->descriptorSetMapping[mappingIndex],
+                                      grShader->bindingCount, grShader->bindings,
+                                      specOffsets[i], patchEntries[i],
+                                      0, path);
     }
 
-    mergeUpdateTemplateSlots(updateTemplateSlotCount, updateTemplateSlots, grDevice,
-                             descriptorSetLayout);
-}
-
-static VkDescriptorSetLayout getVkDescriptorSetLayout(
-    unsigned* dynamicOffsetCount,
-    const GrDevice* grDevice,
-    unsigned stageCount,
-    const Stage* stages)
-{
-    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-    unsigned bindingCount = 0;
-    VkDescriptorSetLayoutBinding* bindings = NULL;
-
+    mergeDescriptorSlots(descriptorSlotCount, descriptorSlots);
     for (unsigned i = 0; i < stageCount; i++) {
         const Stage* stage = &stages[i];
         const GR_PIPELINE_SHADER* shader = stage->shader;
-        const GR_DYNAMIC_MEMORY_VIEW_SLOT_INFO* dynamicSlotInfo = &shader->dynamicMemoryViewMapping;
         const GrShader* grShader = shader->shader;
+        unsigned path[MAX_PATH_DEPTH];
 
         if (grShader == NULL) {
             continue;
         }
 
-        for (unsigned j = 0; j < grShader->bindingCount; j++) {
-            const IlcBinding* binding = &grShader->bindings[j];
-            bool isDynamic = false;
-
-            if (dynamicSlotInfo->slotObjectType != GR_SLOT_UNUSED &&
-                binding->ilIndex == dynamicSlotInfo->shaderEntityIndex &&
-                binding->type == ILC_BINDING_RESOURCE) {
-                // Use dynamic offsets for dynamic memory views to avoid invalidating
-                // descriptor sets each time the buffer offset changes
-                isDynamic = true;
-                (*dynamicOffsetCount)++;
-            }
-
-            // Add new binding
-            bindingCount++;
-            bindings = realloc(bindings, bindingCount * sizeof(VkDescriptorSetLayoutBinding));
-            bindings[bindingCount - 1] = (VkDescriptorSetLayoutBinding) {
-                .binding = binding->vkIndex,
-                .descriptorType = isDynamic ? VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC
-                                            : binding->descriptorType,
-                .descriptorCount = 1,
-                .stageFlags = stage->flags,
-                .pImmutableSamplers = NULL,
-            };
-        }
+        setupDescriptorSetIndices(*descriptorSlotCount, *descriptorSlots,
+                                  &shader->descriptorSetMapping[mappingIndex],
+                                  grShader->bindingCount, grShader->bindings,
+                                  patchEntries[i],
+                                  specDescriptorIndices[i],
+                                  descriptorSetIndexOffset,
+                                  0, path);
     }
-
-    const VkDescriptorSetLayoutCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .bindingCount = bindingCount,
-        .pBindings = bindings,
-    };
-
-    VkResult res = VKD.vkCreateDescriptorSetLayout(grDevice->device, &createInfo, NULL, &layout);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateDescriptorSetLayout failed (%d)\n", res);
-    }
-
-    free(bindings);
-    return layout;
 }
 
 static VkPipelineLayout getVkPipelineLayout(
     const GrDevice* grDevice,
-    VkDescriptorSetLayout descriptorSetLayout,
-    VkDescriptorSetLayout atomicSetLayout)
+    unsigned descriptorSetCount,
+    VkPipelineBindPoint vkBindPoint)
 {
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 
-    const VkDescriptorSetLayout setLayouts[] = {
-        descriptorSetLayout,
-        atomicSetLayout,
+    VkDescriptorSetLayout setLayouts[32] = {
+        grDevice->descriptorBufferSupported ? grDevice->defaultDescriptorSetLayout : grDevice->dynamicMemorySetLayout,
+        grDevice->descriptorBufferSupported ? grDevice->descriptorPushSetLayout : grDevice->atomicCounterSetLayout,
     };
 
-    const VkPushConstantRange pushConstantRange = {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .offset = 0,
-        .size = ILC_MAX_STRIDE_CONSTANTS * sizeof(uint32_t),
+    assert((descriptorSetCount + 2) <= COUNT_OF(setLayouts));
+    for (unsigned i = 0; i < descriptorSetCount; ++i) {
+        setLayouts[i + 2] = grDevice->defaultDescriptorSetLayout;
+    }
+    const VkPushConstantRange pushConstantRanges[] = {
+        {
+            .stageFlags = (vkBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) ? VK_SHADER_STAGE_ALL_GRAPHICS : VK_SHADER_STAGE_COMPUTE_BIT,
+            .offset = 0,
+            .size = DESCRIPTOR_OFFSET_COUNT * sizeof(uint32_t) + ILC_MAX_STRIDE_CONSTANTS * sizeof(uint32_t),
+        }
     };
 
     const VkPipelineLayoutCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .setLayoutCount = COUNT_OF(setLayouts),
+        .setLayoutCount = descriptorSetCount + 2,
         .pSetLayouts = setLayouts,
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &pushConstantRange,
+        .pushConstantRangeCount = COUNT_OF(pushConstantRanges),
+        .pPushConstantRanges = pushConstantRanges,
     };
 
     VkResult res = VKD.vkCreatePipelineLayout(grDevice->device, &createInfo, NULL, &pipelineLayout);
@@ -422,7 +363,7 @@ VkPipeline grPipelineGetVkPipeline(
     VkFormat depthFormat,
     VkFormat stencilFormat)
 {
-    const GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
+    GrDevice* grDevice = GET_OBJ_DEVICE(grPipeline);
     const PipelineCreateInfo* createInfo = grPipeline->createInfo;
     VkPipeline vkPipeline = VK_NULL_HANDLE;
     VkResult vkRes;
@@ -627,42 +568,21 @@ GR_RESULT GR_STDCALL grCreateShader(
 {
     LOGT("%p %p %p\n", device, pCreateInfo, pShader);
     GrDevice* grDevice = (GrDevice*)device;
-    VkShaderModule vkShaderModule = VK_NULL_HANDLE;
 
     // ALLOW_RE_Z flag doesn't have a Vulkan equivalent. RADV determines it automatically.
 
     IlcShader ilcShader = ilcCompileShader(pCreateInfo->pCode, pCreateInfo->codeSize);
 
-    const VkShaderModuleCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
-        .codeSize = ilcShader.codeSize,
-        .pCode = ilcShader.code,
-    };
-
-    VkResult res = VKD.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &vkShaderModule);
-    if (res != VK_SUCCESS) {
-        LOGE("vkCreateShaderModule failed (%d)\n", res);
-        free(ilcShader.code);
-        free(ilcShader.bindings);
-        free(ilcShader.inputs);
-        free(ilcShader.name);
-        return getGrResult(res);
-    }
-
-    free(ilcShader.code);
-
     GrShader* grShader = malloc(sizeof(GrShader));
     *grShader = (GrShader) {
         .grObj = { GR_OBJ_TYPE_SHADER, grDevice },
-        .refCount = 1,
-        .shaderModule = vkShaderModule,
         .bindingCount = ilcShader.bindingCount,
         .bindings = ilcShader.bindings,
         .inputCount = ilcShader.inputCount,
         .inputs = ilcShader.inputs,
         .name = ilcShader.name,
+        .codeSize = ilcShader.codeSize,
+        .code = ilcShader.code,
     };
 
     *pShader = (GR_SHADER)grShader;
@@ -678,13 +598,19 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     GrDevice* grDevice = (GrDevice*)device;
     GR_RESULT res = GR_SUCCESS;
     bool hasTessellation = false;
-    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkShaderModule rectangleShaderModule = VK_NULL_HANDLE;
-    unsigned dynamicOffsetCount = 0;
-    unsigned updateTemplateSlotCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
-    UpdateTemplateSlot* updateTemplateSlots[GR_MAX_DESCRIPTOR_SETS] = { NULL };
-    GrShader* grShaderRefs[MAX_STAGE_COUNT] = { NULL };
+
+    VkShaderModule shaderModules[MAX_STAGE_COUNT] = { 0 };
+    IlcBindingPatchEntry* patchEntries[MAX_STAGE_COUNT] = { NULL };
+    uint32_t* specData[MAX_STAGE_COUNT] = { NULL };
+    uint32_t* descriptorSetIndices[MAX_STAGE_COUNT] = { NULL };
+    VkSpecializationMapEntry* mapEntries[MAX_STAGE_COUNT] = { NULL };
+    VkSpecializationInfo specInfos[MAX_STAGE_COUNT] = { { 0 } };
+
+    PipelineDescriptorSlot dynamicDescriptorSlot = { 0 };
+    unsigned descriptorSetCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
+    PipelineDescriptorSlot* pipelineDescriptorSlots[GR_MAX_DESCRIPTOR_SETS] = { NULL };
+
     VkResult vkRes;
 
     // TODO validate parameters
@@ -705,6 +631,57 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
     unsigned stageCount = 0;
     VkPipelineShaderStageCreateInfo shaderStageCreateInfo[COUNT_OF(stages)];
 
+    bool dynamicMappingUsed = false;
+    for (int i = 0; i < COUNT_OF(stages); i++) {
+        Stage* stage = &stages[i];
+
+        if (stage->shader->shader == GR_NULL_HANDLE) {
+            continue;
+        }
+
+        GrShader* grShader = (GrShader*)stage->shader->shader;
+
+        patchEntries[i] = malloc(sizeof(IlcBindingPatchEntry) * grShader->bindingCount);
+        mapEntries[i] = malloc(grShader->bindingCount * 2 * sizeof(VkSpecializationMapEntry));
+        specData[i] = malloc(sizeof(uint32_t) * 2 * grShader->bindingCount);
+        specInfos[i] = (VkSpecializationInfo) {
+            .pData = specData[i],
+            .pMapEntries = mapEntries[i],
+            .dataSize = sizeof(uint32_t) * grShader->bindingCount * 2,
+            .mapEntryCount = grShader->bindingCount * 2,
+        };
+        descriptorSetIndices[i] = &specData[i][grShader->bindingCount];
+        for (unsigned j = 0; j < grShader->bindingCount; ++j) {
+            mapEntries[i][j * 2] = (VkSpecializationMapEntry) {
+                .constantID = grShader->bindings[j].offsetSpecId,
+                .offset = j * sizeof(uint32_t),
+                .size = sizeof(uint32_t),
+            };
+            mapEntries[i][j * 2 + 1] = (VkSpecializationMapEntry) {
+                .constantID = grShader->bindings[j].descriptorSetIndexSpecId,
+                .offset = (j + grShader->bindingCount) * sizeof(uint32_t),
+                .size = sizeof(uint32_t),
+            };
+        }
+
+        dynamicMappingUsed |= handleDynamicDescriptorSlots(
+            &dynamicDescriptorSlot,
+            &stage->shader->dynamicMemoryViewMapping,
+            grDevice->descriptorBufferSupported,
+            grShader->bindingCount, grShader->bindings,
+            specData[i],
+            &specData[i][grShader->bindingCount],
+            patchEntries[i]);
+    }
+
+    unsigned descriptorSetCount = 0;
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        getDescriptorSlotMappings(&descriptorSetCounts[i], &pipelineDescriptorSlots[i],
+                                  grDevice, COUNT_OF(stages), stages, patchEntries, specData, descriptorSetIndices, i,
+                                  descriptorSetCount + (grDevice->descriptorBufferSupported ? DESCRIPTOR_BUFFERS_BASE_DESCRIPTOR_SET_ID : DESCRIPTOR_SET_ID));
+        descriptorSetCount += descriptorSetCounts[i];
+    }
+
     for (int i = 0; i < COUNT_OF(stages); i++) {
         Stage* stage = &stages[i];
 
@@ -719,15 +696,47 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
         GrShader* grShader = (GrShader*)stage->shader->shader;
 
-        grShaderRefs[i] = grShader;
-        grShader->refCount++;
+        void* code = malloc(grShader->codeSize);
+        memcpy(code, grShader->code, grShader->codeSize);
+
+        const VkShaderModuleCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .pNext = NULL,
+            .flags = 0,
+            .codeSize = grShader->codeSize,
+            .pCode = code,//grShader->code,
+        };
+
+        patchShaderBindings(
+            code,
+            grShader->codeSize,
+            patchEntries[i],
+            grShader->bindingCount);
+
+        vkRes = VKD.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &shaderModules[stageCount]);
+        free(code);
+        if (vkRes != VK_SUCCESS) {
+            res = getGrResult(vkRes);
+            goto bail;
+        }
+
+        if (stageCount != i) {
+            patchEntries[stageCount] = patchEntries[i];
+            mapEntries[stageCount] = mapEntries[i];
+            specData[stageCount] = specData[i];
+
+            patchEntries[i] = NULL;
+            mapEntries[i] = NULL;
+            specData[i] = NULL;
+            memcpy(&specInfos[stageCount], &specInfos[i], sizeof(VkSpecializationInfo));
+        }
 
         shaderStageCreateInfo[stageCount] = (VkPipelineShaderStageCreateInfo) {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
             .stage = stage->flags,
-            .module = grShader->shaderModule,
+            .module = shaderModules[stageCount],
             .pName = "main",
             .pSpecializationInfo = NULL,
         };
@@ -763,7 +772,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
         };
 
         vkRes = VKD.vkCreateShaderModule(grDevice->device, &rectangleShaderModuleCreateInfo, NULL,
-                                         &rectangleShaderModule);
+                                         &shaderModules[stageCount]);
         free(rectangleShader.code);
 
         if (vkRes != VK_SUCCESS) {
@@ -776,7 +785,7 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
             .pNext = NULL,
             .flags = 0,
             .stage = VK_SHADER_STAGE_GEOMETRY_BIT,
-            .module = rectangleShaderModule,
+            .module = shaderModules[stageCount],
             .pName = "main",
             .pSpecializationInfo = NULL,
         };
@@ -796,10 +805,15 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
     PipelineCreateInfo* pipelineCreateInfo = malloc(sizeof(PipelineCreateInfo));
     *pipelineCreateInfo = (PipelineCreateInfo) {
-        .createFlags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
-                       VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
+        .createFlags =
+        ((pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
+                        VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0) |
+        (grDevice->descriptorBufferSupported ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
         .stageCount = stageCount,
         .stageCreateInfos = { { 0 } }, // Initialized below
+        .specInfos = { { 0 } }, // Initialized below
+        .specData = { NULL }, // Initialized below
+        .mapEntries = { NULL }, // Initialized below
         .topology = getVkPrimitiveTopology(pCreateInfo->iaState.topology),
         .patchControlPoints = pCreateInfo->tessState.patchControlPoints,
         .depthClipEnable = !!pCreateInfo->rsState.depthClipEnable,
@@ -814,59 +828,66 @@ GR_RESULT GR_STDCALL grCreateGraphicsPipeline(
 
     memcpy(pipelineCreateInfo->stageCreateInfos, shaderStageCreateInfo,
            stageCount * sizeof(VkPipelineShaderStageCreateInfo));
+    memcpy(pipelineCreateInfo->specInfos, specInfos, sizeof(specInfos));
+    memcpy(pipelineCreateInfo->specData, specData, sizeof(specData));
+    memcpy(pipelineCreateInfo->mapEntries, mapEntries, sizeof(mapEntries));
     memcpy(pipelineCreateInfo->colorFormats, colorFormats,
            GR_MAX_COLOR_TARGETS * sizeof(VkFormat));
     memcpy(pipelineCreateInfo->colorWriteMasks, colorWriteMasks,
            GR_MAX_COLOR_TARGETS * sizeof(VkColorComponentFlags));
 
-    descriptorSetLayout = getVkDescriptorSetLayout(&dynamicOffsetCount, grDevice,
-                                                   COUNT_OF(stages), stages);
-    if (descriptorSetLayout == VK_NULL_HANDLE) {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
+    for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
+        pipelineCreateInfo->stageCreateInfos[i].pSpecializationInfo = &pipelineCreateInfo->specInfos[i];
     }
 
-    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout,
-                                         grDevice->atomicCounterSetLayout);
+    descriptorSetCount = 0;
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        descriptorSetCount += descriptorSetCounts[i];
+    }
+    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetCount, VK_PIPELINE_BIND_POINT_GRAPHICS);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
     }
-
-    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-        getUpdateTemplateSlots(&updateTemplateSlotCounts[i], &updateTemplateSlots[i],
-                               grDevice, COUNT_OF(stages), stages, i, descriptorSetLayout);
-    }
-
     // TODO keep track of rectangle shader module
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
-        .grShaderRefs = { NULL }, // Initialized below
+        .shaderModules = { VK_NULL_HANDLE },
         .createInfo = pipelineCreateInfo,
         .hasTessellation = hasTessellation,
         .pipeline = VK_NULL_HANDLE, // We don't know the attachment formats yet (Frostbite bug)
         .pipelineLayout = pipelineLayout,
         .stageCount = COUNT_OF(stages),
-        .descriptorSetLayout = descriptorSetLayout,
-        .dynamicOffsetCount = dynamicOffsetCount,
-        .updateTemplateSlotCounts = { 0 }, // Initialized below
-        .updateTemplateSlots = { NULL }, // Initialized below
+        .dynamicMappingUsed = dynamicMappingUsed,
+        .dynamicDescriptorSlot = dynamicDescriptorSlot,
+        .descriptorSetCounts = { 0 }, // Initialized below
+        .descriptorSlots = { NULL }, // Initialized below
     };
 
-    memcpy(grPipeline->grShaderRefs, grShaderRefs, sizeof(grPipeline->grShaderRefs));
-    memcpy(grPipeline->updateTemplateSlotCounts, updateTemplateSlotCounts,
-           sizeof(grPipeline->updateTemplateSlotCounts));
-    memcpy(grPipeline->updateTemplateSlots, updateTemplateSlots,
-           sizeof(grPipeline->updateTemplateSlots));
+    memcpy(grPipeline->shaderModules, shaderModules, sizeof(grPipeline->shaderModules));
+
+    memcpy(grPipeline->descriptorSetCounts, descriptorSetCounts,
+           sizeof(grPipeline->descriptorSetCounts));
+    memcpy(grPipeline->descriptorSlots, pipelineDescriptorSlots,
+           sizeof(grPipeline->descriptorSlots));
+
+    for (uint32_t i = 0; i < MAX_STAGE_COUNT; i++) {
+        free(patchEntries[i]);
+    }
 
     *pPipeline = (GR_PIPELINE)grPipeline;
+
     return GR_SUCCESS;
 
 bail:
-    VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayout, NULL);
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
-    VKD.vkDestroyShaderModule(grDevice->device, rectangleShaderModule, NULL);
+    for (uint32_t i = 0; i < MAX_STAGE_COUNT; i++) {
+        VKD.vkDestroyShaderModule(grDevice->device, shaderModules[i], NULL);
+        free(patchEntries[i]);
+        free(specData[i]);
+        free(mapEntries[i]);
+    }
     return res;
 }
 
@@ -879,12 +900,20 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     GrDevice* grDevice = (GrDevice*)device;
     GR_RESULT res = GR_SUCCESS;
     VkResult vkRes;
-    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    unsigned dynamicOffsetCount = 0;
-    unsigned updateTemplateSlotCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
-    UpdateTemplateSlot* updateTemplateSlots[GR_MAX_DESCRIPTOR_SETS] = { NULL };
+    VkShaderModule shaderModule = VK_NULL_HANDLE;
+    VkPipeline vkPipeline = VK_NULL_HANDLE;
+
+    uint32_t* specData = NULL;
+    VkSpecializationMapEntry* mapEntries = NULL;
+    VkSpecializationInfo specInfo = { 0 };
+    IlcBindingPatchEntry* patchEntries = NULL;
+    uint32_t* descriptorOffsets = NULL;
+    uint32_t* descriptorSetIndices = NULL;
+
+    PipelineDescriptorSlot dynamicDescriptorSlot = { 0 };
+    unsigned descriptorSetCounts[GR_MAX_DESCRIPTOR_SETS] = { 0 };
+    PipelineDescriptorSlot* pipelineDescriptorSlots[GR_MAX_DESCRIPTOR_SETS] = { NULL };
 
     // TODO validate parameters
 
@@ -894,44 +923,99 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
         // TODO implement
         LOGW("link-time constant buffers are not implemented\n");
     }
-
     GrShader* grShader = (GrShader*)stage.shader->shader;
 
-    grShader->refCount++;
+    patchEntries = malloc(sizeof(IlcBindingPatchEntry) * grShader->bindingCount);
+    mapEntries = malloc(grShader->bindingCount * 2 * sizeof(VkSpecializationMapEntry));
+    specData = malloc(sizeof(uint32_t) * 2 * grShader->bindingCount);
+    specInfo = (VkSpecializationInfo) {
+        .pData = specData,
+        .pMapEntries = mapEntries,
+        .dataSize = sizeof(uint32_t) * grShader->bindingCount * 2,
+        .mapEntryCount = grShader->bindingCount * 2,
+    };
+    descriptorOffsets = specData;
+    descriptorSetIndices = &specData[grShader->bindingCount];
+
+    for (unsigned j = 0; j < grShader->bindingCount; ++j) {
+        mapEntries[j * 2] = (VkSpecializationMapEntry) {
+            .constantID = grShader->bindings[j].offsetSpecId,
+            .offset = j * sizeof(uint32_t),
+            .size = sizeof(uint32_t)
+        };
+        mapEntries[j * 2 + 1] = (VkSpecializationMapEntry) {
+            .constantID = grShader->bindings[j].descriptorSetIndexSpecId,
+            .offset = (j + grShader->bindingCount) * sizeof(uint32_t),
+            .size = sizeof(uint32_t)
+        };
+    }
+    bool dynamicMappingUsed = handleDynamicDescriptorSlots(
+        &dynamicDescriptorSlot,
+        &stage.shader->dynamicMemoryViewMapping,
+        grDevice->descriptorBufferSupported,
+        grShader->bindingCount, grShader->bindings,
+        specData,
+        &specData[grShader->bindingCount],
+        patchEntries);
+
+    unsigned descriptorSetCount = 0;
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        getDescriptorSlotMappings(&descriptorSetCounts[i], &pipelineDescriptorSlots[i],
+                                  grDevice, 1, &stage, &patchEntries, &descriptorOffsets, &descriptorSetIndices, i,
+                                  descriptorSetCount + (grDevice->descriptorBufferSupported ? DESCRIPTOR_BUFFERS_BASE_DESCRIPTOR_SET_ID : DESCRIPTOR_SET_ID));
+        descriptorSetCount += descriptorSetCounts[i];
+    }
+
+    void* code = malloc(grShader->codeSize);
+    memcpy(code, grShader->code, grShader->codeSize);
+
+    const VkShaderModuleCreateInfo createInfo = {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .codeSize = grShader->codeSize,
+        .pCode = code,//grShader->code,
+    };
+
+    patchShaderBindings(
+        code,
+        grShader->codeSize,
+        patchEntries,
+        grShader->bindingCount);
+
+    vkRes = VKD.vkCreateShaderModule(grDevice->device, &createInfo, NULL, &shaderModule);
+    free(code);
+    if (vkRes != VK_SUCCESS) {
+        res = getGrResult(vkRes);
+        goto bail;
+    }
 
     const VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
         .stage = stage.flags,
-        .module = grShader->shaderModule,
+        .module = shaderModule,
         .pName = "main",
-        .pSpecializationInfo = NULL,
+        .pSpecializationInfo = &specInfo,
     };
 
-    descriptorSetLayout = getVkDescriptorSetLayout(&dynamicOffsetCount, grDevice, 1, &stage);
-    if (descriptorSetLayout == VK_NULL_HANDLE) {
-        res = GR_ERROR_OUT_OF_MEMORY;
-        goto bail;
+    descriptorSetCount = 0;
+    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
+        descriptorSetCount += descriptorSetCounts[i];
     }
-
-    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetLayout,
-                                         grDevice->atomicCounterSetLayout);
+    pipelineLayout = getVkPipelineLayout(grDevice, descriptorSetCount, VK_PIPELINE_BIND_POINT_COMPUTE);
     if (pipelineLayout == VK_NULL_HANDLE) {
         res = GR_ERROR_OUT_OF_MEMORY;
         goto bail;
     }
 
-    for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-        getUpdateTemplateSlots(&updateTemplateSlotCounts[i], &updateTemplateSlots[i],
-                               grDevice, 1, &stage, i, descriptorSetLayout);
-    }
-
     const VkComputePipelineCreateInfo pipelineCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext = NULL,
-        .flags = (pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
-                 VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0,
+        .flags = ((pCreateInfo->flags & GR_PIPELINE_CREATE_DISABLE_OPTIMIZATION) != 0 ?
+                  VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT : 0) |
+        (grDevice->descriptorBufferSupported ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT : 0),
         .stage = shaderStageCreateInfo,
         .layout = pipelineLayout,
         .basePipelineHandle = VK_NULL_HANDLE,
@@ -939,7 +1023,7 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     };
 
     vkRes = VKD.vkCreateComputePipelines(grDevice->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo,
-                                         NULL, &pipeline);
+                                         NULL, &vkPipeline);
     if (vkRes != VK_SUCCESS) {
         LOGE("vkCreateComputePipelines failed (%d)\n", vkRes);
         res = getGrResult(vkRes);
@@ -949,29 +1033,36 @@ GR_RESULT GR_STDCALL grCreateComputePipeline(
     GrPipeline* grPipeline = malloc(sizeof(GrPipeline));
     *grPipeline = (GrPipeline) {
         .grObj = { GR_OBJ_TYPE_PIPELINE, grDevice },
-        .grShaderRefs = { grShader },
+        .shaderModules = { shaderModule },
         .createInfo = NULL,
         .hasTessellation = false,
-        .pipeline = pipeline,
+        .pipeline = vkPipeline,
         .pipelineLayout = pipelineLayout,
         .stageCount = 1,
-        .descriptorSetLayout = descriptorSetLayout,
-        .dynamicOffsetCount = dynamicOffsetCount,
-        .updateTemplateSlotCounts = { 0 }, // Initialized below
-        .updateTemplateSlots = { NULL }, // Initialized below
+        .dynamicMappingUsed = dynamicMappingUsed,
+        .dynamicDescriptorSlot = dynamicDescriptorSlot,
+        .descriptorSetCounts = { 0 }, // Initialized below
+        .descriptorSlots = { NULL }, // Initialized below
     };
 
-    memcpy(grPipeline->updateTemplateSlotCounts, updateTemplateSlotCounts,
-           sizeof(grPipeline->updateTemplateSlotCounts));
-    memcpy(grPipeline->updateTemplateSlots, updateTemplateSlots,
-           sizeof(grPipeline->updateTemplateSlots));
+    memcpy(grPipeline->descriptorSetCounts, descriptorSetCounts,
+           sizeof(grPipeline->descriptorSetCounts));
+    memcpy(grPipeline->descriptorSlots, pipelineDescriptorSlots,
+           sizeof(grPipeline->descriptorSlots));
+
+    free(specData);
+    free(mapEntries);
+    free(patchEntries);
 
     *pPipeline = (GR_PIPELINE)grPipeline;
     return GR_SUCCESS;
 
 bail:
-    VKD.vkDestroyDescriptorSetLayout(grDevice->device, descriptorSetLayout, NULL);
+    free(patchEntries);
+    free(specData);
+    free(mapEntries);
     VKD.vkDestroyPipelineLayout(grDevice->device, pipelineLayout, NULL);
+    VKD.vkDestroyShaderModule(grDevice->device, shaderModule, NULL);
     return res;
 }
 

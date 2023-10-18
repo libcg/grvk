@@ -20,10 +20,6 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         VKD.vkDestroyCommandPool(grDevice->device, grCmdBuffer->commandPool, NULL);
         VKD.vkDestroyQueryPool(grDevice->device, grCmdBuffer->timestampQueryPool, NULL);
-        for (unsigned i = 0; i < grCmdBuffer->descriptorPoolCount; i++) {
-            VKD.vkDestroyDescriptorPool(grDevice->device, grCmdBuffer->descriptorPools[i], NULL);
-        }
-        free(grCmdBuffer->descriptorPools);
     }   break;
     case GR_OBJ_TYPE_COLOR_BLEND_STATE_OBJECT:
         // Nothing to do
@@ -46,6 +42,9 @@ GR_RESULT GR_STDCALL grDestroyObject(
 
         grClearDescriptorSetSlots(grDescriptorSet, 0, grDescriptorSet->slotCount);
         free(grDescriptorSet->slots);
+        VKD.vkDestroyBuffer(grDevice->device, grDescriptorSet->descriptorBuffer, NULL);
+        VKD.vkFreeMemory(grDevice->device, grDescriptorSet->descriptorBufferMemory, NULL);
+        VKD.vkDestroyDescriptorPool(grDevice->device, grDescriptorSet->descriptorPool, NULL);
     }   break;
     case GR_OBJ_TYPE_EVENT: {
         GrEvent* grEvent = (GrEvent*)grObject;
@@ -77,21 +76,19 @@ GR_RESULT GR_STDCALL grDestroyObject(
         GrPipeline* grPipeline = (GrPipeline*)grObject;
 
         for (unsigned i = 0; i < MAX_STAGE_COUNT; i++) {
-            if (grPipeline->grShaderRefs[i] != NULL) {
-                grDestroyObject((GR_OBJECT)grPipeline->grShaderRefs[i]);
+            if (grPipeline->createInfo != NULL) {
+                free(grPipeline->createInfo->specData[i]);
+                free(grPipeline->createInfo->mapEntries[i]);
             }
+            VKD.vkDestroyShaderModule(grDevice->device, grPipeline->shaderModules[i], NULL);
         }
 
         free(grPipeline->createInfo);
         VKD.vkDestroyPipeline(grDevice->device, grPipeline->pipeline, NULL);
         VKD.vkDestroyPipelineLayout(grDevice->device, grPipeline->pipelineLayout, NULL);
-        VKD.vkDestroyDescriptorSetLayout(grDevice->device, grPipeline->descriptorSetLayout, NULL);
+
         for (unsigned i = 0; i < GR_MAX_DESCRIPTOR_SETS; i++) {
-            for (unsigned j = 0; j < grPipeline->updateTemplateSlotCounts[i]; j++) {
-                UpdateTemplateSlot* slot = &grPipeline->updateTemplateSlots[i][j];
-                VKD.vkDestroyDescriptorUpdateTemplate(grDevice->device, slot->updateTemplate, NULL);
-            }
-            free(grPipeline->updateTemplateSlots[i]);
+            free(grPipeline->descriptorSlots[i]);
         }
     }   break;
     case GR_OBJ_TYPE_QUEUE_SEMAPHORE: {
@@ -110,14 +107,10 @@ GR_RESULT GR_STDCALL grDestroyObject(
     case GR_OBJ_TYPE_SHADER: {
         GrShader* grShader = (GrShader*)grObject;
 
-        if (--grShader->refCount > 0) {
-            return GR_SUCCESS;
-        }
-
-        VKD.vkDestroyShaderModule(grDevice->device, grShader->shaderModule, NULL);
         free(grShader->bindings);
         free(grShader->inputs);
         free(grShader->name);
+        free(grShader->code);
     }   break;
     case GR_OBJ_TYPE_QUERY_POOL: {
         GrQueryPool* grQueryPool = (GrQueryPool*)grObject;
@@ -183,10 +176,36 @@ GR_RESULT GR_STDCALL grGetObjectInfo(
             VKD.vkGetImageMemoryRequirements(grDevice->device, grImage->image, &memReqs);
             *grMemReqs = getGrMemoryRequirements(grDevice, memReqs);
         }   break;
+        case GR_OBJ_TYPE_DESCRIPTOR_SET: {
+            GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)grBaseObject;
+            GrDevice* grDevice = GET_OBJ_DEVICE(grBaseObject);
+            if (grDevice->descriptorBufferSupported && !quirkHas(QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION)) {
+                VKD.vkGetBufferMemoryRequirements(grDevice->device, grDescriptorSet->descriptorBuffer, &memReqs);
+
+                // exclude host non-visible memory types
+                for (unsigned i = 0; i < grDevice->memoryProperties.memoryTypeCount; ++i) {
+                    if ((memReqs.memoryTypeBits & (1 << i)) &&
+                        !(grDevice->memoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
+                        memReqs.memoryTypeBits &= ~(1 << i);
+                    }
+                }
+
+                *grMemReqs = getGrMemoryRequirements(grDevice, memReqs);
+            } else {
+                // Mantle spec: "Not all objects have memory requirements, in which case it is valid
+                // for the requirements structure to return zero size and alignment, and no heaps."
+                *grMemReqs = (GR_MEMORY_REQUIREMENTS) {
+                    // No actual allocation will be done with a heap count of 0. See grAllocMemory.
+                    .size = quirkHas(QUIRK_NON_ZERO_MEM_REQ) ? 4096 : 0,
+                    .alignment = quirkHas(QUIRK_NON_ZERO_MEM_REQ) ? 4 : 0,
+                    .heapCount = 0,
+                };
+            }
+            break;
+        }
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
         case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
         case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
-        case GR_OBJ_TYPE_DESCRIPTOR_SET:
         case GR_OBJ_TYPE_EVENT:
         case GR_OBJ_TYPE_FENCE:
         case GR_OBJ_TYPE_IMAGE_VIEW:
@@ -301,10 +320,44 @@ GR_RESULT GR_STDCALL grBindObjectMemory(
             vkRes = VKD.vkBindImageMemory(grDevice->device, grImage->image,
                                           grGpuMemory->deviceMemory, offset);
         }   break;
+        case GR_OBJ_TYPE_DESCRIPTOR_SET: {
+            GrDescriptorSet* grDescriptorSet = (GrDescriptorSet*)grObject;
+            GrDevice* grDevice = GET_OBJ_DEVICE(grObject);
+
+            if (grDevice->descriptorBufferSupported && !quirkHas(QUIRK_DESCRIPTOR_SET_USE_DEDICATED_ALLOCATION)) {
+                vkRes = VKD.vkBindBufferMemory(grDevice->device, grDescriptorSet->descriptorBuffer, grGpuMemory->deviceMemory, offset);
+                if (vkRes == VK_SUCCESS) {
+                    VkBufferDeviceAddressInfo vkBufferAddressInfo = {
+                        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                        .pNext = NULL,
+                        .buffer = grDescriptorSet->descriptorBuffer,
+                    };
+                    grDescriptorSet->descriptorBufferMemoryOffset = offset;
+                    grDescriptorSet->descriptorBufferAddress = VKD.vkGetBufferDeviceAddress(grDevice->device, &vkBufferAddressInfo);
+
+                    grGpuMemory->forceMapping = true;
+                    void* memoryPtr = NULL;
+                    if (grGpuMemory->userPtr) {
+                        memoryPtr = grGpuMemory->userPtr;
+                        vkRes = VK_SUCCESS;
+                    } else {
+                        vkRes = VKD.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
+                                                0, VK_WHOLE_SIZE, 0, &memoryPtr);
+                        if (vkRes != VK_SUCCESS) {
+                            LOGE("vkMapMemory failed (%d)\n", vkRes);
+                        } else {
+                            grGpuMemory->userPtr = memoryPtr;
+                        }
+                    }
+
+                    memset(grGpuMemory->userPtr + offset, 0, grDescriptorSet->descriptorBufferSize);
+                    grDescriptorSet->descriptorBufferPtr = grGpuMemory->userPtr + offset;
+                }
+            }
+        }   break;
         case GR_OBJ_TYPE_BORDER_COLOR_PALETTE:
         case GR_OBJ_TYPE_COLOR_TARGET_VIEW:
         case GR_OBJ_TYPE_DEPTH_STENCIL_VIEW:
-        case GR_OBJ_TYPE_DESCRIPTOR_SET:
         case GR_OBJ_TYPE_EVENT:
         case GR_OBJ_TYPE_FENCE:
         case GR_OBJ_TYPE_IMAGE_VIEW:

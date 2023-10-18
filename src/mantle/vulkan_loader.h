@@ -155,6 +155,7 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkFreeMemory);
     VULKAN_FN(vkGetBufferMemoryRequirements);
     VULKAN_FN(vkGetBufferMemoryRequirements2);
+    VULKAN_FN(vkGetBufferDeviceAddress);
     VULKAN_FN(vkGetDeviceMemoryCommitment);
     VULKAN_FN(vkGetDeviceQueue);
     VULKAN_FN(vkGetEventStatus);
@@ -216,6 +217,18 @@ typedef struct _VULKAN_DEVICE {
     VULKAN_FN(vkCmdSetPolygonModeEXT);
     VULKAN_FN(vkCmdSetRasterizationSamplesEXT);
     VULKAN_FN(vkCmdSetSampleMaskEXT);
+#endif
+
+#ifdef VK_KHR_push_descriptor
+    VULKAN_FN(vkCmdPushDescriptorSetKHR);
+#endif
+
+#ifdef VK_EXT_descriptor_buffer
+    VULKAN_FN(vkCmdBindDescriptorBuffersEXT);
+    VULKAN_FN(vkCmdSetDescriptorBufferOffsetsEXT);
+    VULKAN_FN(vkGetDescriptorEXT);
+    VULKAN_FN(vkGetDescriptorSetLayoutBindingOffsetEXT);
+    VULKAN_FN(vkGetDescriptorSetLayoutSizeEXT);
 #endif
 } VULKAN_DEVICE;
 

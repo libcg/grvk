@@ -338,6 +338,22 @@ GR_RESULT GR_STDCALL grCreateSampler(
         .sampler = vkSampler,
     };
 
+    if (grDevice->descriptorBufferAllowPreparedSampler) {
+        VkDescriptorGetInfoEXT descriptorInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+            .pNext = NULL,
+            .type = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .data = {
+                .pSampler = &vkSampler
+            }
+        };
+
+        VKD.vkGetDescriptorEXT(
+            grDevice->device,
+            &descriptorInfo,
+            grDevice->descriptorBufferProps.samplerDescriptorSize,
+            &grSampler->descriptor);
+    }
     *pSampler = (GR_SAMPLER)grSampler;
     return GR_SUCCESS;
 }

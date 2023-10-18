@@ -122,20 +122,37 @@ GR_RESULT GR_STDCALL grAllocMemory(
 
     // Try to allocate from the best heap
     vkRes = VK_ERROR_UNKNOWN;
+    unsigned selectedMemoryTypeIndex = ~0u;
+    unsigned memoryTypeBits = 0;
+    for (int i = 0; i < pAllocInfo->heapCount; i++) {
+        if (pAllocInfo->heaps[i] >= grDevice->memoryHeapCount) {
+            return GR_ERROR_INVALID_ORDINAL;
+        }
+        memoryTypeBits |= (1 << grDevice->memoryHeapMap[pAllocInfo->heaps[i]]);
+    }
+
     for (int i = 0; i < pAllocInfo->heapCount; i++) {
         if (pAllocInfo->heaps[i] >= grDevice->memoryHeapCount) {
             return GR_ERROR_INVALID_ORDINAL;
         }
 
+
+        const VkMemoryAllocateFlagsInfo flagsInfo = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+            .pNext = NULL,
+            .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+            .deviceMask = 0,
+        };
         const VkMemoryAllocateInfo allocateInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .pNext = NULL,
+            .pNext = &flagsInfo,
             .allocationSize = pAllocInfo->size,
             .memoryTypeIndex = grDevice->memoryHeapMap[pAllocInfo->heaps[i]],
         };
 
         vkRes = VKD.vkAllocateMemory(grDevice->device, &allocateInfo, NULL, &vkMemory);
         if (vkRes == VK_SUCCESS) {
+            selectedMemoryTypeIndex = allocateInfo.memoryTypeIndex;
             break;
         } else if (vkRes == VK_ERROR_OUT_OF_DEVICE_MEMORY) {
             continue;
@@ -163,7 +180,8 @@ GR_RESULT GR_STDCALL grAllocMemory(
                  VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT |
                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-                 VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+                 VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = NULL,
@@ -182,12 +200,22 @@ GR_RESULT GR_STDCALL grAllocMemory(
         return getGrResult(vkRes);
     }
 
+    VkBufferDeviceAddressInfo vkBufferAddressInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .pNext = NULL,
+        .buffer = vkBuffer,
+    };
+    VkDeviceAddress addr = VKD.vkGetBufferDeviceAddress(grDevice->device, &vkBufferAddressInfo);
     GrGpuMemory* grGpuMemory = malloc(sizeof(GrGpuMemory));
     *grGpuMemory = (GrGpuMemory) {
         .grObj = { GR_OBJ_TYPE_GPU_MEMORY, grDevice },
         .deviceMemory = vkMemory,
         .deviceSize = pAllocInfo->size,
+        .memoryTypeIndex = selectedMemoryTypeIndex,
         .buffer = vkBuffer,
+        .address = addr,
+        .userPtr = NULL,
+        .forceMapping = false,
     };
 
     *pMem = (GR_GPU_MEMORY)grGpuMemory;
@@ -235,10 +263,18 @@ GR_RESULT GR_STDCALL grMapMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
-    VkResult vkRes = VKD.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
-                                     0, VK_WHOLE_SIZE, 0, ppData);
-    if (vkRes != VK_SUCCESS) {
-        LOGE("vkMapMemory failed (%d)\n", vkRes);
+    VkResult vkRes;
+    if (grGpuMemory->userPtr) {
+        *ppData = grGpuMemory->userPtr;
+        vkRes = VK_SUCCESS;
+    } else {
+        vkRes = VKD.vkMapMemory(grDevice->device, grGpuMemory->deviceMemory,
+                                0, VK_WHOLE_SIZE, 0, ppData);
+        if (vkRes != VK_SUCCESS) {
+            LOGE("vkMapMemory failed (%d)\n", vkRes);
+        } else {
+            grGpuMemory->userPtr = *ppData;
+        }
     }
 
     return getGrResult(vkRes);
@@ -258,7 +294,10 @@ GR_RESULT GR_STDCALL grUnmapMemory(
 
     GrDevice* grDevice = GET_OBJ_DEVICE(grGpuMemory);
 
-    VKD.vkUnmapMemory(grDevice->device, grGpuMemory->deviceMemory);
+    if (!grGpuMemory->forceMapping) {
+        VKD.vkUnmapMemory(grDevice->device, grGpuMemory->deviceMemory);
+        grGpuMemory->userPtr = NULL;
+    }
 
     return GR_SUCCESS;
 }
