@@ -235,13 +235,21 @@ static void recreateSwapchain(
     GetClientRect(hwnd, &clientRect);
     const VkExtent2D imageExtent = { clientRect.right, clientRect.bottom };
 
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    res = vki.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(grDevice->physicalDevice, mSurface,
+                                                  &surfaceCapabilities);
+    if (res != VK_SUCCESS) {
+        LOGE("vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed (%d)\n", res);
+        return;
+    }
+
     // Recreate swapchain
     const VkSwapchainCreateInfoKHR swapchainCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .pNext = NULL,
         .flags = 0,
         .surface = mSurface,
-        .minImageCount = 3,
+        .minImageCount = MAX(3, surfaceCapabilities.minImageCount),
         .imageFormat = VK_FORMAT_B8G8R8A8_UNORM,
         .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
         .imageExtent = imageExtent,
