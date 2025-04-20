@@ -199,6 +199,7 @@ GR_RESULT GR_STDCALL grCreateImage(
         .usage = createInfo.usage,
         .multiplyCubeLayers = quirkHas(QUIRK_CUBEMAP_LAYER_DIV_6) && isCubic,
         .isOpaque = pCreateInfo->tiling == GR_OPTIMAL_TILING,
+        .isPresentable = false, // Set in WSI
     };
 
     // Mantle spec: "When [...] non-target images are bound to memory, they are assumed

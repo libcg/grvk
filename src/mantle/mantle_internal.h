@@ -177,7 +177,7 @@ void grQueueAddInitialImage(
 void grQueueRemoveInitialImage(
     GrImage* grImage);
 
-void grWsiDestroyImage(
+void grWsiDestroyPresentableImage(
     GrImage* grImage);
 
 #endif // MANTLE_INTERNAL_H_

@@ -228,8 +228,9 @@ static void grCmdBufferUpdateResources(
 
     if (dirtyFlags & FLAG_DIRTY_PIPELINE) {
         if (grPipeline->pipeline == VK_NULL_HANDLE) {
-            // Assume that the depth-stencil attachment formats never change per pipeline
+            // Assume that the attachment formats never change per pipeline
             grPipeline->pipeline = grPipelineGetVkPipeline(grPipeline,
+                                                           grCmdBuffer->colorFormats,
                                                            grCmdBuffer->depthFormat,
                                                            grCmdBuffer->stencilFormat);
         }
@@ -509,6 +510,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
     BindPoint* bindPoint = &grCmdBuffer->bindPoints[VK_PIPELINE_BIND_POINT_GRAPHICS];
 
     VkRenderingAttachmentInfo colorAttachments[GR_MAX_COLOR_TARGETS];
+    VkFormat colorFormats[GR_MAX_COLOR_TARGETS] = { VK_FORMAT_UNDEFINED };
     bool hasDepth = false;
     bool hasStencil = false;
     VkRenderingAttachmentInfo depthAttachment;
@@ -538,6 +540,7 @@ GR_VOID GR_STDCALL grCmdBindTargets(
             pColorTargets[i].colorTargetState != GR_IMAGE_STATE_UNINITIALIZED) {
             colorAttachments[i].imageView = grColorTargetView->imageView;
             colorAttachments[i].imageLayout = getVkImageLayout(pColorTargets[i].colorTargetState);
+            colorFormats[i] = grColorTargetView->format;
 
             minExtent.width = MIN(minExtent.width, grColorTargetView->extent.width);
             minExtent.height = MIN(minExtent.height, grColorTargetView->extent.height);
@@ -608,9 +611,11 @@ GR_VOID GR_STDCALL grCmdBindTargets(
         bindPoint->dirtyFlags |= FLAG_DIRTY_RENDER_PASS;
     }
 
-    // Some games bind depth-stencil targets that were not declared in the pipeline (BF4) and that
-    // we can't ignore, so we have to defer pipeline creation. Assume that the target format never
-    // changes for a given pipeline, meaning we don't have to track pipeline dirtiness here.
+    // Track attachment formats for deferred pipeline creation:
+    // - Color formats for presentable image views (we override RGBA -> BGRA)
+    // - Depth/stencil formats for games forgetting to declare D/S targets in the pipeline (such as BF4)
+    // Assume that the formats never change, we don't have to track pipeline dirtiness.
+    memcpy(grCmdBuffer->colorFormats, colorFormats, sizeof(grCmdBuffer->colorFormats));
     grCmdBuffer->depthFormat = depthFormat;
     grCmdBuffer->stencilFormat = stencilFormat;
 }

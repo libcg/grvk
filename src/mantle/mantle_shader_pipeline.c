@@ -419,6 +419,7 @@ static VkPipelineLayout getVkPipelineLayout(
 
 VkPipeline grPipelineGetVkPipeline(
     const GrPipeline* grPipeline,
+    const VkFormat* colorFormats,
     VkFormat depthFormat,
     VkFormat stencilFormat)
 {
@@ -582,7 +583,7 @@ VkPipeline grPipelineGetVkPipeline(
         .pNext = NULL,
         .viewMask = 0,
         .colorAttachmentCount = GR_MAX_COLOR_TARGETS,
-        .pColorAttachmentFormats = createInfo->colorFormats,
+        .pColorAttachmentFormats = colorFormats,
         .depthAttachmentFormat = depthFormat,
         .stencilAttachmentFormat = stencilFormat,
     };

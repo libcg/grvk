@@ -163,29 +163,32 @@ static void recordCopyCommandBuffer(
                              VK_PIPELINE_STAGE_TRANSFER_BIT,
                              0, 0, NULL, 0, NULL, 1, &preCopyBarrier);
 
-    const VkImageBlit region = {
+    const VkImageCopy region = {
         .srcSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .mipLevel = 0,
             .baseArrayLayer = 0,
             .layerCount = 1,
         },
-        .srcOffsets[0] = { 0, 0, 0 },
-        .srcOffsets[1] = { srcExtent.width, srcExtent.height, 1 },
+        .srcOffset = { 0, 0, 0 },
         .dstSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .mipLevel = 0,
             .baseArrayLayer = 0,
             .layerCount = 1,
         },
-        .dstOffsets[0] = { 0, 0, 0 },
-        .dstOffsets[1] = { dstExtent.width, dstExtent.height, 1 },
+        .dstOffset = { 0, 0, 0 },
+        .extent = {
+            MIN(srcExtent.width, dstExtent.width),
+            MIN(srcExtent.height, dstExtent.height),
+            1,
+        }
     };
 
-    VKD.vkCmdBlitImage(commandBuffer,
+    VKD.vkCmdCopyImage(commandBuffer,
                        srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                        dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                       1, &region, VK_FILTER_NEAREST);
+                       1, &region);
 
     const VkImageMemoryBarrier postCopyBarrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -356,7 +359,7 @@ static void recreateSwapchain(
 
 // Exported Functions
 
-void grWsiDestroyImage(
+void grWsiDestroyPresentableImage(
     GrImage* grImage)
 {
     AcquireSRWLockExclusive(&mPresentableImagesLock);
@@ -522,6 +525,9 @@ GR_RESULT GR_STDCALL grWsiWinCreatePresentableImage(
     if (res != GR_SUCCESS) {
         return res;
     }
+
+    GrImage* grImage = (GrImage*)*pImage;
+    grImage->isPresentable = true;
 
     GR_MEMORY_REQUIREMENTS memReqs;
     GR_SIZE memReqsSize = sizeof(memReqs);

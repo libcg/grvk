@@ -175,6 +175,7 @@ typedef struct _GrCmdBuffer {
     bool hasStencil;
     VkRenderingAttachmentInfo depthAttachment;
     VkRenderingAttachmentInfo stencilAttachment;
+    VkFormat colorFormats[GR_MAX_COLOR_TARGETS];
     VkFormat depthFormat;
     VkFormat stencilFormat;
     VkExtent3D minExtent;
@@ -276,6 +277,7 @@ typedef struct _GrImage {
     VkImageUsageFlags usage;
     bool multiplyCubeLayers;
     bool isOpaque;
+    bool isPresentable;
 } GrImage;
 
 typedef struct _GrImageView {
@@ -381,6 +383,7 @@ void grCmdBufferResetState(
 
 VkPipeline grPipelineGetVkPipeline(
     const GrPipeline* grPipeline,
+    const VkFormat* colorFormats,
     VkFormat depthFormat,
     VkFormat stencilFormat);
 

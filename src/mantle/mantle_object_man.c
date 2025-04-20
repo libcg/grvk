@@ -63,7 +63,9 @@ GR_RESULT GR_STDCALL grDestroyObject(
         VKD.vkDestroyImage(grDevice->device, grImage->image, NULL);
 
         grQueueRemoveInitialImage(grImage);
-        grWsiDestroyImage(grImage);
+        if (grImage->isPresentable) {
+            grWsiDestroyPresentableImage(grImage);
+        }
     }   break;
     case GR_OBJ_TYPE_IMAGE_VIEW: {
         GrImageView* grImageView = (GrImageView*)grObject;

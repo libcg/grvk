@@ -92,6 +92,26 @@ GR_RESULT GR_STDCALL grCreateImageView(
                                                        pCreateInfo->viewType == GR_IMAGE_VIEW_CUBE),
     };
 
+    // Presentable images are copied straight to BGRA swapchain images.
+    // However games want to use RGBA. Override view format to make it work.
+    if (grImage->isPresentable) {
+        if (grImage->format == VK_FORMAT_B8G8R8A8_UNORM) {
+            // BGRA: Identity
+        } else if (grImage->format == VK_FORMAT_R8G8B8A8_UNORM) {
+            // RGBA: Swap components
+            if (createInfo.format == VK_FORMAT_B8G8R8A8_UNORM) {
+                createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+            } else if (createInfo.format == VK_FORMAT_R8G8B8A8_UNORM) {
+                createInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+            } else {
+                LOGW("unhandled view format %u for presentable image format %u\n",
+                     createInfo.format, grImage->format);
+            }
+        } else {
+            LOGW("unhandled presentable image format %u\n", grImage->format);
+        }
+    }
+
     // Battlefield 4 tries to create invalid views from depth-stencil images
     if ((grImage->format == VK_FORMAT_D16_UNORM &&
          createInfo.format == VK_FORMAT_R16_UNORM) ||
@@ -142,7 +162,7 @@ GR_RESULT GR_STDCALL grCreateColorTargetView(
         assert(false);
     }
 
-    const VkImageViewCreateInfo createInfo = {
+    VkImageViewCreateInfo createInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
@@ -163,6 +183,26 @@ GR_RESULT GR_STDCALL grCreateColorTargetView(
             .layerCount = pCreateInfo->arraySize,
         }
     };
+
+    // Presentable images are copied straight to BGRA swapchain images.
+    // However games want to use RGBA. Override view format to make it work.
+    if (grImage->isPresentable) {
+        if (grImage->format == VK_FORMAT_B8G8R8A8_UNORM) {
+            // BGRA: Identity
+        } else if (grImage->format == VK_FORMAT_R8G8B8A8_UNORM) {
+            // RGBA: Swap components
+            if (createInfo.format == VK_FORMAT_B8G8R8A8_UNORM) {
+                createInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+            } else if (createInfo.format == VK_FORMAT_R8G8B8A8_UNORM) {
+                createInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+            } else {
+                LOGW("unhandled view format %u for presentable image format %u\n",
+                     createInfo.format, grImage->format);
+            }
+        } else {
+            LOGW("unhandled presentable image format %u\n", grImage->format);
+        }
+    }
 
     VkResult res = VKD.vkCreateImageView(grDevice->device, &createInfo, NULL, &vkImageView);
     if (res != VK_SUCCESS) {
